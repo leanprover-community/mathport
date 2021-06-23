@@ -9,8 +9,24 @@ import Std.Data.RBMap
 
 namespace Lean
 
-deriving instance FromJson for Position
 deriving instance Hashable for Position
+
+instance : FromJson Position where
+  fromJson?
+  | Json.arr a => do
+    unless a.size = 2 do throw "expected an array with two elements"
+    pure ⟨← fromJson? a[0], ← fromJson? a[1]⟩
+  | _ => throw "JSON array expected"
+
+instance : FromJson Name where
+  fromJson?
+  | Json.null => Name.anonymous
+  | Json.str s => s
+  | Json.arr a => a.foldrM (init := Name.anonymous) fun
+    | (i : Nat), n => n.mkNum i
+    | (s : String), n => n.mkStr s
+    | _, _ => throw "JSON string expected"
+  | _ => throw "JSON array expected"
 
 def dummyFileMap : FileMap := ⟨"", #[0], #[1]⟩
 
@@ -18,3 +34,8 @@ end Lean
 
 export Std (HashSet HashMap RBMap RBNode)
 export System (FilePath)
+
+instance : MonadLift (Except String) IO where
+  monadLift
+  | _, Except.error err => throw $ IO.userError err
+  | _, Except.ok x => pure x
