@@ -47,3 +47,8 @@ instance : MonadLift (Except String) IO where
 def Subarray.getOp {α : Type u} [Inhabited α] (self : Subarray α) (idx : Nat) : α :=
   let i := idx + self.start
   if i < self.stop then self.as[i] else arbitrary
+
+@[inline] def Std.Format.parenPrec (p prec : Nat) (f : Format) :=
+  if prec >= p then paren f else f
+
+instance : Coe (Array α) (Subarray α) := ⟨(·[0:])⟩
