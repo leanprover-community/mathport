@@ -6,10 +6,10 @@ Authors: Mario Carneiro, Daniel Selsam
 import Mathport.Util
 
 def Lean.BinderInfo.bracket (paren : Bool) : BinderInfo → Format → Format
-  | BinderInfo.default,        f => if paren then f.bracket "(" ")" else f.group
+  | BinderInfo.default,        f => if paren then f.paren else f.group
   | BinderInfo.implicit,       f => f.bracket "{" "}"
   | BinderInfo.strictImplicit, f => f.bracket "{{" "}}"
-  | BinderInfo.instImplicit,   f => f.bracket "[" "]"
+  | BinderInfo.instImplicit,   f => f.sbracket
   | BinderInfo.auxDecl,        f => f.group
 
 namespace Mathport
@@ -22,6 +22,8 @@ structure Spanned (α : Type u) where
   end_ : Position
   kind  : α
   deriving Inhabited
+
+instance [Repr α] : Repr (Spanned α) := ⟨fun n p => reprPrec n.kind p⟩
 
 def Spanned.map (f : α → β) : Spanned α → Spanned β
   | ⟨s, e, a⟩ => ⟨s, e, f a⟩
@@ -73,6 +75,20 @@ instance : Repr MixfixKind where
   | MixfixKind.«postfix», _ => "postfix"
   | MixfixKind.«prefix», _ => "prefix"
 
+inductive InferKind | implicit | relaxedImplicit | none
+
+instance : Inhabited InferKind := ⟨InferKind.relaxedImplicit⟩
+
+instance : Repr InferKind where
+  reprPrec
+  | InferKind.implicit, _ => "[]"
+  | InferKind.relaxedImplicit, _ => "{}"
+  | InferKind.none, _ => "( )"
+
+def InferKind.optRepr : Option InferKind → Format
+  | Option.none => ""
+  | some ik => " " ++ repr ik
+
 inductive Symbol
   | quoted : String → Symbol
   | ident : String → Symbol
@@ -91,7 +107,7 @@ inductive Choice
 instance : Repr Choice where
   reprPrec
   | Choice.one n, _ => n.toString
-  | Choice.many ns, _ => (Format.joinSep (ns.toList.map (·.toString)) "/").bracket "[" "]"
+  | Choice.many ns, _ => (Format.joinSep (ns.toList.map (·.toString)) "/").sbracket
 
 inductive Proj
   | nat : Nat → Proj
@@ -107,7 +123,8 @@ inductive NodeK : Type
   | mk (kind : String) (value : Name) (children : Array (Option #NodeK)) : NodeK
   deriving Inhabited
 
-abbrev Node := #NodeK
+def Node := #NodeK
+instance : Inhabited Node := inferInstanceAs (Inhabited #NodeK)
 
 inductive Level
   | nat : Nat → Level
@@ -120,7 +137,8 @@ inductive Level
   | other : NodeK → Level
   deriving Inhabited
 
-abbrev Levels := Option (Array #Level)
+def Levels := Option (Array #Level)
+instance : Inhabited Levels := ⟨none⟩
 
 section
 set_option hygiene false
@@ -146,7 +164,6 @@ inductive Binder
   | «notation» : Notation → Binder
   | var : #Name → Binders → Option #Expr → #Expr → Binder
   | pat : #Expr → #Expr → Binder
-  | other : NodeK → Binder
   deriving Inhabited
 
 inductive Arg
@@ -163,6 +180,7 @@ inductive Expr
   | «()» : Expr
   | «{}» : Expr
   | ident : Name → Expr
+  | const (ambiguous : Bool) : #Name → Levels → Expr
   | nat : Nat → Expr
   | decimal : Nat → Nat → Expr
   | string : String → Expr
@@ -271,9 +289,12 @@ inductive Notation
 end
 end
 
-abbrev Binders := Array #Binder
-abbrev Attributes := Array #Attribute
-abbrev PrecSymbol := #Symbol × Option #Precedence
+def Binders := Array #Binder
+instance : Inhabited Binders := ⟨#[]⟩
+def Attributes := Array #Attribute
+instance : Inhabited Attributes := ⟨#[]⟩
+def PrecSymbol := #Symbol × Option #Precedence
+instance : Inhabited PrecSymbol := inferInstanceAs (Inhabited (_×_))
 
 inductive Modifier
   | doc : String → Modifier
@@ -281,16 +302,34 @@ inductive Modifier
   | other : NodeK → Modifier
   deriving Inhabited
 
-abbrev Modifiers := Array #Modifier
+def Modifiers := Array #Modifier
+instance : Inhabited Modifiers := ⟨#[]⟩
 
 inductive DeclVal
   | expr : Expr → DeclVal
   | eqns : Array Arm → DeclVal
   deriving Inhabited
 
-inductive MutualDef
-  | mk : Attributes → #Name → (ty : #Expr) → Array Arm → MutualDef
+structure Mutual (α : Type) := (attrs : Attributes) (name : #Name) (ty : #Expr) (vals : Array α)
   deriving Inhabited
+
+structure MutualHeader (α : Type) where
+  (mods : Modifiers) (lvls : Levels) (bis : Binders) (vals : Array (Mutual α))
+  deriving Inhabited
+
+structure Intro where
+  (doc : Option String) (name : #Name) (ik : Option InferKind) (bis : Binders) (ty : Option #Expr)
+
+structure Rename := («from» to : #Name)
+
+structure Parent where
+  («private» : Bool) (name : Option #Name) (expr : #Expr) (renames : Array Rename)
+
+structure Mk := (name : #Name) (ik : Option InferKind)
+
+inductive Field
+  | binder : BinderInfo → Array #Name → Option InferKind → Binders → Option #Expr → Field
+  | «notation» : Notation → Field
 
 inductive Command
   | «prelude» : Command
@@ -305,7 +344,14 @@ inductive Command
   | «axioms» : AxiomKind → Modifiers → Binders → Command
   | decl : DeclKind → Modifiers → Option #Name →
     Levels → Binders → (ty : Option #Expr) → Option #DeclVal → Command
-  | mutual_decl : DeclKind → Modifiers → Levels → Binders → Array MutualDef → Command
+  | mutual_decl : DeclKind → Modifiers → Levels → Binders → Array (Mutual Arm) → Command
+  | «inductive» («class» : Bool) : Modifiers → #Name → Levels → Binders →
+    (ty : Option #Expr) → Option Notation → Array #Intro → Command
+  | mutual_inductive («class» : Bool) : Modifiers → Levels → Binders →
+    Option Notation → Array (Mutual #Intro) → Command
+  | «structure» («class» : Bool) :
+    Modifiers → #Name → Levels → Binders → Array #Parent → (ty : Option #Expr) →
+    Option #Mk → Array #Field → Command
   | «notation» : LocalReserve → Attributes → Notation → Command
   | other : NodeK → Command
   deriving Inhabited
@@ -328,27 +374,32 @@ partial def optNode_repr : Option Node → Format
   | some a => NodeK_repr a.kind
 
 partial def NodeK_repr : NodeK → Format
-  | ⟨k, v, c⟩ => k ++
-    (if v.isAnonymous then "" else "(" ++ v.toString ++ ")" ) ++
-    (if c.isEmpty then ("":Format) else
-      (("," ++ Format.line).joinSep (c.toList.map optNode_repr)).bracket "[" "]")
+  | ⟨k, v, c⟩ =>
+    let s := k ++ if v.isAnonymous then "" else "[" ++ v.toString ++ "]"
+    if c.isEmpty then s else
+      "(" ++ s ++ Format.join (c.toList.map fun c => Format.line ++ optNode_repr c) ++ ")"
+        |>.nest 2 |>.group
 
 end
 
-def Attribute_repr : Attribute → Format
-  | ⟨del, n, args⟩ =>
+instance : Repr NodeK := ⟨fun n _ => NodeK_repr n⟩
+instance : Repr Node := inferInstanceAs (Repr #NodeK)
+
+instance : Repr Attribute where
+  reprPrec
+  | ⟨del, n, args⟩, _ =>
     (if del then "-" else "") ++ n.kind.toString ++
     Format.join (args.toList.map fun
       | none => ("⬝" : Format)
       | some a => NodeK_repr a.kind)
 
-def Attributes_repr (attrs : Array #Attribute) : Format :=
-  (Format.joinSep (attrs.toList.map fun u => Attribute_repr u.kind) ", ").bracket "[" "]"
+instance : Repr Attributes where reprPrec attrs _ :=
+  (Format.joinSep (attrs.toList.map repr) ", ").sbracket
 
 partial def Level_repr : Level → (prec : _ := 0) → Format
   | Level.nat n, _ => repr n
   | Level.add l n, p => Format.parenPrec 10 p $
-    Level_repr l.kind 10 ++ "+" ++ repr n.kind
+    Level_repr l.kind 10 ++ "+" ++ repr n
   | Level.imax ls, p => Format.parenPrec max_prec p $
     "imax" ++ Format.join (ls.toList.map fun l => " " ++ Level_repr l.kind max_prec)
   | Level.max ls, p => Format.parenPrec max_prec p $
@@ -357,6 +408,13 @@ partial def Level_repr : Level → (prec : _ := 0) → Format
   | Level.paren l, _ => Level_repr l.kind
   | Level.placeholder, _ => "_"
   | Level.other n, _ => NodeK_repr n
+
+instance : Repr Level := ⟨@Level_repr⟩
+
+instance : Repr Levels where
+  reprPrec
+  | none, _ => ""
+  | some us, _ => (Format.joinSep (us.toList.map fun u => Level_repr u.kind) ", ").bracket ".{" "}"
 
 mutual
 
@@ -381,7 +439,6 @@ partial def Binder_repr : Binder → (paren :_:= true) → Format
   | Binder.pat pat val, paren => BinderInfo.default.bracket paren $
     Expr_repr pat.kind ++ " := " ++ Expr_repr val.kind
   | Binder.notation n, paren => BinderInfo.default.bracket paren $ Notation_repr n #[]
-  | Binder.other n, _ => NodeK_repr n
 
 partial def Binders_repr (bis : Binders) (paren := true) : Format :=
   spacedBefore (fun m => Binder_repr m.kind paren) bis
@@ -393,6 +450,7 @@ partial def Expr_repr : Expr → (prec : _ := 0) → Format
   | Expr.«()», _ => "()"
   | Expr.«{}», _ => "{}"
   | Expr.ident n, _ => n.toString
+  | Expr.const _ n l, _ => n.kind.toString ++ repr l
   | Expr.nat n, _ => repr n
   | Expr.decimal n d, _ => repr n ++ "/" ++ repr d
   | Expr.string s, _ => repr s
@@ -443,7 +501,7 @@ partial def Expr_repr : Expr → (prec : _ := 0) → Format
   | Expr.infix_paren c e, p => Format.parenPrec 1000 p $
     "(" ++ repr c ++ (match e with | none => "" | some e => " " ++ Expr_repr e.kind) ++ ")"
   | Expr.«(,)» es, _ =>
-    (Format.joinSep (es.toList.map fun e => Expr_repr e.kind) ", ").bracket "(" ")"
+    (Format.joinSep (es.toList.map fun e => Expr_repr e.kind) ", ").paren
   | Expr.«.()» e, _ => "." ++ Expr_repr e.kind max_prec
   | Expr.«:» e ty, _ => "(" ++ Expr_repr e.kind ++ " : " ++ Expr_repr ty.kind ++ ")"
   | Expr.hole es, p => Format.parenPrec 1000 p $
@@ -470,7 +528,7 @@ partial def Expr_repr : Expr → (prec : _ := 0) → Format
   | Expr.sep x ty p, _ =>
     "{" ++ x.kind.toString ++ " ∈ " ++ Expr_repr ty.kind ++ " | " ++ Expr_repr p.kind ++ "}"
   | Expr.setReplacement e bis, _ =>
-    "{(" ++ Expr_repr e.kind ++ ") | " ++ Binders_repr bis ++ "}"
+    "{(" ++ Expr_repr e.kind ++ ") |" ++ Binders_repr bis ++ "}"
   | Expr.structInst S src flds srcs catchall, _ => Format.nest 2 $ Format.group $ "{ " ++
     (match S with | none => "" | some S => S.kind.toString ++ " ." ++ Format.line : Format) ++
     (match src with | none => "" | some s => Expr_repr s.kind ++ " with" ++ Format.line : Format) ++
@@ -481,18 +539,18 @@ partial def Expr_repr : Expr → (prec : _ := 0) → Format
   | Expr.atPat lhs rhs, p => Format.parenPrec 1000 p $
     Expr_repr lhs.kind max_prec ++ "@" ++ Expr_repr rhs.kind max_prec
   | Expr.notation n args, _ => n.toString ++
-    (Format.joinSep (args.toList.map fun e => Arg_repr e.kind) ", ").bracket "(" ")"
+    (Format.joinSep (args.toList.map fun e => Arg_repr e.kind) ", ").paren
   | Expr.other n, _ => NodeK_repr n
 
 partial def Arg_repr : Arg → Format
   | Arg.expr e => Expr_repr e
-  | Arg.exprs es => (Format.joinSep (es.toList.map fun e => Expr_repr e.kind) ", ").bracket "[" "]"
+  | Arg.exprs es => (Format.joinSep (es.toList.map fun e => Expr_repr e.kind) ", ").sbracket
   | Arg.binder bi => Binder_repr bi
   | Arg.binders bis => spaced (fun m => Binder_repr m.kind) bis
 
 partial def Arm_repr : Arm → Format
-  | ⟨lhs, rhs⟩ => Format.line ++
-    "| " ++ Format.joinSep (lhs.toList.map fun e => Expr_repr e.kind) ", " ++
+  | ⟨lhs, rhs⟩ =>
+    "\n| " ++ Format.joinSep (lhs.toList.map fun e => Expr_repr e.kind) ", " ++
     " := " ++ Expr_repr rhs.kind
 
 partial def DoElem_repr : DoElem → Format
@@ -520,7 +578,7 @@ partial def Tactic_repr : Tactic → Format
   | Tactic.«<|>» tacs =>
     Format.joinSep (tacs.toList.map fun t => Tactic_repr t.kind) " <|> "
   | Tactic.«[]» tacs =>
-    (Format.joinSep (tacs.toList.map fun t => Tactic_repr t.kind) ", ").bracket "[" "]"
+    (Format.joinSep (tacs.toList.map fun t => Tactic_repr t.kind) ", ").sbracket
   | Tactic.block tacs => Block_repr tacs
   | Tactic.by tac => "by " ++ Tactic_repr tac.kind
   | Tactic.exact_shortcut e => Expr_repr e.kind
@@ -571,9 +629,9 @@ partial def Literal_repr : Literal → Format
   | Literal.var v a => (v.kind.toString : Format) ++
     match a with | none => "" | some a => ":" ++ Action_repr a.kind
 
-partial def Notation_repr : Notation → Attributes → Format
+partial def Notation_repr : Notation → (attrs : Attributes := #[]) → Format
   | Notation.mixfix mk sym val, attrs => repr mk ++ " " ++
-    (if attrs.isEmpty then "" else Attributes_repr attrs ++ " " : Format) ++
+    (if attrs.isEmpty then "" else repr attrs ++ " " : Format) ++
     PrecSymbol_repr sym ++
     (match val with | none => "" | some e => " := " ++ Expr_repr e.kind)
   | Notation.notation lits val, attrs => "notation" ++
@@ -582,28 +640,67 @@ partial def Notation_repr : Notation → Attributes → Format
 
 end
 
-def DeclVal_repr : DeclVal → Format
-  | DeclVal.expr n => " :=" ++ Format.line ++ Expr_repr n
-  | DeclVal.eqns arms => Arms_repr arms
+instance : Repr Precedence := ⟨fun n _ => Precedence_repr n⟩
+instance : Repr Binder := ⟨fun n _ => Binder_repr n⟩
+instance : Repr Binders := ⟨fun n _ => Binders_repr n⟩
+instance : Repr Expr := ⟨fun n _ => Expr_repr n⟩
+instance : Repr Arg := ⟨fun n _ => Arg_repr n⟩
+instance : Repr Arm := ⟨fun n _ => Arm_repr n⟩
+instance : Repr DoElem := ⟨fun n _ => DoElem_repr n⟩
+instance : Repr Proof := ⟨fun n _ => Proof_repr n⟩
+instance : Repr Tactic := ⟨fun n _ => Tactic_repr n⟩
+instance : Repr Block := ⟨fun n _ => Block_repr n⟩
+instance : Repr Param := ⟨fun n _ => Param_repr n⟩
+instance : Repr PrecSymbol := ⟨fun n _ => PrecSymbol_repr n⟩
+instance : Repr Action := ⟨fun n _ => Action_repr n⟩
+instance : Repr Literal := ⟨fun n _ => Literal_repr n⟩
+instance : Repr Notation := ⟨fun n _ => Notation_repr n⟩
 
-def Modifier_repr : Modifier → Format
-  | Modifier.doc s => ("/--" ++ s ++ "-/" : String)
-  | Modifier.attr l c attrs =>
-    (if l then "local " else "") ++ (if c then "@" else "attribute ") ++ Attributes_repr attrs
-  | Modifier.other n => NodeK_repr n
+instance : Repr DeclVal where reprPrec
+  | DeclVal.expr n, _ => " :=" ++ Format.line ++ repr n
+  | DeclVal.eqns arms, _ => repr arms
 
-def Modifiers_repr : Modifiers → Format := spacedAfter fun m => Modifier_repr m.kind
+instance : Repr Modifier where reprPrec
+  | Modifier.doc s, _ => ("/--" ++ s ++ "-/" : String)
+  | Modifier.attr l c attrs, _ =>
+    (if l then "local " else "") ++ (if c then "@" else "attribute ") ++ repr attrs
+  | Modifier.other n, _ => repr n
 
-def Levels_repr : Levels → Format
-  | none => ""
-  | some us => (Format.joinSep (us.toList.map fun u => Level_repr u.kind) ", ").bracket ".{" "}"
+def Modifiers_repr : Modifiers → Format := spacedAfter repr
+instance : Repr Modifiers := ⟨fun n _ => Modifiers_repr n⟩
 
-def MutualDef_repr : MutualDef → Format
-  | ⟨attr, n, ty, arms⟩ =>
-    "with " ++ Attributes_repr attr ++ " " ++ n.kind.toString ++ " : " ++
-    Expr_repr ty.kind ++ Arms_repr arms
+instance : Repr Intro where reprPrec
+  | ⟨doc, name, ik, bis, ty⟩, _ =>
+    (match doc with | none => "" | some doc => "\n/--" ++ doc ++ "-/") ++
+    "\n| " ++ name.kind.toString ++ InferKind.optRepr ik ++ repr bis ++ optTy ty
 
-def Command_repr : Command → Format
+def Intros_repr (arms : Array #Intro) : Format :=
+  Format.join $ arms.toList.map repr
+
+def Mutual_repr (f : Array α → Format) : Mutual α → Format
+  | ⟨attr, n, ty, vals⟩ =>
+    "with " ++ repr attr ++ " " ++ n.kind.toString ++ " : " ++
+    Expr_repr ty.kind ++ f vals
+
+instance : Repr Mk where reprPrec
+  | ⟨mk, ik⟩, _ => mk.kind.toString ++ InferKind.optRepr ik
+
+instance : Repr Rename where reprPrec
+  | ⟨«from», to⟩, _ => («from».kind.toString ++ "→" ++ to.kind.toString : String)
+
+instance : Repr Parent where reprPrec
+  | ⟨priv, n, ty, rens⟩, _ =>
+    (if priv then "private " else "") ++
+    (match n with | none => "" | some n => n.kind.toString ++ " : ") ++ repr ty ++
+    if rens.isEmpty then ("":Format) else "renaming" ++
+      Format.join (rens.toList.map fun r => " " ++ repr r)
+
+instance : Repr Field where reprPrec
+  | Field.binder bi vars ik bis ty, _ => bi.bracket true $
+    spaced (fun v => v.kind.toString) vars ++ InferKind.optRepr ik ++ Binders_repr bis ++ optTy ty
+  | Field.notation n, _ => (repr n).paren
+
+instance : Repr Command where reprPrec c _ := match c with
   | Command.«prelude» => "prelude"
   | Command.«import» ns => "import " ++ Format.joinSep (ns.toList.map fun a => a.kind.toString) " "
   | Command.mdoc s => ("/-!" ++ s ++ "-/" : String)
@@ -616,26 +713,41 @@ def Command_repr : Command → Format
   | Command.«end» (some n) => ("end ":Format) ++ n.kind.toString
   | Command.«end» none => "end"
   | Command.«variable» vk plural mods bis =>
-    Modifiers_repr mods ++ repr vk ++ (if plural then "s" else "") ++ Binders_repr bis plural
+    repr mods ++ repr vk ++ (if plural then "s" else "") ++ Binders_repr bis plural
   | Command.axiom ak mods n us bis ty =>
-    Modifiers_repr mods ++ repr ak ++ " " ++ n.kind.toString ++
-    Levels_repr us ++ Binders_repr bis ++ optTy ty
-  | Command.axioms ak mods bis => Modifiers_repr mods ++ repr ak ++ "s" ++ Binders_repr bis
+    repr mods ++ repr ak ++ " " ++ n.kind.toString ++
+    repr us ++ repr bis ++ optTy ty
+  | Command.axioms ak mods bis => repr mods ++ repr ak ++ "s" ++ repr bis
   | Command.decl dk mods n us bis ty val =>
-    Modifiers_repr mods ++ repr dk ++
+    repr mods ++ repr dk ++
     (match n with | none => "" | some n => " " ++ n.kind.toString : String) ++
-    Levels_repr us ++ Binders_repr bis ++ optTy ty ++
-    (match val with | none => "" | some val => DeclVal_repr val.kind)
-  | Command.mutual_decl dk mods us bis defs =>
-    Modifiers_repr mods ++ repr dk ++ " " ++
-    Format.joinSep (defs.toList.map fun ⟨_, n, _, _⟩ => n.kind.toString) ", " ++
-    Binders_repr bis ++ Format.join (defs.toList.map MutualDef_repr)
+    repr us ++ repr bis ++ optTy ty ++
+    (match val with | none => ("":Format) | some val => repr val.kind)
+  | Command.mutual_decl dk mods us bis arms =>
+    repr mods ++ repr dk ++ " " ++
+    Format.joinSep (arms.toList.map fun m => m.name.kind.toString) ", " ++
+    repr bis ++ Format.join (arms.toList.map (Mutual_repr Arms_repr))
+  | Command.inductive cl mods n us bis ty nota intros =>
+    repr mods ++ (if cl then "class " else "") ++ "inductive " ++
+    n.kind.toString ++ repr us ++ repr bis ++ optTy ty ++
+    (match nota with | none => "" | some n => "\n" ++ repr n) ++
+    Intros_repr intros
+  | Command.mutual_inductive cl mods us bis nota inds =>
+    repr mods ++ (if cl then "class " else "") ++ "inductive " ++
+    Format.joinSep (inds.toList.map fun m => m.name.kind.toString) ", " ++ repr bis ++
+    (match nota with | none => "" | some n => "\n" ++ repr n) ++
+    Format.join (inds.toList.map (Mutual_repr Intros_repr))
+  | Command.structure cl mods n us bis exts ty mk flds =>
+    repr mods ++ (if cl then "class " else "structure ") ++
+    n.kind.toString ++ repr us ++ repr bis ++
+    (if exts.isEmpty then ("":Format) else "extends " ++
+      ((", ":Format).joinSep $ exts.toList.map repr)) ++ optTy ty ++
+    if mk.isNone && flds.isEmpty then ("":Format) else " :=" ++
+    (match mk with | none => "" | some mk => " " ++ repr mk ++
+      if flds.isEmpty then "" else " ::" : Format) ++
+    ((Format.join $ flds.toList.map fun f => Format.line ++ repr f).group).nest 2
   | Command.notation loc attrs n => repr loc ++ Notation_repr n attrs
-  | Command.other n => NodeK_repr n
-
-instance : Repr Command := ⟨fun n _ => Command_repr n⟩
-instance : Repr NodeK := ⟨fun n _ => NodeK_repr n⟩
-
+  | Command.other n => repr n
 
 end AST3
 

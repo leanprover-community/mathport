@@ -102,6 +102,7 @@ def getNat : AstId → M (Spanned Nat) := withNode fun _ v _ => decodeNat! v
 
 def getName : AstId → M (Spanned Name) := withNode fun _ v _ => v
 
+def getStrK : AstId → M String := withNodeK fun _ v _ => v.getString!
 def getStr : AstId → M (Spanned String) := withNode fun _ v _ => v.getString!
 
 def getSym : AstId → M (Spanned Symbol) :=
@@ -122,13 +123,31 @@ def getProj : AstId → M (Spanned Proj) :=
   | "ident", v, _ => Proj.ident v.getString!
   | k, v, args => throw "getSym parse error"
 
+def getInferKind : AstId → M InferKind :=
+  withNodeK fun
+  | "{}", _, _ => InferKind.relaxedImplicit
+  | "()", _, _ => InferKind.none
+  | "[]", _, _ => InferKind.implicit
+  | k, v, args => throw "getInferKind parse error"
+
 def arr (f : AstId → M α) (i : AstId) : M (Array α) := do
   match ← getRaw? i with
   | some n => n.children'.mapM f
-  | _ => pure #[]
+  | none => pure #[]
 
 def ctx (s : String) (m : M α) : M α := do
   try m catch e => throw $ "at " ++ s ++ ": " ++ e
+
+abbrev NotationKind := Option MixfixKind
+
+def toNotationKind : String → Option NotationKind
+| "infix" => some (some MixfixKind.infix)
+| "infixl" => some (some MixfixKind.infixl)
+| "infixr" => some (some MixfixKind.infixr)
+| "postfix" => some (some MixfixKind.postfix)
+| "prefix" => some (some MixfixKind.prefix)
+| "notation" => some none
+| _ => none
 
 open Level in
 partial def getLevel : AstId → M (Spanned Level) :=
@@ -149,7 +168,6 @@ def wrapperNotations : Lean.NameHashSet :=
     `«```(», `«``(», `«`(», `«`[», `«`», `«%%», `«#[», `«(:», `«(::)», `fun, `Type,
     `«Type*», `Sort, `«Sort*», `let, `calc, `«@», `«@@», `begin, `sorry, `match, `do, `«^.»]
 
-open Expr in
 mutual
 
 partial def getArg : AstId → M (Spanned Arg) :=
@@ -160,34 +178,34 @@ partial def getArg : AstId → M (Spanned Arg) :=
     then Arg.binder <$> getBinder_aux k v args
     else Arg.expr <$> getExpr_aux k v args
 
-partial def getNotation (args : Array AstId) : Name → M Expr
-  | `«->» => do «→» (← getExpr args[0]) (← getExpr args[1])
-  | `Pi => do «Pi» (← getBinders args[0]) (← getExpr args[1])
-  | v => if wrapperNotations.contains v
-    then Spanned.kind <$> getExpr args[0]
-    else «notation» v <$> args.mapM getArg
-
 partial def getExpr : AstId → M (Spanned Expr) := withNode getExpr_aux
 
 partial def getExpr_aux : String → Name → Array AstId → M Expr
-  | "notation", v, args => getNotation args v
-  | "sorry", _, _ => «sorry»
-  | "_", _, _ => «_»
-  | "()", _, _ => «()»
-  | "{}", _, _ => «{}»
-  | "ident", v, _ => ident v
+  | "notation", v, args => match v with
+    | `«->» => do Expr.«→» (← getExpr args[0]) (← getExpr args[1])
+    | `Pi => do Expr.«Pi» (← getBinders args[0]) (← getExpr args[1])
+    | _ => if wrapperNotations.contains v
+      then Spanned.kind <$> getExpr args[0]
+      else Expr.notation v <$> args.mapM getArg
+  | "sorry", _, _ => Expr.«sorry»
+  | "_", _, _ => Expr.«_»
+  | "()", _, _ => Expr.«()»
+  | "{}", _, _ => Expr.«{}»
+  | "ident", v, _ => Expr.ident v
+  | "const", _, args => do Expr.const false (← getName args[0]) (← opt (arr getLevel) args[1])
+  | "choice_const", _, args => do Expr.const true (← getName args[0]) (← opt (arr getLevel) args[1])
   | "nat", v, _ => Expr.nat $ decodeNat! v
   | "decimal", v, _ => let (n, d) := decodeDecimal! v; Expr.decimal n d
   | "string", v, _ => Expr.string v.getString!
   | "char", v, _ => Expr.char v.getString!.front
   | "(", _, args => Expr.paren <$> getExpr args[0]
-  | "Sort*", _, _ => sort false true none
-  | "Type*", _, _ => sort true true none
-  | "Sort", _, args => sort false false <$> opt getLevel args[0]
-  | "Type", _, args => sort true false <$> opt getLevel args[0]
-  | "app", _, args => do app (← getExpr args[0]) (← getExpr args[1])
-  | "fun", _, args => do «fun» false (← getBinders args[0]) (← getExpr args[1])
-  | "assume", _, args => do «fun» true (← getBinders args[0]) (← getExpr args[1])
+  | "Sort*", _, _ => Expr.sort false true none
+  | "Type*", _, _ => Expr.sort true true none
+  | "Sort", _, args => Expr.sort false false <$> opt getLevel args[0]
+  | "Type", _, args => Expr.sort true false <$> opt getLevel args[0]
+  | "app", _, args => do Expr.app (← getExpr args[0]) (← getExpr args[1])
+  | "fun", _, args => do Expr.fun false (← getBinders args[0]) (← getExpr args[1])
+  | "assume", _, args => do Expr.fun true (← getBinders args[0]) (← getExpr args[1])
   | "show", _, args => do Expr.show (← getExpr args[0]) (← getProof args[1])
   | "have", _, args => getHave false args
   | "suffices", _, args => getHave true args
@@ -228,8 +246,8 @@ partial def getExpr_aux : String → Name → Array AstId → M Expr
       (← arr getField args[2]) (← arr getExpr args[3]) (args[4] ≠ 0)
   | "at_pat", _, args => do Expr.atPat (← getExpr args[0]) (← getExpr args[1])
   | ".(", _, args => Expr.«.()» <$> getExpr args[0]
-  | "...", _, _ => «...»
-  | k, v, args => other <$> mkNodeK k v args
+  | "...", _, _ => Expr.«...»
+  | k, v, args => Expr.other <$> mkNodeK k v args
 where
   getHave (suff : Bool) (args) : M _ := do
     Expr.have suff (← opt getName args[0])
@@ -248,16 +266,12 @@ partial def getBinder_aux
   | "binder_4", _, args => binder BinderInfo.implicit args
   | "binder_8", _, args => binder BinderInfo.auxDecl args
   | "⟨", _, args => Binder.«⟨⟩» <$> args.mapM getExpr
-  | "infix", _, args => Binder.notation <$> getNotationDef MixfixKind.infix args
-  | "infixl", _, args => Binder.notation <$> getNotationDef MixfixKind.infixl args
-  | "infixr", _, args => Binder.notation <$> getNotationDef MixfixKind.infixr args
-  | "postfix", _, args => Binder.notation <$> getNotationDef MixfixKind.postfix args
-  | "prefix", _, args => Binder.notation <$> getNotationDef MixfixKind.prefix args
-  | "notation", _, args => Binder.notation <$> getNotationDef none args
   | "var", _, args => do {Binder.var (← getName args[0])
     (← getBinders args[1]) (← opt getExpr args[2]) (← getExpr args[3])}
   | "pat", _, args => do {Binder.pat (← getExpr args[0]) (← getExpr args[1])}
-  | k, v, args => Binder.other <$> mkNodeK k v args
+  | k, v, args => match toNotationKind k with
+    | some nk => Binder.notation <$> getNotationDef nk args
+    | none => throw "getBinder parse error"
 where
   binder (bi : BinderInfo) (args : Array AstId) : M Binder := do
     Binder.binder bi (← opt (arr getName) args[0]) (← getBinders args[1]) (← opt getExpr args[2])
@@ -345,19 +359,35 @@ partial def getLiteral : AstId → M (Spanned Literal) :=
   | "binders", _, args => Literal.binders <$> opt getPrec args[0]
   | _, _, _ => throw "getLiteral parse error"
 
-partial def getNotationDef (mk : Option MixfixKind) (args : Subarray AstId) : M Notation := do
-  match mk with
-  | some mk => Notation.mixfix mk (← getSym args[0], ← opt getPrec args[1]) (← opt getExpr args[2])
+partial def getNotationDef (nk : NotationKind) (args : Subarray AstId) : M Notation := do
+  match nk with
+  | some nk => Notation.mixfix nk (← getSym args[0], ← opt getPrec args[1]) (← opt getExpr args[2])
   | none => Notation.notation (← arr getLiteral args[0]) (← getExpr args[1])
+
+partial def getNotation : AstId → M Notation :=
+  withNodeK fun k _ a => getNotationDef (toNotationKind k).get! a
 
 partial def getArm : AstId → M Arm := withNodeK fun _ _ args => do
   pure ⟨← arr getExpr args[0], ← getExpr args[1]⟩
 
 end
 
-def getAttr (i : AstId) : M (Spanned Attribute) := do
-  (← getRaw i).map fun _ _ args => do
-    pure ⟨args[0] ≠ 0, ← getName args[1], ← args[2:].toArray.mapM getNode?⟩
+partial def getField : AstId → M (Spanned Field) := withNode fun
+  | "field_0", _, args => field BinderInfo.default args
+  | "field_1", _, args => field BinderInfo.instImplicit args
+  | "field_2", _, args => field BinderInfo.strictImplicit args
+  | "field_4", _, args => field BinderInfo.implicit args
+  | "field_8", _, args => field BinderInfo.auxDecl args
+  | k, v, args => match toNotationKind k with
+    | some nk => Field.notation <$> getNotationDef nk args
+    | none => throw "getField parse error"
+where
+  field (bi : BinderInfo) (args : Array AstId) : M Field := do
+    Field.binder bi (← arr getName args[0])
+      (← opt getInferKind args[1]) (← getBinders args[2]) (← opt getExpr args[3])
+
+def getAttr : AstId → M (Spanned Attribute) := withNode fun _ _ args => do
+  pure ⟨args[0] ≠ 0, ← getName args[1], ← args[2:].toArray.mapM getNode?⟩
 
 open DeclVal in
 def getDeclVal : AstId → M (Spanned DeclVal) :=
@@ -374,9 +404,14 @@ def getModifier : AstId → M (Spanned Modifier) :=
 
 def getModifiers : AstId → M Modifiers := arr getModifier
 
-def getMutualDef (i : AstId) : M MutualDef := do
-  let args := (← getRaw i).children'
-  pure ⟨← arr getAttr args[0], ← getName args[1], ← getExpr args[2], ← arr getArm args[3]⟩
+def getRename : AstId → M Rename := withNodeK fun _ _ args => do
+  pure ⟨← getName args[0], ← getName args[1]⟩
+
+def getParent : AstId → M (Spanned Parent) := withNode fun _ _ args => do
+  pure ⟨args[0] ≠ 0, ← opt getName args[1], ← getExpr args[2], ← arr getRename args[3]⟩
+
+def getMk : AstId → M (Spanned Mk) := withNode fun _ _ args => do
+  pure ⟨← getName args[0], ← opt getInferKind args[1]⟩
 
 open Command in
 def getCommand : AstId → M (Spanned Command) :=
@@ -404,13 +439,13 @@ def getCommand : AstId → M (Spanned Command) :=
   | "abbreviation", _, args => getDecl DeclKind.abbrev args
   | "example", _, args => getDecl DeclKind.example args
   | "instance", _, args => getDecl DeclKind.instance args
-  | "infix", _, args => getNotationCmd MixfixKind.infix args
-  | "infixl", _, args => getNotationCmd MixfixKind.infixl args
-  | "infixr", _, args => getNotationCmd MixfixKind.infixr args
-  | "postfix", _, args => getNotationCmd MixfixKind.postfix args
-  | "prefix", _, args => getNotationCmd MixfixKind.prefix args
-  | "notation", _, args => getNotationCmd none args
-  | k, v, args => other <$> mkNodeK k v args
+  | "inductive", _, args => getInductive false args
+  | "class_inductive", _, args => getInductive true args
+  | "structure", _, args => getStructure false args
+  | "class", _, args => getStructure true args
+  | k, v, args => match toNotationKind k with
+    | some nk => getNotationCmd nk args
+    | none => other <$> mkNodeK k v args
 where
   getAxiom (ak) (args : Array AstId) : M Command := do
     Command.axiom ak
@@ -423,6 +458,12 @@ where
   getHeader (args : Subarray AstId) : M _ := do
     (← getLevels args[0], ← opt getName args[1], ← getBinders args[2], ← opt getExpr args[3])
 
+  getMutual {α} (f : AstId → M α) : AstId → M (Mutual α) := withNodeK fun _ _ args => do
+    pure ⟨← arr getAttr args[0], ← getName args[1], ← getExpr args[2], ← arr f args[3]⟩
+
+  getMutualHeader (args : Subarray AstId) : M (Levels × Binders) := do
+    pure (← getLevels args[0], /- ← arr getName args[1], -/ ← getBinders args[2])
+
   getDecl (dk) (args : Array AstId) : M Command := do
     let mods ← getModifiers args[0]
     if args[1] = 0 then
@@ -430,11 +471,8 @@ where
       let val ← opt getDeclVal args[6]
       Command.decl dk mods n us bis ty val
     else
-      let us ← getLevels args[2]
-      -- let ns ← arr getName args[3] -- names are duplicated later
-      let bis ← getBinders args[4]
-      let defs ← arr getMutualDef args[5]
-      Command.mutual_decl dk mods us bis defs
+      let (us, bis) ← getMutualHeader args[2:5]
+      Command.mutual_decl dk mods us bis (← arr (getMutual getArm) args[5])
 
   getLocal (i : AstId) : M LocalReserve := do
     match (← getRaw? i).map fun n => n.kind with
@@ -445,6 +483,26 @@ where
 
   getNotationCmd (mk : Option MixfixKind) (args : Array AstId) : M Command := do
     Command.notation (← getLocal args[0]) (← arr getAttr args[1]) (← getNotationDef mk args[2:])
+
+  getIntro : AstId → M (Spanned Intro) := withNode fun _ _ args => do
+    pure ⟨← opt getStrK args[0], ← getName args[1],
+      ← opt getInferKind args[2], ← getBinders args[3], ← opt getExpr args[4]⟩
+
+  getInductive (cl args) : M Command := do
+    let mods ← getModifiers args[0]
+    if args[1] = 0 then
+      let (us, n, bis, ty) ← getHeader args[2:6]
+      let nota ← opt getNotation args[6]
+      Command.inductive cl mods n.get! us bis ty nota (← arr getIntro args[7])
+    else
+      let (us, bis) ← getMutualHeader args[2:5]
+      let nota ← opt getNotation args[5]
+      Command.mutual_inductive cl mods us bis nota (← arr (getMutual getIntro) args[6])
+
+  getStructure (cl args) : M Command := do
+    Command.structure cl (← getModifiers args[0]) (← getName args[2])
+      (← getLevels args[1]) (← getBinders args[3]) (← arr getParent args[4])
+      (← opt getExpr args[5]) (← opt getMk args[6]) (← arr getField args[7])
 
 def RawAST3.toAST3 : RawAST3 → Except String AST3
 | ⟨ast, commands⟩ => commands.mapM getCommand |>.run ast |>.run' {} |>.map AST3.mk
@@ -465,6 +523,6 @@ def parseAST3 (filename : System.FilePath) : IO AST3 := do
 --   let s ← IO.FS.readFile "/home/mario/Documents/lean/lean/library/init/core.ast.json"
 --   let json ← Json.parse s
 --   let ⟨ast, commands⟩ ← fromJson? json (α := Parse.RawAST3)
---   let ast ← commands.mapM Parse.getCommand |>.run ast |>.run' {}
---   for c in ast do
---     println! (repr c.kind).group ++ "\n"
+--   for c in commands[50:157] do
+--     -- println! (repr (← Parse.getNode c |>.run ast |>.run' {})).group ++ "\n"
+--     println! (repr (← Parse.getCommand c |>.run ast |>.run' {}).kind).group ++ "\n"
