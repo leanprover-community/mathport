@@ -105,6 +105,7 @@ def decodeDecimal! (v : Name) : Nat × Nat :=
 
 def getNat : AstId → M (Spanned Nat) := withNode fun _ v _ => decodeNat! v
 
+def getNameK : AstId → M Name := withNodeK fun _ v _ => v
 def getName : AstId → M (Spanned Name) := withNode fun _ v _ => v
 
 def getStrK : AstId → M String := withNodeK fun _ v _ => v.getString!
@@ -118,7 +119,7 @@ def getSym : AstId → M (Spanned Symbol) :=
 
 def getChoice : AstId → M Choice :=
   withNodeK fun
-  | "choice", _, args => Choice.many <$> args.mapM fun n => do (← getName n).kind
+  | "choice", _, args => Choice.many <$> args.mapM getNameK
   | "notation", v, _ => Choice.one v
   | k, _, _ => throw s!"getChoice parse error, unknown kind {k}"
 
@@ -192,10 +193,7 @@ partial def getArg : AstId → M (Spanned Arg) :=
     then Arg.binder <$> getBinder_aux k v args
     else Arg.expr <$> getExpr_aux k v args
 
-partial def getExpr : AstId → M (Spanned Expr) :=
-  fun i => do
-    dbg_trace (repr (← getNode i))
-    withNode getExpr_aux i
+partial def getExpr : AstId → M (Spanned Expr) := withNode getExpr_aux
 
 partial def getExpr_aux : String → Name → Array AstId → M Expr
   | "notation", v, args => match v with
@@ -203,7 +201,7 @@ partial def getExpr_aux : String → Name → Array AstId → M Expr
     | `Pi => do Expr.«Pi» (← getBinders args[0]) (← getExpr args[1])
     | _ => if wrapperNotations.contains v
       then Spanned.kind <$> getExpr args[0]
-      else Expr.notation v <$> args.mapM getArg
+      else Expr.notation (Choice.one v) <$> args.mapM getArg
   | "sorry", _, _ => Expr.«sorry»
   | "_", _, _ => Expr.«_»
   | "()", _, _ => Expr.«()»
@@ -264,6 +262,9 @@ partial def getExpr_aux : String → Name → Array AstId → M Expr
   | "at_pat", _, args => do Expr.atPat (← getExpr args[0]) (← getExpr args[1])
   | ".(", _, args => Expr.«.()» <$> getExpr args[0]
   | "...", _, _ => Expr.«...»
+  | "choice", _, args => do
+    Expr.notation (Choice.many (← arr getNameK args[0])) (← args[1:].toArray.mapM getArg)
+  | "user_notation", v, args => Expr.userNotation v <$> args.mapM getParam
   | k, v, args => do
     throw s!"getExpr parse error, unknown kind {k}" -- at\n {repr (← Expr.other <$> mkNodeK k v args)}"
 where
@@ -582,7 +583,6 @@ where
     let mods ← getModifiers args[0]
     if args[1] = 0 then
       let (us, n, bis, ty) ← getHeader args[2:6]
-      dbg_trace repr (← getNode args[6])
       let val ← opt getDeclVal args[6]
       Command.decl dk mods n us bis ty val
     else
@@ -618,13 +618,13 @@ def RawAST3.toAST3 : RawAST3 → Except String AST3
 end Parse
 
 def parseAST3 (filename : System.FilePath) : IO AST3 := do
-  println! "Reading {filename}..."
+  -- println! "Reading {filename}..."
   let s ← IO.FS.readFile filename
-  println! "Parsing Json..."
+  -- println! "Parsing Json..."
   let json ← Json.parse s
-  println! "Decoding RawAST3..."
+  -- println! "Decoding RawAST3..."
   let rawAST3 ← fromJson? json (α := Parse.RawAST3)
-  println! "Converting RawAST3 to AST3..."
+  -- println! "Converting RawAST3 to AST3..."
   rawAST3.toAST3
 
 -- #eval show IO Unit from do

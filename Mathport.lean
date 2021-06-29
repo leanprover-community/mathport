@@ -14,13 +14,13 @@ import Mathport.Refine
 unsafe def main (args : List String) : IO Unit := do
   match args with
   | [filename] => do
-    Mathport.withEnvironmentFor ⟨filename⟩ (opts := {}) (trustLevel := 0) fun env => do
-      let ast3 ← Mathport.parseAST3 ⟨filename⟩
-      println! "{repr ast3}"
+    let ast3 ← Mathport.parseAST3 ⟨filename⟩
+    -- println! "{repr ast3}"
+    -- Mathport.withEnvironmentFor ⟨filename⟩ (opts := {}) (trustLevel := 0) fun env => do
       -- TODO: stay in CoreM between these two?
       -- let data4 ← Mathport.AST3toData4 ast3 env
       -- let stx ← Mathport.refineSyntax data4 env
       -- TODO: write syntax to file
-      pure ()
+    pure ()
 
   | _ => throw $ IO.userError "usage: ./mathport <filename>"

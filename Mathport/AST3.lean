@@ -237,7 +237,8 @@ inductive Expr
     (fields : Array (#Name × #Expr)) (srcs : Array #Expr) (catchall : Bool) : Expr
   | atPat : #Expr → #Expr → Expr
   | «.()» : #Expr → Expr
-  | «notation» (n : Name) : Array #Arg → Expr
+  | «notation» (n : Choice) : Array #Arg → Expr
+  | userNotation (n : Name) : Array #Param → Expr
   deriving Inhabited
 
 inductive Arm
@@ -516,7 +517,7 @@ partial def Binder_repr : Binder → (paren :_:= true) → Format
   | Binder.notation n, paren => BinderInfo.default.bracket paren $ Notation_repr n #[]
 
 partial def Binders_repr (bis : Binders) (paren := true) : Format :=
-  let paren := paren || bis.size == 1
+  let paren := paren || bis.size ≠ 1
   spacedBefore (fun m => Binder_repr m.kind paren) bis
 
 partial def Expr_repr : Expr → (prec : _ := 0) → Format
@@ -568,8 +569,7 @@ partial def Expr_repr : Expr → (prec : _ := 0) → Format
   | Expr.calc args, p => Format.parenPrec 1000 p $ "calc" ++
     (Format.join $ args.toList.map fun (lhs, rhs) =>
       Format.line ++ Expr_repr lhs.kind ++ " : " ++ Expr_repr rhs.kind).nest 2
-  | Expr.«@» part e, p => Format.parenPrec 1000 p $
-    (if part then "@@" else "@") ++ Expr_repr e.kind
+  | Expr.«@» part e, _ => (if part then "@@" else "@") ++ Expr_repr e.kind max_prec
   | Expr.pattern e, p => Format.parenPrec 1000 p $ "(: " ++ Expr_repr e.kind ++ " :)"
   | Expr.«`()» lazy expr e, p => Format.parenPrec 1000 p $
     (if expr then "`(" else if lazy then "```(" else "``(") ++
@@ -581,7 +581,7 @@ partial def Expr_repr : Expr → (prec : _ := 0) → Format
     (Format.joinSep (tacs.toList.map fun t => Tactic_repr t.kind) ", ").bracket "`[" "]"
   | Expr.«`» res n, p => Format.parenPrec 1000 p $
     (if res then "``" else "`" : Format) ++ n.toString
-  | Expr.«⟨⟩» es, p => Format.parenPrec 1000 p $
+  | Expr.«⟨⟩» es, _ =>
     (Format.joinSep (es.toList.map fun e => Expr_repr e.kind) ", ").bracket "⟨" "⟩"
   | Expr.infix_paren c e, p => Format.parenPrec 1000 p $
     "(" ++ repr c ++ (match e with | none => "" | some e => " " ++ Expr_repr e.kind) ++ ")"
@@ -623,8 +623,10 @@ partial def Expr_repr : Expr → (prec : _ := 0) → Format
       if catchall then [(".." : Format)] else []) ++ " }"
   | Expr.atPat lhs rhs, p => Format.parenPrec 1000 p $
     Expr_repr lhs.kind max_prec ++ "@" ++ Expr_repr rhs.kind max_prec
-  | Expr.notation n args, _ => n.toString ++
+  | Expr.notation n args, _ => repr n ++
     (Format.joinSep (args.toList.map fun e => Arg_repr e.kind) ", ").paren
+  | Expr.userNotation n args, p => Format.parenPrec 1000 p $ n.toString ++
+    Format.join (args.toList.map fun a => " " ++ Param_repr a.kind)
 
 partial def Arg_repr : Arg → Format
   | Arg.expr e => Expr_repr e
@@ -674,11 +676,11 @@ partial def Block_repr : Block → Format
   | ⟨curly, cl, cfg, tacs⟩ =>
     let s₁ := match cl with | none => "" | some cl => " [" ++ cl.kind.toString ++ "]"
     let s₂ : Format := match cfg with | none => "" | some e => " with " ++ Expr_repr e.kind ++ ","
-    let s₃ := (("," ++ Format.line).joinSep (tacs.toList.map fun t => Tactic_repr t.kind)).nest 2
+    let s₃ := ("," ++ Format.line).joinSep (tacs.toList.map fun t => Tactic_repr t.kind)
     if curly then
-      "{" ++ s₁ ++ s₂ ++ (if cl.isSome || cfg.isSome then Format.line else " ") ++ s₃ ++ " }"
+      ("{" ++ s₁ ++ s₂ ++ (if cl.isSome || cfg.isSome then Format.line else " ") ++ s₃ ++ " }").nest 2
     else
-      "begin" ++ s₁ ++ s₂ ++ Format.line ++ s₃ ++ Format.line ++ "end"
+      ("begin" ++ s₁ ++ s₂ ++ Format.line ++ s₃).nest 2 ++ Format.line ++ "end"
 
 partial def Param_repr : Param → Format
   | Param.parse => "⬝"
@@ -697,7 +699,7 @@ partial def Action_repr : Action → Format
   | Action.prev => "prev"
   | Action.scoped p none => "scoped" ++ optPrec_repr p
   | Action.scoped p (some (x, e)) =>
-    "(scoped" ++ optPrec_repr p ++ x.kind.toString ++ ", " ++ Expr_repr e.kind ++ ")"
+    "(scoped" ++ optPrec_repr p ++ " " ++ x.kind.toString ++ ", " ++ Expr_repr e.kind ++ ")"
   | Action.fold r p sep (x, y, «rec») ini term =>
     "(fold" ++ (if r then "r" else "l") ++ optPrec_repr p ++ " " ++
     PrecSymbol_repr sep ++
@@ -744,7 +746,7 @@ instance : Repr Notation := ⟨fun n _ => Notation_repr n⟩
 
 instance : Repr DeclVal where reprPrec
   | DeclVal.expr n, _ => " :=" ++ Format.line ++ repr n
-  | DeclVal.eqns arms, _ => repr arms
+  | DeclVal.eqns arms, _ => Format.join (arms.toList.map repr)
 
 instance : Repr Modifier where reprPrec
   | Modifier.private, _ => "private"
@@ -874,7 +876,7 @@ instance : Repr Command where reprPrec c _ := match c with
     ((Format.join $ flds.toList.map fun f => Format.line ++ repr f).group).nest 2
   | Command.attribute loc mods attrs ns =>
     repr mods ++ (if loc then "local " else "") ++ "attribute" ++
-    (if attrs.isEmpty then "" else " " ++ repr attrs : Format) ++ spacedBefore repr ns
+    (if attrs.isEmpty then "" else " " ++ repr attrs : Format) ++ spacedBefore (fun n => n.kind.toString) ns
   | Command.precedence sym prec => "precedence " ++ repr sym ++ ":" ++ repr prec
   | Command.notation loc attrs n => repr loc ++ Notation_repr n attrs
   | Command.open exp ops => (if exp then "export" else "open") ++ spacedBefore repr ops
@@ -899,5 +901,8 @@ end AST3
 
 structure AST3 where
   commands : Array (Spanned AST3.Command)
+
+instance : Repr AST3 where reprPrec
+  | ⟨cmds⟩, _ => Format.join (cmds.toList.map fun c => repr c ++ "\n\n")
 
 end Mathport
