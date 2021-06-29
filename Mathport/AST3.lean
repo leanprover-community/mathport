@@ -141,6 +141,7 @@ inductive AttrArg
   deriving Inhabited
 
 inductive Level
+  | «_» : Level
   | nat : Nat → Level
   | add : #Level → #Nat → Level
   | max : Array #Level → Level
@@ -437,6 +438,7 @@ inductive Command
   | compile : #Name → Command
   | help : HelpCmd → Command
   | print : PrintCmd → Command
+  | userCommand (n : Name) : Modifiers → Array #Param → Command
   deriving Inhabited
 
 def spaced (f : α → Format) (mods : Array α) : Format :=
@@ -460,6 +462,7 @@ instance : Repr AttrArg where
   | AttrArg.user, _ => " ⬝"
 
 partial def Level_repr : Level → (prec : _ := 0) → Format
+  | Level.«_», _ => "_"
   | Level.nat n, _ => repr n
   | Level.add l n, p => Format.parenPrec 10 p $
     Level_repr l.kind 10 ++ "+" ++ repr n
@@ -476,7 +479,7 @@ instance : Repr Level := ⟨@Level_repr⟩
 instance : Repr Levels where
   reprPrec
   | none, _ => ""
-  | some us, _ => (Format.joinSep (us.toList.map fun u => Level_repr u.kind) ", ").bracket ".{" "}"
+  | some us, _ => (Format.joinSep (us.toList.map repr) ", ").bracket ".{" "}"
 
 instance : Repr LevelDecl where
   reprPrec
@@ -896,6 +899,8 @@ instance : Repr Command where reprPrec c _ := match c with
   | Command.compile n => ("#compile ":Format) ++ n.kind.toString
   | Command.help n => "#help " ++ repr n
   | Command.print n => "#print " ++ repr n
+  | Command.userCommand n mods args => repr mods ++ n.toString ++
+    Format.join (args.toList.map fun a => " " ++ Param_repr a.kind)
 
 end AST3
 

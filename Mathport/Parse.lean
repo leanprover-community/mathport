@@ -561,6 +561,8 @@ def getCommand : AstId → M (Spanned Command) :=
   | "#compile", _, args => eval <$> getExpr args[0]
   | "#help", _, args => help <$> getHelpCmd args[0]
   | "#print", _, args => print <$> getPrintCmd args
+  | "user_command", v, args => do
+    userCommand v (← getModifiers args[0]) (← args[1:].toArray.mapM getParam)
   | k, v, args => match toNotationKind k with
     | some nk => getNotationCmd nk args
     | none => throw s!"getCommand parse error, unknown kind {k}"
