@@ -166,6 +166,7 @@ def toNotationKind : String → Option NotationKind
 open Level in
 partial def getLevel : AstId → M (Spanned Level) :=
   withNode fun
+  | "_", _, _ => «_»
   | "param", v, _ => «param» v
   | "max", _, args => Level.«max» <$> args.mapM getLevel
   | "imax", _, args => Level.«imax» <$> args.mapM getLevel
@@ -381,7 +382,7 @@ partial def getLiteral : AstId → M (Spanned Literal) :=
 partial def getNotationDef (nk : NotationKind) (args : Subarray AstId) : M Notation := do
   match nk with
   | some nk => Notation.mixfix nk (← getSym args[0], ← opt getPrec args[1]) (← opt getExpr args[2])
-  | none => Notation.notation (← arr getLiteral args[0]) (← getExpr args[1])
+  | none => Notation.notation (← arr getLiteral args[0]) (← opt getExpr args[1])
 
 partial def getNotation : AstId → M Notation :=
   withNodeK fun k _ a => getNotationDef (toNotationKind k).get! a
@@ -630,9 +631,9 @@ def parseAST3 (filename : System.FilePath) : IO AST3 := do
   rawAST3.toAST3
 
 -- #eval show IO Unit from do
---   let s ← IO.FS.readFile "/home/mario/Documents/lean/lean/library/init/logic.ast.json"
+--   let s ← IO.FS.readFile "/home/mario/Documents/lean/mathlib/src/tactic/reserved_notation.ast.json"
 --   let json ← Json.parse s
 --   let ⟨ast, commands⟩ ← fromJson? json (α := Parse.RawAST3)
---   for c in commands[284:285] do
+--   for c in commands[6:7] do
 --     println! (repr (← Parse.getNode c |>.run ast)).group ++ "\n"
 --     println! (repr (← Parse.getCommand c |>.run ast).kind).group ++ "\n"
