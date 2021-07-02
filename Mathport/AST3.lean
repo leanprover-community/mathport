@@ -17,6 +17,104 @@ namespace Mathport
 open Lean (Position Name BinderInfo)
 open Std (Format)
 
+namespace Lean3
+
+inductive Proj
+  | nat : Nat → Proj
+  | ident : Name → Proj
+  deriving Inhabited
+
+instance : Repr Proj where
+  reprPrec
+  | Proj.nat n, _ => repr n
+  | Proj.ident n, _ => n.toString
+
+open Lean (Level)
+
+inductive Annotation
+  | no_univ
+  | do_failure_eq
+  | infix_fn
+  | begin_hole
+  | end_hole
+  | anonymous_constructor
+  | «calc»
+  | no_info
+  | frozen_name
+  | «have»
+  | «show»
+  | «suffices»
+  | checkpoint
+  | «@»
+  | «@@»
+  | as_atomic
+  | as_is
+  | antiquote
+  | expr_quote_pre
+  | comp_irrel
+  | inaccessible
+  | «by»
+  | pattern_hint
+  | th_proof
+
+structure EquationsHeader :=
+  (num_fns : Nat) (fn_names fn_actual_names : Array Name)
+  (is_private is_noncomputable is_meta is_lemma gen_code aux_lemmas : Bool)
+
+mutual
+
+inductive Expr where
+  | var : Nat → Expr
+  | sort : Level → Expr
+  | const : Name → Array Level → Expr
+  | mvar (name pp : Name) (type : Expr)
+  | «local» (name pp : Name) (bi : BinderInfo) (type : Expr)
+  | app : Expr → Expr → Expr
+  | lam (name : Name) (bi : BinderInfo) (dom body : Expr)
+  | Pi (name : Name) (bi : BinderInfo) (dom body : Expr)
+  | «let» (name : Name) (type value body : Expr)
+  | annotation : Annotation → Expr → Expr
+  | field : Expr → Proj → Expr
+  | typed_expr (ty val : Expr)
+  | structinst (struct : Name) (catchall : Bool) (fields : Array (Name × Expr)) (sources : Array Expr)
+  | prenum (value : Nat)
+  | nat (value : Nat)
+  | quote (value : Expr) (reflected : Bool)
+  | choice (args : Array Expr)
+  | string (value : String)
+  | no_equation
+  | equation (lhs rhs : Expr) (ignore_if_unused : Bool)
+  | equations (h : EquationsHeader) (eqns : Array LambdaEquation) (wf : Option Expr)
+  | equations_result (args : Array Expr)
+  | as_pattern (lhs rhs : Expr)
+  | delayed_abstraction : Expr → Array (Name × Expr) → Expr
+  | «sorry» (synthetic : Bool) (ty : Expr)
+  | rec_fn (name : Name) (ty : Expr)
+  | proj (I constr proj : Name) (idx : Nat) (params : Array Name) (ty val arg : Expr)
+  | ac_app (args : Array Expr) (op : Expr)
+  | perm_ac (assoc comm e1 e2 : Expr)
+  | cc_proof (e1 e2 : Expr)
+  deriving Inhabited
+
+inductive LambdaEquation where
+  | no_equation
+  | equation (lhs rhs : Expr) (ignore_if_unused : Bool)
+  | lam (name : Name) (bi : BinderInfo) (dom : Expr) : LambdaEquation → LambdaEquation
+  deriving Inhabited
+
+end
+
+partial def Expr.toLambdaEqn : Expr → Option LambdaEquation
+  | Expr.no_equation => LambdaEquation.no_equation
+  | Expr.equation lhs rhs iu => LambdaEquation.equation lhs rhs iu
+  | Expr.lam n pp bi e => LambdaEquation.lam n pp bi <$> e.toLambdaEqn
+  | _ => none
+
+instance : Repr Expr where reprPrec
+  | _, _ => "⬝"
+
+end Lean3
+
 structure Spanned (α : Type u) where
   start : Position
   end_ : Position
@@ -31,6 +129,8 @@ def Spanned.map (f : α → β) : Spanned α → Spanned β
 local prefix:max "#" => Spanned
 
 namespace AST3
+
+open Lean3 (Proj)
 
 inductive VariableKind | «variable» | «parameter»
   deriving Inhabited
@@ -109,16 +209,6 @@ instance : Repr Choice where
   | Choice.one n, _ => n.toString
   | Choice.many ns, _ => (Format.joinSep (ns.toList.map (·.toString)) "/").sbracket
 
-inductive Proj
-  | nat : Nat → Proj
-  | ident : Name → Proj
-  deriving Inhabited
-
-instance : Repr Proj where
-  reprPrec
-  | Proj.nat n, _ => repr n
-  | Proj.ident n, _ => n.toString
-
 inductive OptionVal
   | bool : Bool → OptionVal
   | str : String → OptionVal
@@ -137,7 +227,7 @@ inductive AttrArg
   | indices : Array #Nat → AttrArg
   | keyValue : #String → #String → AttrArg
   | vmOverride : #Name → Option #Name → AttrArg
-  | user : Lean.Expr → AttrArg
+  | user : Lean3.Expr → AttrArg
   deriving Inhabited
 
 inductive Level
@@ -275,7 +365,7 @@ inductive Block
   deriving Inhabited
 
 inductive Param
-  | parse : Lean.Expr → Param
+  | parse : Lean3.Expr → Param
   | expr : #Expr → Param
   | block : Block → Param
   deriving Inhabited
@@ -459,7 +549,7 @@ instance : Repr AttrArg where
   | AttrArg.keyValue a b, _ => " " ++ repr a ++ " " ++ repr b
   | AttrArg.vmOverride a b, _ => " " ++ repr a ++
     (match b with | none => "" | some b => " " ++ repr b : Format)
-  | AttrArg.user e, _ => s!"{e}"
+  | AttrArg.user e, _ => repr e
 
 partial def Level_repr : Level → (prec : _ := 0) → Format
   | Level.«_», _ => "_"
@@ -686,7 +776,7 @@ partial def Block_repr : Block → Format
       ("begin" ++ s₁ ++ s₂ ++ Format.line ++ s₃).nest 2 ++ Format.line ++ "end"
 
 partial def Param_repr : Param → Format
-  | Param.parse e => s!"{e}"
+  | Param.parse e => repr e
   | Param.expr e => Expr_repr e.kind
   | Param.block e => Block_repr e
 
