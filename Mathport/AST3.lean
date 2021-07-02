@@ -137,7 +137,7 @@ inductive AttrArg
   | indices : Array #Nat → AttrArg
   | keyValue : #String → #String → AttrArg
   | vmOverride : #Name → Option #Name → AttrArg
-  | user /- pexpr tag? -/ : AttrArg
+  | user : Lean.Expr → AttrArg
   deriving Inhabited
 
 inductive Level
@@ -220,7 +220,7 @@ inductive Expr
   | «`[]» : Array #Tactic → Expr
   | «`» (resolve : Bool) : Name → Expr
   | «⟨⟩» : Array #Expr → Expr
-  | infix_paren : Choice → Option #Expr → Expr
+  | infix_fn : Choice → Option #Expr → Expr
   | «(,)» : Array #Expr → Expr
   | «:» : #Expr → #Expr → Expr
   | hole : Array #Expr → Expr
@@ -275,7 +275,7 @@ inductive Block
   deriving Inhabited
 
 inductive Param
-  | parse /- pexpr tag? -/ : Param
+  | parse : Lean.Expr → Param
   | expr : #Expr → Param
   | block : Block → Param
   deriving Inhabited
@@ -458,8 +458,8 @@ instance : Repr AttrArg where
   | AttrArg.indices ns, _ => spacedBefore repr ns
   | AttrArg.keyValue a b, _ => " " ++ repr a ++ " " ++ repr b
   | AttrArg.vmOverride a b, _ => " " ++ repr a ++
-    match b with | none => "" | some b => " " ++ repr b
-  | AttrArg.user, _ => " ⬝"
+    (match b with | none => "" | some b => " " ++ repr b : Format)
+  | AttrArg.user e, _ => s!"{e}"
 
 partial def Level_repr : Level → (prec : _ := 0) → Format
   | Level.«_», _ => "_"
@@ -586,7 +586,7 @@ partial def Expr_repr : Expr → (prec : _ := 0) → Format
     (if res then "``" else "`" : Format) ++ n.toString
   | Expr.«⟨⟩» es, _ =>
     (Format.joinSep (es.toList.map fun e => Expr_repr e.kind) ", ").bracket "⟨" "⟩"
-  | Expr.infix_paren c e, p => Format.parenPrec 1000 p $
+  | Expr.infix_fn c e, p => Format.parenPrec 1000 p $
     "(" ++ repr c ++ (match e with | none => "" | some e => " " ++ Expr_repr e.kind) ++ ")"
   | Expr.«(,)» es, _ =>
     (Format.joinSep (es.toList.map fun e => Expr_repr e.kind) ", ").paren
@@ -686,7 +686,7 @@ partial def Block_repr : Block → Format
       ("begin" ++ s₁ ++ s₂ ++ Format.line ++ s₃).nest 2 ++ Format.line ++ "end"
 
 partial def Param_repr : Param → Format
-  | Param.parse => "⬝"
+  | Param.parse e => s!"{e}"
   | Param.expr e => Expr_repr e.kind
   | Param.block e => Block_repr e
 

@@ -15,7 +15,9 @@ open Lean.FromJson (fromJson?)
 namespace Parse
 
 abbrev AstId := Nat
-abbrev Tag   := Option AstId
+abbrev LevelId := Nat
+abbrev ExprId := Nat
+abbrev Tag := Option AstId
 
 structure RawNode3 where
   start    : Position
@@ -23,30 +25,40 @@ structure RawNode3 where
   kind     : String
   value    : Name
   children : Option (Array AstId)
+  pexpr    : Option ExprId
+  expr     : Option ExprId
   deriving FromJson, Repr
 
 def RawNode3.children' (n : RawNode3) : Array AstId := n.children.getD #[]
 def RawNode3.end' (n : RawNode3) : Position := n.end.getD n.start
 
-structure RawAST3 where
-  ast      : Array (Option RawNode3)
-  commands : Array AstId
-  -- pexpr    : Array RawPExpr
-  -- expr     : Array RawExpr
-  deriving FromJson
-
+section
 open AST3
 
-abbrev M := ReaderT (Array (Option RawNode3)) $ Except String
+structure Context where
+  ast : Array (Option RawNode3)
+  expr : Array Lean.Expr
+
+abbrev M := ReaderT Context $ Except String
 
 def RawNode3.map (n : RawNode3) (f : String → Name → Array AstId → M α) : M (Spanned α) := do
   pure ⟨n.start, n.end', ← f n.kind n.value n.children'⟩
+
+def RawNode3.pexpr' (n : RawNode3) : M Lean.Expr :=
+  match n.pexpr with
+  | none => arbitrary
+  | some e => do (← read).expr[e]
+
+def RawNode3.expr' (n : RawNode3) : M Lean.Expr :=
+  match n.expr with
+  | none => arbitrary
+  | some e => do (← read).expr[e]
 
 def opt (f : AstId → M α) (i : AstId) : M (Option α) :=
   if i = 0 then pure none else some <$> f i
 
 def getRaw (i : AstId) : M RawNode3 := do
-  match (← read)[i] with
+  match (← read).ast[i] with
   | some a => a
   | none => throw $ if i = 0 then "unexpected null node" else "missing node"
 
@@ -57,6 +69,10 @@ def withNodeK (f : String → Name → Array AstId → M α) (i : AstId) : M α 
 def withNode (f : String → Name → Array AstId → M α) (i : AstId) : M (Spanned α) := do
   let r ← getRaw i
   pure { start := r.start, end_ := r.end', kind := ← f r.kind r.value r.children' }
+
+def withNodeR (f : RawNode3 → M α) (i : AstId) : M (Spanned α) := do
+  let r ← getRaw i
+  pure { start := r.start, end_ := r.end', kind := ← f r }
 
 def getRaw? : AstId → M (Option RawNode3) := opt getRaw
 
@@ -241,7 +257,7 @@ partial def getExpr_aux : String → Name → Array AstId → M Expr
   | "`", v, _ => Expr.«`» false v
   | "``", v, _ => Expr.«`» true v
   | "⟨", _, args => Expr.«⟨⟩» <$> args.mapM getExpr
-  | "infix_paren", _, args => do Expr.infix_paren (← getChoice args[0]) (← opt getExpr args[1])
+  | "infix_fn", _, args => do Expr.infix_fn (← getChoice args[0]) (← opt getExpr args[1])
   | "tuple", _, args => Expr.«(,)» <$> args.mapM getExpr
   | ":", _, args => do Expr.«:» (← getExpr args[0]) (← getExpr args[1])
   | "{!", _, args => Expr.hole <$> args.mapM getExpr
@@ -333,12 +349,12 @@ partial def getBlock (curly : Bool) (args : Array AstId) : M Block := do
   pure ⟨curly, ← opt getName args[0], ← opt getExpr args[1], ← args[2:].toArray.mapM getTactic⟩
 
 partial def getParam : AstId → M (Spanned Param) :=
-  withNode fun
-  | "parse", _, _ => Param.parse
-  | "expr", _, args => Param.expr <$> getExpr args[0]
-  | "begin", _, args => Param.block <$> getBlock false args
-  | "{", _, args => Param.block <$> getBlock true args
-  | k, _, _ => throw s!"getParam parse error, unknown kind {k}"
+  withNodeR fun r => match r.kind with
+  | "parse" => Param.parse <$> r.pexpr'
+  | "expr" => Param.expr <$> getExpr r.children'[0]
+  | "begin" => Param.block <$> getBlock false r.children'
+  | "{" => Param.block <$> getBlock true r.children'
+  | k => throw s!"getParam parse error, unknown kind {k}"
 
 partial def getPrec : AstId → M (Spanned Precedence) :=
   withNode fun
@@ -406,13 +422,14 @@ where
     Field.binder bi (← arr getName args[0])
       (← opt getInferKind args[1]) (← getBinders args[2]) (← opt getExpr args[3])
 
-def getAttrArg : AstId → M (Spanned AttrArg) := withNode fun
-  | "!", _, _ => AttrArg.eager
-  | "indices", _, args => AttrArg.indices <$> args.mapM getNat
-  | "key_value", _, args => do AttrArg.keyValue (← getStr args[0]) (← getStr args[1])
-  | "vm_override", _, args => do AttrArg.vmOverride (← getName args[0]) (← opt getName args[1])
-  | "parse", _, _ => AttrArg.user
-  | k, _, _ => throw s!"getAttrArg parse error, unknown kind {k}"
+def getAttrArg : AstId → M (Spanned AttrArg) := withNodeR fun r =>
+  match r.kind with
+  | "!" => AttrArg.eager
+  | "indices" => AttrArg.indices <$> r.children'.mapM getNat
+  | "key_value" => do AttrArg.keyValue (← getStr r.children'[0]) (← getStr r.children'[1])
+  | "vm_override" => do AttrArg.vmOverride (← getName r.children'[0]) (← opt getName r.children'[1])
+  | "parse" => AttrArg.user <$> r.pexpr'
+  | k => throw s!"getAttrArg parse error, unknown kind {k}"
 
 def getAttr : AstId → M (Spanned Attribute) := withNode fun
   | "priority", _, args => do Attribute.priority <$> getExpr args[0]
@@ -615,8 +632,171 @@ where
     let mods ← getModifiers args[0]
     «attribute» (args[1] ≠ 0) mods (← arr getAttr args[2]) (← args[3:].toArray.mapM getName)
 
+end
+
+inductive RawLevel where
+  | «0»
+  | suc : LevelId → RawLevel
+  | max : Array LevelId → RawLevel
+  | imax : Array LevelId → RawLevel
+  | param : Name → RawLevel
+  | mvar : Name → RawLevel
+  deriving FromJson
+
+instance : FromJson RawLevel :=
+  ⟨fun x => do
+    try fromJson? x
+    catch e => throw s!"at: {x}\n{e}"⟩
+
+instance : FromJson BinderInfo where
+  fromJson? j := do
+    match ← j.getNat? with
+    | 0 => BinderInfo.default
+    | 1 => BinderInfo.instImplicit
+    | 2 => BinderInfo.strictImplicit
+    | 4 => BinderInfo.implicit
+    | 8 => BinderInfo.auxDecl
+    | _ => throw "unknown binder type"
+
+inductive Annotation1
+  | no_univ
+  | «@»
+  | «show»
+  | checkpoint
+  | «have»
+  | anonymous_constructor
+  | «calc»
+  | as_is
+  | as_atomic
+  deriving FromJson
+
+inductive Annotation2
+  | «by»
+  | antiquote
+  | no_info
+  | frozen_name
+  | «suffices»
+  | inaccessible
+  | infix_fn
+  | do_failure_eq
+  | expr_quote_pre
+  deriving FromJson
+
+abbrev Annotation := Sum Annotation1 Annotation2
+
+inductive RawExpr1 where
+  | var : Nat → RawExpr1
+  | sort : LevelId → RawExpr1
+  | const : Name → Array LevelId → RawExpr1
+  | app : ExprId → ExprId → RawExpr1
+  | lam (name : Name) (bi : BinderInfo) (dom body : ExprId)
+  | Pi (name : Name) (bi : BinderInfo) (dom body : ExprId)
+  | «let» (name : Name) (type value body : ExprId)
+  deriving FromJson
+
+structure StructInst := (struct : Name) (catchall : Bool) (fields : Array Name) (args : Array ExprId)
+instance : FromJson StructInst where fromJson? j := do
+  pure ⟨
+    ← j.getObjValAs? _ "struct", ← j.getObjValAs? _ "catchall",
+    ← j.getObjValAs? _ "fields", (← j.getObjValAs? (Option _) "args").getD #[]⟩
+
+inductive RawExpr2 where
+  | «local» (name pp : Name) (bi : BinderInfo) (type : ExprId)
+  | mvar (name pp : Name) (type : ExprId)
+  | annotation (name : Annotation) (args : Array ExprId)
+  | field_notation (field : Name) (idx : Nat) (args : Array ExprId)
+  | typed_expr (args : Array ExprId)
+  | «structure instance» : StructInst → RawExpr2
+  deriving FromJson
+
+inductive RawExpr3 where
+  | prenum (value : String)
+  | expr_quote_macro (value : ExprId) (reflected : Bool)
+  | choice (args : Array ExprId)
+  | string_macro (value : String)
+  | equation (ignore_if_unused : Bool) (args : Array ExprId)
+  | no_equation : Unit → RawExpr3
+  | equations (num_fns : Nat) (fn_names fn_actual_names : Array Name)
+    (prev_errors is_private is_noncomputable is_meta is_lemma gen_code aux_lemmas : Bool)
+    (args : Array ExprId)
+  | as_pattern (args : Array ExprId)
+  deriving FromJson
+
+abbrev RawExpr := Sum RawExpr1 $ Sum RawExpr2 RawExpr3
+
+instance : FromJson RawExpr :=
+  ⟨fun x => do
+    try fromJson? x
+    catch e => throw s!"at: {x}\n{e}"⟩
+
+structure RawAST3 where
+  ast      : Array (Option RawNode3)
+  commands : Array AstId
+  level    : Array RawLevel
+  expr     : Array (Option RawExpr)
+  deriving FromJson
+
+section
+open Lean
+
+variable (lvls : Array Level)
+def buildLevel : RawLevel → Level
+  | RawLevel.«0» => levelZero
+  | RawLevel.suc l => mkLevelSucc lvls[l]
+  | RawLevel.max ls => mkLevelMax lvls[ls[0]] lvls[ls[1]]
+  | RawLevel.imax ls => mkLevelIMax lvls[ls[0]] lvls[ls[1]]
+  | RawLevel.param n => mkLevelParam n
+  | RawLevel.mvar n => mkLevelMVar n
+
+variable (exprs : Array Expr)
+
+def buildLevels (ls : Array RawLevel) : Array Level := do
+  let mut out := #[]
+  for l in ls do
+    let l' := buildLevel out l
+    out := out.push l'
+  out
+
+def RawExpr1.build : RawExpr1 → Expr
+  | var i => mkBVar i
+  | sort l => mkSort lvls[l]
+  | const c ls => mkConst c $ ls.toList.map fun l => lvls[l]
+  | app f a => mkApp exprs[f] exprs[a]
+  | lam n bi d b => mkLambda n bi exprs[d] exprs[b]
+  | Pi n bi d b => mkForall n bi exprs[d] exprs[b]
+  | «let» n t v b => mkLet n exprs[t] exprs[v] exprs[b]
+
+def RawExpr2.build : RawExpr2 → Expr
+  | mvar n pp t =>
+    let d := MData.empty.set `lean3.kind `mvar |>.set `name n |>.set `pp pp
+    mkMData d $ mkApp arbitrary exprs[t]
+  | «local» n pp bi t =>
+    let d := MData.empty.set `lean3.kind `local
+      |>.set `name n |>.set `pp pp |>.set `bi bi.toUInt64.toNat
+    mkMData d $ mkApp arbitrary exprs[t]
+  | _ => arbitrary
+
+def RawExpr3.build : RawExpr3 → Expr
+  | _ => arbitrary
+
+def buildExprs (es : Array (Option RawExpr)) : Array Expr := do
+  let mut out := #[]
+  for e in es do
+    let e' : Lean.Expr := match e with
+    | some (Sum.inl e) => e.build lvls out
+    | some (Sum.inr $ Sum.inl e) => e.build out
+    | some (Sum.inr $ Sum.inr e) => e.build
+    | none => arbitrary
+    out := out.push e'
+  out
+
+end
+
 def RawAST3.toAST3 : RawAST3 → Except String AST3
-| ⟨ast, commands⟩ => commands.mapM getCommand |>.run ast |>.map AST3.mk
+| ⟨ast, commands, level, expr⟩ => do
+  let level := buildLevels level
+  let expr := buildExprs level expr
+  commands.mapM getCommand |>.run ⟨ast, expr⟩ |>.map AST3.mk
 
 end Parse
 
@@ -631,9 +811,11 @@ def parseAST3 (filename : System.FilePath) : IO AST3 := do
   rawAST3.toAST3
 
 -- #eval show IO Unit from do
---   let s ← IO.FS.readFile "/home/mario/Documents/lean/mathlib/src/tactic/reserved_notation.ast.json"
+--   let s ← IO.FS.readFile "/home/mario/Documents/lean/lean/library/init/function.ast.json"
 --   let json ← Json.parse s
---   let ⟨ast, commands⟩ ← fromJson? json (α := Parse.RawAST3)
+--   let ⟨ast, commands, level, expr⟩ ← fromJson? json (α := Parse.RawAST3)
+--   let level := Parse.buildLevels level
+--   let expr := Parse.buildExprs level expr
 --   for c in commands[6:7] do
---     println! (repr (← Parse.getNode c |>.run ast)).group ++ "\n"
---     println! (repr (← Parse.getCommand c |>.run ast).kind).group ++ "\n"
+--     println! (repr (← Parse.getNode c |>.run ⟨ast, expr⟩)).group ++ "\n"
+--     println! (repr (← Parse.getCommand c |>.run ⟨ast, expr⟩).kind).group ++ "\n"

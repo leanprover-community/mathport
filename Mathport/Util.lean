@@ -28,6 +28,11 @@ instance : FromJson Name where
     | _, _ => throw "JSON string expected"
   | _ => throw "JSON array expected"
 
+instance : FromJson Unit := ⟨fun _ => ()⟩
+
+instance {α : Type u} {β : Type v} [FromJson α] [FromJson β] : FromJson (Sum α β) :=
+  ⟨fun j => (fromJson? j).map Sum.inl <|> (@fromJson? β _ j).map Sum.inr⟩
+
 def dummyFileMap : FileMap := ⟨"", #[0], #[1]⟩
 
 end Lean
