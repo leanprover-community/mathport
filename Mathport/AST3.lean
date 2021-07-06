@@ -79,7 +79,7 @@ inductive Expr where
   | structinst (struct : Name) (catchall : Bool) (fields : Array (Name × Expr)) (sources : Array Expr)
   | prenum (value : Nat)
   | nat (value : Nat)
-  | quote (value : Expr) (reflected : Bool)
+  | quote (value : Expr) (expr : Bool)
   | choice (args : Array Expr)
   | string (value : String)
   | no_equation
@@ -125,6 +125,8 @@ instance [Repr α] : Repr (Spanned α) := ⟨fun n p => reprPrec n.kind p⟩
 
 def Spanned.map (f : α → β) : Spanned α → Spanned β
   | ⟨s, e, a⟩ => ⟨s, e, f a⟩
+
+def Spanned.dummy (a : α) : Spanned α := ⟨arbitrary, arbitrary, a⟩
 
 local prefix:max "#" => Spanned
 
@@ -265,8 +267,12 @@ inductive Precedence
   | expr : #Expr → Precedence
   deriving Inhabited
 
+inductive Default
+  | «:=» : #Expr → Default
+  | «.» : #Name → Default
+
 inductive Binder
-  | binder : BinderInfo → Option (Array #Name) → Binders → Option #Expr → Binder
+  | binder : BinderInfo → Option (Array #Name) → Binders → Option #Expr → Option Default → Binder
   | «⟨⟩» : Array #Expr → Binder
   | «notation» : Notation → Binder
   | var : #Name → Binders → Option #Expr → #Expr → Binder
@@ -595,11 +601,17 @@ partial def optTy : Option #Expr → Format
   | none => ""
   | some e => " : " ++ Expr_repr e.kind
 
+partial def Default_repr : Option Default → Format
+  | none => ""
+  | some (Default.«:=» e) => " := " ++ Expr_repr e.kind
+  | some (Default.«.» n) => " . " ++ (n.kind.toString : Format)
+
 partial def Binder_repr : Binder → (paren :_:= true) → Format
-  | Binder.binder bi none _ e, paren => bi.bracket paren $
-    match e with | none => "⬝" | some e => Expr_repr e.kind
-  | Binder.binder bi (some vars) bis ty, paren => bi.bracket paren $
-    spaced (fun v => v.kind.toString) vars ++ Binders_repr bis ++ optTy ty
+  | Binder.binder bi none _ e dflt, paren => bi.bracket paren $
+    (match e with | none => "⬝" | some e => Expr_repr e.kind) ++
+    Default_repr dflt
+  | Binder.binder bi (some vars) bis ty dflt, paren => bi.bracket paren $
+    spaced (fun v => v.kind.toString) vars ++ Binders_repr bis ++ optTy ty ++ Default_repr dflt
   | Binder.«⟨⟩» args, _ =>
     (Format.joinSep (args.toList.map fun e => Expr_repr e.kind) ", ").bracket "⟨" "⟩"
   | Binder.var v bis ty val, paren => BinderInfo.default.bracket paren $
@@ -636,7 +648,7 @@ partial def Expr_repr : Expr → (prec : _ := 0) → Format
     (match
         if as && bis.size == 0 then
           match bis[0].kind with
-          | Binder.binder _ none _ ty => ty
+          | Binder.binder _ none _ ty _ => ty
           | _ => none
         else none
       with

@@ -294,6 +294,11 @@ where
   getSubtype (setOf : Bool) (args) : M _ := do
     Expr.subtype setOf (← getName args[0]) (← opt getExpr args[1]) (← getExpr args[2])
 
+partial def getDefault : AstId → M Default := withNodeK fun
+  | ":=", _, args => Default.«:=» <$> getExpr args[0]
+  | ".", _, args => Default.«.» <$> getName args[0]
+  | k, _, _ => throw s!"getDefault parse error, unknown kind {k}"
+
 partial def getBinder : AstId → M (Spanned Binder) := withNode getBinder_aux
 
 partial def getBinder_aux
@@ -312,7 +317,7 @@ partial def getBinder_aux
 where
   binder (bi : BinderInfo) (args : Array AstId) : M Binder := do
     Binder.binder bi (← opt (arr getName) args[0]) (← getBinders args[1]) (← opt getExpr args[2])
-
+      (← opt getDefault (args.getD 3 0))
 partial def getBinders : AstId → M Binders := arr getBinder
 
 partial def getDoElem : AstId → M (Spanned DoElem) :=
