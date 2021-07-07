@@ -10,11 +10,17 @@ import Mathport.Parse
 namespace Mathport
 
 open Lean hiding Expr
+open Lean.Elab (Visibility)
 
 namespace Translate
 
 open Std (HashMap)
 open AST3
+
+syntax (name := cmdQuot) "`(command|" incQuotDepth(command) ")" : term
+
+open Lean Elab Term Quotation in
+@[termElab cmdQuot] def elabCmdQuot : TermElab := adaptExpander stxQuot.expand
 
 structure Context where
 
@@ -68,8 +74,13 @@ instance [Inhabited β] : Inhabited (WithArray α β n) := ⟨go n⟩ where go
     if h : _ then go (i+1) n (f $ a.get ⟨i, h⟩)
     else throwError "array size mismatch"
 
-inductive BinderContext : Type
-| bracketedBinder (ty : Bool := false) : BinderContext
+def trDocComment (doc : String) : Syntax :=
+  mkNode ``Parser.Command.docComment #[mkAtom "/--", mkAtom (doc ++ "-/")]
+
+structure BinderContext where
+  -- if true, only allow simple for no type
+  allowSimple : Option Bool := none
+  requireType := false
 
 def trTacticSeq : Tactic → M Syntax
   | _ => throwError "unsupported (TODO)"
@@ -77,17 +88,32 @@ def trTacticSeq : Tactic → M Syntax
 def trExpr : Expr → M Syntax
   | _ => throwError "unsupported (TODO)"
 
+def trPrio : Expr → M Syntax
+  | _ => throwError "unsupported (TODO)"
+
+def trBinderName : BinderName → Syntax
+  | BinderName.ident n => mkIdent n
+  | BinderName.«_» => mkHole arbitrary
+
+def trBinderDefault (allowTac := true) : Default → M Syntax
+  | Default.«:=» e => do `(Parser.Term.binderDefault| := $(← trExpr e.kind))
+  | Default.«.» e => do
+    unless allowTac do throwError "unsupported"
+    `(Parser.Term.binderTactic| := by $(← trTacticSeq $ Tactic.expr $ e.map Expr.ident))
+
 def trBinder : BinderContext → Binder → Array Syntax → M (Array Syntax)
-  | BinderContext.bracketedBinder req,
-    Binder.binder BinderInfo.instImplicit vars _ (some ty) none, out => do
+  | _, Binder.binder BinderInfo.instImplicit vars _ (some ty) none, out => do
     let var ← match vars with
     | none => #[]
-    | some vars => withArray vars 1 fun v => pure #[mkIdent v.kind, mkAtom ":"]
+    | some vars => withArray vars 1 fun v => pure #[trBinderName v.kind, mkAtom ":"]
     out.push $ mkNode ``Parser.Term.instBinder
       #[mkAtom "[", mkNode nullKind var, ← trExpr ty.kind, mkAtom "]"]
-  | BinderContext.bracketedBinder req,
-    Binder.binder bi (some vars) bis ty dflt, out => do
-    let vars := mkNode nullKind $ vars.map fun v => mkIdent v.kind
+  | ⟨some true, _⟩, Binder.binder BinderInfo.default (some vars) #[] none none, out =>
+    out.push <$> trSimple vars none
+  | ⟨some false, _⟩, Binder.binder BinderInfo.default (some vars) #[] ty none, out =>
+    out.push <$> trSimple vars ty
+  | ⟨_, req⟩, Binder.binder bi (some vars) bis ty dflt, out => do
+    let vars := mkNode nullKind $ vars.map fun v => trBinderName v.kind
     let ty := match req, ty with
     | true, none => some Expr.«_»
     | _, _ => ty.map fun ty => ty.kind
@@ -97,29 +123,116 @@ def trBinder : BinderContext → Binder → Array Syntax → M (Array Syntax)
     if bi == BinderInfo.implicit then
       out.push $ mkNode ``Parser.Term.implicitBinder #[mkAtom "(", vars, ty, mkAtom ")"]
     else
-      let dflt ← mkNode nullKind <$> match dflt with
-      | none => #[]
-      | some (Default.«:=» e) => do
-        #[mkNode ``Parser.Term.binderDefault #[mkAtom ":=", ← trExpr e.kind]]
-      | some (Default.«.» e) => do
-        #[mkNode ``Parser.Term.binderTactic #[mkAtom ":=", mkAtom "by",
-          ← trTacticSeq $ Tactic.expr $ e.map Expr.ident]]
+      let dflt ← mkOptionalNode <$> dflt.mapM trBinderDefault
       out.push $ mkNode ``Parser.Term.explicitBinder #[mkAtom "(", vars, ty, dflt, mkAtom ")"]
-  | BinderContext.bracketedBinder _, _, _ => throwError "unsupported"
+  | _, _, _ => throwError "unsupported"
+where
+  trSimple vars ty : M Syntax := do
+    let vars := mkNode nullKind $ vars.map fun v => trBinderName v.kind
+    let ty ← ty.mapM fun ty => trExpr ty.kind
+    mkNode ``Parser.Term.simpleBinder #[vars, mkOptionalNode ty]
 
 def trBinders (bc : BinderContext) (bis : Array (Spanned Binder)) : M (Array Syntax) := do
   bis.foldlM (fun out bi => trBinder bc bi.kind out) #[]
 
+inductive TrAttr
+  | del : Syntax → TrAttr
+  | add : Syntax → TrAttr
+  | prio : Expr → TrAttr
+
+def trAttr (prio : Option Expr) : Attribute → M TrAttr
+  | Attribute.priority n => TrAttr.prio n.kind
+  | Attribute.del n => do TrAttr.del (← `(Parser.Command.eraseAttr| -$(mkIdent n)))
+  | AST3.Attribute.add n arg => throwError "unsupported (TODO)"
+
+def trAttrKind : AttributeKind → M Syntax
+  | AttributeKind.global => `(Parser.Term.attrKind|)
+  | AttributeKind.scoped => `(Parser.Term.attrKind| scoped)
+  | AttributeKind.local => `(Parser.Term.attrKind| local)
+
+structure AttrState where
+  prio : Option AST3.Expr := none
+  out : Array Syntax := #[]
+
+def trAttrInstance (attr : Attribute) (allowDel := false)
+  (kind : AttributeKind := AttributeKind.global) : StateT AttrState M Unit := do
+  match ← trAttr (← get).1 attr with
+  | TrAttr.del stx => do
+    unless allowDel do throwError "unsupported"
+    modify fun s => { s with out := s.out.push stx }
+  | TrAttr.add stx => do
+    let stx := mkNode ``Parser.Term.attrInstance #[← trAttrKind kind, stx]
+    modify fun s => { s with out := s.out.push stx }
+  | TrAttr.prio prio => modify fun s => { s with prio := prio }
+
+def trAttributes (attrs : Attributes) (allowDel := false)
+  (kind : AttributeKind := AttributeKind.global) : StateT AttrState M Unit :=
+  attrs.forM fun attr => trAttrInstance attr.kind allowDel kind
+
+structure Modifiers4 where
+  docComment : Option String := none
+  attrs : AttrState := {}
+  vis : Visibility := Visibility.regular
+  «noncomputable» : Option Unit := none
+  safety : DefinitionSafety := DefinitionSafety.safe
+
+def mkOpt (a : Option α) (f : α → M Syntax) : M Syntax :=
+  match a with
+  | none => mkNode nullKind #[]
+  | some a => do mkNode nullKind #[← f a]
+
+def trModifiers (mods : Modifiers) : M (Option Expr × Syntax) :=
+  mods.foldlM trModifier {} >>= toSyntax
+where
+  trModifier (s : Modifiers4) (m : Spanned Modifier) : M Modifiers4 :=
+    match m.kind with
+    | Modifier.private => match s.vis with
+      | Visibility.regular => pure { s with vis := Visibility.private }
+      | _ => throwError "unsupported"
+    | Modifier.protected => match s.vis with
+      | Visibility.regular => pure { s with vis := Visibility.protected }
+      | _ => throwError "unsupported"
+    | Modifier.noncomputable => match s.noncomputable with
+      | none => pure { s with «noncomputable» := some () }
+      | _ => throwError "unsupported"
+    | Modifier.meta => match s.safety with
+      | DefinitionSafety.safe => pure { s with safety := DefinitionSafety.unsafe }
+      | _ => throwError "unsupported"
+    | Modifier.mutual => s -- mutual is duplicated elsewhere in the grammar
+    | Modifier.attr loc _ attrs => do
+      let kind := if loc then AttributeKind.local else AttributeKind.global
+      pure { s with attrs := (← trAttributes attrs false kind |>.run {}).2 }
+    | Modifier.doc doc => match s.docComment with
+      | none => pure { s with docComment := some doc }
+      | _ => throwError "unsupported"
+  toSyntax : Modifiers4 → M (Option Expr × Syntax)
+  | ⟨doc, ⟨prio, attrs⟩, vis, nc, safety⟩ => do
+    let doc := mkOptionalNode $ doc.map trDocComment
+    let attrs ← mkOpt (if attrs.isEmpty then none else some attrs) fun attrs =>
+      `(Parser.Term.attributes| @[$[$attrs],*])
+    let vis := mkOptionalNode $ match vis with
+    | Visibility.regular => none
+    | Visibility.private => mkAtom "private"
+    | Visibility.protected => mkAtom "protected"
+    let nc ← mkOpt nc fun () => mkAtom "noncomputable"
+    let part := mkOptionalNode $ match safety with
+    | DefinitionSafety.partial => mkAtom "partial"
+    | _ => none
+    let uns := mkOptionalNode $ match safety with
+    | DefinitionSafety.unsafe => mkAtom "unsafe"
+    | _ => none
+    (prio, mkNode ``Parser.Command.declModifiers #[doc, attrs, vis, nc, part, uns])
+
 def trOpenCmd (ops : Array Open) : M Unit := do
   let mut simple := #[]
+  let pushSimple (s : Array Syntax) := unless s.isEmpty do pushM `(command| open $[$s]*)
   for o in ops do
     match o with
     | ⟨tgt, none, clauses⟩ =>
       if clauses.isEmpty then
         simple := simple.push (mkIdent tgt.kind)
       else
-        pushSimple simple
-        simple := #[]
+        pushSimple simple; simple := #[]
         let mut explicit := #[]
         let mut renames := #[]
         let mut hides := #[]
@@ -131,35 +244,19 @@ def trOpenCmd (ops : Array Open) : M Unit := do
         match explicit.isEmpty, renames.isEmpty, hides.isEmpty with
         | true, true, true => pure ()
         | false, true, true =>
-          -- pushM `(open $(mkIdent tgt) ($[$(explicit.map fun n => mkIdent n.kind)]*))
-          push $ mkNode ``Parser.Command.open #[mkAtom "open",
-            mkNode ``Parser.Command.openOnly #[
-              mkIdent tgt.kind, mkAtom "(",
-              mkNode nullKind $ explicit.map fun n => mkIdent n.kind,
-              mkAtom ")"]]
+          let ns := explicit.map fun n => mkIdent n.kind
+          pushM `(command| open $(mkIdent tgt.kind):ident ($[$ns]*))
         | true, false, true =>
-          push $ mkNode ``Parser.Command.open #[mkAtom "open",
-            mkNode ``Parser.Command.openRenaming #[
-              mkIdent tgt.kind, mkAtom "renaming",
-              mkNode nullKind $ mkSepArray
-                (renames.map fun ⟨a, b⟩ =>
-                  mkNode ``Parser.Command.openRenamingItem #[
-                    mkIdent a.kind, mkAtom "→", mkIdent b.kind])
-                (mkAtom ",")]]
+          let rs ← renames.mapM fun ⟨a, b⟩ =>
+            `(Parser.Command.openRenamingItem|
+              $(mkIdent a.kind):ident → $(mkIdent b.kind):ident)
+          pushM `(command| open $(mkIdent tgt.kind):ident renaming $[$rs],*)
         | true, true, false =>
-          push $ mkNode ``Parser.Command.open #[mkAtom "open",
-            mkNode ``Parser.Command.openHiding #[
-              mkIdent tgt.kind, mkAtom "hiding",
-              mkNode nullKind $ hides.map fun n => mkIdent n.kind]]
+          let ns := hides.map fun n => mkIdent n.kind
+          pushM `(command| open $(mkIdent tgt.kind):ident hiding $[$ns]*)
         | _, _, _ => throwError "unsupported"
     | _ => throwError "unsupported"
   pushSimple simple
-where
-  pushSimple (s : Array Syntax) := do
-    unless s.isEmpty do
-      -- pushM `(open $[$(s)]*)
-      push $ mkNode ``Parser.Command.open #[mkAtom "open",
-        mkNode ``Parser.Command.openSimple s]
 
 def trExportCmd : Open → M Unit
   | ⟨tgt, none, clauses⟩ => do
@@ -172,12 +269,120 @@ def trExportCmd : Open → M Unit
     pushM `(export $(mkIdent tgt.kind):ident ($[$args]*))
   | _ => throwError "unsupported"
 
+def trDeclId (n : Name) (us : LevelDecl) : M Syntax := do
+  let us := us.map $ Array.map fun u => mkIdent u.kind
+  `(Parser.Command.declId| $(mkIdent n):ident $[.{$[$us],*}]?)
+
+def trTypeSpec (ty : Expr) : M Syntax := do `(Parser.Term.typeSpec| : $(← trExpr ty))
+def trOptType (ty : Option Expr) : M (Option Syntax) := ty.mapM trTypeSpec
+
+def trDeclSig (req : Bool) (bis : Binders) (ty : Option (Spanned Expr)) : M Syntax := do
+  let bis := mkNullNode (← trBinders { allowSimple := some true } bis)
+  let ty := ty.map Spanned.kind
+  let ty ← trOptType $ if req then some (ty.getD Expr.«_») else ty
+  if req then mkNode ``Parser.Command.declSig #[bis, ty.get!]
+  else mkNode ``Parser.Command.optDeclSig #[bis, mkOptionalNode ty]
+
+def trAxiom (mods : Modifiers) (n : Name)
+  (us : LevelDecl) (bis : Binders) (ty : Option (Spanned Expr)) : M Unit := do
+  let (_, mods) ← trModifiers mods
+  pushM `(command| $mods:declModifiers axiom $(← trDeclId n us) $(← trDeclSig true bis ty))
+
+def trDecl (dk : DeclKind) (mods : Modifiers) (n : Option (Spanned Name)) (us : LevelDecl)
+  (bis : Binders) (ty : Option (Spanned Expr)) (val : DeclVal) : M Syntax := do
+  let (prio, mods) ← trModifiers mods
+  let id ← n.mapM fun n => trDeclId n.kind us
+  let sig req := trDeclSig req bis ty
+  let val ← match val with
+  | DeclVal.expr e => do `(Parser.Command.declValSimple| := $(← trExpr e))
+  | DeclVal.eqns #[] => `(Parser.Command.declValSimple| := fun.)
+  | DeclVal.eqns arms => `(Parser.Command.declValSimple| := _)
+  match dk with
+  | DeclKind.abbrev => do `(command| $mods:declModifiers abbrev $id.get! $(← sig false) $val)
+  | DeclKind.def => do `(command| $mods:declModifiers def $id.get! $(← sig false) $val)
+  | DeclKind.example => do `(command| $mods:declModifiers example $(← sig true) $val)
+  | DeclKind.theorem => do `(command| $mods:declModifiers theorem $id.get! $(← sig true) $val)
+  | DeclKind.instance => do
+    let loc := mkOptionalNode none -- lean 3 doesn't have "local instance"
+    let prio ← mkOpt prio fun prio => do
+      `(Parser.Command.namedPrio| (priority := $(← trPrio prio)))
+    `(command| $mods:declModifiers $loc:attrKind instance $[$id:declId]? $(← sig false) $val)
+
+def trInferKind : Option InferKind → M (Option Syntax)
+  | some InferKind.implicit => `(Parser.Command.inferMod | {})
+  | some InferKind.relaxedImplicit => `(Parser.Command.inferMod | {})
+  | some InferKind.none => none
+  | none => none
+
+def trInductive (cl : Bool) (mods : Modifiers) (n : Spanned Name) (us : LevelDecl)
+  (bis : Binders) (ty : Option (Spanned Expr))
+  (nota : Option Notation) (intros : Array (Spanned Intro)) : M Syntax := do
+  let (prio, mods) ← trModifiers mods
+  let id ← trDeclId n.kind us
+  let sig ← trDeclSig false bis ty
+  let ctors ← intros.mapM fun ⟨_, _, ⟨doc, name, ik, bis, ty⟩⟩ => do
+    `(Parser.Command.ctor| |
+      $[$(doc.map trDocComment):docComment]?
+      $(mkIdent name.kind):ident
+      $[$(← trInferKind ik):inferMod]?
+      $(← trDeclSig false bis ty):optDeclSig)
+  if cl then
+    `(command| $mods:declModifiers class inductive $id:declId $sig:optDeclSig $[$ctors:ctor]*)
+  else
+    `(command| $mods:declModifiers inductive $id:declId $sig:optDeclSig $[$ctors:ctor]*)
+
+def trMutual (decls : Array (Mutual α)) (f : Mutual α → M Syntax) : M Unit := do
+  pushM `(mutual $[$(← decls.mapM f)]* end)
+
+def trField : Field → Array Syntax → M (Array Syntax)
+  | Field.binder bi ns ik bis ty dflt, out => do
+    let ns := ns.map fun n => mkIdent n.kind
+    let im ← trInferKind ik
+    let sig req := trDeclSig req bis ty
+    out.push <$> match bi with
+    | BinderInfo.implicit => do
+      `(Parser.Command.structImplicitBinder| {$[$ns]* $[$im]? $(← sig true):declSig})
+    | BinderInfo.instImplicit => do
+      `(Parser.Command.structInstBinder| [$[$ns]* $[$im]? $(← sig true):declSig])
+    | _ => do
+      let sig ← sig false
+      let dflt ← dflt.mapM (trBinderDefault false)
+      if ns.size = 1 then
+        `(Parser.Command.structSimpleBinder| $(ns[0]):ident $[$im]? $sig:optDeclSig $[$dflt]?)
+      else
+        `(Parser.Command.structExplicitBinder| ($[$ns]* $[$im]? $sig:optDeclSig $[$dflt]?))
+  | Field.notation _, out => throwError "unsupported"
+
+def trFields (flds : Array (Spanned Field)) : M Syntax :=
+  @mkNullNode <$> flds.foldlM (fun out fld => trField fld.kind out) #[]
+
+def trStructure (cl : Bool) (mods : Modifiers) (n : Spanned Name) (us : LevelDecl)
+  (bis : Binders) (exts : Array (Spanned Parent)) (ty : Option (Spanned Expr))
+  (mk : Option (Spanned Mk)) (flds : Array (Spanned Field)) : M Unit := do
+  let id ← trDeclId n.kind us
+  let bis := mkNullNode $ ← trBinders {} bis
+  let exts ← exts.mapM fun
+    | ⟨_, _, false, none, ty, #[]⟩ => trExpr ty.kind
+    | _ => throwError "unsupported"
+  let exts ← mkOpt (if exts.isEmpty then none else some exts) fun exts =>
+    `(Parser.Command.extends| extends $[$exts],*)
+  let ty ← mkOptionalNode <$> trOptType (ty.map Spanned.kind)
+  let flds ← mkOptionalNode <$> match mk, flds with
+  | none, #[] => none
+  | mk, flds => do
+    let mk ← mk.mapM fun ⟨_, _, n, ik⟩ => do
+      `(Parser.Command.structCtor| $(mkIdent n.kind):ident $[$(← trInferKind ik)]? ::)
+    some $ mkNullNode #[mkAtom "where", mkOptionalNode mk, ← trFields flds]
+  push $ mkNode ``Parser.Command.structure #[
+    mkAtom (if cl then "class" else "structure"), id, bis, exts, ty, flds, mkOptionalNode none]
+
 def trCommand : Command → M Unit
   | Command.prelude => modify fun s => { s with «prelude» := true }
   | Command.initQuotient => pushM `(init_quot)
   | Command.«import» ns => modify fun s =>
     { s with imports := ns.foldl (fun a n => a.push n.kind) s.imports }
-  | Command.mdoc s => pure () -- FIXME
+  | Command.mdoc s =>
+    push $ mkNode `Lean.Parser.Command.modDocComment #[mkAtom s] -- FIXME: doesn't exist
   | Command.«universe» _ _ ns =>
     pushM `(universe $[$(ns.map fun n => mkIdent n.kind)]*)
   | Command.«namespace» n => do
@@ -186,25 +391,36 @@ def trCommand : Command → M Unit
     pushScope; pushM `(section $[$(n.map fun n => mkIdent n.kind)]?)
   | Command.«end» n => do
     popScope; pushM `(end $[$(n.map fun n => mkIdent n.kind)]?)
-  | Command.«variable» vk _ _ bis => do
+  | Command.«variable» vk _ _ bis =>
     unless bis.isEmpty do
-      let bis ← trBinders BinderContext.bracketedBinder bis
+      let bis ← trBinders {} bis
       match vk with
-      | VariableKind.variable =>
-        -- pushM `(variable $[$bis]+)
-        push $ mkNode ``Parser.Command.variable #[mkAtom "variable", mkNode nullKind bis]
-      | VariableKind.parameter =>
-        -- pushM `(parameter $[$bis]+)
-        push $ mkNode ``parameterCmd #[mkAtom "parameter", mkNode nullKind bis]
-  | Command.axiom ak mods n us bis ty => throwError "unsupported (TODO)"
-  | Command.axioms ak mods bis => throwError "unsupported (TODO)"
-  | Command.decl dk mods n us bis ty val => throwError "unsupported (TODO)"
-  | Command.mutualDecl dk mods us bis arms => throwError "unsupported (TODO)"
-  | Command.inductive cl mods n us bis ty nota intros => throwError "unsupported (TODO)"
-  | Command.mutualInductive cl mods us bis nota inds => throwError "unsupported (TODO)"
-  | Command.structure cl mods n us bis exts ty m flds => throwError "unsupported (TODO)"
-  | Command.attribute loc mods attrs ns => throwError "unsupported (TODO)"
-  | Command.precedence sym prec => throwError "unsupported (TODO)"
+      | VariableKind.variable => pushM `(variable $[$bis]*)
+      | VariableKind.parameter => pushM `(parameter $[$bis]*)
+  | Command.axiom _ mods n us bis ty => trAxiom mods n.kind us bis ty
+  | Command.axioms _ mods bis => bis.forM fun
+    | ⟨_, _, Binder.binder _ (some ns) bis (some ty) none⟩ => ns.forM fun
+      | ⟨_, _, BinderName.ident n⟩ => trAxiom mods n none bis ty
+      | _ => throwError "unsupported"
+    | _ => throwError "unsupported"
+  | Command.decl dk mods n us bis ty val => pushM $ trDecl dk mods n us bis ty val.kind
+  | Command.mutualDecl dk mods us bis arms =>
+    trMutual arms fun ⟨attrs, n, ty, vals⟩ => do
+      trDecl dk mods n us bis ty (DeclVal.eqns vals)
+  | Command.inductive cl mods n us bis ty nota intros =>
+     pushM $ trInductive cl mods n us bis ty nota intros
+  | Command.mutualInductive cl mods us bis nota inds =>
+    trMutual inds fun ⟨attrs, n, ty, intros⟩ => do
+      trInductive cl mods n us bis ty nota intros
+  | Command.structure cl mods n us bis exts ty m flds =>
+    trStructure cl mods n us bis exts ty m flds
+  | Command.attribute loc _ attrs ns => do
+    let kind := if loc then AttributeKind.local else AttributeKind.global
+    let attrs := (← trAttributes attrs true kind |>.run {}).2.out
+    if attrs.isEmpty || ns.isEmpty then return ()
+    let ns := ns.map fun n => mkIdent n.kind
+    pushM `(command| attribute [$[$attrs],*] $[$ns]*)
+  | Command.precedence sym prec => pure ()
   | Command.notation loc attrs n => throwError "unsupported (TODO)"
   | Command.open true ops => ops.forM trExportCmd
   | Command.open false ops => trOpenCmd ops
@@ -215,7 +431,7 @@ def trCommand : Command → M Unit
   | Command.hide ops => unless ops.isEmpty do
       pushM `(hide $[$(ops.map fun n => mkIdent n.kind)]*)
   | Command.theory mods => withArray mods 1 fun
-    | ⟨_, _, Modifier.noncomputable⟩ => pure ()
+    | ⟨_, _, Modifier.noncomputable⟩ => pushM `(command| noncomputable theory)
     | _ => throwError "unsupported"
   | Command.setOption n val => match n.kind, val.kind with
     | `old_structure_cmd, OptionVal.bool b =>

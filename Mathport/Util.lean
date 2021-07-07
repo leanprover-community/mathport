@@ -57,3 +57,8 @@ def Subarray.getOp {α : Type u} [Inhabited α] (self : Subarray α) (idx : Nat)
   if prec >= p then paren f else f
 
 instance : Coe (Array α) (Subarray α) := ⟨(·[0:])⟩
+
+def Option.mapM {α : Type u} {β : Type v} {m : Type v → Type w} [Monad m] (f : α → m β) :
+    Option α → m (Option β)
+  | none => pure none
+  | some a => some <$> f a

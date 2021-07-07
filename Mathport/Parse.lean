@@ -134,6 +134,12 @@ def getSym : AstId → M (Spanned Symbol) :=
   | "ident", v, _ => Symbol.ident v.getString!
   | k, _, _ => throw s!"getSym parse error, unknown kind {k}"
 
+def getBinderName : AstId → M (Spanned BinderName) :=
+  withNode fun
+  | "_", _, _ => BinderName.«_»
+  | "ident", v, _ => BinderName.ident v.getString!
+  | k, _, _ => throw s!"getBinderName parse error, unknown kind {k}"
+
 def getChoice : AstId → M Choice :=
   withNodeK fun
   | "choice", _, args => Choice.many <$> args.mapM getNameK
@@ -308,7 +314,7 @@ partial def getBinder_aux
   | "binder_4", _, args => binder BinderInfo.implicit args
   | "binder_8", _, args => binder BinderInfo.auxDecl args
   | "⟨", _, args => Binder.«⟨⟩» <$> args.mapM getExpr
-  | "var", _, args => do {Binder.var (← getName args[0])
+  | "var", _, args => do {Binder.var (← getBinderName args[0])
     (← getBinders args[1]) (← opt getExpr args[2]) (← getExpr args[3])}
   | "pat", _, args => do {Binder.pat (← getExpr args[0]) (← getExpr args[1])}
   | k, v, args => match toNotationKind k with
@@ -316,8 +322,8 @@ partial def getBinder_aux
     | none => throw s!"getBinder parse error, unknown kind {k}"
 where
   binder (bi : BinderInfo) (args : Array AstId) : M Binder := do
-    Binder.binder bi (← opt (arr getName) args[0]) (← getBinders args[1]) (← opt getExpr args[2])
-      (← opt getDefault (args.getD 3 0))
+    Binder.binder bi (← opt (arr getBinderName) args[0]) (← getBinders args[1])
+      (← opt getExpr args[2]) (← opt getDefault (args.getD 3 0))
 partial def getBinders : AstId → M Binders := arr getBinder
 
 partial def getDoElem : AstId → M (Spanned DoElem) :=
@@ -425,8 +431,8 @@ partial def getField : AstId → M (Spanned Field) := withNode fun
     | none => throw s!"getField parse error, unknown kind {k}"
 where
   field (bi : BinderInfo) (args : Array AstId) : M Field := do
-    Field.binder bi (← arr getName args[0])
-      (← opt getInferKind args[1]) (← getBinders args[2]) (← opt getExpr args[3])
+    Field.binder bi (← arr getName args[0]) (← opt getInferKind args[1])
+      (← getBinders args[2]) (← opt getExpr args[3]) (← opt getDefault (args.getD 4 0))
 
 def getAttrArg : AstId → M (Spanned AttrArg) := withNodeR fun r =>
   match r.kind with
@@ -439,7 +445,9 @@ def getAttrArg : AstId → M (Spanned AttrArg) := withNodeR fun r =>
 
 def getAttr : AstId → M (Spanned Attribute) := withNode fun
   | "priority", _, args => do Attribute.priority <$> getExpr args[0]
-  | "attr", v, args => Attribute.mk (args[0] ≠ 0) v <$> opt getAttrArg args[1]
+  | "attr", v, args =>
+    if args[0] = 0 then Attribute.del v
+    else Attribute.add v <$> opt getAttrArg args[1]
   | k, _, _ => throw s!"getAttr parse error, unknown kind {k}"
 
 open DeclVal in
@@ -609,7 +617,7 @@ where
     let mods ← getModifiers args[0]
     if args[1] = 0 then
       let (us, n, bis, ty) ← getHeader args[2:6]
-      let val ← opt getDeclVal args[6]
+      let val ← getDeclVal args[6]
       Command.decl dk mods n us bis ty val
     else
       let (us, bis) ← getMutualHeader args[2:5]

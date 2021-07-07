@@ -134,6 +134,15 @@ namespace AST3
 
 open Lean3 (Proj)
 
+inductive BinderName
+  | ident : Name → BinderName
+  | «_» : BinderName
+
+instance : Repr BinderName where
+  reprPrec
+  | BinderName.ident n, _ => n.toString
+  | BinderName.«_», _ => "_"
+
 inductive VariableKind | «variable» | «parameter»
   deriving Inhabited
 
@@ -259,7 +268,8 @@ mutual
 
 inductive Attribute
   | priority : #Expr → Attribute
-  | mk (del : Bool) (name : Name) (arg : Option #AttrArg) : Attribute
+  | del (name : Name) : Attribute
+  | add (name : Name) (arg : Option #AttrArg) : Attribute
   deriving Inhabited
 
 inductive Precedence
@@ -272,10 +282,11 @@ inductive Default
   | «.» : #Name → Default
 
 inductive Binder
-  | binder : BinderInfo → Option (Array #Name) → Binders → Option #Expr → Option Default → Binder
+  | binder : BinderInfo → Option (Array #BinderName) →
+    Binders → Option #Expr → Option Default → Binder
   | «⟨⟩» : Array #Expr → Binder
   | «notation» : Notation → Binder
-  | var : #Name → Binders → Option #Expr → #Expr → Binder
+  | var : #BinderName → Binders → Option #Expr → #Expr → Binder
   | pat : #Expr → #Expr → Binder
   deriving Inhabited
 
@@ -445,7 +456,8 @@ structure Parent where
 structure Mk := (name : #Name) (ik : Option InferKind)
 
 inductive Field
-  | binder : BinderInfo → Array #Name → Option InferKind → Binders → Option #Expr → Field
+  | binder : BinderInfo → Array #Name → Option InferKind →
+    Binders → Option #Expr → Option Default → Field
   | «notation» : Notation → Field
 
 inductive OpenClause
@@ -507,7 +519,7 @@ inductive Command
   | «axiom» : AxiomKind → Modifiers → #Name → LevelDecl → Binders → #Expr → Command
   | «axioms» : AxiomKind → Modifiers → Binders → Command
   | decl : DeclKind → Modifiers → Option #Name →
-    LevelDecl → Binders → (ty : Option #Expr) → Option #DeclVal → Command
+    LevelDecl → Binders → (ty : Option #Expr) → #DeclVal → Command
   | mutualDecl : DeclKind → Modifiers → LevelDecl → Binders → Array (Mutual Arm) → Command
   | «inductive» («class» : Bool) : Modifiers → #Name → LevelDecl → Binders →
     (ty : Option #Expr) → Option Notation → Array #Intro → Command
@@ -586,8 +598,8 @@ mutual
 
 partial def Attribute_repr : Attribute → Format
   | Attribute.priority e => "priority " ++ Expr_repr e.kind
-  | Attribute.mk del n arg =>
-    (if del then "-" else "") ++ n.toString ++
+  | Attribute.del n => ("-":Format) ++ n.toString
+  | Attribute.add n arg => n.toString ++
     (match arg with | none => "" | some arg => repr arg : Format)
 
 partial def Attributes_repr (attrs : Attributes) : Format :=
@@ -611,11 +623,11 @@ partial def Binder_repr : Binder → (paren :_:= true) → Format
     (match e with | none => "⬝" | some e => Expr_repr e.kind) ++
     Default_repr dflt
   | Binder.binder bi (some vars) bis ty dflt, paren => bi.bracket paren $
-    spaced (fun v => v.kind.toString) vars ++ Binders_repr bis ++ optTy ty ++ Default_repr dflt
+    spaced repr vars ++ Binders_repr bis ++ optTy ty ++ Default_repr dflt
   | Binder.«⟨⟩» args, _ =>
     (Format.joinSep (args.toList.map fun e => Expr_repr e.kind) ", ").bracket "⟨" "⟩"
   | Binder.var v bis ty val, paren => BinderInfo.default.bracket paren $
-    v.kind.toString ++ Binders_repr bis ++ optTy ty ++
+    repr v ++ Binders_repr bis ++ optTy ty ++
     " := " ++ Expr_repr val.kind
   | Binder.pat pat val, paren => BinderInfo.default.bracket paren $
     Expr_repr pat.kind ++ " := " ++ Expr_repr val.kind
@@ -892,8 +904,9 @@ instance : Repr Parent where reprPrec
     if rens.isEmpty then ("":Format) else "renaming" ++ spacedBefore repr rens
 
 instance : Repr Field where reprPrec
-  | Field.binder bi vars ik bis ty, _ => bi.bracket true $
-    spaced (fun v => v.kind.toString) vars ++ InferKind.optRepr ik ++ Binders_repr bis ++ optTy ty
+  | Field.binder bi vars ik bis ty dflt, _ => bi.bracket true $
+    spaced (fun v => v.kind.toString) vars ++ InferKind.optRepr ik ++
+    Binders_repr bis ++ optTy ty ++ Default_repr dflt
   | Field.notation n, _ => (repr n).paren
 
 instance : Repr OpenClause where reprPrec
@@ -954,8 +967,7 @@ instance : Repr Command where reprPrec c _ := match c with
   | Command.decl dk mods n us bis ty val =>
     repr mods ++ repr dk ++
     (match n with | none => "" | some n => " " ++ n.kind.toString : String) ++
-    repr us ++ repr bis ++ optTy ty ++
-    (match val with | none => ("":Format) | some val => repr val.kind)
+    repr us ++ repr bis ++ optTy ty ++ repr val.kind
   | Command.mutualDecl dk mods us bis arms =>
     repr mods ++ repr dk ++ " " ++
     Format.joinSep (arms.toList.map fun m => m.name.kind.toString) ", " ++

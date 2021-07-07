@@ -18,6 +18,8 @@ syntax (name := hideCmd) "hide " ident+ : command
 syntax (name := includeCmd) "include " ident+ : command
 syntax (name := omitCmd) "omit " ident+ : command
 syntax (name := parameterCmd) "parameter " bracketedBinder+ : command
+syntax (name := noFun) "fun" "." : term
+syntax (name := noncomputableTheory) "noncomputable " "theory" : command
 
 open Lean.Elab.Command
 
