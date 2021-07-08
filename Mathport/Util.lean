@@ -62,3 +62,6 @@ def Option.mapM {α : Type u} {β : Type v} {m : Type v → Type w} [Monad m] (f
     Option α → m (Option β)
   | none => pure none
   | some a => some <$> f a
+
+def Lean.Syntax.mkCharLit (val : Char) (info := SourceInfo.none) : Syntax :=
+  mkLit charLitKind (Char.quote val) info

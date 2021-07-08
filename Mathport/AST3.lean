@@ -63,44 +63,44 @@ structure EquationsHeader :=
 
 mutual
 
-inductive Expr where
-  | var : Nat → Expr
-  | sort : Level → Expr
-  | const : Name → Array Level → Expr
-  | mvar (name pp : Name) (type : Expr)
-  | «local» (name pp : Name) (bi : BinderInfo) (type : Expr)
-  | app : Expr → Expr → Expr
-  | lam (name : Name) (bi : BinderInfo) (dom body : Expr)
-  | Pi (name : Name) (bi : BinderInfo) (dom body : Expr)
-  | «let» (name : Name) (type value body : Expr)
-  | annotation : Annotation → Expr → Expr
-  | field : Expr → Proj → Expr
-  | typed_expr (ty val : Expr)
-  | structinst (struct : Name) (catchall : Bool) (fields : Array (Name × Expr)) (sources : Array Expr)
-  | prenum (value : Nat)
-  | nat (value : Nat)
-  | quote (value : Expr) (expr : Bool)
-  | choice (args : Array Expr)
-  | string (value : String)
-  | no_equation
-  | equation (lhs rhs : Expr) (ignore_if_unused : Bool)
-  | equations (h : EquationsHeader) (eqns : Array LambdaEquation) (wf : Option Expr)
-  | equations_result (args : Array Expr)
-  | as_pattern (lhs rhs : Expr)
-  | delayed_abstraction : Expr → Array (Name × Expr) → Expr
-  | «sorry» (synthetic : Bool) (ty : Expr)
-  | rec_fn (name : Name) (ty : Expr)
-  | proj (I constr proj : Name) (idx : Nat) (params : Array Name) (ty val arg : Expr)
-  | ac_app (args : Array Expr) (op : Expr)
-  | perm_ac (assoc comm e1 e2 : Expr)
-  | cc_proof (e1 e2 : Expr)
-  deriving Inhabited
+  inductive Expr where
+    | var : Nat → Expr
+    | sort : Level → Expr
+    | const : Name → Array Level → Expr
+    | mvar (name pp : Name) (type : Expr)
+    | «local» (name pp : Name) (bi : BinderInfo) (type : Expr)
+    | app : Expr → Expr → Expr
+    | lam (name : Name) (bi : BinderInfo) (dom body : Expr)
+    | Pi (name : Name) (bi : BinderInfo) (dom body : Expr)
+    | «let» (name : Name) (type value body : Expr)
+    | annotation : Annotation → Expr → Expr
+    | field : Expr → Proj → Expr
+    | typed_expr (ty val : Expr)
+    | structinst (struct : Name) (catchall : Bool) (fields : Array (Name × Expr)) (sources : Array Expr)
+    | prenum (value : Nat)
+    | nat (value : Nat)
+    | quote (value : Expr) (expr : Bool)
+    | choice (args : Array Expr)
+    | string (value : String)
+    | no_equation
+    | equation (lhs rhs : Expr) (ignore_if_unused : Bool)
+    | equations (h : EquationsHeader) (eqns : Array LambdaEquation) (wf : Option Expr)
+    | equations_result (args : Array Expr)
+    | as_pattern (lhs rhs : Expr)
+    | delayed_abstraction : Expr → Array (Name × Expr) → Expr
+    | «sorry» (synthetic : Bool) (ty : Expr)
+    | rec_fn (name : Name) (ty : Expr)
+    | proj (I constr proj : Name) (idx : Nat) (params : Array Name) (ty val arg : Expr)
+    | ac_app (args : Array Expr) (op : Expr)
+    | perm_ac (assoc comm e1 e2 : Expr)
+    | cc_proof (e1 e2 : Expr)
+    deriving Inhabited
 
-inductive LambdaEquation where
-  | no_equation
-  | equation (lhs rhs : Expr) (ignore_if_unused : Bool)
-  | lam (name : Name) (bi : BinderInfo) (dom : Expr) : LambdaEquation → LambdaEquation
-  deriving Inhabited
+  inductive LambdaEquation where
+    | no_equation
+    | equation (lhs rhs : Expr) (ignore_if_unused : Bool)
+    | lam (name : Name) (bi : BinderInfo) (dom : Expr) : LambdaEquation → LambdaEquation
+    deriving Inhabited
 
 end
 
@@ -249,7 +249,6 @@ inductive Level
   | imax : Array #Level → Level
   | param : Name → Level
   | paren : #Level → Level
-  | placeholder : Level
   deriving Inhabited
 
 def Levels := Option (Array #Level)
@@ -266,149 +265,149 @@ local notation "PrecSymbol" => #Symbol × Option #Precedence
 
 mutual
 
-inductive Attribute
-  | priority : #Expr → Attribute
-  | del (name : Name) : Attribute
-  | add (name : Name) (arg : Option #AttrArg) : Attribute
-  deriving Inhabited
+  inductive Attribute
+    | priority : #Expr → Attribute
+    | del (name : Name) : Attribute
+    | add (name : Name) (arg : Option #AttrArg) : Attribute
+    deriving Inhabited
 
-inductive Precedence
-  | nat : Nat → Precedence
-  | expr : #Expr → Precedence
-  deriving Inhabited
+  inductive Precedence
+    | nat : Nat → Precedence
+    | expr : #Expr → Precedence
+    deriving Inhabited
 
-inductive Default
-  | «:=» : #Expr → Default
-  | «.» : #Name → Default
+  inductive Default
+    | «:=» : #Expr → Default
+    | «.» : #Name → Default
 
-inductive Binder
-  | binder : BinderInfo → Option (Array #BinderName) →
-    Binders → Option #Expr → Option Default → Binder
-  | «⟨⟩» : Array #Expr → Binder
-  | «notation» : Notation → Binder
-  | var : #BinderName → Binders → Option #Expr → #Expr → Binder
-  | pat : #Expr → #Expr → Binder
-  deriving Inhabited
+  inductive Binder
+    | binder : BinderInfo → Option (Array #BinderName) →
+      Binders → Option #Expr → Option Default → Binder
+    | «⟨⟩» : Array #Expr → Binder
+    | «notation» : Notation → Binder
+    | var : #BinderName → Binders → Option #Expr → #Expr → Binder
+    | pat : #Expr → #Expr → Binder
+    deriving Inhabited
 
-inductive Arg
-  | expr : Expr → Arg
-  | exprs : Array #Expr → Arg
-  | binder : Binder → Arg
-  | binders : Binders → Arg
-  deriving Inhabited
+  inductive Arg
+    | expr : Expr → Arg
+    | exprs : Array #Expr → Arg
+    | binder : Binder → Arg
+    | binders : Binders → Arg
+    deriving Inhabited
 
-inductive Expr
-  | «...» : Expr
-  | «sorry» : Expr
-  | «_» : Expr
-  | «()» : Expr
-  | «{}» : Expr
-  | ident : Name → Expr
-  | const (ambiguous : Bool) : #Name → Levels → Expr
-  | nat : Nat → Expr
-  | decimal : Nat → Nat → Expr
-  | string : String → Expr
-  | char : Char → Expr
-  | paren : #Expr → Expr
-  | sort (isType isStar : Bool) : Option #Level → Expr
-  | app : #Expr → #Expr → Expr
-  | «fun» (isAssume : Bool) : Binders → #Expr → Expr
-  | «→» : #Expr → #Expr → Expr
-  | Pi : Binders → #Expr → Expr
-  | «show» : #Expr → #Proof → Expr
-  | «have» (suff : Bool) : Option #Name → #Expr → #Proof → #Expr → Expr
-  | «.» (compact : Bool) : #Expr → #Proj → Expr
-  | «if» : Option #Name → #Expr → #Expr → #Expr → Expr
-  | «calc» : Array (#Expr × #Expr) → Expr
-  | «@» («partial» : Bool) : #Expr → Expr
-  | pattern : #Expr → Expr
-  | «`()» (lazy expr : Bool) : #Expr → Expr
-  | «%%» : #Expr → Expr
-  | «`[]» : Array #Tactic → Expr
-  | «`» (resolve : Bool) : Name → Expr
-  | «⟨⟩» : Array #Expr → Expr
-  | infix_fn : Choice → Option #Expr → Expr
-  | «(,)» : Array #Expr → Expr
-  | «:» : #Expr → #Expr → Expr
-  | hole : Array #Expr → Expr
-  | «#[]» : Array #Expr → Expr
-  | «by» : #Tactic → Expr
-  | begin : Block → Expr
-  | «let» : Binders → #Expr → Expr
-  | «match» : Array #Expr → Option #Expr → Array Arm → Expr
-  | «do» (braces : Bool) : Array #DoElem → Expr
-  | «{,}» : Array #Expr → Expr
-  | subtype (setOf : Bool) : #Name → Option #Expr → #Expr → Expr
-  | sep : #Name → #Expr → #Expr → Expr
-  | setReplacement : #Expr → Binders → Expr
-  | structInst (ty : Option #Name) (src : Option #Expr)
-    (fields : Array (#Name × #Expr)) (srcs : Array #Expr) (catchall : Bool) : Expr
-  | atPat : #Expr → #Expr → Expr
-  | «.()» : #Expr → Expr
-  | «notation» (n : Choice) : Array #Arg → Expr
-  | userNotation (n : Name) : Array #Param → Expr
-  deriving Inhabited
+  inductive Expr
+    | «...» : Expr
+    | «sorry» : Expr
+    | «_» : Expr
+    | «()» : Expr
+    | «{}» : Expr
+    | ident : Name → Expr
+    | const (ambiguous : Bool) : #Name → Levels → Expr
+    | nat : Nat → Expr
+    | decimal : Nat → Nat → Expr
+    | string : String → Expr
+    | char : Char → Expr
+    | paren : #Expr → Expr
+    | sort (isType isStar : Bool) : Option #Level → Expr
+    | app : #Expr → #Expr → Expr
+    | «fun» (isAssume : Bool) : Binders → #Expr → Expr
+    | «→» : #Expr → #Expr → Expr
+    | Pi : Binders → #Expr → Expr
+    | «show» : #Expr → #Proof → Expr
+    | «have» (suff : Bool) : Option #Name → #Expr → #Proof → #Expr → Expr
+    | «.» (compact : Bool) : #Expr → #Proj → Expr
+    | «if» : Option #Name → #Expr → #Expr → #Expr → Expr
+    | «calc» : Array (#Expr × #Expr) → Expr
+    | «@» («partial» : Bool) : #Expr → Expr
+    | pattern : #Expr → Expr
+    | «`()» (lazy expr : Bool) : #Expr → Expr
+    | «%%» : #Expr → Expr
+    | «`[]» : Array #Tactic → Expr
+    | «`» (resolve : Bool) : Name → Expr
+    | «⟨⟩» : Array #Expr → Expr
+    | infix_fn : Choice → Option #Expr → Expr
+    | «(,)» : Array #Expr → Expr
+    | «:» : #Expr → #Expr → Expr
+    | hole : Array #Expr → Expr
+    | «#[]» : Array #Expr → Expr
+    | «by» : #Tactic → Expr
+    | begin : Block → Expr
+    | «let» : Binders → #Expr → Expr
+    | «match» : Array #Expr → Option #Expr → Array Arm → Expr
+    | «do» (braces : Bool) : Array #DoElem → Expr
+    | «{,}» : Array #Expr → Expr
+    | subtype (setOf : Bool) : #Name → Option #Expr → #Expr → Expr
+    | sep : #Name → #Expr → #Expr → Expr
+    | setReplacement : #Expr → Binders → Expr
+    | structInst (ty : Option #Name) (src : Option #Expr)
+      (fields : Array (#Name × #Expr)) (srcs : Array #Expr) (catchall : Bool) : Expr
+    | atPat : #Expr → #Expr → Expr
+    | «.()» : #Expr → Expr
+    | «notation» (n : Choice) : Array #Arg → Expr
+    | userNotation (n : Name) : Array #Param → Expr
+    deriving Inhabited
 
-inductive Arm
-  | mk (lhs : Array #Expr) (rhs : #Expr) : Arm
-  deriving Inhabited
+  inductive Arm
+    | mk (lhs : Array #Expr) (rhs : #Expr) : Arm
+    deriving Inhabited
 
-inductive DoElem
-  | «let» : #Binder → DoElem
-  | «←» : #Expr → Option #Expr → #Expr → Option #Expr → DoElem
-  | eval : #Expr → DoElem
-  deriving Inhabited
+  inductive DoElem
+    | «let» : #Binder → DoElem
+    | «←» : #Expr → Option #Expr → #Expr → Option #Expr → DoElem
+    | eval : #Expr → DoElem
+    deriving Inhabited
 
-inductive Proof
-  | «from» («:=» : Bool) : #Expr → Proof
-  | block : Block → Proof
-  | «by» : #Tactic → Proof
-  deriving Inhabited
+  inductive Proof
+    | «from» («:=» : Bool) : #Expr → Proof
+    | block : Block → Proof
+    | «by» : #Tactic → Proof
+    deriving Inhabited
 
-inductive Tactic
-  | «;» : Array #Tactic → Tactic
-  | «<|>» : Array #Tactic → Tactic
-  | «[]» : Array #Tactic → Tactic
-  | block : Block → Tactic
-  | «by» : #Tactic → Tactic
-  | exact_shortcut : #Expr → Tactic
-  | expr : #Expr → Tactic
-  | interactive (n : Name) : Array #Param → Tactic
-  deriving Inhabited
+  inductive Tactic
+    | «;» : Array #Tactic → Tactic
+    | «<|>» : Array #Tactic → Tactic
+    | «[]» : Array #Tactic → Tactic
+    | block : Block → Tactic
+    | «by» : #Tactic → Tactic
+    | exact_shortcut : #Expr → Tactic
+    | expr : #Expr → Tactic
+    | interactive (n : Name) : Array #Param → Tactic
+    deriving Inhabited
 
-inductive Block
-  | mk (curly : Bool) (tacClass : Option #Name)
-       (cfg : Option #Expr) (tacs : Array #Tactic) : Block
-  deriving Inhabited
+  inductive Block
+    | mk (curly : Bool) (tacClass : Option #Name)
+        (cfg : Option #Expr) (tacs : Array #Tactic) : Block
+    deriving Inhabited
 
-inductive Param
-  | parse : Lean3.Expr → Param
-  | expr : #Expr → Param
-  | block : Block → Param
-  deriving Inhabited
+  inductive Param
+    | parse : Lean3.Expr → Param
+    | expr : #Expr → Param
+    | block : Block → Param
+    deriving Inhabited
 
-inductive Action
-  | prec : Precedence → Action
-  | prev : Action
-  | «scoped» : Option #Precedence → Option (#Name × #Expr) → Action
-  | fold (right : Bool)
-      (prec : Option #Precedence) (sep : PrecSymbol)
-      («rec» : #Name × #Name × #Expr) (ini : Option #Expr)
-      (term : Option PrecSymbol) : Action
-  deriving Inhabited
+  inductive Action
+    | prec : Precedence → Action
+    | prev : Action
+    | «scoped» : Option #Precedence → Option (#Name × #Expr) → Action
+    | fold (right : Bool)
+        (prec : Option #Precedence) (sep : PrecSymbol)
+        («rec» : #Name × #Name × #Expr) (ini : Option #Expr)
+        (term : Option PrecSymbol) : Action
+    deriving Inhabited
 
-inductive Literal
-  | nat : Nat → Literal
-  | var : #Name → Option #Action → Literal
-  | sym : PrecSymbol → Literal
-  | binder : Option #Precedence → Literal
-  | binders : Option #Precedence → Literal
-  deriving Inhabited
+  inductive Literal
+    | nat : Nat → Literal
+    | var : #Name → Option #Action → Literal
+    | sym : PrecSymbol → Literal
+    | binder : Option #Precedence → Literal
+    | binders : Option #Precedence → Literal
+    deriving Inhabited
 
-inductive Notation
-  | mixfix : MixfixKind → PrecSymbol → Option #Expr → Notation
-  | «notation» : Array #Literal → Option #Expr → Notation
-  deriving Inhabited
+  inductive Notation
+    | mixfix : MixfixKind → PrecSymbol → Option #Expr → Notation
+    | «notation» : Array #Literal → Option #Expr → Notation
+    deriving Inhabited
 
 end
 end
@@ -580,7 +579,6 @@ partial def Level_repr : Level → (prec : _ := 0) → Format
     "max" ++ Format.join (ls.toList.map fun l => " " ++ Level_repr l.kind max_prec)
   | Level.param u, _ => u.toString
   | Level.paren l, _ => Level_repr l.kind
-  | Level.placeholder, _ => "_"
 
 instance : Repr Level := ⟨@Level_repr⟩
 
@@ -596,250 +594,250 @@ instance : Repr LevelDecl where
 
 mutual
 
-partial def Attribute_repr : Attribute → Format
-  | Attribute.priority e => "priority " ++ Expr_repr e.kind
-  | Attribute.del n => ("-":Format) ++ n.toString
-  | Attribute.add n arg => n.toString ++
-    (match arg with | none => "" | some arg => repr arg : Format)
+  partial def Attribute_repr : Attribute → Format
+    | Attribute.priority e => "priority " ++ Expr_repr e.kind
+    | Attribute.del n => ("-":Format) ++ n.toString
+    | Attribute.add n arg => n.toString ++
+      (match arg with | none => "" | some arg => repr arg : Format)
 
-partial def Attributes_repr (attrs : Attributes) : Format :=
-  (Format.joinSep (attrs.toList.map fun a => Attribute_repr a.kind) ", ").sbracket
+  partial def Attributes_repr (attrs : Attributes) : Format :=
+    (Format.joinSep (attrs.toList.map fun a => Attribute_repr a.kind) ", ").sbracket
 
-partial def Precedence_repr : Precedence → Format
-  | Precedence.nat n => repr n
-  | Precedence.expr e => Expr_repr e.kind max_prec
+  partial def Precedence_repr : Precedence → Format
+    | Precedence.nat n => repr n
+    | Precedence.expr e => Expr_repr e.kind max_prec
 
-partial def optTy : Option #Expr → Format
-  | none => ""
-  | some e => " : " ++ Expr_repr e.kind
+  partial def optTy : Option #Expr → Format
+    | none => ""
+    | some e => " : " ++ Expr_repr e.kind
 
-partial def Default_repr : Option Default → Format
-  | none => ""
-  | some (Default.«:=» e) => " := " ++ Expr_repr e.kind
-  | some (Default.«.» n) => " . " ++ (n.kind.toString : Format)
+  partial def Default_repr : Option Default → Format
+    | none => ""
+    | some (Default.«:=» e) => " := " ++ Expr_repr e.kind
+    | some (Default.«.» n) => " . " ++ (n.kind.toString : Format)
 
-partial def Binder_repr : Binder → (paren :_:= true) → Format
-  | Binder.binder bi none _ e dflt, paren => bi.bracket paren $
-    (match e with | none => "⬝" | some e => Expr_repr e.kind) ++
-    Default_repr dflt
-  | Binder.binder bi (some vars) bis ty dflt, paren => bi.bracket paren $
-    spaced repr vars ++ Binders_repr bis ++ optTy ty ++ Default_repr dflt
-  | Binder.«⟨⟩» args, _ =>
-    (Format.joinSep (args.toList.map fun e => Expr_repr e.kind) ", ").bracket "⟨" "⟩"
-  | Binder.var v bis ty val, paren => BinderInfo.default.bracket paren $
-    repr v ++ Binders_repr bis ++ optTy ty ++
-    " := " ++ Expr_repr val.kind
-  | Binder.pat pat val, paren => BinderInfo.default.bracket paren $
-    Expr_repr pat.kind ++ " := " ++ Expr_repr val.kind
-  | Binder.notation n, paren => BinderInfo.default.bracket paren $ Notation_repr n #[]
+  partial def Binder_repr : Binder → (paren :_:= true) → Format
+    | Binder.binder bi none _ e dflt, paren => bi.bracket paren $
+      (match e with | none => "⬝" | some e => Expr_repr e.kind) ++
+      Default_repr dflt
+    | Binder.binder bi (some vars) bis ty dflt, paren => bi.bracket paren $
+      spaced repr vars ++ Binders_repr bis ++ optTy ty ++ Default_repr dflt
+    | Binder.«⟨⟩» args, _ =>
+      (Format.joinSep (args.toList.map fun e => Expr_repr e.kind) ", ").bracket "⟨" "⟩"
+    | Binder.var v bis ty val, paren => BinderInfo.default.bracket paren $
+      repr v ++ Binders_repr bis ++ optTy ty ++
+      " := " ++ Expr_repr val.kind
+    | Binder.pat pat val, paren => BinderInfo.default.bracket paren $
+      Expr_repr pat.kind ++ " := " ++ Expr_repr val.kind
+    | Binder.notation n, paren => BinderInfo.default.bracket paren $ Notation_repr n #[]
 
-partial def Binders_repr (bis : Binders) (paren := true) : Format :=
-  let paren := paren || bis.size ≠ 1
-  spacedBefore (fun m => Binder_repr m.kind paren) bis
+  partial def Binders_repr (bis : Binders) (paren := true) : Format :=
+    let paren := paren || bis.size ≠ 1
+    spacedBefore (fun m => Binder_repr m.kind paren) bis
 
-partial def Expr_repr : Expr → (prec : _ := 0) → Format
-  | Expr.«...», _ => "..."
-  | Expr.sorry, _ => "sorry"
-  | Expr.«_», _ => "_"
-  | Expr.«()», _ => "()"
-  | Expr.«{}», _ => "{}"
-  | Expr.ident n, _ => n.toString
-  | Expr.const _ n l, _ => n.kind.toString ++ repr l
-  | Expr.nat n, _ => repr n
-  | Expr.decimal n d, _ => repr n ++ "/" ++ repr d
-  | Expr.string s, _ => repr s
-  | Expr.char c, _ => repr c
-  | Expr.paren e, p => Expr_repr e.kind p
-  | Expr.sort ty st u, p => Format.parenPrec max_prec p $
-    (if ty then "Type" else "Sort") ++
-    if st then ("*" : Format) else match u with | none => "" | some u => " " ++ Level_repr u.kind max_prec
-  | Expr.«→» lhs rhs, p => Format.parenPrec 25 p $
-    Expr_repr lhs.kind 25 ++ " → " ++ Expr_repr rhs.kind 24
-  | Expr.fun as bis e, p => Format.parenPrec max_prec p $
-    (if as then "assume" else "λ" : Format) ++
-    (match
-        if as && bis.size == 0 then
-          match bis[0].kind with
-          | Binder.binder _ none _ ty _ => ty
-          | _ => none
-        else none
-      with
-      | some ty => ": " ++ Expr_repr ty.kind
-      | none => Binders_repr bis false) ++
-    ", " ++ Expr_repr e.kind
-  | Expr.Pi bis e, p => Format.parenPrec max_prec p $ "∀" ++
-    Binders_repr bis false ++ ", " ++ Expr_repr e.kind
-  | Expr.app f x, p => Format.parenPrec max_prec p $
-    Expr_repr f.kind 1023 ++ " " ++ Expr_repr x.kind max_prec
-  | Expr.show t pr, p => Format.parenPrec 1000 p $
-    "show " ++ Expr_repr t.kind ++ Proof_repr' pr.kind
-  | Expr.have suff h t pr e, p => Format.parenPrec 1000 p $
-    (if suff then "suffices " else "have ") ++
-    (match h with | none => "" | some h => h.kind.toString ++ " : ") ++
-    Expr_repr t.kind ++ Proof_repr' pr.kind ++
-    "," ++ Format.line ++ Expr_repr e.kind
-  | Expr.«.» compact e pr, p =>
-    Expr_repr e.kind max_prec ++ (if compact then "." else "^.") ++ repr pr.kind
-  | Expr.if h c t e, p => Format.parenPrec 1000 p $ "if " ++
-    (match h with | none => "" | some h => h.kind.toString ++ " : ") ++
-    Expr_repr c.kind ++ " then " ++ Expr_repr t.kind ++ " else " ++ Expr_repr e.kind
-  | Expr.calc args, p => Format.parenPrec 1000 p $ "calc" ++
-    (Format.join $ args.toList.map fun (lhs, rhs) =>
-      Format.line ++ Expr_repr lhs.kind ++ " : " ++ Expr_repr rhs.kind).nest 2
-  | Expr.«@» part e, _ => (if part then "@@" else "@") ++ Expr_repr e.kind max_prec
-  | Expr.pattern e, p => Format.parenPrec 1000 p $ "(: " ++ Expr_repr e.kind ++ " :)"
-  | Expr.«`()» lazy expr e, p => Format.parenPrec 1000 p $
-    (if expr then "`(" else if lazy then "```(" else "``(") ++
-    (match e.kind with
-    | Expr.«:» e ty => Expr_repr e.kind ++ " : " ++ Expr_repr ty.kind
-    | _ => Expr_repr e.kind : Format) ++ ")"
-  | Expr.«%%» e, p => Format.parenPrec 1000 p $ "%%" ++ Expr_repr e.kind
-  | Expr.«`[]» tacs, p => Format.parenPrec 1000 p $
-    (Format.joinSep (tacs.toList.map fun t => Tactic_repr t.kind) ", ").bracket "`[" "]"
-  | Expr.«`» res n, p => Format.parenPrec 1000 p $
-    (if res then "``" else "`" : Format) ++ n.toString
-  | Expr.«⟨⟩» es, _ =>
-    (Format.joinSep (es.toList.map fun e => Expr_repr e.kind) ", ").bracket "⟨" "⟩"
-  | Expr.infix_fn c e, p => Format.parenPrec 1000 p $
-    "(" ++ repr c ++ (match e with | none => "" | some e => " " ++ Expr_repr e.kind) ++ ")"
-  | Expr.«(,)» es, _ =>
-    (Format.joinSep (es.toList.map fun e => Expr_repr e.kind) ", ").paren
-  | Expr.«.()» e, _ => "." ++ Expr_repr e.kind max_prec
-  | Expr.«:» e ty, _ => "(" ++ Expr_repr e.kind ++ " : " ++ Expr_repr ty.kind ++ ")"
-  | Expr.hole es, p => Format.parenPrec 1000 p $
-    (Format.joinSep (es.toList.map fun e => Expr_repr e.kind) ", ").bracket "{! " " !}"
-  | Expr.«#[]» es, p => Format.parenPrec 1000 p $
-    (Format.joinSep (es.toList.map fun e => Expr_repr e.kind) ", ").bracket "#[" "]"
-  | Expr.by tac, p => Format.parenPrec 1000 p $ "by " ++ Tactic_repr tac.kind
-  | Expr.begin tacs, p => Format.parenPrec 1000 p $ Block_repr tacs
-  | Expr.let bis e, p => Format.parenPrec 1000 p $
-    ("let " ++ (("," ++ Format.line).joinSep
-      (bis.toList.map fun bi => Binder_repr bi.kind false)).nest 4 ++ " in").group ++
-    Format.line ++ Expr_repr e.kind
-  | Expr.match xs ty eqns, _ => "match " ++
-    Format.joinSep (xs.toList.map fun x => Expr_repr x.kind) ", " ++ optTy ty ++ " with" ++
-    (if eqns.isEmpty then " end" else Arms_repr eqns ++ Format.line ++ "end" : Format)
-  | Expr.do braces els, p => Format.parenPrec 1000 p $
-    let s := Format.line ++ (("," ++ Format.line).joinSep
-      (els.toList.map fun el => DoElem_repr el.kind)).nest 2
-    if braces then "do" ++ s else "do {" ++ s ++ " }"
-  | Expr.«{,}» es, _ => (Format.joinSep (es.toList.map fun e => Expr_repr e.kind) ", ").bracket "{" "}"
-  | Expr.subtype setOf x ty p, _ =>
-    "{" ++ x.kind.toString ++ optTy ty ++
-    (if setOf then " | " else " // ") ++ Expr_repr p.kind ++ "}"
-  | Expr.sep x ty p, _ =>
-    "{" ++ x.kind.toString ++ " ∈ " ++ Expr_repr ty.kind ++ " | " ++ Expr_repr p.kind ++ "}"
-  | Expr.setReplacement e bis, _ =>
-    "{(" ++ Expr_repr e.kind ++ ") |" ++ Binders_repr bis false ++ "}"
-  | Expr.structInst S src flds srcs catchall, _ => Format.nest 2 $ Format.group $ "{ " ++
-    (match S with | none => "" | some S => S.kind.toString ++ " ." ++ Format.line : Format) ++
-    (match src with | none => "" | some s => Expr_repr s.kind ++ " with" ++ Format.line : Format) ++
-    (("," ++ Format.line).joinSep $
-      flds.toList.map (fun (i, s) => i.kind.toString ++ " := " ++ Expr_repr s.kind) ++
-      srcs.toList.map (fun s => ".." ++ Expr_repr s.kind) ++
-      if catchall then [(".." : Format)] else []) ++ " }"
-  | Expr.atPat lhs rhs, p => Format.parenPrec 1000 p $
-    Expr_repr lhs.kind max_prec ++ "@" ++ Expr_repr rhs.kind max_prec
-  | Expr.notation n args, _ => repr n ++
-    (Format.joinSep (args.toList.map fun e => Arg_repr e.kind) ", ").paren
-  | Expr.userNotation n args, p => Format.parenPrec 1000 p $ n.toString ++
-    Format.join (args.toList.map fun a => " " ++ Param_repr a.kind)
+  partial def Expr_repr : Expr → (prec : _ := 0) → Format
+    | Expr.«...», _ => "..."
+    | Expr.sorry, _ => "sorry"
+    | Expr.«_», _ => "_"
+    | Expr.«()», _ => "()"
+    | Expr.«{}», _ => "{}"
+    | Expr.ident n, _ => n.toString
+    | Expr.const _ n l, _ => n.kind.toString ++ repr l
+    | Expr.nat n, _ => repr n
+    | Expr.decimal n d, _ => repr n ++ "/" ++ repr d
+    | Expr.string s, _ => repr s
+    | Expr.char c, _ => repr c
+    | Expr.paren e, p => Expr_repr e.kind p
+    | Expr.sort ty st u, p => Format.parenPrec max_prec p $
+      (if ty then "Type" else "Sort") ++
+      if st then ("*" : Format) else match u with | none => "" | some u => " " ++ Level_repr u.kind max_prec
+    | Expr.«→» lhs rhs, p => Format.parenPrec 25 p $
+      Expr_repr lhs.kind 25 ++ " → " ++ Expr_repr rhs.kind 24
+    | Expr.fun as bis e, p => Format.parenPrec max_prec p $
+      (if as then "assume" else "λ" : Format) ++
+      (match
+          if as && bis.size == 1 then
+            match bis[0].kind with
+            | Binder.binder _ none _ ty _ => ty
+            | _ => none
+          else none
+        with
+        | some ty => ": " ++ Expr_repr ty.kind
+        | none => Binders_repr bis false) ++
+      ", " ++ Expr_repr e.kind
+    | Expr.Pi bis e, p => Format.parenPrec max_prec p $ "∀" ++
+      Binders_repr bis false ++ ", " ++ Expr_repr e.kind
+    | Expr.app f x, p => Format.parenPrec max_prec p $
+      Expr_repr f.kind 1023 ++ " " ++ Expr_repr x.kind max_prec
+    | Expr.show t pr, p => Format.parenPrec 1000 p $
+      "show " ++ Expr_repr t.kind ++ Proof_repr' pr.kind
+    | Expr.have suff h t pr e, p => Format.parenPrec 1000 p $
+      (if suff then "suffices " else "have ") ++
+      (match h with | none => "" | some h => h.kind.toString ++ " : ") ++
+      Expr_repr t.kind ++ Proof_repr' pr.kind ++
+      "," ++ Format.line ++ Expr_repr e.kind
+    | Expr.«.» compact e pr, p =>
+      Expr_repr e.kind max_prec ++ (if compact then "." else "^.") ++ repr pr.kind
+    | Expr.if h c t e, p => Format.parenPrec 1000 p $ "if " ++
+      (match h with | none => "" | some h => h.kind.toString ++ " : ") ++
+      Expr_repr c.kind ++ " then " ++ Expr_repr t.kind ++ " else " ++ Expr_repr e.kind
+    | Expr.calc args, p => Format.parenPrec 1000 p $ "calc" ++
+      (Format.join $ args.toList.map fun (lhs, rhs) =>
+        Format.line ++ Expr_repr lhs.kind ++ " : " ++ Expr_repr rhs.kind).nest 2
+    | Expr.«@» part e, _ => (if part then "@@" else "@") ++ Expr_repr e.kind max_prec
+    | Expr.pattern e, p => Format.parenPrec 1000 p $ "(: " ++ Expr_repr e.kind ++ " :)"
+    | Expr.«`()» lazy expr e, p => Format.parenPrec 1000 p $
+      (if expr then "`(" else if lazy then "```(" else "``(") ++
+      (match e.kind with
+      | Expr.«:» e ty => Expr_repr e.kind ++ " : " ++ Expr_repr ty.kind
+      | _ => Expr_repr e.kind : Format) ++ ")"
+    | Expr.«%%» e, p => Format.parenPrec 1000 p $ "%%" ++ Expr_repr e.kind
+    | Expr.«`[]» tacs, p => Format.parenPrec 1000 p $
+      (Format.joinSep (tacs.toList.map fun t => Tactic_repr t.kind) ", ").bracket "`[" "]"
+    | Expr.«`» res n, p => Format.parenPrec 1000 p $
+      (if res then "``" else "`" : Format) ++ n.toString
+    | Expr.«⟨⟩» es, _ =>
+      (Format.joinSep (es.toList.map fun e => Expr_repr e.kind) ", ").bracket "⟨" "⟩"
+    | Expr.infix_fn c e, p => Format.parenPrec 1000 p $
+      "(" ++ repr c ++ (match e with | none => "" | some e => " " ++ Expr_repr e.kind) ++ ")"
+    | Expr.«(,)» es, _ =>
+      (Format.joinSep (es.toList.map fun e => Expr_repr e.kind) ", ").paren
+    | Expr.«.()» e, _ => "." ++ Expr_repr e.kind max_prec
+    | Expr.«:» e ty, _ => "(" ++ Expr_repr e.kind ++ " : " ++ Expr_repr ty.kind ++ ")"
+    | Expr.hole es, p => Format.parenPrec 1000 p $
+      (Format.joinSep (es.toList.map fun e => Expr_repr e.kind) ", ").bracket "{! " " !}"
+    | Expr.«#[]» es, p => Format.parenPrec 1000 p $
+      (Format.joinSep (es.toList.map fun e => Expr_repr e.kind) ", ").bracket "#[" "]"
+    | Expr.by tac, p => Format.parenPrec 1000 p $ "by " ++ Tactic_repr tac.kind
+    | Expr.begin tacs, p => Format.parenPrec 1000 p $ Block_repr tacs
+    | Expr.let bis e, p => Format.parenPrec 1000 p $
+      ("let " ++ (("," ++ Format.line).joinSep
+        (bis.toList.map fun bi => Binder_repr bi.kind false)).nest 4 ++ " in").group ++
+      Format.line ++ Expr_repr e.kind
+    | Expr.match xs ty eqns, _ => "match " ++
+      Format.joinSep (xs.toList.map fun x => Expr_repr x.kind) ", " ++ optTy ty ++ " with" ++
+      (if eqns.isEmpty then " end" else Arms_repr eqns ++ Format.line ++ "end" : Format)
+    | Expr.do braces els, p => Format.parenPrec 1000 p $
+      let s := Format.line ++ (("," ++ Format.line).joinSep
+        (els.toList.map fun el => DoElem_repr el.kind)).nest 2
+      if braces then "do" ++ s else "do {" ++ s ++ " }"
+    | Expr.«{,}» es, _ => (Format.joinSep (es.toList.map fun e => Expr_repr e.kind) ", ").bracket "{" "}"
+    | Expr.subtype setOf x ty p, _ =>
+      "{" ++ x.kind.toString ++ optTy ty ++
+      (if setOf then " | " else " // ") ++ Expr_repr p.kind ++ "}"
+    | Expr.sep x ty p, _ =>
+      "{" ++ x.kind.toString ++ " ∈ " ++ Expr_repr ty.kind ++ " | " ++ Expr_repr p.kind ++ "}"
+    | Expr.setReplacement e bis, _ =>
+      "{(" ++ Expr_repr e.kind ++ ") |" ++ Binders_repr bis false ++ "}"
+    | Expr.structInst S src flds srcs catchall, _ => Format.nest 2 $ Format.group $ "{ " ++
+      (match S with | none => "" | some S => S.kind.toString ++ " ." ++ Format.line : Format) ++
+      (match src with | none => "" | some s => Expr_repr s.kind ++ " with" ++ Format.line : Format) ++
+      (("," ++ Format.line).joinSep $
+        flds.toList.map (fun (i, s) => i.kind.toString ++ " := " ++ Expr_repr s.kind) ++
+        srcs.toList.map (fun s => ".." ++ Expr_repr s.kind) ++
+        if catchall then [(".." : Format)] else []) ++ " }"
+    | Expr.atPat lhs rhs, p => Format.parenPrec 1000 p $
+      Expr_repr lhs.kind max_prec ++ "@" ++ Expr_repr rhs.kind max_prec
+    | Expr.notation n args, _ => repr n ++
+      (Format.joinSep (args.toList.map fun e => Arg_repr e.kind) ", ").paren
+    | Expr.userNotation n args, p => Format.parenPrec 1000 p $ n.toString ++
+      Format.join (args.toList.map fun a => " " ++ Param_repr a.kind)
 
-partial def Arg_repr : Arg → Format
-  | Arg.expr e => Expr_repr e
-  | Arg.exprs es => (Format.joinSep (es.toList.map fun e => Expr_repr e.kind) ", ").sbracket
-  | Arg.binder bi => Binder_repr bi
-  | Arg.binders bis => spaced (fun m => Binder_repr m.kind) bis
+  partial def Arg_repr : Arg → Format
+    | Arg.expr e => Expr_repr e
+    | Arg.exprs es => (Format.joinSep (es.toList.map fun e => Expr_repr e.kind) ", ").sbracket
+    | Arg.binder bi => Binder_repr bi
+    | Arg.binders bis => spaced (fun m => Binder_repr m.kind) bis
 
-partial def Arm_repr : Arm → Format
-  | ⟨lhs, rhs⟩ =>
-    "\n| " ++ Format.joinSep (lhs.toList.map fun e => Expr_repr e.kind) ", " ++
-    " := " ++ Expr_repr rhs.kind
+  partial def Arm_repr : Arm → Format
+    | ⟨lhs, rhs⟩ =>
+      "\n| " ++ Format.joinSep (lhs.toList.map fun e => Expr_repr e.kind) ", " ++
+      " := " ++ Expr_repr rhs.kind
 
-partial def DoElem_repr : DoElem → Format
-  | DoElem.let bi => "let " ++ Binder_repr bi.kind false
-  | DoElem.«←» lhs ty rhs els =>
-    Expr_repr lhs.kind ++ " " ++ optTy ty ++ Expr_repr rhs.kind ++
-    match els with | none => "" | some e => Expr_repr e.kind
-  | DoElem.eval e => Expr_repr e.kind
+  partial def DoElem_repr : DoElem → Format
+    | DoElem.let bi => "let " ++ Binder_repr bi.kind false
+    | DoElem.«←» lhs ty rhs els =>
+      Expr_repr lhs.kind ++ " " ++ optTy ty ++ Expr_repr rhs.kind ++
+      match els with | none => "" | some e => Expr_repr e.kind
+    | DoElem.eval e => Expr_repr e.kind
 
-partial def Arms_repr (arms : Array Arm) : Format :=
-  if arms.isEmpty then "." else Format.join $ arms.toList.map Arm_repr
+  partial def Arms_repr (arms : Array Arm) : Format :=
+    if arms.isEmpty then "." else Format.join $ arms.toList.map Arm_repr
 
-partial def Proof_repr' : Proof → Format
-  | Proof.from true e => " := " ++ Expr_repr e.kind
-  | p => ", " ++ Proof_repr p
+  partial def Proof_repr' : Proof → Format
+    | Proof.from true e => " := " ++ Expr_repr e.kind
+    | p => ", " ++ Proof_repr p
 
-partial def Proof_repr : Proof → Format
-  | Proof.from _ e => "from " ++ Expr_repr e.kind
-  | Proof.block tacs => Block_repr tacs
-  | Proof.by tac => "by " ++ Tactic_repr tac.kind
+  partial def Proof_repr : Proof → Format
+    | Proof.from _ e => "from " ++ Expr_repr e.kind
+    | Proof.block tacs => Block_repr tacs
+    | Proof.by tac => "by " ++ Tactic_repr tac.kind
 
-partial def Tactic_repr : Tactic → Format
-  | Tactic.«;» tacs =>
-    Format.joinSep (tacs.toList.map fun t => Tactic_repr t.kind) "; "
-  | Tactic.«<|>» tacs =>
-    Format.joinSep (tacs.toList.map fun t => Tactic_repr t.kind) " <|> "
-  | Tactic.«[]» tacs =>
-    (Format.joinSep (tacs.toList.map fun t => Tactic_repr t.kind) ", ").sbracket
-  | Tactic.block tacs => Block_repr tacs
-  | Tactic.by tac => "by " ++ Tactic_repr tac.kind
-  | Tactic.exact_shortcut e => Expr_repr e.kind
-  | Tactic.expr tac => Expr_repr tac.kind
-  | Tactic.interactive n args => n.toString ++
-    Format.join (args.toList.map fun a => " " ++ Param_repr a.kind)
+  partial def Tactic_repr : Tactic → Format
+    | Tactic.«;» tacs =>
+      Format.joinSep (tacs.toList.map fun t => Tactic_repr t.kind) "; "
+    | Tactic.«<|>» tacs =>
+      Format.joinSep (tacs.toList.map fun t => Tactic_repr t.kind) " <|> "
+    | Tactic.«[]» tacs =>
+      (Format.joinSep (tacs.toList.map fun t => Tactic_repr t.kind) ", ").sbracket
+    | Tactic.block tacs => Block_repr tacs
+    | Tactic.by tac => "by " ++ Tactic_repr tac.kind
+    | Tactic.exact_shortcut e => Expr_repr e.kind
+    | Tactic.expr tac => Expr_repr tac.kind
+    | Tactic.interactive n args => n.toString ++
+      Format.join (args.toList.map fun a => " " ++ Param_repr a.kind)
 
-partial def Block_repr : Block → Format
-  | ⟨curly, cl, cfg, tacs⟩ =>
-    let s₁ := match cl with | none => "" | some cl => " [" ++ cl.kind.toString ++ "]"
-    let s₂ : Format := match cfg with | none => "" | some e => " with " ++ Expr_repr e.kind ++ ","
-    let s₃ := ("," ++ Format.line).joinSep (tacs.toList.map fun t => Tactic_repr t.kind)
-    if curly then
-      ("{" ++ s₁ ++ s₂ ++ (if cl.isSome || cfg.isSome then Format.line else " ") ++ s₃ ++ " }").nest 2
-    else
-      ("begin" ++ s₁ ++ s₂ ++ Format.line ++ s₃).nest 2 ++ Format.line ++ "end"
+  partial def Block_repr : Block → Format
+    | ⟨curly, cl, cfg, tacs⟩ =>
+      let s₁ := match cl with | none => "" | some cl => " [" ++ cl.kind.toString ++ "]"
+      let s₂ : Format := match cfg with | none => "" | some e => " with " ++ Expr_repr e.kind ++ ","
+      let s₃ := ("," ++ Format.line).joinSep (tacs.toList.map fun t => Tactic_repr t.kind)
+      if curly then
+        ("{" ++ s₁ ++ s₂ ++ (if cl.isSome || cfg.isSome then Format.line else " ") ++ s₃ ++ " }").nest 2
+      else
+        ("begin" ++ s₁ ++ s₂ ++ Format.line ++ s₃).nest 2 ++ Format.line ++ "end"
 
-partial def Param_repr : Param → Format
-  | Param.parse e => repr e
-  | Param.expr e => Expr_repr e.kind
-  | Param.block e => Block_repr e
+  partial def Param_repr : Param → Format
+    | Param.parse e => repr e
+    | Param.expr e => Expr_repr e.kind
+    | Param.block e => Block_repr e
 
-partial def optPrec_repr : Option #Precedence → Format
-  | none => ""
-  | some p => ":" ++ Precedence_repr p.kind
+  partial def optPrec_repr : Option #Precedence → Format
+    | none => ""
+    | some p => ":" ++ Precedence_repr p.kind
 
-partial def PrecSymbol_repr : PrecSymbol → Format
-  | (sym, prec) => repr sym ++ optPrec_repr prec
+  partial def PrecSymbol_repr : PrecSymbol → Format
+    | (sym, prec) => repr sym ++ optPrec_repr prec
 
-partial def Action_repr : Action → Format
-  | Action.prec p => Precedence_repr p
-  | Action.prev => "prev"
-  | Action.scoped p none => "scoped" ++ optPrec_repr p
-  | Action.scoped p (some (x, e)) =>
-    "(scoped" ++ optPrec_repr p ++ " " ++ x.kind.toString ++ ", " ++ Expr_repr e.kind ++ ")"
-  | Action.fold r p sep (x, y, «rec») ini term =>
-    "(fold" ++ (if r then "r" else "l") ++ optPrec_repr p ++ " " ++
-    PrecSymbol_repr sep ++
-    " (" ++ x.kind.toString ++ " " ++ y.kind.toString ++ ", " ++ Expr_repr rec.kind ++ ")" ++
-    (match ini with | none => "" | some ini => " " ++ Expr_repr ini.kind) ++
-    (match term with | none => "" | some term => " " ++ PrecSymbol_repr term) ++ ")"
+  partial def Action_repr : Action → Format
+    | Action.prec p => Precedence_repr p
+    | Action.prev => "prev"
+    | Action.scoped p none => "scoped" ++ optPrec_repr p
+    | Action.scoped p (some (x, e)) =>
+      "(scoped" ++ optPrec_repr p ++ " " ++ x.kind.toString ++ ", " ++ Expr_repr e.kind ++ ")"
+    | Action.fold r p sep (x, y, «rec») ini term =>
+      "(fold" ++ (if r then "r" else "l") ++ optPrec_repr p ++ " " ++
+      PrecSymbol_repr sep ++
+      " (" ++ x.kind.toString ++ " " ++ y.kind.toString ++ ", " ++ Expr_repr rec.kind ++ ")" ++
+      (match ini with | none => "" | some ini => " " ++ Expr_repr ini.kind) ++
+      (match term with | none => "" | some term => " " ++ PrecSymbol_repr term) ++ ")"
 
-partial def Literal_repr : Literal → Format
-  | Literal.nat n => repr n
-  | Literal.sym sym => PrecSymbol_repr sym
-  | Literal.binder prec => "binder" ++ optPrec_repr prec
-  | Literal.binders prec => "binders" ++ optPrec_repr prec
-  | Literal.var v a => (v.kind.toString : Format) ++
-    match a with | none => "" | some a => ":" ++ Action_repr a.kind
+  partial def Literal_repr : Literal → Format
+    | Literal.nat n => repr n
+    | Literal.sym sym => PrecSymbol_repr sym
+    | Literal.binder prec => "binder" ++ optPrec_repr prec
+    | Literal.binders prec => "binders" ++ optPrec_repr prec
+    | Literal.var v a => (v.kind.toString : Format) ++
+      match a with | none => "" | some a => ":" ++ Action_repr a.kind
 
-partial def Notation_repr : Notation → (attrs : Attributes := #[]) → Format
-  | Notation.mixfix mk sym val, attrs => repr mk ++ " " ++
-    (if attrs.isEmpty then "" else Attributes_repr attrs ++ " " : Format) ++
-    PrecSymbol_repr sym ++
-    (match val with | none => "" | some e => " := " ++ Expr_repr e.kind)
-  | Notation.notation lits val, attrs => "notation" ++
-    spacedBefore (fun n => Literal_repr n.kind) lits ++
-    (match val with | none => "" | some e => " := " ++ Expr_repr e.kind)
+  partial def Notation_repr : Notation → (attrs : Attributes := #[]) → Format
+    | Notation.mixfix mk sym val, attrs => repr mk ++ " " ++
+      (if attrs.isEmpty then "" else Attributes_repr attrs ++ " " : Format) ++
+      PrecSymbol_repr sym ++
+      (match val with | none => "" | some e => " := " ++ Expr_repr e.kind)
+    | Notation.notation lits val, attrs => "notation" ++
+      spacedBefore (fun n => Literal_repr n.kind) lits ++
+      (match val with | none => "" | some e => " := " ++ Expr_repr e.kind)
 
 end
 

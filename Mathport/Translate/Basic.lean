@@ -9,7 +9,7 @@ import Mathport.Parse
 
 namespace Mathport
 
-open Lean hiding Expr
+open Lean hiding Expr Expr.app Expr.const Expr.sort Level Level.imax Level.max Level.param
 open Lean.Elab (Visibility)
 
 namespace Translate
@@ -77,63 +77,165 @@ instance [Inhabited β] : Inhabited (WithArray α β n) := ⟨go n⟩ where go
 def trDocComment (doc : String) : Syntax :=
   mkNode ``Parser.Command.docComment #[mkAtom "/--", mkAtom (doc ++ "-/")]
 
+partial def scientificLitOfDecimal (num den : Nat) : Option Syntax :=
+  findExp num den 0 |>.map fun (m, e) =>
+    let str := toString m
+    if e == str.length then
+      Syntax.mkScientificLit ("0." ++ str)
+    else if e < str.length then
+      let mStr := str.extract 0 (str.length - e)
+      let eStr := str.extract (str.length - e) str.length
+      Syntax.mkScientificLit (mStr ++ "." ++ eStr)
+    else
+      Syntax.mkScientificLit (str ++ "e-" ++ toString e)
+where
+  findExp n d exp :=
+    if d % 10 == 0 then findExp n (d / 10) (exp + 1)
+    else if d == 1 then some (n, exp)
+    else if d % 2 == 0 then findExp (n * 5) (d / 2) (exp + 1)
+    else if d % 5 == 0 then findExp (n * 2) (d / 5) (exp + 1)
+    else none
+
 structure BinderContext where
   -- if true, only allow simple for no type
   allowSimple : Option Bool := none
+  allowExpr : Bool := false
   requireType := false
+
+partial def trLevel : Level → M Syntax
+  | Level.«_» => `(level| _)
+  | Level.nat n => Syntax.mkNumLit (toString n)
+  | Level.add l n => do `(level| $(← trLevel l.kind) + $(Syntax.mkNumLit (toString n.kind)))
+  | Level.imax ls => do `(level| imax $[$(← ls.mapM fun l => trLevel l.kind)]*)
+  | Level.max ls => do `(level| max $[$(← ls.mapM fun l => trLevel l.kind)]*)
+  | Level.param u => mkIdent u
+  | Level.paren l => do `(level| ($(← trLevel l.kind)))
 
 def trTacticSeq : Tactic → M Syntax
   | _ => throwError "unsupported (TODO)"
 
-def trExpr : Expr → M Syntax
-  | _ => throwError "unsupported (TODO)"
-
-def trPrio : Expr → M Syntax
-  | _ => throwError "unsupported (TODO)"
+partial def trPrio : Expr → M Syntax
+  | Expr.nat n => Syntax.mkNumLit (toString n)
+  | Expr.paren e => do `(prio| ($(← trPrio e.kind)))
+  | _ => throwError "unsupported"
 
 def trBinderName : BinderName → Syntax
   | BinderName.ident n => mkIdent n
   | BinderName.«_» => mkHole arbitrary
 
-def trBinderDefault (allowTac := true) : Default → M Syntax
-  | Default.«:=» e => do `(Parser.Term.binderDefault| := $(← trExpr e.kind))
-  | Default.«.» e => do
-    unless allowTac do throwError "unsupported"
-    `(Parser.Term.binderTactic| := by $(← trTacticSeq $ Tactic.expr $ e.map Expr.ident))
+mutual
 
-def trBinder : BinderContext → Binder → Array Syntax → M (Array Syntax)
-  | _, Binder.binder BinderInfo.instImplicit vars _ (some ty) none, out => do
-    let var ← match vars with
-    | none => #[]
-    | some vars => withArray vars 1 fun v => pure #[trBinderName v.kind, mkAtom ":"]
-    out.push $ mkNode ``Parser.Term.instBinder
-      #[mkAtom "[", mkNode nullKind var, ← trExpr ty.kind, mkAtom "]"]
-  | ⟨some true, _⟩, Binder.binder BinderInfo.default (some vars) #[] none none, out =>
-    out.push <$> trSimple vars none
-  | ⟨some false, _⟩, Binder.binder BinderInfo.default (some vars) #[] ty none, out =>
-    out.push <$> trSimple vars ty
-  | ⟨_, req⟩, Binder.binder bi (some vars) bis ty dflt, out => do
-    let vars := mkNode nullKind $ vars.map fun v => trBinderName v.kind
-    let ty := match req, ty with
-    | true, none => some Expr.«_»
-    | _, _ => ty.map fun ty => ty.kind
-    let ty ← mkNode nullKind <$> match ty with
-    | none => #[]
-    | some ty => do pure #[mkAtom ":", ← trExpr ty]
-    if bi == BinderInfo.implicit then
-      out.push $ mkNode ``Parser.Term.implicitBinder #[mkAtom "(", vars, ty, mkAtom ")"]
-    else
-      let dflt ← mkOptionalNode <$> dflt.mapM trBinderDefault
-      out.push $ mkNode ``Parser.Term.explicitBinder #[mkAtom "(", vars, ty, dflt, mkAtom ")"]
-  | _, _, _ => throwError "unsupported"
-where
-  trSimple vars ty : M Syntax := do
-    let vars := mkNode nullKind $ vars.map fun v => trBinderName v.kind
-    let ty ← ty.mapM fun ty => trExpr ty.kind
-    mkNode ``Parser.Term.simpleBinder #[vars, mkOptionalNode ty]
+  partial def trBinderDefault (allowTac := true) : Default → M Syntax
+    | Default.«:=» e => do `(Parser.Term.binderDefault| := $(← trExpr e.kind))
+    | Default.«.» e => do
+      unless allowTac do throwError "unsupported"
+      `(Parser.Term.binderTactic| := by $(← trTacticSeq $ Tactic.expr $ e.map Expr.ident))
 
-def trBinders (bc : BinderContext) (bis : Array (Spanned Binder)) : M (Array Syntax) := do
-  bis.foldlM (fun out bi => trBinder bc bi.kind out) #[]
+  partial def trBinder : BinderContext → Binder → Array Syntax → M (Array Syntax)
+    | _, Binder.binder BinderInfo.instImplicit vars _ (some ty) none, out => do
+      let var ← match vars with
+      | none => #[]
+      | some vars => withArray vars 1 fun v => pure #[trBinderName v.kind, mkAtom ":"]
+      out.push $ mkNode ``Parser.Term.instBinder
+        #[mkAtom "[", mkNode nullKind var, ← trExpr ty.kind, mkAtom "]"]
+    | ⟨allowSimp, _, req⟩, Binder.binder bi (some vars) bis ty dflt, out => do
+      let ty := match req || !bis.isEmpty, ty with
+      | true, none => some Expr.«_»
+      | _, _ => ty.map fun ty => ty.kind
+      let bis ← trBinders { requireType := true } bis
+      let ty ← ty.mapM fun ty => do
+        pure $ bis.foldr (init := ← trExpr ty) fun bi ty =>
+          mkNode ``Parser.Term.depArrow #[bi, mkAtom "→", ty]
+      let vars := mkNode nullKind $ vars.map fun v => trBinderName v.kind
+      if let some stx ← trSimple allowSimp bi vars ty dflt then return out.push stx
+      let ty ← mkNode nullKind <$> match ty with
+      | none => #[]
+      | some ty => do pure #[mkAtom ":", ty]
+      if bi == BinderInfo.implicit then
+        out.push $ mkNode ``Parser.Term.implicitBinder #[mkAtom "(", vars, ty, mkAtom ")"]
+      else
+        let dflt ← mkOptionalNode <$> dflt.mapM trBinderDefault
+        out.push $ mkNode ``Parser.Term.explicitBinder #[mkAtom "(", vars, ty, dflt, mkAtom ")"]
+    | ⟨_, true, _⟩, Binder.«⟨⟩» args, out => do out.push $ ← trExpr (Expr.«⟨⟩» args)
+    | _, _, _ => throwError "unsupported"
+  where
+    mkDArrow bis (ty : Syntax) : M Syntax := do
+      let bis ← trBinders { requireType := true } bis
+      pure $ bis.foldr (init := ty) fun bi ty =>
+        mkNode ``Parser.Term.depArrow #[bi, mkAtom "→", ty]
+    trSimple
+    | some b, BinderInfo.default, vars, ty, none =>
+      if b && ty.isSome then none
+      else mkNode ``Parser.Term.simpleBinder #[vars, mkOptionalNode ty]
+    | _, _, _, _, _ => none
+
+  partial def trBinders (bc : BinderContext) (bis : Array (Spanned Binder)) : M (Array Syntax) := do
+    bis.foldlM (fun out bi => trBinder bc bi.kind out) #[]
+
+  partial def trExpr : Expr → M Syntax
+    | Expr.«...» => throwError "unsupported"
+    | Expr.sorry => `(sorry)
+    | Expr.«_» => `(_)
+    | Expr.«()» => `(())
+    | Expr.«{}» => `({})
+    | Expr.ident n => mkIdent n
+    | Expr.const _ n none => mkIdent n.kind
+    | Expr.const _ n (some #[]) => mkIdent n.kind
+    | Expr.const _ n (some l) => do
+      mkNode ``Parser.Term.explicitUniv #[mkIdent n.kind,
+        mkAtom ".{", (mkAtom ",").mkSep $ ← l.mapM fun e => trLevel e.kind, mkAtom "}"]
+    | Expr.nat n => Syntax.mkNumLit (toString n)
+    | Expr.decimal n d => (scientificLitOfDecimal n d).get!
+    | Expr.string s => Syntax.mkStrLit s
+    | Expr.char c => Syntax.mkCharLit c
+    | Expr.paren e => do `(($(← trExpr e.kind)))
+    | Expr.sort ty st u => do
+      match ty, if st then some Level._ else u.map Spanned.kind with
+      | false, none => `(Sort)
+      | false, some u => do `(Sort $(← trLevel u))
+      | true, none => `(Type)
+      | true, some u => do `(Type $(← trLevel u))
+    | Expr.«→» lhs rhs => do `($(← trExpr lhs.kind) → $(← trExpr rhs.kind))
+    | Expr.fun true #[⟨_, _, Binder.binder _ none _ (some ty) _⟩] e => do
+      `(fun this: $(← trExpr ty.kind) => $(← trExpr e.kind))
+    | Expr.fun _ bis e => do
+      let bis ← trBinders { allowSimple := some false, allowExpr := true } bis
+      `(fun $[$bis]* => $(← trExpr e.kind))
+    | Expr.Pi bis e => throwError "unsupported (TODO)"
+    | Expr.app f x => throwError "unsupported (TODO)"
+    | Expr.show t pr => throwError "unsupported (TODO)"
+    | Expr.have suff h t pr e => throwError "unsupported (TODO)"
+    | Expr.«.» compact e pr => throwError "unsupported (TODO)"
+    | Expr.if h c t e => throwError "unsupported (TODO)"
+    | Expr.calc args => throwError "unsupported (TODO)"
+    | Expr.«@» part e => throwError "unsupported (TODO)"
+    | Expr.pattern e => throwError "unsupported (TODO)"
+    | Expr.«`()» lazy expr e => throwError "unsupported (TODO)"
+    | Expr.«%%» e => throwError "unsupported (TODO)"
+    | Expr.«`[]» tacs => throwError "unsupported (TODO)"
+    | Expr.«`» res n => throwError "unsupported (TODO)"
+    | Expr.«⟨⟩» es => throwError "unsupported (TODO)"
+    | Expr.infix_fn c e => throwError "unsupported (TODO)"
+    | Expr.«(,)» es => throwError "unsupported (TODO)"
+    | Expr.«.()» e => throwError "unsupported (TODO)"
+    | Expr.«:» e ty => throwError "unsupported (TODO)"
+    | Expr.hole es => throwError "unsupported (TODO)"
+    | Expr.«#[]» es => throwError "unsupported (TODO)"
+    | Expr.by tac => throwError "unsupported (TODO)"
+    | Expr.begin tacs => throwError "unsupported (TODO)"
+    | Expr.let bis e => throwError "unsupported (TODO)"
+    | Expr.match xs ty eqns => throwError "unsupported (TODO)"
+    | Expr.do braces els => throwError "unsupported (TODO)"
+    | Expr.«{,}» es => throwError "unsupported (TODO)"
+    | Expr.subtype setOf x ty p => throwError "unsupported (TODO)"
+    | Expr.sep x ty p => throwError "unsupported (TODO)"
+    | Expr.setReplacement e bis => throwError "unsupported (TODO)"
+    | Expr.structInst S src flds srcs catchall => throwError "unsupported (TODO)"
+    | Expr.atPat lhs rhs => throwError "unsupported (TODO)"
+    | Expr.notation n args => throwError "unsupported (TODO)"
+    | Expr.userNotation n args => throwError "unsupported (TODO)"
+
+end
 
 inductive TrAttr
   | del : Syntax → TrAttr
