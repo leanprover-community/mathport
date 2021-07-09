@@ -280,13 +280,26 @@ mutual
     | «:=» : #Expr → Default
     | «.» : #Name → Default
 
+  inductive Notation
+    | «notation» : Array #Literal → Option #Expr → Notation
+    | mixfix : MixfixKind → PrecSymbol → Option #Expr → Notation
+    deriving Inhabited
+
   inductive Binder
+    | «notation» : Notation → Binder
     | binder : BinderInfo → Option (Array #BinderName) →
       Binders → Option #Expr → Option Default → Binder
-    | «⟨⟩» : Array #Expr → Binder
-    | «notation» : Notation → Binder
-    | var : #BinderName → Binders → Option #Expr → #Expr → Binder
-    | pat : #Expr → #Expr → Binder
+    deriving Inhabited
+
+  inductive LambdaBinder
+    | reg : Binder → LambdaBinder
+    | «⟨⟩» : Array #Expr → LambdaBinder
+    deriving Inhabited
+
+  inductive LetBinder
+    | «notation» : Notation → LetBinder
+    | var : #BinderName → Binders → Option #Expr → #Expr → LetBinder
+    | pat : #Expr → #Expr → LetBinder
     deriving Inhabited
 
   inductive Arg
@@ -311,7 +324,7 @@ mutual
     | paren : #Expr → Expr
     | sort (isType isStar : Bool) : Option #Level → Expr
     | app : #Expr → #Expr → Expr
-    | «fun» (isAssume : Bool) : Binders → #Expr → Expr
+    | «fun» (isAssume : Bool) : Array #LambdaBinder → #Expr → Expr
     | «→» : #Expr → #Expr → Expr
     | Pi : Binders → #Expr → Expr
     | «show» : #Expr → #Proof → Expr
@@ -333,7 +346,7 @@ mutual
     | «#[]» : Array #Expr → Expr
     | «by» : #Tactic → Expr
     | begin : Block → Expr
-    | «let» : Binders → #Expr → Expr
+    | «let» : Array #LetBinder → #Expr → Expr
     | «match» : Array #Expr → Option #Expr → Array Arm → Expr
     | «do» (braces : Bool) : Array #DoElem → Expr
     | «{,}» : Array #Expr → Expr
@@ -342,7 +355,7 @@ mutual
     | setReplacement : #Expr → Binders → Expr
     | structInst (ty : Option #Name) (src : Option #Expr)
       (fields : Array (#Name × #Expr)) (srcs : Array #Expr) (catchall : Bool) : Expr
-    | atPat : #Expr → #Expr → Expr
+    | atPat : #Name → #Expr → Expr
     | «.()» : #Expr → Expr
     | «notation» (n : Choice) : Array #Arg → Expr
     | userNotation (n : Name) : Array #Param → Expr
@@ -402,11 +415,6 @@ mutual
     | sym : PrecSymbol → Literal
     | binder : Option #Precedence → Literal
     | binders : Option #Precedence → Literal
-    deriving Inhabited
-
-  inductive Notation
-    | mixfix : MixfixKind → PrecSymbol → Option #Expr → Notation
-    | «notation» : Array #Literal → Option #Expr → Notation
     deriving Inhabited
 
 end
@@ -622,18 +630,26 @@ mutual
       Default_repr dflt
     | Binder.binder bi (some vars) bis ty dflt, paren => bi.bracket paren $
       spaced repr vars ++ Binders_repr bis ++ optTy ty ++ Default_repr dflt
-    | Binder.«⟨⟩» args, _ =>
-      (Format.joinSep (args.toList.map fun e => Expr_repr e.kind) ", ").bracket "⟨" "⟩"
-    | Binder.var v bis ty val, paren => BinderInfo.default.bracket paren $
-      repr v ++ Binders_repr bis ++ optTy ty ++
-      " := " ++ Expr_repr val.kind
-    | Binder.pat pat val, paren => BinderInfo.default.bracket paren $
-      Expr_repr pat.kind ++ " := " ++ Expr_repr val.kind
-    | Binder.notation n, paren => BinderInfo.default.bracket paren $ Notation_repr n #[]
+    | Binder.notation n, _ => (Notation_repr n #[]).paren
 
   partial def Binders_repr (bis : Binders) (paren := true) : Format :=
     let paren := paren || bis.size ≠ 1
     spacedBefore (fun m => Binder_repr m.kind paren) bis
+
+  partial def LambdaBinder_repr : LambdaBinder → (paren :_:= true) → Format
+    | LambdaBinder.reg bi, paren => Binder_repr bi paren
+    | LambdaBinder.«⟨⟩» args, _ =>
+      (Format.joinSep (args.toList.map fun e => Expr_repr e.kind) ", ").bracket "⟨" "⟩"
+
+  partial def LambdaBinders_repr (bis : Array #LambdaBinder) (paren := true) : Format :=
+    let paren := paren || bis.size ≠ 1
+    spacedBefore (fun m => LambdaBinder_repr m.kind paren) bis
+
+  partial def LetBinder_repr : LetBinder → Format
+    | LetBinder.var v bis ty val =>
+      repr v ++ Binders_repr bis ++ optTy ty ++ " := " ++ Expr_repr val.kind
+    | LetBinder.pat pat val => Expr_repr pat.kind ++ " := " ++ Expr_repr val.kind
+    | LetBinder.notation n => Notation_repr n #[]
 
   partial def Expr_repr : Expr → (prec : _ := 0) → Format
     | Expr.«...», _ => "..."
@@ -658,12 +674,12 @@ mutual
       (match
           if as && bis.size == 1 then
             match bis[0].kind with
-            | Binder.binder _ none _ ty _ => ty
+            | LambdaBinder.reg (Binder.binder _ none _ ty _) => ty
             | _ => none
           else none
         with
         | some ty => ": " ++ Expr_repr ty.kind
-        | none => Binders_repr bis false) ++
+        | none => LambdaBinders_repr bis false) ++
       ", " ++ Expr_repr e.kind
     | Expr.Pi bis e, p => Format.parenPrec max_prec p $ "∀" ++
       Binders_repr bis false ++ ", " ++ Expr_repr e.kind
@@ -712,7 +728,7 @@ mutual
     | Expr.begin tacs, p => Format.parenPrec 1000 p $ Block_repr tacs
     | Expr.let bis e, p => Format.parenPrec 1000 p $
       ("let " ++ (("," ++ Format.line).joinSep
-        (bis.toList.map fun bi => Binder_repr bi.kind false)).nest 4 ++ " in").group ++
+        (bis.toList.map fun bi => LetBinder_repr bi.kind)).nest 4 ++ " in").group ++
       Format.line ++ Expr_repr e.kind
     | Expr.match xs ty eqns, _ => "match " ++
       Format.joinSep (xs.toList.map fun x => Expr_repr x.kind) ", " ++ optTy ty ++ " with" ++
@@ -737,7 +753,7 @@ mutual
         srcs.toList.map (fun s => ".." ++ Expr_repr s.kind) ++
         if catchall then [(".." : Format)] else []) ++ " }"
     | Expr.atPat lhs rhs, p => Format.parenPrec 1000 p $
-      Expr_repr lhs.kind max_prec ++ "@" ++ Expr_repr rhs.kind max_prec
+      lhs.kind.toString ++ "@" ++ Expr_repr rhs.kind max_prec
     | Expr.notation n args, _ => repr n ++
       (Format.joinSep (args.toList.map fun e => Arg_repr e.kind) ", ").paren
     | Expr.userNotation n args, p => Format.parenPrec 1000 p $ n.toString ++

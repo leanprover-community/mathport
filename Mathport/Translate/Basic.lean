@@ -99,7 +99,6 @@ where
 structure BinderContext where
   -- if true, only allow simple for no type
   allowSimple : Option Bool := none
-  allowExpr : Bool := false
   requireType := false
 
 partial def trLevel : Level → M Syntax
@@ -111,9 +110,6 @@ partial def trLevel : Level → M Syntax
   | Level.param u => mkIdent u
   | Level.paren l => do `(level| ($(← trLevel l.kind)))
 
-def trTacticSeq : Tactic → M Syntax
-  | _ => throwError "unsupported (TODO)"
-
 partial def trPrio : Expr → M Syntax
   | Expr.nat n => Syntax.mkNumLit (toString n)
   | Expr.paren e => do `(prio| ($(← trPrio e.kind)))
@@ -123,13 +119,21 @@ def trBinderName : BinderName → Syntax
   | BinderName.ident n => mkIdent n
   | BinderName.«_» => mkHole arbitrary
 
+inductive TacticContext
+  | seq
+
 mutual
 
   partial def trBinderDefault (allowTac := true) : Default → M Syntax
     | Default.«:=» e => do `(Parser.Term.binderDefault| := $(← trExpr e.kind))
     | Default.«.» e => do
       unless allowTac do throwError "unsupported"
-      `(Parser.Term.binderTactic| := by $(← trTacticSeq $ Tactic.expr $ e.map Expr.ident))
+      `(Parser.Term.binderTactic| := by $(← trTactic $ Tactic.expr $ e.map Expr.ident))
+
+  partial def trDArrow (bis : Array (Spanned Binder)) (ty : Expr) : M Syntax := do
+    let bis ← trBinders { requireType := true } bis
+    pure $ bis.foldr (init := ← trExpr ty) fun bi ty =>
+      mkNode ``Parser.Term.depArrow #[bi, mkAtom "→", ty]
 
   partial def trBinder : BinderContext → Binder → Array Syntax → M (Array Syntax)
     | _, Binder.binder BinderInfo.instImplicit vars _ (some ty) none, out => do
@@ -138,14 +142,11 @@ mutual
       | some vars => withArray vars 1 fun v => pure #[trBinderName v.kind, mkAtom ":"]
       out.push $ mkNode ``Parser.Term.instBinder
         #[mkAtom "[", mkNode nullKind var, ← trExpr ty.kind, mkAtom "]"]
-    | ⟨allowSimp, _, req⟩, Binder.binder bi (some vars) bis ty dflt, out => do
+    | ⟨allowSimp, req⟩, Binder.binder bi (some vars) bis ty dflt, out => do
       let ty := match req || !bis.isEmpty, ty with
       | true, none => some Expr.«_»
       | _, _ => ty.map fun ty => ty.kind
-      let bis ← trBinders { requireType := true } bis
-      let ty ← ty.mapM fun ty => do
-        pure $ bis.foldr (init := ← trExpr ty) fun bi ty =>
-          mkNode ``Parser.Term.depArrow #[bi, mkAtom "→", ty]
+      let ty ← ty.mapM (trDArrow bis)
       let vars := mkNode nullKind $ vars.map fun v => trBinderName v.kind
       if let some stx ← trSimple allowSimp bi vars ty dflt then return out.push stx
       let ty ← mkNode nullKind <$> match ty with
@@ -156,13 +157,8 @@ mutual
       else
         let dflt ← mkOptionalNode <$> dflt.mapM trBinderDefault
         out.push $ mkNode ``Parser.Term.explicitBinder #[mkAtom "(", vars, ty, dflt, mkAtom ")"]
-    | ⟨_, true, _⟩, Binder.«⟨⟩» args, out => do out.push $ ← trExpr (Expr.«⟨⟩» args)
     | _, _, _ => throwError "unsupported"
   where
-    mkDArrow bis (ty : Syntax) : M Syntax := do
-      let bis ← trBinders { requireType := true } bis
-      pure $ bis.foldr (init := ty) fun bi ty =>
-        mkNode ``Parser.Term.depArrow #[bi, mkAtom "→", ty]
     trSimple
     | some b, BinderInfo.default, vars, ty, none =>
       if b && ty.isSome then none
@@ -171,6 +167,10 @@ mutual
 
   partial def trBinders (bc : BinderContext) (bis : Array (Spanned Binder)) : M (Array Syntax) := do
     bis.foldlM (fun out bi => trBinder bc bi.kind out) #[]
+
+  partial def trLambdaBinder : LambdaBinder → Array Syntax → M (Array Syntax)
+    | LambdaBinder.reg bi, out => trBinder { allowSimple := some false } bi out
+    | LambdaBinder.«⟨⟩» args, out => do out.push $ ← trExpr (Expr.«⟨⟩» args)
 
   partial def trExpr : Expr → M Syntax
     | Expr.«...» => throwError "unsupported"
@@ -196,14 +196,23 @@ mutual
       | true, none => `(Type)
       | true, some u => do `(Type $(← trLevel u))
     | Expr.«→» lhs rhs => do `($(← trExpr lhs.kind) → $(← trExpr rhs.kind))
-    | Expr.fun true #[⟨_, _, Binder.binder _ none _ (some ty) _⟩] e => do
+    | Expr.fun true #[⟨_, _, LambdaBinder.reg (Binder.binder _ none _ (some ty) _)⟩] e => do
       `(fun this: $(← trExpr ty.kind) => $(← trExpr e.kind))
     | Expr.fun _ bis e => do
-      let bis ← trBinders { allowSimple := some false, allowExpr := true } bis
+      let bis ← bis.foldlM (fun out bi => trLambdaBinder bi.kind out) #[]
       `(fun $[$bis]* => $(← trExpr e.kind))
-    | Expr.Pi bis e => throwError "unsupported (TODO)"
-    | Expr.app f x => throwError "unsupported (TODO)"
-    | Expr.show t pr => throwError "unsupported (TODO)"
+    | Expr.Pi bis e => do
+      let dArrowHeuristic := !bis.any fun | ⟨_, _, Binder.binder _ _ _ none _⟩ => true | _ => false
+      if dArrowHeuristic then trDArrow bis e.kind else
+        `(∀ $[$(← trBinders { allowSimple := some false } bis)]*, $(← trExpr e.kind))
+    | e@(Expr.app _ _) => do
+      let rec appArgs : Expr → M (Syntax × Array Syntax)
+      | Expr.app f x => do let (f, args) ← appArgs f.kind; (f, args.push (← trExpr x.kind))
+      | e => do (← trExpr e, #[])
+      let (f, args) ← appArgs e
+      mkNode ``Parser.Term.app #[f, mkNullNode args]
+    | Expr.show t pr => do
+      mkNode ``Parser.Term.show #[mkAtom "show", ← trExpr t.kind, ← trProof pr.kind]
     | Expr.have suff h t pr e => throwError "unsupported (TODO)"
     | Expr.«.» compact e pr => throwError "unsupported (TODO)"
     | Expr.if h c t e => throwError "unsupported (TODO)"
@@ -232,8 +241,25 @@ mutual
     | Expr.setReplacement e bis => throwError "unsupported (TODO)"
     | Expr.structInst S src flds srcs catchall => throwError "unsupported (TODO)"
     | Expr.atPat lhs rhs => throwError "unsupported (TODO)"
-    | Expr.notation n args => throwError "unsupported (TODO)"
-    | Expr.userNotation n args => throwError "unsupported (TODO)"
+    | Expr.notation n args => throwError "unsupported notation {repr n}"
+    | Expr.userNotation n args => throwError "unsupported user notation {n}"
+
+  partial def trProof : Proof → (useFrom : Bool := true) → M Syntax
+    | Proof.«from» _ e, useFrom => do
+      let e ← trExpr e.kind
+      if useFrom then `(Parser.Term.fromTerm| from $e) else e
+    | Proof.block bl, _ => do `(by $(← trBlock bl))
+    | Proof.by tac, _ => do `(by $(← trTactic tac.kind))
+
+  partial def trBlock : Block → (c :_:= TacticContext.seq) → M Syntax
+    | ⟨_, none, none, #[]⟩, TacticContext.seq => do `(Parser.Tactic.tacticSeqBracketed| {})
+    | ⟨_, none, none, tacs⟩, TacticContext.seq =>
+      mkNode ``Parser.Tactic.tacticSeq1Indented <$> tacs.mapM fun tac => do
+        mkGroupNode #[← trTactic tac.kind, mkNullNode]
+    | ⟨_, cl, cfg, tacs⟩, _ => throwError "unsupported (TODO)"
+
+  partial def trTactic : Tactic → (c :_:= TacticContext.seq) → M Syntax
+    | _, _ => throwError "unsupported (TODO)"
 
 end
 

@@ -243,8 +243,8 @@ mutual
     | "Sort", _, args => Expr.sort false false <$> opt getLevel args[0]
     | "Type", _, args => Expr.sort true false <$> opt getLevel args[0]
     | "app", _, args => do Expr.app (← getExpr args[0]) (← getExpr args[1])
-    | "fun", _, args => do Expr.fun false (← getBinders args[0]) (← getExpr args[1])
-    | "assume", _, args => do Expr.fun true (← getBinders args[0]) (← getExpr args[1])
+    | "fun", _, args => do Expr.fun false (← arr getLambdaBinder args[0]) (← getExpr args[1])
+    | "assume", _, args => do Expr.fun true (← arr getLambdaBinder args[0]) (← getExpr args[1])
     | "show", _, args => do Expr.show (← getExpr args[0]) (← getProof args[1])
     | "have", _, args => getHave false args
     | "suffices", _, args => getHave true args
@@ -271,7 +271,7 @@ mutual
     | "#[", _, args => Expr.«#[]» <$> args.mapM getExpr
     | "by", _, args => Expr.by <$> getTactic args[0]
     | "begin", _, args => Expr.begin <$> getBlock false args
-    | "let", _, args => do Expr.let (← getBinders args[0]) (← getExpr args[1])
+    | "let", _, args => do Expr.let (← arr getLetBinder args[0]) (← getExpr args[1])
     | "match", _, args => do
       Expr.match (← arr getExpr args[0]) (← opt getExpr args[1]) (← arr getArm args[2])
     | "do", v, args => Expr.do (!v.isAnonymous) <$> args.mapM getDoElem
@@ -283,7 +283,7 @@ mutual
     | "structinst", _, args => do
       Expr.structInst (← opt getName args[0]) (← opt getExpr args[1])
         (← arr getField args[2]) (← arr getExpr args[3]) (args[4] ≠ 0)
-    | "at_pat", _, args => do Expr.atPat (← getExpr args[0]) (← getExpr args[1])
+    | "at_pat", _, args => do Expr.atPat (← getName args[0]) (← getExpr args[1])
     | ".(", _, args => Expr.«.()» <$> getExpr args[0]
     | "...", _, _ => Expr.«...»
     | "choice", _, args => do
@@ -313,10 +313,6 @@ mutual
     | "binder_2", _, args => binder BinderInfo.strictImplicit args
     | "binder_4", _, args => binder BinderInfo.implicit args
     | "binder_8", _, args => binder BinderInfo.auxDecl args
-    | "⟨", _, args => Binder.«⟨⟩» <$> args.mapM getExpr
-    | "var", _, args => do {Binder.var (← getBinderName args[0])
-      (← getBinders args[1]) (← opt getExpr args[2]) (← getExpr args[3])}
-    | "pat", _, args => do {Binder.pat (← getExpr args[0]) (← getExpr args[1])}
     | k, v, args => match toNotationKind k with
       | some nk => Binder.notation <$> getNotationDef nk args
       | none => throw s!"getBinder parse error, unknown kind {k}"
@@ -325,6 +321,18 @@ mutual
       Binder.binder bi (← opt (arr getBinderName) args[0]) (← getBinders args[1])
         (← opt getExpr args[2]) (← opt getDefault (args.getD 3 0))
   partial def getBinders : AstId → M Binders := arr getBinder
+
+  partial def getLambdaBinder : AstId → M (Spanned LambdaBinder) := withNode fun
+    | "⟨", _, args => LambdaBinder.«⟨⟩» <$> args.mapM getExpr
+    | k, v, args => LambdaBinder.reg <$> getBinder_aux k v args
+
+  partial def getLetBinder : AstId → M (Spanned LetBinder) := withNode fun
+    | "var", _, args => do {LetBinder.var (← getBinderName args[0])
+      (← getBinders args[1]) (← opt getExpr args[2]) (← getExpr args[3])}
+    | "pat", _, args => do {LetBinder.pat (← getExpr args[0]) (← getExpr args[1])}
+    | k, v, args => match toNotationKind k with
+      | some nk => LetBinder.notation <$> getNotationDef nk args
+      | none => throw s!"getBinder parse error, unknown kind {k}"
 
   partial def getDoElem : AstId → M (Spanned DoElem) :=
     withNode fun
