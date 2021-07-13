@@ -296,10 +296,10 @@ mutual
     | «⟨⟩» : Array #Expr → LambdaBinder
     deriving Inhabited
 
-  inductive LetBinder
-    | «notation» : Notation → LetBinder
-    | var : #BinderName → Binders → Option #Expr → #Expr → LetBinder
-    | pat : #Expr → #Expr → LetBinder
+  inductive LetDecl
+    | «notation» : Notation → LetDecl
+    | var : #BinderName → Binders → Option #Expr → #Expr → LetDecl
+    | pat : #Expr → #Expr → LetDecl
     deriving Inhabited
 
   inductive Arg
@@ -346,7 +346,7 @@ mutual
     | «#[]» : Array #Expr → Expr
     | «by» : #Tactic → Expr
     | begin : Block → Expr
-    | «let» : Array #LetBinder → #Expr → Expr
+    | «let» : Array #LetDecl → #Expr → Expr
     | «match» : Array #Expr → Option #Expr → Array Arm → Expr
     | «do» (braces : Bool) : Array #DoElem → Expr
     | «{,}» : Array #Expr → Expr
@@ -366,7 +366,7 @@ mutual
     deriving Inhabited
 
   inductive DoElem
-    | «let» : #Binder → DoElem
+    | «let» : #LetDecl → DoElem
     | «←» : #Expr → Option #Expr → #Expr → Option #Expr → DoElem
     | eval : #Expr → DoElem
     deriving Inhabited
@@ -645,11 +645,11 @@ mutual
     let paren := paren || bis.size ≠ 1
     spacedBefore (fun m => LambdaBinder_repr m.kind paren) bis
 
-  partial def LetBinder_repr : LetBinder → Format
-    | LetBinder.var v bis ty val =>
+  partial def LetDecl_repr : LetDecl → Format
+    | LetDecl.var v bis ty val =>
       repr v ++ Binders_repr bis ++ optTy ty ++ " := " ++ Expr_repr val.kind
-    | LetBinder.pat pat val => Expr_repr pat.kind ++ " := " ++ Expr_repr val.kind
-    | LetBinder.notation n => Notation_repr n #[]
+    | LetDecl.pat pat val => Expr_repr pat.kind ++ " := " ++ Expr_repr val.kind
+    | LetDecl.notation n => Notation_repr n #[]
 
   partial def Expr_repr : Expr → (prec : _ := 0) → Format
     | Expr.«...», _ => "..."
@@ -728,7 +728,7 @@ mutual
     | Expr.begin tacs, p => Format.parenPrec 1000 p $ Block_repr tacs
     | Expr.let bis e, p => Format.parenPrec 1000 p $
       ("let " ++ (("," ++ Format.line).joinSep
-        (bis.toList.map fun bi => LetBinder_repr bi.kind)).nest 4 ++ " in").group ++
+        (bis.toList.map fun bi => LetDecl_repr bi.kind)).nest 4 ++ " in").group ++
       Format.line ++ Expr_repr e.kind
     | Expr.match xs ty eqns, _ => "match " ++
       Format.joinSep (xs.toList.map fun x => Expr_repr x.kind) ", " ++ optTy ty ++ " with" ++
@@ -771,7 +771,7 @@ mutual
       " := " ++ Expr_repr rhs.kind
 
   partial def DoElem_repr : DoElem → Format
-    | DoElem.let bi => "let " ++ Binder_repr bi.kind false
+    | DoElem.let bi => "let " ++ LetDecl_repr bi.kind
     | DoElem.«←» lhs ty rhs els =>
       Expr_repr lhs.kind ++ " " ++ optTy ty ++ Expr_repr rhs.kind ++
       match els with | none => "" | some e => Expr_repr e.kind

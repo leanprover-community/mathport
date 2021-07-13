@@ -271,7 +271,7 @@ mutual
     | "#[", _, args => Expr.«#[]» <$> args.mapM getExpr
     | "by", _, args => Expr.by <$> getTactic args[0]
     | "begin", _, args => Expr.begin <$> getBlock false args
-    | "let", _, args => do Expr.let (← arr getLetBinder args[0]) (← getExpr args[1])
+    | "let", _, args => do Expr.let (← arr getLetDecl args[0]) (← getExpr args[1])
     | "match", _, args => do
       Expr.match (← arr getExpr args[0]) (← opt getExpr args[1]) (← arr getArm args[2])
     | "do", v, args => Expr.do (!v.isAnonymous) <$> args.mapM getDoElem
@@ -326,17 +326,17 @@ mutual
     | "⟨", _, args => LambdaBinder.«⟨⟩» <$> args.mapM getExpr
     | k, v, args => LambdaBinder.reg <$> getBinder_aux k v args
 
-  partial def getLetBinder : AstId → M (Spanned LetBinder) := withNode fun
-    | "var", _, args => do {LetBinder.var (← getBinderName args[0])
+  partial def getLetDecl : AstId → M (Spanned LetDecl) := withNode fun
+    | "var", _, args => do {LetDecl.var (← getBinderName args[0])
       (← getBinders args[1]) (← opt getExpr args[2]) (← getExpr args[3])}
-    | "pat", _, args => do {LetBinder.pat (← getExpr args[0]) (← getExpr args[1])}
+    | "pat", _, args => do {LetDecl.pat (← getExpr args[0]) (← getExpr args[1])}
     | k, v, args => match toNotationKind k with
-      | some nk => LetBinder.notation <$> getNotationDef nk args
+      | some nk => LetDecl.notation <$> getNotationDef nk args
       | none => throw s!"getBinder parse error, unknown kind {k}"
 
   partial def getDoElem : AstId → M (Spanned DoElem) :=
     withNode fun
-    | "let", _, args => DoElem.let <$> getBinder args[0]
+    | "let", _, args => DoElem.let <$> getLetDecl args[0]
     | "<-", _, args => do
       DoElem.«←» (← getExpr args[0]) (← opt getExpr args[1])
         (← getExpr args[2]) (← opt getExpr args[3])

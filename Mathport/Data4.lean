@@ -18,61 +18,33 @@ syntax (name := hideCmd) "hide " ident+ : command
 syntax (name := includeCmd) "include " ident+ : command
 syntax (name := omitCmd) "omit " ident+ : command
 syntax (name := parameterCmd) "parameter " bracketedBinder+ : command
+syntax:lead (name := noMatch) "match " matchDiscr,* " with" "." : term
 syntax (name := noFun) "fun" "." : term
 syntax (name := noncomputableTheory) "noncomputable " "theory" : command
+syntax "{" term,* "}" : term
+syntax "{ " ident (" : " term)? " | " term " }" : term
+syntax "{ " ident " ∈ " term " | " term " }" : term
+syntax (priority := low) "{" term " | " bracketedBinder+ " }" : term
 
-open Lean.Elab.Command
+open Lean.Elab.Command Lean.Parser Lean
 
 @[commandElab hideCmd] def elabHideCmd : CommandElab := fun stx => pure ()
 @[commandElab includeCmd] def elabIncludeCmd : CommandElab := fun stx => pure ()
 @[commandElab omitCmd] def elabOmitCmd : CommandElab := fun stx => pure ()
 
+def calcLHS : Parser where
+  fn c s :=
+    let s := symbolFn "..." c s
+    if s.hasError then s else
+    let tables := (getCategory (parserExtension.getState c.env).categories `term).get!.tables
+    trailingLoop tables c s
+  info := ("..." >> termParser).info
 
-/-
-#check
-#check_failure
-#eval
-#exit
-#print
-#reduce
-#resolve_name
-#synth
-abbrev
-attribute
-axiom
-builtin_initialize
-class
-constant
-declare_syntax_cat
-def
-deriving
-elab
-elab_rules
-end
-example
-export
-gen_injective_theorems%
-inductive
-infix
-infixl
-infixr
-init_quot
-initialize
-instance
-macro
-macro_rules
-mutual
-namespace
-notation
-open
-postfix
-prefix
-section
-set_option
-structure
-syntax
-theorem
-unif_hint
-universe
-variable
--/
+open Lean.PrettyPrinter Lean.Elab.Term
+
+@[combinatorFormatter calcLHS] def calcLHS.formatter : Formatter := pure ()
+@[combinatorParenthesizer calcLHS] def calcLHS.parenthesizer : Parenthesizer := pure ()
+
+syntax (name := calcTerm) "calc " term " : " term (calcLHS " : " term)* : term
+
+@[macro calcTerm] def expandCalc : Macro := fun stx => `(sorry)
