@@ -454,8 +454,8 @@ def getAttrArg : AstId → M (Spanned AttrArg) := withNodeR fun r =>
 def getAttr : AstId → M (Spanned Attribute) := withNode fun
   | "priority", _, args => do Attribute.priority <$> getExpr args[0]
   | "attr", v, args =>
-    if args[0] = 0 then Attribute.del v
-    else Attribute.add v <$> opt getAttrArg args[1]
+    if args[0] = 0 then Attribute.add v <$> opt getAttrArg args[1]
+    else Attribute.del v
   | k, _, _ => throw s!"getAttr parse error, unknown kind {k}"
 
 open DeclVal in

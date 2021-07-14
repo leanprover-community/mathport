@@ -427,6 +427,10 @@ instance : Inhabited Attributes := ⟨#[]⟩
 def PrecSymbol := #Symbol × Option #Precedence
 instance : Inhabited PrecSymbol := inferInstanceAs (Inhabited (_×_))
 
+partial def Expr.unparen : Expr → Expr
+  | Expr.paren e => e.kind.unparen
+  | e => e
+
 inductive Modifier
   | «private» : Modifier
   | «protected» : Modifier

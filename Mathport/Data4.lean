@@ -9,8 +9,9 @@ namespace Mathport
 open Lean
 
 structure Data4 where
-  commands : Array Syntax
-  exprs    : HashMap Position Expr
+  module : Syntax
+  exprs  : HashMap Position Expr
+  deriving Inhabited
 
 end Mathport
 
@@ -32,19 +33,36 @@ open Lean.Elab.Command Lean.Parser Lean
 @[commandElab includeCmd] def elabIncludeCmd : CommandElab := fun stx => pure ()
 @[commandElab omitCmd] def elabOmitCmd : CommandElab := fun stx => pure ()
 
+namespace Lean
+namespace Parser.Term
+
+def calcDots := leading_parser symbol "..."
 def calcLHS : Parser where
   fn c s :=
-    let s := symbolFn "..." c s
+    let s := calcDots.fn c s
     if s.hasError then s else
     let tables := (getCategory (parserExtension.getState c.env).categories `term).get!.tables
     trailingLoop tables c s
-  info := ("..." >> termParser).info
+  info := (calcDots >> termParser).info
 
 open Lean.PrettyPrinter Lean.Elab.Term
 
-@[combinatorFormatter calcLHS] def calcLHS.formatter : Formatter := pure ()
-@[combinatorParenthesizer calcLHS] def calcLHS.parenthesizer : Parenthesizer := pure ()
+@[combinatorFormatter Lean.Parser.Term.calcLHS] def calcLHS.formatter : Formatter := pure ()
+@[combinatorParenthesizer Lean.Parser.Term.calcLHS] def calcLHS.parenthesizer : Parenthesizer := pure ()
 
-syntax (name := calcTerm) "calc " term " : " term (calcLHS " : " term)* : term
+syntax (name := «calc») "calc " term " : " term (calcLHS " : " term)* : term
 
-@[macro calcTerm] def expandCalc : Macro := fun stx => `(sorry)
+end Parser.Term
+
+namespace Parser.Command
+
+-- Using /! as a workaround since /-! is not lexed properly
+@[commandParser] def modDocComment := leading_parser ppDedent $ "/!" >> commentBody >> ppLine
+
+end Parser.Command
+
+namespace Elab.Term
+
+@[macro Lean.Parser.Term.calc] def expandCalc : Macro := fun stx => `(sorry)
+
+end Elab.Term
