@@ -164,11 +164,11 @@ inductive DeclKind | «def» | «theorem» | «abbrev» | «example» | «instan
 
 instance : Repr DeclKind where
   reprPrec
-  | DeclKind.«def», _ => "def"
-  | DeclKind.«theorem», _ => "theorem"
-  | DeclKind.«abbrev», _ => "abbreviation"
-  | DeclKind.«example», _ => "example"
-  | DeclKind.«instance», _ => "instance"
+  | DeclKind.def, _ => "def"
+  | DeclKind.theorem, _ => "theorem"
+  | DeclKind.abbrev, _ => "abbreviation"
+  | DeclKind.example, _ => "example"
+  | DeclKind.instance, _ => "instance"
 
 def LocalReserve := Bool × Bool
 
@@ -180,11 +180,11 @@ inductive MixfixKind | «infix» | «infixl» | «infixr» | «postfix» | «pre
 
 instance : Repr MixfixKind where
   reprPrec
-  | MixfixKind.«infix», _ => "infix"
-  | MixfixKind.«infixl», _ => "infixl"
-  | MixfixKind.«infixr», _ => "infixr"
-  | MixfixKind.«postfix», _ => "postfix"
-  | MixfixKind.«prefix», _ => "prefix"
+  | MixfixKind.infix, _ => "infix"
+  | MixfixKind.infixl, _ => "infixl"
+  | MixfixKind.infixr, _ => "infixr"
+  | MixfixKind.postfix, _ => "postfix"
+  | MixfixKind.prefix, _ => "prefix"
 
 inductive InferKind | implicit | relaxedImplicit | none
 
@@ -1033,6 +1033,35 @@ instance : Repr Command where reprPrec c _ := match c with
   | Command.print n => "#print " ++ repr n
   | Command.userCommand n mods args => repr mods ++ n.toString ++
     Format.join (args.toList.map fun a => " " ++ Param_repr a.kind)
+
+def Symbol.trim : Symbol → String
+  | Symbol.ident s => s
+  | Symbol.quoted s => s.trim
+
+def Notation.name : Notation → String
+| Notation.notation lits _ => do
+  let mut s := "expr"
+  for ⟨_, _, lit⟩ in lits do
+    match lit with
+    | Literal.nat n => s := s ++ toString n
+    | Literal.sym tk => s := s ++ tk.1.kind.trim
+    | Literal.var _ none => s := s.push ' '
+    | Literal.var _ (some ⟨_, _, Action.prec _⟩) => s := s.push ' '
+    | Literal.var _ (some ⟨_, _, Action.prev⟩) => s := s.push ' '
+    | Literal.var _ (some ⟨_, _, Action.scoped _ _⟩) => s := s.push ' '
+    | Literal.var _ (some ⟨_, _, Action.fold _ _ sep _ _ term⟩) =>
+      s := s.push ' ' ++ sep.1.kind.trim
+      if let some term := term then s := s ++ term.1.kind.trim
+    | Literal.binder _ => s := s.push ' '
+    | Literal.binders _ => s := s.push ' '
+  s
+| Notation.mixfix mk tk _ =>
+  match mk with
+  | MixfixKind.infix => "expr " ++ tk.1.kind.trim ++ " "
+  | MixfixKind.infixl => "expr " ++ tk.1.kind.trim ++ " "
+  | MixfixKind.infixr => "expr " ++ tk.1.kind.trim ++ " "
+  | MixfixKind.postfix => "expr " ++ tk.1.kind.trim
+  | MixfixKind.prefix => "expr" ++ tk.1.kind.trim ++ " "
 
 end AST3
 

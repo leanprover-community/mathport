@@ -6,6 +6,7 @@ Authors: Mario Carneiro, Daniel Selsam
 import Mathport.AST3
 import Mathport.Data4
 import Mathport.Parse
+import Mathport.Translate.Notation
 
 namespace Mathport
 
@@ -38,6 +39,7 @@ structure State where
   commands : Array Syntax := #[]
   current : Scope := {}
   scopes : Array Scope := #[]
+  notations : HashMap String NotationEntry := predefinedNotations
   deriving Inhabited
 
 abbrev M := EStateM String State
@@ -111,6 +113,9 @@ def trBinderName : BinderName → Syntax
 inductive TacticContext
   | seq
 
+def optTy (ty : Option Syntax) : M (Option Syntax) :=
+  ty.mapM fun stx => do `(Parser.Term.typeSpec| : $stx)
+
 mutual
 
   partial def trBinderDefault (allowTac := true) : Default → M Syntax
@@ -129,19 +134,17 @@ mutual
       let var ← match vars with
       | none => #[]
       | some #[v] => pure #[trBinderName v.kind, mkAtom ":"]
-      | some _ => throw! "unsupported"
+      | some _ => throw! "unsupported (impossible)"
       out.push $ mkNode ``Parser.Term.instBinder
         #[mkAtom "[", mkNullNode var, ← trExpr ty.kind, mkAtom "]"]
     | ⟨allowSimp, req⟩, Binder.binder bi (some vars) bis ty dflt, out => do
       let ty := match req || !bis.isEmpty, ty with
       | true, none => some Expr.«_»
-      | _, _ => ty.map fun ty => ty.kind
+      | _, _ => ty.map (·.kind)
       let ty ← ty.mapM (trDArrow bis)
       let vars := mkNullNode $ vars.map fun v => trBinderName v.kind
       if let some stx ← trSimple allowSimp bi vars ty dflt then return out.push stx
-      let ty ← @mkNullNode <$> match ty with
-      | none => #[]
-      | some ty => do pure #[mkAtom ":", ty]
+      let ty := @mkNullNode $ match ty with | none => #[] | some ty => #[mkAtom ":", ty]
       if bi == BinderInfo.implicit then
         out.push $ mkNode ``Parser.Term.implicitBinder #[mkAtom "{", vars, ty, mkAtom "}"]
       else
@@ -150,9 +153,9 @@ mutual
     | _, _, _ => throw! "unsupported"
   where
     trSimple
-    | some b, BinderInfo.default, vars, ty, none =>
-      if b && ty.isSome then none
-      else mkNode ``Parser.Term.simpleBinder #[vars, mkOptionalNode ty]
+    | some b, BinderInfo.default, vars, ty, none => do
+      if b && ty.isSome then return none
+      mkNode ``Parser.Term.simpleBinder #[vars, mkOptionalNode (← optTy ty)]
     | _, _, _, _, _ => none
 
   partial def trBinders (bc : BinderContext) (bis : Array (Spanned Binder)) : M (Array Syntax) := do
@@ -224,7 +227,8 @@ mutual
       let haveId := mkNode ``Parser.Term.haveIdDecl #[
         mkNullNode $ match h with | none => #[] | some h => #[mkIdent h.kind, mkNullNode],
         mkOptionalNode $ ← trOptType t, mkAtom ":=", ← trProof pr.kind false]
-      mkNode ``Parser.Term.have #[mkAtom "have", haveId, mkNullNode, ← trExpr e.kind]
+      mkNode ``Parser.Term.have #[mkAtom "have",
+        mkNode ``Parser.Term.haveDecl #[haveId], mkNullNode, ← trExpr e.kind]
     | Expr.«.» _ e pr => do
       let pr ← match pr.kind with
       | Lean3.Proj.ident e => mkIdent e
@@ -286,11 +290,10 @@ mutual
       `({ $[$src with]? $[$flds:structInstField]* $catchall:optEllipsis })
     | Expr.structInst S src flds srcs catchall => throw! "unsupported (TODO)"
     | Expr.atPat lhs rhs => do `($(mkIdent lhs.kind)@ $(← trExpr rhs.kind))
-    | Expr.notation n args => throw! "unsupported notation {repr n}"
+    | Expr.notation n args => trNotation n args
     | Expr.userNotation n args => throw! "unsupported user notation {n}"
 
-  partial def trTypeSpec (ty : Expr) : M Syntax := do `(Parser.Term.typeSpec| : $(← trExpr ty))
-  partial def trOptType (ty : Option Expr) : M (Option Syntax) := ty.mapM trTypeSpec
+  partial def trOptType (ty : Option Expr) : M (Option Syntax) := ty.mapM trExpr >>= optTy
 
   partial def trArm : Arm → M Syntax
     | ⟨lhs, rhs⟩ => do
@@ -326,14 +329,29 @@ mutual
   partial def trTactic : Tactic → (c :_:= TacticContext.seq) → M Syntax
     | _, _ => throw! "unsupported (TODO)"
 
+  partial def trNotation (n : Choice) (args : Array (Spanned Arg)) : M Syntax := do
+    let n ← match n with
+    | Choice.one n => n
+    | Choice.many ns => if ns[1:].all (ns[0] == ·) then ns[0] else throw! "unsupported"
+    match (← get).notations.find? n.getString!, args.map (·.kind) with
+    | some ⟨NotationKind.const stx, _⟩, #[] => stx
+    | some ⟨NotationKind.unary f, _⟩, #[Arg.expr e] => f (← trExpr e)
+    | some ⟨NotationKind.binary f, _⟩, #[Arg.expr e₁, Arg.expr e₂] => f (← trExpr e₁) (← trExpr e₂)
+    | some ⟨NotationKind.exprs f, _⟩, #[Arg.exprs es] => f $ ← es.mapM fun e => trExpr e.kind
+    | some ⟨NotationKind.fail, _⟩, _ => throw! "unsupported notation {repr n}"
+    | none, _ => throw! "unsupported notation {repr n}"
+    | _, _ => throw! "unsupported (impossible)"
+
 end
 
 inductive TrAttr
   | del : Syntax → TrAttr
   | add : Syntax → TrAttr
   | prio : Expr → TrAttr
+  | parsingOnly : TrAttr
+  | unify : TrAttr
 
-def trAttr (prio : Option Expr) : Attribute → M TrAttr
+def trAttr (prio : Option Expr) : Attribute → M (Option TrAttr)
   | Attribute.priority n => TrAttr.prio n.kind
   | Attribute.del n => do
     let n ← match n with
@@ -344,19 +362,23 @@ def trAttr (prio : Option Expr) : Attribute → M TrAttr
     | `pattern => `matchPattern
     | _ => throw! "unsupported attr -{n}"
     TrAttr.del (← `(Parser.Command.eraseAttr| -$(mkIdent n)))
+  | AST3.Attribute.add `parsing_only none => TrAttr.parsingOnly
+  | AST3.Attribute.add `unify none => TrAttr.unify
   | AST3.Attribute.add n arg => do
+    let mkSimpleAttr n (args := #[]) := mkNode ``Parser.Attr.simple #[mkIdent n, mkNullNode args]
     let attr ← match n, arg with
-    | `class, none => `(attr| class)
-    | `instance, none => `(attr| instance)
-    | `simp, none => `(attr| simp)
-    | `congr, none => `(attr| congr)
-    | `inline, none => `(attr| inline)
-    | `pattern, none => `(attr| matchPattern)
-    | `reducible, none => `(attr| reducible)
-    | `semireducible, none => `(attr| semireducible)
-    | `irreducible, none => `(attr| irreducible)
-    | `elab_simple, none => `(attr| elabWithoutExpectedType)
-    | `vm_override, some ⟨_, _, AttrArg.vmOverride n none⟩ => `(attr| implementedBy $(mkIdent n.kind))
+    | `class,         none => `(attr| class)
+    | `instance,      none => `(attr| instance)
+    | `simp,          none => `(attr| simp)
+    | `congr,         none => mkSimpleAttr `congr
+    | `inline,        none => mkSimpleAttr `inline
+    | `pattern,       none => mkSimpleAttr `matchPattern
+    | `reducible,     none => mkSimpleAttr `reducible
+    | `semireducible, none => mkSimpleAttr `semireducible
+    | `irreducible,   none => mkSimpleAttr `irreducible
+    | `elab_simple,   none => mkSimpleAttr `elabWithoutExpectedType
+    | `vm_override,   some ⟨_, _, AttrArg.vmOverride n none⟩ =>
+      mkSimpleAttr `implementedBy #[mkIdent n.kind]
     | _, _ =>
       let knownAttrs := [
         `_refl_lemma, `«_simp.sizeof», `_simp_cache, `algebra, `breakpoint, `«class»,
@@ -367,30 +389,37 @@ def trAttr (prio : Option Expr) : Attribute → M TrAttr
         `refl, `rsimp, `semireducible, `simp, `subst, `symm, `trans, `unify, `user_attribute,
         `user_command, `user_notation, `vm_monitor, `vm_override, `wrapper_eq]
       if knownAttrs.contains n then
-        throw! "unsupported attr {n}"
+        dbg_trace "suppressing unsupported attr {n}"
+        return none
       else
         throw! "unknown attr {n}"
-    TrAttr.add (← `(Parser.Term.attrInstance| $attr:attr))
+    TrAttr.add attr
 
 def trAttrKind : AttributeKind → M Syntax
   | AttributeKind.global => `(Parser.Term.attrKind|)
   | AttributeKind.scoped => `(Parser.Term.attrKind| scoped)
   | AttributeKind.local => `(Parser.Term.attrKind| local)
 
-structure AttrState where
+structure SpecialAttrs where
   prio : Option AST3.Expr := none
-  out : Array Syntax := #[]
+  parsingOnly := false
+  unify := false
+
+def AttrState := SpecialAttrs × Array Syntax
 
 def trAttrInstance (attr : Attribute) (allowDel := false)
   (kind : AttributeKind := AttributeKind.global) : StateT AttrState M Unit := do
-  match ← trAttr (← get).1 attr with
-  | TrAttr.del stx => do
-    unless allowDel do throw! "unsupported"
-    modify fun s => { s with out := s.out.push stx }
-  | TrAttr.add stx => do
+  match ← trAttr (← get).1.prio attr with
+  | some (TrAttr.del stx) => do
+    unless allowDel do throw! "unsupported (impossible)"
+    modify fun s => { s with 2 := s.2.push stx }
+  | some (TrAttr.add stx) => do
     let stx := mkNode ``Parser.Term.attrInstance #[← trAttrKind kind, stx]
-    modify fun s => { s with out := s.out.push stx }
-  | TrAttr.prio prio => modify fun s => { s with prio := prio }
+    modify fun s => { s with 2 := s.2.push stx }
+  | some (TrAttr.prio prio) => modify fun s => { s with 1.prio := prio }
+  | some TrAttr.parsingOnly => modify fun s => { s with 1.parsingOnly := true }
+  | some TrAttr.unify => modify fun s => { s with 1.unify := true }
+  | none => pure ()
 
 def trAttributes (attrs : Attributes) (allowDel := false)
   (kind : AttributeKind := AttributeKind.global) : StateT AttrState M Unit :=
@@ -398,7 +427,7 @@ def trAttributes (attrs : Attributes) (allowDel := false)
 
 structure Modifiers4 where
   docComment : Option String := none
-  attrs : AttrState := {}
+  attrs : AttrState := ({}, #[])
   vis : Visibility := Visibility.regular
   «noncomputable» : Option Unit := none
   safety : DefinitionSafety := DefinitionSafety.safe
@@ -408,47 +437,47 @@ def mkOpt (a : Option α) (f : α → M Syntax) : M Syntax :=
   | none => mkNullNode
   | some a => do mkNullNode #[← f a]
 
-def trModifiers (mods : Modifiers) : M (Option Expr × Syntax) :=
+def trModifiers (mods : Modifiers) : M (SpecialAttrs × Syntax) :=
   mods.foldlM trModifier {} >>= toSyntax
 where
   trModifier (s : Modifiers4) (m : Spanned Modifier) : M Modifiers4 :=
     match m.kind with
     | Modifier.private => match s.vis with
       | Visibility.regular => pure { s with vis := Visibility.private }
-      | _ => throw! "unsupported"
+      | _ => throw! "unsupported (impossible)"
     | Modifier.protected => match s.vis with
       | Visibility.regular => pure { s with vis := Visibility.protected }
-      | _ => throw! "unsupported"
+      | _ => throw! "unsupported (impossible)"
     | Modifier.noncomputable => match s.noncomputable with
       | none => pure { s with «noncomputable» := some () }
-      | _ => throw! "unsupported"
+      | _ => throw! "unsupported (impossible)"
     | Modifier.meta => match s.safety with
       | DefinitionSafety.safe => pure { s with safety := DefinitionSafety.unsafe }
-      | _ => throw! "unsupported"
+      | _ => throw! "unsupported (impossible)"
     | Modifier.mutual => s -- mutual is duplicated elsewhere in the grammar
     | Modifier.attr loc _ attrs => do
       let kind := if loc then AttributeKind.local else AttributeKind.global
-      pure { s with attrs := (← trAttributes attrs false kind |>.run {}).2 }
+      pure { s with attrs := (← trAttributes attrs false kind |>.run ({}, #[])).2 }
     | Modifier.doc doc => match s.docComment with
       | none => pure { s with docComment := some doc }
-      | _ => throw! "unsupported"
-  toSyntax : Modifiers4 → M (Option Expr × Syntax)
-  | ⟨doc, ⟨prio, attrs⟩, vis, nc, safety⟩ => do
+      | _ => throw! "unsupported (impossible)"
+  toSyntax : Modifiers4 → M (SpecialAttrs × Syntax)
+  | ⟨doc, (s, attrs), vis, nc, safety⟩ => do
     let doc := mkOptionalNode $ doc.map trDocComment
     let attrs ← mkOpt (if attrs.isEmpty then none else some attrs) fun attrs =>
       `(Parser.Term.attributes| @[$[$attrs],*])
-    let vis := mkOptionalNode $ match vis with
+    let vis := mkOptionalNode $ ← match vis with
     | Visibility.regular => none
-    | Visibility.private => mkAtom "private"
-    | Visibility.protected => mkAtom "protected"
-    let nc ← mkOpt nc fun () => mkAtom "noncomputable"
-    let part := mkOptionalNode $ match safety with
-    | DefinitionSafety.partial => mkAtom "partial"
+    | Visibility.private => `(Parser.Command.visibility| private)
+    | Visibility.protected => `(Parser.Command.visibility| protected)
+    let nc ← mkOpt nc fun () => `(Parser.Command.noncomputable| noncomputable)
+    let part := mkOptionalNode $ ← match safety with
+    | DefinitionSafety.partial => some <$> `(Parser.Command.partial| partial)
     | _ => none
-    let uns := mkOptionalNode $ match safety with
-    | DefinitionSafety.unsafe => mkAtom "unsafe"
+    let uns := mkOptionalNode $ ← match safety with
+    | DefinitionSafety.unsafe => some <$> `(Parser.Command.unsafe| unsafe)
     | _ => none
-    (prio, mkNode ``Parser.Command.declModifiers #[doc, attrs, vis, nc, part, uns])
+    (s, mkNode ``Parser.Command.declModifiers #[doc, attrs, vis, nc, part, uns])
 
 def trOpenCmd (ops : Array Open) : M Unit := do
   let mut simple := #[]
@@ -513,8 +542,9 @@ def trAxiom (mods : Modifiers) (n : Name)
   pushM `(command| $mods:declModifiers axiom $(← trDeclId n us) $(← trDeclSig true bis ty))
 
 def trDecl (dk : DeclKind) (mods : Modifiers) (n : Option (Spanned Name)) (us : LevelDecl)
-  (bis : Binders) (ty : Option (Spanned Expr)) (val : DeclVal) : M Syntax := do
-  let (prio, mods) ← trModifiers mods
+  (bis : Binders) (ty : Option (Spanned Expr)) (val : DeclVal) : M (Option Syntax) := do
+  let (s, mods) ← trModifiers mods
+  if s.unify then return none
   let id ← n.mapM fun n => trDeclId n.kind us
   let sig req := trDeclSig req bis ty
   let val ← match val with
@@ -527,10 +557,9 @@ def trDecl (dk : DeclKind) (mods : Modifiers) (n : Option (Spanned Name)) (us : 
   | DeclKind.example => do `(command| $mods:declModifiers example $(← sig true) $val)
   | DeclKind.theorem => do `(command| $mods:declModifiers theorem $id.get! $(← sig true) $val)
   | DeclKind.instance => do
-    let loc := mkOptionalNode none -- lean 3 doesn't have "local instance"
-    let prio ← mkOpt prio fun prio => do
+    let prio ← mkOpt s.prio fun prio => do
       `(Parser.Command.namedPrio| (priority := $(← trPrio prio)))
-    `(command| $mods:declModifiers $loc:attrKind instance $[$id:declId]? $(← sig false) $val)
+    `(command| $mods:declModifiers instance $[$id:declId]? $(← sig true) $val)
 
 def trInferKind : Option InferKind → M (Option Syntax)
   | some InferKind.implicit => `(Parser.Command.inferMod | {})
@@ -577,12 +606,14 @@ def trField : Field → Array Syntax → M (Array Syntax)
         `(Parser.Command.structExplicitBinder| ($[$ns]* $[$im]? $sig:optDeclSig $[$dflt]?))
   | Field.notation _, out => throw! "unsupported"
 
-def trFields (flds : Array (Spanned Field)) : M Syntax :=
-  @mkNullNode <$> flds.foldlM (fun out fld => trField fld.kind out) #[]
+def trFields (flds : Array (Spanned Field)) : M Syntax := do
+  let flds ← flds.foldlM (fun out fld => trField fld.kind out) #[]
+  mkNode ``Parser.Command.structFields #[mkNullNode flds]
 
 def trStructure (cl : Bool) (mods : Modifiers) (n : Spanned Name) (us : LevelDecl)
   (bis : Binders) (exts : Array (Spanned Parent)) (ty : Option (Spanned Expr))
   (mk : Option (Spanned Mk)) (flds : Array (Spanned Field)) : M Unit := do
+  let (prio, mods) ← trModifiers mods
   let id ← trDeclId n.kind us
   let bis := mkNullNode $ ← trBinders {} bis
   let exts ← exts.mapM fun
@@ -591,14 +622,27 @@ def trStructure (cl : Bool) (mods : Modifiers) (n : Spanned Name) (us : LevelDec
   let exts ← mkOpt (if exts.isEmpty then none else some exts) fun exts =>
     `(Parser.Command.extends| extends $[$exts],*)
   let ty ← mkOptionalNode <$> trOptType (ty.map Spanned.kind)
-  let flds ← mkOptionalNode <$> match mk, flds with
-  | none, #[] => none
+  let flds ← @mkNullNode <$> match mk, flds with
+  | none, #[] => #[]
   | mk, flds => do
     let mk ← mk.mapM fun ⟨_, _, n, ik⟩ => do
       `(Parser.Command.structCtor| $(mkIdent n.kind):ident $[$(← trInferKind ik)]? ::)
-    some $ mkNullNode #[mkAtom "where", mkOptionalNode mk, ← trFields flds]
-  push $ mkNode ``Parser.Command.structure #[
-    mkAtom (if cl then "class" else "structure"), id, bis, exts, ty, flds, mkOptionalNode none]
+    #[mkAtom "where", mkOptionalNode mk, ← trFields flds]
+  let decl := mkNode ``Parser.Command.structure #[
+    ← if cl then `(Parser.Command.classTk| class) else `(Parser.Command.structureTk| structure),
+    id, bis, exts, ty, flds, ← `(Parser.Command.optDeriving| )]
+  pushM `(command| $mods:declModifiers $decl:structure)
+
+def trNotationCmd (loc : LocalReserve) (attrs : Attributes) (nota : Notation) : M Unit := do
+  let (s, attrs) := (← trAttributes attrs false AttributeKind.global |>.run ({}, #[])).2
+  unless attrs.isEmpty do throw! "unsupported (impossible)"
+  let n := nota.name
+  match (← get).notations.find? n with
+  | some ⟨_, true⟩ => pure ()
+  | some ⟨_, false⟩ => throw! "unsupported (TODO)"
+  | none =>
+    dbg_trace "unknown notation '{n}'"
+    pure ()
 
 def trCommand : Command → M Unit
   | Command.prelude => modify fun s => { s with «prelude» := true }
@@ -625,12 +669,16 @@ def trCommand : Command → M Unit
   | Command.axioms _ mods bis => bis.forM fun
     | ⟨_, _, Binder.binder _ (some ns) bis (some ty) none⟩ => ns.forM fun
       | ⟨_, _, BinderName.ident n⟩ => trAxiom mods n none bis ty
-      | _ => throw! "unsupported"
-    | _ => throw! "unsupported"
-  | Command.decl dk mods n us bis ty val => pushM $ trDecl dk mods n us bis ty val.kind
+      | _ => throw! "unsupported (impossible)"
+    | _ => throw! "unsupported (impossible)"
+  | Command.decl dk mods n us bis ty val => do
+    if let some decl ← trDecl dk mods n us bis ty val.kind then
+      push decl
   | Command.mutualDecl dk mods us bis arms =>
     trMutual arms fun ⟨attrs, n, ty, vals⟩ => do
-      trDecl dk mods n us bis ty (DeclVal.eqns vals)
+      match ← trDecl dk mods n us bis ty (DeclVal.eqns vals) with
+      | none => throw! "unsupported"
+      | some decl => decl
   | Command.inductive cl mods n us bis ty nota intros =>
      pushM $ trInductive cl mods n us bis ty nota intros
   | Command.mutualInductive cl mods us bis nota inds =>
@@ -640,12 +688,12 @@ def trCommand : Command → M Unit
     trStructure cl mods n us bis exts ty m flds
   | Command.attribute loc _ attrs ns => do
     let kind := if loc then AttributeKind.local else AttributeKind.global
-    let attrs := (← trAttributes attrs true kind |>.run {}).2.out
+    let attrs := (← trAttributes attrs true kind |>.run ({}, #[])).2.2
     if attrs.isEmpty || ns.isEmpty then return ()
     let ns := ns.map fun n => mkIdent n.kind
     pushM `(command| attribute [$[$attrs],*] $[$ns]*)
   | Command.precedence sym prec => pure ()
-  | Command.notation loc attrs n => throw! "unsupported (TODO)"
+  | Command.notation loc attrs n => trNotationCmd loc attrs n
   | Command.open true ops => ops.forM trExportCmd
   | Command.open false ops => trOpenCmd ops
   | Command.include true ops => unless ops.isEmpty do
@@ -655,7 +703,7 @@ def trCommand : Command → M Unit
   | Command.hide ops => unless ops.isEmpty do
       pushM `(hide $[$(ops.map fun n => mkIdent n.kind)]*)
   | Command.theory #[⟨_, _, Modifier.noncomputable⟩] => pushM `(command| noncomputable theory)
-  | Command.theory _ => throw! "unsupported"
+  | Command.theory _ => throw! "unsupported (impossible)"
   | Command.setOption n val => match n.kind, val.kind with
     | `old_structure_cmd, OptionVal.bool b =>
       modifyScope fun s => { s with oldStructureCmd := b }
@@ -699,21 +747,33 @@ def AST3toData4 (ast : AST3) : Except String Data4 := (Translate.AST3toData4 ast
 -- open Lean Lean.Elab Lean.Elab.Term Lean.Elab.Tactic
 -- open Lean.Parser Lean.PrettyPrinter
 
+-- set_option trace.PrettyPrinter.parenthesize true in
 -- #eval show CoreM Unit from do
---   let s ← IO.FS.readFile "/home/mario/Documents/lean/lean/library/init/function.ast.json"
+--   let s ← IO.FS.readFile "/home/mario/Documents/lean/lean/library/init/core.ast.json"
 --   let json ← Json.parse s
 --   let ⟨ast, commands, level, expr⟩ ← fromJson? json (α := Parse.RawAST3)
 --   let level := Parse.buildLevels level
 --   let expr := Parse.buildExprs level expr
---   for c in commands[2:10] do
---     -- println! (repr (← Parse.getNode c |>.run ⟨ast, expr⟩)).group ++ "\n"
+--   for c in commands[0:] do
 --     println! (repr (← Parse.getCommand c |>.run ⟨ast, expr⟩).kind).group ++ "\n"
 --     let c ← Parse.getCommand c |>.run ⟨ast, expr⟩
 --     let ⟨stx, _⟩ ← match AST3toData4 ⟨#[c]⟩ with
 --     | Except.ok e => e
 --     | Except.error e => throwError "{e}"
---     let stx := stx[1][0]
---     let stx ← parenthesizeCommand stx
---     println! "{stx}\n\n"
---     let fmt ← formatCommand stx
---     println! "{fmt}\n\n"
+--     -- println! "{stx}\n\n"
+--     let stx ← parenthesize Parser.Module.module.parenthesizer stx
+--     -- println! "{stx}\n\n"
+--     let fmt ← format Parser.Module.module.formatter stx
+--     println! "{fmt}"
+
+-- #eval show CoreM Unit from do
+--   let ast ← parseAST3 "/home/mario/Documents/lean/lean/library/init/core.ast.json"
+--   let ⟨stx, _⟩ ← match AST3toData4 ast with
+--   | Except.ok e => e
+--   | Except.error e => throwError "{e}"
+--   -- let stx := stx[1][0]
+--   -- println! "{stx}\n\n"
+--   let stx ← parenthesize Parser.Module.module.parenthesizer stx
+--   -- println! "{stx}\n\n"
+--   let fmt ← format Parser.Module.module.formatter stx
+--   println! "{fmt}"
