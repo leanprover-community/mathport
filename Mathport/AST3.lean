@@ -210,6 +210,14 @@ instance : Repr Symbol where
   | Symbol.quoted s, _ => ("`" ++ s ++ "`" : String)
   | Symbol.ident n, _ => n
 
+def Symbol.trim : Symbol → String
+  | Symbol.ident s => s
+  | Symbol.quoted s => s.trim
+
+def Symbol.toString : Symbol → String
+  | Symbol.ident s => s
+  | Symbol.quoted s => s
+
 inductive Choice
   | one : Name → Choice
   | many : Array Name → Choice
@@ -1034,34 +1042,33 @@ instance : Repr Command where reprPrec c _ := match c with
   | Command.userCommand n mods args => repr mods ++ n.toString ++
     Format.join (args.toList.map fun a => " " ++ Param_repr a.kind)
 
-def Symbol.trim : Symbol → String
-  | Symbol.ident s => s
-  | Symbol.quoted s => s.trim
-
-def Notation.name : Notation → String
+def Notation.name (sp : Char) (start : String) : Notation → String
 | Notation.notation lits _ => do
-  let mut s := "expr"
+  let mut s := start
   for ⟨_, _, lit⟩ in lits do
     match lit with
     | Literal.nat n => s := s ++ toString n
     | Literal.sym tk => s := s ++ tk.1.kind.trim
-    | Literal.var _ none => s := s.push ' '
-    | Literal.var _ (some ⟨_, _, Action.prec _⟩) => s := s.push ' '
-    | Literal.var _ (some ⟨_, _, Action.prev⟩) => s := s.push ' '
-    | Literal.var _ (some ⟨_, _, Action.scoped _ _⟩) => s := s.push ' '
+    | Literal.var _ none => s := s.push sp
+    | Literal.var _ (some ⟨_, _, Action.prec _⟩) => s := s.push sp
+    | Literal.var _ (some ⟨_, _, Action.prev⟩) => s := s.push sp
+    | Literal.var _ (some ⟨_, _, Action.scoped _ _⟩) => s := s.push sp
     | Literal.var _ (some ⟨_, _, Action.fold _ _ sep _ _ term⟩) =>
-      s := s.push ' ' ++ sep.1.kind.trim
+      s := s.push sp ++ sep.1.kind.trim
       if let some term := term then s := s ++ term.1.kind.trim
-    | Literal.binder _ => s := s.push ' '
-    | Literal.binders _ => s := s.push ' '
+    | Literal.binder _ => s := s.push sp
+    | Literal.binders _ => s := s.push sp
   s
 | Notation.mixfix mk tk _ =>
   match mk with
-  | MixfixKind.infix => "expr " ++ tk.1.kind.trim ++ " "
-  | MixfixKind.infixl => "expr " ++ tk.1.kind.trim ++ " "
-  | MixfixKind.infixr => "expr " ++ tk.1.kind.trim ++ " "
-  | MixfixKind.postfix => "expr " ++ tk.1.kind.trim
-  | MixfixKind.prefix => "expr" ++ tk.1.kind.trim ++ " "
+  | MixfixKind.infix => start.push sp ++ tk.1.kind.trim.push sp
+  | MixfixKind.infixl => start.push sp ++ tk.1.kind.trim.push sp
+  | MixfixKind.infixr => start.push sp ++ tk.1.kind.trim.push sp
+  | MixfixKind.postfix => start.push sp ++ tk.1.kind.trim
+  | MixfixKind.prefix => start ++ tk.1.kind.trim.push sp
+
+def Notation.name3 := Notation.name ' ' "expr"
+def Notation.name4 := Name.mkSimple ∘ Notation.name '_' "term"
 
 end AST3
 

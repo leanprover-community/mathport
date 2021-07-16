@@ -7,6 +7,7 @@ import Mathport.AST3
 import Mathport.Data4
 import Mathport.Parse
 import Mathport.Translate.Notation
+import Mathport.Translate.Attributes
 
 namespace Mathport
 
@@ -40,6 +41,7 @@ structure State where
   current : Scope := {}
   scopes : Array Scope := #[]
   notations : HashMap String NotationEntry := predefinedNotations
+  simpSets : NameSet := predefinedSimpSets
   deriving Inhabited
 
 abbrev M := EStateM String State
@@ -63,7 +65,9 @@ def pushScope : M Unit :=
   modify fun s => { s with scopes := s.scopes.push s.current }
 
 def popScope : M Unit :=
-  modify fun s => { s with current := s.scopes.back, scopes := s.scopes.pop }
+  modify fun s => match s.scopes.back? with
+  | none => s
+  | some c => { s with current := c, scopes := s.scopes.pop }
 
 def trDocComment (doc : String) : Syntax :=
   mkNode ``Parser.Command.docComment #[mkAtom "/--", mkAtom (doc ++ "-/")]
@@ -106,9 +110,22 @@ partial def trPrio : Expr → M Syntax
   | Expr.paren e => trPrio e.kind -- do `(prio| ($(← trPrio e.kind)))
   | _ => throw! "unsupported"
 
+partial def trPrecExpr : Expr → M Syntax
+  | Expr.nat n => Syntax.mkNumLit (toString n)
+  | Expr.paren e => trPrecExpr e.kind -- do `(prec| ($(← trPrecExpr e.kind)))
+  | _ => throw! "unsupported"
+
+partial def trPrec : Precedence → M Syntax
+  | Precedence.nat n => Syntax.mkNumLit (toString n)
+  | Precedence.expr e => trPrecExpr e.kind
+
 def trBinderName : BinderName → Syntax
   | BinderName.ident n => mkIdent n
   | BinderName.«_» => mkHole arbitrary
+
+def trBinderIdent : BinderName → Syntax
+  | BinderName.ident n => mkNode ``binderIdent #[mkIdent n]
+  | BinderName.«_» => mkNode ``binderIdent #[mkAtom "_"]
 
 inductive TacticContext
   | seq
@@ -161,6 +178,20 @@ mutual
   partial def trBinders (bc : BinderContext) (bis : Array (Spanned Binder)) : M (Array Syntax) := do
     bis.foldlM (fun out bi => trBinder bc bi.kind out) #[]
 
+  partial def trExplicitBinders : Array (Spanned Binder) → M Syntax
+    | #[⟨_, _, Binder.binder _ (some vars) _ ty none⟩] => do
+      let ty ← match ty with | none => #[] | some ty => do #[mkAtom ":", ← trExpr ty.kind]
+      mkNode ``explicitBinders #[mkNode ``unbracktedExplicitBinders #[
+        mkNullNode $ vars.map fun n => trBinderIdent n.kind, mkNullNode ty]]
+    | bis => do
+      let bis ← bis.mapM fun
+      | ⟨_, _, Binder.binder _ (some vars) _ ty none⟩ => do
+        let vars ← vars.mapM fun n => trBinderIdent n.kind
+        let ty ← match ty with | none => `(_) | some ty => trExpr ty.kind
+        mkNode ``bracketedExplicitBinders #[mkAtom "(", mkNullNode vars, mkAtom ":", ty, mkAtom ")"]
+      | _ => throw! "unsupported"
+      mkNode ``explicitBinders #[mkNullNode bis]
+
   partial def trLambdaBinder : LambdaBinder → Array Syntax → M (Array Syntax)
     | LambdaBinder.reg bi, out => trBinder { allowSimple := some false } bi out
     | LambdaBinder.«⟨⟩» args, out => do out.push $ ← trExpr (Expr.«⟨⟩» args)
@@ -202,7 +233,7 @@ mutual
       | true, some u => do `(Type $(← trLevel u))
     | Expr.«→» lhs rhs => do `($(← trExpr lhs.kind) → $(← trExpr rhs.kind))
     | Expr.fun true #[⟨_, _, LambdaBinder.reg (Binder.binder _ none _ (some ty) _)⟩] e => do
-      `(fun this: $(← trExpr ty.kind) => $(← trExpr e.kind))
+      `(fun $(mkIdent `this):ident: $(← trExpr ty.kind) => $(← trExpr e.kind))
     | Expr.fun _ bis e => do
       let bis ← bis.foldlM (fun out bi => trLambdaBinder bi.kind out) #[]
       `(fun $[$bis]* => $(← trExpr e.kind))
@@ -219,9 +250,9 @@ mutual
     | Expr.show t pr => do
       mkNode ``Parser.Term.show #[mkAtom "show", ← trExpr t.kind, ← trProof pr.kind]
     | Expr.have true h t pr e => do
-      mkNode ``Parser.Term.suffices #[mkAtom "suffices",
-        mkOptionalNode $ h.map fun h => mkIdent h.kind, ← trExpr t.kind, ← trProof pr.kind,
-        mkNullNode, ← trExpr e.kind]
+      let decl := mkNode ``Parser.Term.sufficesDecl #[
+        mkOptionalNode $ h.map fun h => mkIdent h.kind, ← trExpr t.kind, ← trProof pr.kind]
+      mkNode ``Parser.Term.suffices #[mkAtom "suffices", decl, mkNullNode, ← trExpr e.kind]
     | Expr.have false h t pr e => do
       let t := match t.kind with | Expr._ => none | t => some t
       let haveId := mkNode ``Parser.Term.haveIdDecl #[
@@ -250,8 +281,8 @@ mutual
     | Expr.«`()» lazy expr e => throw! "unsupported (TODO)"
     | Expr.«%%» e => throw! "unsupported (TODO)"
     | Expr.«`[]» tacs => throw! "unsupported (TODO)"
-    | Expr.«`» false n => `($(mkIdent n):nameLit)
-    | Expr.«`» true n => `(`$(mkIdent n):nameLit)
+    | Expr.«`» false n => `($(Syntax.mkNameLit s!"`{n}"):nameLit)
+    | Expr.«`» true n => `(`$(Syntax.mkNameLit s!"`{n}"):nameLit)
     | Expr.«⟨⟩» es => do `(⟨$[$(← es.mapM fun e => trExpr e.kind)],*⟩)
     | Expr.infix_fn c e => throw! "unsupported (TODO)"
     | Expr.«(,)» es => do
@@ -266,9 +297,9 @@ mutual
       bis.foldrM (init := ← trExpr e.kind) fun bi stx => do
         `(let $(← trLetDecl bi.kind):letDecl $stx)
     | Expr.match #[x] _ #[] => do `(nomatch $(← trExpr x.kind))
-    | Expr.match xs _ #[] => do `(match $[$(← xs.mapM fun x => trExpr x.kind)],* with.)
+    | Expr.match xs _ #[] => do `(match $[$(← xs.mapM fun x => trExpr x.kind):term],* with.)
     | Expr.match xs ty eqns => do
-      `(match $[$(← xs.mapM fun x => trExpr x.kind)],* with $[$(← eqns.mapM trArm):matchAlt]*)
+      `(match $[$(← xs.mapM fun x => trExpr x.kind):term],* with $[$(← eqns.mapM trArm):matchAlt]*)
     | Expr.do _ els => do let els ← els.mapM fun e => trDoElem e.kind; `(do $[$els:doElem]*)
     | Expr.«{,}» es => do `({$[$(← es.mapM fun e => trExpr e.kind)],*})
     | Expr.subtype false x ty p => do
@@ -335,12 +366,28 @@ mutual
     | Choice.many ns => if ns[1:].all (ns[0] == ·) then ns[0] else throw! "unsupported"
     match (← get).notations.find? n.getString!, args.map (·.kind) with
     | some ⟨NotationKind.const stx, _⟩, #[] => stx
+    | some ⟨NotationKind.const stx, _⟩, _ => throw! "unsupported (impossible)"
     | some ⟨NotationKind.unary f, _⟩, #[Arg.expr e] => f (← trExpr e)
+    | some ⟨NotationKind.unary f, _⟩, _ => throw! "unsupported (impossible)"
     | some ⟨NotationKind.binary f, _⟩, #[Arg.expr e₁, Arg.expr e₂] => f (← trExpr e₁) (← trExpr e₂)
+    | some ⟨NotationKind.binary f, _⟩, _ => throw! "unsupported (impossible)"
+    | some ⟨NotationKind.nary f, _⟩, args =>
+      f <$> args.mapM fun | Arg.expr e => trExpr e | _ => throw! "unsupported (impossible)"
     | some ⟨NotationKind.exprs f, _⟩, #[Arg.exprs es] => f $ ← es.mapM fun e => trExpr e.kind
-    | some ⟨NotationKind.fail, _⟩, _ => throw! "unsupported notation {repr n}"
-    | none, _ => throw! "unsupported notation {repr n}"
-    | _, _ => throw! "unsupported (impossible)"
+    | some ⟨NotationKind.exprs f, _⟩, _ => throw! "unsupported (impossible)"
+    | some ⟨NotationKind.binder f, _⟩, #[Arg.binder bi, Arg.expr e] => do
+      f (← trExplicitBinders #[Spanned.dummy bi]) (← trExpr e)
+    | some ⟨NotationKind.binder f, _⟩, #[Arg.binders bis, Arg.expr e] => do
+      if bis.isEmpty then trExpr e else f (← trExplicitBinders bis) (← trExpr e)
+    | some ⟨NotationKind.binder f, _⟩, _ => throw! "unsupported (impossible)"
+    | some ⟨NotationKind.fail, _⟩, args =>
+      dbg_trace "unsupported notation {repr n}"
+      let args ← args.mapM fun | Arg.expr e => trExpr e | _ => throw! "unsupported notation {repr n}"
+      mkNode ``Parser.Term.app #[mkIdent n, mkNullNode args]
+    | none, args =>
+      dbg_trace "unsupported notation {repr n}"
+      let args ← args.mapM fun | Arg.expr e => trExpr e | _ => throw! "unsupported notation {repr n}"
+      mkNode ``Parser.Term.app #[mkIdent n, mkNullNode args]
 
 end
 
@@ -370,6 +417,9 @@ def trAttr (prio : Option Expr) : Attribute → M (Option TrAttr)
     | `class,         none => `(attr| class)
     | `instance,      none => `(attr| instance)
     | `simp,          none => `(attr| simp)
+    | `recursor,      some ⟨_, _, AttrArg.indices #[]⟩ => throw! "unsupported"
+    | `recursor,      some ⟨_, _, AttrArg.indices #[⟨_, _, n⟩]⟩ =>
+      `(attr| recursor $(Syntax.mkNumLit (toString n)):numLit)
     | `congr,         none => mkSimpleAttr `congr
     | `inline,        none => mkSimpleAttr `inline
     | `pattern,       none => mkSimpleAttr `matchPattern
@@ -380,16 +430,11 @@ def trAttr (prio : Option Expr) : Attribute → M (Option TrAttr)
     | `vm_override,   some ⟨_, _, AttrArg.vmOverride n none⟩ =>
       mkSimpleAttr `implementedBy #[mkIdent n.kind]
     | _, _ =>
-      let knownAttrs := [
-        `_refl_lemma, `«_simp.sizeof», `_simp_cache, `algebra, `breakpoint, `«class»,
-        `congr, `derive, `derive_handler, `elab_as_eliminator, `elab_simple, `elab_strategy,
-        `elab_with_expected_type, `ematch, `ematch_lhs, `hole_command, `inline, `«instance», `intro,
-        `inverse, `irreducible, `no_inst_pattern, `no_rsimp, `norm, `parsing_only, `pattern,
-        `pp_nodot, `pp_using_anonymous_constructor, `pre_smt, `recursor, `reducibility, `reducible,
-        `refl, `rsimp, `semireducible, `simp, `subst, `symm, `trans, `unify, `user_attribute,
-        `user_command, `user_notation, `vm_monitor, `vm_override, `wrapper_eq]
-      if knownAttrs.contains n then
+      if builtinAttributes.contains n then
         dbg_trace "suppressing unsupported attr {n}"
+        return none
+      else if (← get).simpSets.contains n then
+        dbg_trace "suppressing simp set attr {n}"
         return none
       else
         throw! "unknown attr {n}"
@@ -557,9 +602,9 @@ def trDecl (dk : DeclKind) (mods : Modifiers) (n : Option (Spanned Name)) (us : 
   | DeclKind.example => do `(command| $mods:declModifiers example $(← sig true) $val)
   | DeclKind.theorem => do `(command| $mods:declModifiers theorem $id.get! $(← sig true) $val)
   | DeclKind.instance => do
-    let prio ← mkOpt s.prio fun prio => do
+    let prio ← s.prio.mapM fun prio => do
       `(Parser.Command.namedPrio| (priority := $(← trPrio prio)))
-    `(command| $mods:declModifiers instance $[$id:declId]? $(← sig true) $val)
+    `(command| $mods:declModifiers instance $[$prio:namedPrio]? $[$id:declId]? $(← sig true) $val)
 
 def trInferKind : Option InferKind → M (Option Syntax)
   | some InferKind.implicit => `(Parser.Command.inferMod | {})
@@ -630,19 +675,89 @@ def trStructure (cl : Bool) (mods : Modifiers) (n : Spanned Name) (us : LevelDec
     #[mkAtom "where", mkOptionalNode mk, ← trFields flds]
   let decl := mkNode ``Parser.Command.structure #[
     ← if cl then `(Parser.Command.classTk| class) else `(Parser.Command.structureTk| structure),
-    id, bis, exts, ty, flds, ← `(Parser.Command.optDeriving| )]
+    id, bis, exts, ty, flds, ← `(Parser.Command.optDeriving|)]
   pushM `(command| $mods:declModifiers $decl:structure)
 
 def trNotationCmd (loc : LocalReserve) (attrs : Attributes) (nota : Notation) : M Unit := do
   let (s, attrs) := (← trAttributes attrs false AttributeKind.global |>.run ({}, #[])).2
   unless attrs.isEmpty do throw! "unsupported (impossible)"
-  let n := nota.name
-  match (← get).notations.find? n with
-  | some ⟨_, true⟩ => pure ()
-  | some ⟨_, false⟩ => throw! "unsupported (TODO)"
-  | none =>
-    dbg_trace "unknown notation '{n}'"
-    pure ()
+  if loc.2 then return
+  let kind ← if loc.1 then `(Parser.Term.attrKind| local) else `(Parser.Term.attrKind|)
+  let n := nota.name3
+  let skip : Bool := match (← get).notations.find? n with
+  | some ⟨_, skip⟩ => skip
+  | none => false
+  if skip && !loc.1 then return
+  let prio ← s.prio.mapM fun prio => do
+    `(Parser.Command.namedPrio| (priority := $(← trPrio prio)))
+  let mut new := NotationKind.fail
+  let n4 := nota.name4
+  -- FIXME, this is wrong but lets the parenthesizer work on local notations
+  let fakeNode as := mkNode ``Parser.Term.app #[mkIdent n4, mkNullNode as]
+  let cmd ← match nota with
+  | Notation.mixfix m (tk, prec) (some e) =>
+    let p ← prec.mapM fun p => trPrec p.kind
+    let tk := tk.kind.toString
+    let s := Syntax.mkStrLit tk
+    let e ← trExpr e.kind
+    match m with
+    | MixfixKind.infix =>
+      -- new := NotationKind.binary fun a b => mkNode n4 #[a, mkAtom tk, b]
+      new := NotationKind.binary fun a b => fakeNode #[a, b]
+      `(command| $kind:attrKind infixl$[:$p]? $[$prio:namedPrio]? $s => $e)
+    | MixfixKind.infixl =>
+      -- new := NotationKind.binary fun a b => mkNode n4 #[a, mkAtom tk, b]
+      new := NotationKind.binary fun a b => fakeNode #[a, b]
+      `(command| $kind:attrKind infixl$[:$p]? $[$prio:namedPrio]? $s => $e)
+    | MixfixKind.infixr =>
+      -- new := NotationKind.binary fun a b => mkNode n4 #[a, mkAtom tk, b]
+      new := NotationKind.binary fun a b => fakeNode #[a, b]
+      `(command| $kind:attrKind infixr$[:$p]? $[$prio:namedPrio]? $s => $e)
+    | MixfixKind.prefix =>
+      -- new := NotationKind.unary fun a => mkNode n4 #[mkAtom tk, a]
+      new := NotationKind.unary fun a => fakeNode #[a]
+      `(command| $kind:attrKind prefix$[:$p]? $[$prio:namedPrio]? $s => $e)
+    | MixfixKind.postfix =>
+      -- new := NotationKind.unary fun a => mkNode n4 #[a, mkAtom tk]
+      new := NotationKind.unary fun a => fakeNode #[a]
+      `(command| $kind:attrKind postfix$[:$p]? $[$prio:namedPrio]? $s => $e)
+  | Notation.notation lits (some e) =>
+    let p ← match lits.get? 0 with
+    | some ⟨_, _, Literal.sym tk⟩ => tk.2.mapM fun p => trPrec p.kind
+    | some ⟨_, _, Literal.var _ _⟩ => match lits.get? 1 with
+      | some ⟨_, _, Literal.sym tk⟩ => tk.2.mapM fun p => trPrec p.kind
+      | _ => none
+    | _ => none
+    new := match lits with
+    | #[⟨_, _, Literal.sym tk⟩] =>
+      NotationKind.const (mkNode n4 #[mkAtom tk.1.kind.toString])
+    | _ => match mkNAry lits with
+      | some f =>
+        -- NotationKind.nary fun stxs => mkNode n4 (f stxs).2
+        NotationKind.nary @fakeNode
+      | none => NotationKind.fail
+    let lits ← lits.mapM fun
+    | ⟨_, _, Literal.sym tk⟩ => Syntax.mkStrLit tk.1.kind.toString
+    | ⟨_, _, Literal.var x none⟩ =>
+      `(Parser.Command.identPrec| $(mkIdent x.kind):ident)
+    | ⟨_, _, Literal.var x (some ⟨_, _, Action.prec p⟩)⟩ => do
+      `(Parser.Command.identPrec| $(mkIdent x.kind):ident : $(← trPrec p))
+    | _ => throw! "unsupported"
+    let e ← trExpr e.kind
+    `(command| $kind:attrKind notation$[:$p]? $[$prio:namedPrio]? $[$lits]* => $e)
+  | _ => throw! "unsupported (impossible)"
+  push cmd
+  modify fun s => { s with notations := s.notations.insert n ⟨new, false⟩ }
+where
+  mkNAry (lits : Array (Spanned AST3.Literal)) :
+    Option (Array Syntax → Nat × Array Syntax) :=
+    lits.foldl (init := some fun stx => (0, #[])) fun
+    | some f, ⟨_, _, Literal.sym tk⟩ =>
+      let stx := mkAtom tk.1.kind.toString
+      some fun as => let (i, bs) := f as; (i, bs.push stx)
+    | some f, ⟨_, _, Literal.var _ _⟩ =>
+      some fun as => let (i, bs) := f as; (i+1, bs.push (as.getD i Syntax.missing))
+    | _, _ => none
 
 def trCommand : Command → M Unit
   | Command.prelude => modify fun s => { s with «prelude» := true }
@@ -701,7 +816,8 @@ def trCommand : Command → M Unit
   | Command.include false ops => unless ops.isEmpty do
       pushM `(omit $[$(ops.map fun n => mkIdent n.kind)]*)
   | Command.hide ops => unless ops.isEmpty do
-      pushM `(hide $[$(ops.map fun n => mkIdent n.kind)]*)
+      throw! "unsupported"
+      -- pushM `(hide $[$(ops.map fun n => mkIdent n.kind)]*)
   | Command.theory #[⟨_, _, Modifier.noncomputable⟩] => pushM `(command| noncomputable theory)
   | Command.theory _ => throw! "unsupported (impossible)"
   | Command.setOption n val => match n.kind, val.kind with
@@ -749,12 +865,13 @@ def AST3toData4 (ast : AST3) : Except String Data4 := (Translate.AST3toData4 ast
 
 -- set_option trace.PrettyPrinter.parenthesize true in
 -- #eval show CoreM Unit from do
---   let s ← IO.FS.readFile "/home/mario/Documents/lean/lean/library/init/core.ast.json"
+--   let s ← IO.FS.readFile "/home/mario/Documents/lean/lean/library/init/data/nat/lemmas.ast.json"
 --   let json ← Json.parse s
 --   let ⟨ast, commands, level, expr⟩ ← fromJson? json (α := Parse.RawAST3)
 --   let level := Parse.buildLevels level
 --   let expr := Parse.buildExprs level expr
 --   for c in commands[0:] do
+--     -- println! (repr (← Parse.getNode c |>.run ⟨ast, expr⟩)).group ++ "\n"
 --     println! (repr (← Parse.getCommand c |>.run ⟨ast, expr⟩).kind).group ++ "\n"
 --     let c ← Parse.getCommand c |>.run ⟨ast, expr⟩
 --     let ⟨stx, _⟩ ← match AST3toData4 ⟨#[c]⟩ with
@@ -767,13 +884,13 @@ def AST3toData4 (ast : AST3) : Except String Data4 := (Translate.AST3toData4 ast
 --     println! "{fmt}"
 
 -- #eval show CoreM Unit from do
---   let ast ← parseAST3 "/home/mario/Documents/lean/lean/library/init/core.ast.json"
---   let ⟨stx, _⟩ ← match AST3toData4 ast with
+--   let ⟨ast⟩ ← parseAST3 "/home/mario/Documents/lean/lean/library/init/logic.ast.json"
+--   let ⟨stx, _⟩ ← match AST3toData4 ⟨ast[290:292].toArray⟩ with
 --   | Except.ok e => e
 --   | Except.error e => throwError "{e}"
 --   -- let stx := stx[1][0]
---   -- println! "{stx}\n\n"
+--   println! "{stx[1]}\n\n"
 --   let stx ← parenthesize Parser.Module.module.parenthesizer stx
---   -- println! "{stx}\n\n"
+--   println! "{stx}\n\n"
 --   let fmt ← format Parser.Module.module.formatter stx
 --   println! "{fmt}"

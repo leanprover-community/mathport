@@ -15,7 +15,9 @@ structure Data4 where
 
 end Mathport
 
-syntax (name := hideCmd) "hide " ident+ : command
+-- To fix upstream:
+-- * bracketedExplicitBinders doesn't support optional types
+
 syntax (name := includeCmd) "include " ident+ : command
 syntax (name := omitCmd) "omit " ident+ : command
 syntax (name := parameterCmd) "parameter " bracketedBinder+ : command
@@ -26,10 +28,11 @@ syntax "{" term,* "}" : term
 syntax "{ " ident (" : " term)? " | " term " }" : term
 syntax "{ " ident " ∈ " term " | " term " }" : term
 syntax (priority := low) "{" term " | " bracketedBinder+ " }" : term
+notation "ℕ" => Nat
+notation "ℤ" => Int
 
 open Lean.Elab.Command Lean.Parser Lean
 
-@[commandElab hideCmd] def elabHideCmd : CommandElab := fun stx => pure ()
 @[commandElab includeCmd] def elabIncludeCmd : CommandElab := fun stx => pure ()
 @[commandElab omitCmd] def elabOmitCmd : CommandElab := fun stx => pure ()
 
@@ -66,3 +69,7 @@ namespace Elab.Term
 @[macro Lean.Parser.Term.calc] def expandCalc : Macro := fun stx => `(sorry)
 
 end Elab.Term
+
+def ExistsUnique {α : Sort u} (p : α → Prop) := ∃ x, p x ∧ ∀ y, p y → y = x
+
+macro "∃! " xs:explicitBinders ", " b:term : term => expandExplicitBinders ``ExistsUnique xs b

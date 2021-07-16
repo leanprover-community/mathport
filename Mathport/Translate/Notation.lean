@@ -1,4 +1,10 @@
+/-
+Copyright (c) 2021 Microsoft Corporation. All rights reserved.
+Released under Apache 2.0 license as described in the file LICENSE.
+Authors: Mario Carneiro
+-/
 import Std.Data.HashMap
+import Mathport.Data4
 
 open Std (HashMap)
 open Lean
@@ -18,67 +24,74 @@ inductive NotationKind
   | const : Syntax → NotationKind
   | unary : (Syntax → Syntax) → NotationKind
   | binary : (Syntax → Syntax → Syntax) → NotationKind
+  | nary : (Array Syntax → Syntax) → NotationKind
   | exprs : (Array Syntax → Syntax) → NotationKind
+  | binder : (Syntax → Syntax → Syntax) → NotationKind
 
 structure NotationEntry where
-  kind : NotationKind := NotationKind.fail
-  skipDecl := true
+  kind : NotationKind
+  skipDecl := false
 
 open NotationKind in set_option hygiene false in
 def predefinedNotations : HashMap String NotationEntry := [
-    ("exprProp", {kind := const do `(Prop)}),
-    ("expr $ ", {kind := binary fun f x => do `($f $ $x)}),
-    ("expr¬ ", {kind := unary fun e => do `(¬ $e)}),
-    ("expr~ ", {}),
-    ("expr ∧ ", {kind := binary fun f x => do `($f ∧ $x)}),
-    ("expr ∨ ", {kind := binary fun f x => do `($f ∨ $x)}),
-    ("expr /\\ ", {kind := binary fun f x => do `($f ∧ $x)}),
-    ("expr \\/ ", {kind := binary fun f x => do `($f ∨ $x)}),
-    ("expr <-> ", {kind := binary fun f x => do `($f ↔ $x)}),
-    ("expr ↔ ", {kind := binary fun f x => do `($f ↔ $x)}),
-    ("expr = ", {kind := binary fun f x => do `($f = $x)}),
-    ("expr == ", {kind := binary fun f x => do `(HEq $f $x)}),
-    ("expr ≠ ", {kind := binary fun f x => do `($f ≠ $x)}),
-    ("expr ≈ ", {}),
-    ("expr ~ ", {}),
-    ("expr ≡ ", {}),
-    ("expr ⬝ ", {}),
-    ("expr ▸ ", {kind := binary fun f x => do `($f ▸ $x)}),
-    ("expr ▹ ", {}),
-    ("expr ⊕ ", {kind := binary fun f x => do `(Sum $f $x)}),
-    ("expr × ", {kind := binary fun f x => do `($f × $x)}),
-    ("expr + ", {kind := binary fun f x => do `($f + $x)}),
-    ("expr - ", {kind := binary fun f x => do `($f - $x)}),
-    ("expr * ", {kind := binary fun f x => do `($f * $x)}),
-    ("expr / ", {kind := binary fun f x => do `($f / $x)}),
-    ("expr % ", {kind := binary fun f x => do `($f % $x)}),
-    ("expr- ", {kind := unary fun x => do `(-$x)}),
-    ("expr ^ ", {kind := binary fun f x => do `($f ^ $x)}),
-    ("expr ∘ ", {kind := binary fun f x => do `($f ∘ $x)}),
-    ("expr <= ", {kind := binary fun f x => do `($f ≤ $x)}),
-    ("expr ≤ ", {kind := binary fun f x => do `($f ≤ $x)}),
-    ("expr < ", {kind := binary fun f x => do `($f < $x)}),
-    ("expr >= ", {kind := binary fun f x => do `($f ≥ $x)}),
-    ("expr ≥ ", {kind := binary fun f x => do `($f ≥ $x)}),
-    ("expr > ", {kind := binary fun f x => do `($f > $x)}),
-    ("expr && ", {kind := binary fun f x => do `($f && $x)}),
-    ("expr || ", {kind := binary fun f x => do `($f || $x)}),
-    ("expr ∈ ", {}),
-    ("expr ∉ ", {}),
-    ("expr∅", {kind := const do `(∅)}),
-    ("expr ∩ ", {}),
-    ("expr ∪ ", {}),
-    ("expr ⊆ ", {}),
-    ("expr ⊇ ", {}),
-    ("expr ⊂ ", {}),
-    ("expr ⊃ ", {}),
-    ("expr \\ ", {}),
-    ("expr ∣ ", {}),
-    ("expr ++ ", {kind := binary fun f x => do `($f ++ $x)}),
-    ("expr :: ", {kind := binary fun f x => do `($f :: $x)}),
-    ("expr ; ", {}),
-    ("expr ⁻¹", {}),
-    ("expr[ ,]", {kind := exprs fun stxs => do `([$stxs,*])}),
-    ("expr ≟ ", {}),
-    ("expr =?= ", {})
-  ].foldl (fun m (a, b) => m.insert a b) ∅
+    ("exprProp", const do `(Prop)),
+    ("expr $ ", binary fun f x => do `($f $ $x)),
+    ("expr¬ ", unary fun e => do `(¬ $e)),
+    ("expr~ ", fail),
+    ("expr ∧ ", binary fun f x => do `($f ∧ $x)),
+    ("expr ∨ ", binary fun f x => do `($f ∨ $x)),
+    ("expr /\\ ", binary fun f x => do `($f ∧ $x)),
+    ("expr \\/ ", binary fun f x => do `($f ∨ $x)),
+    ("expr <-> ", binary fun f x => do `($f ↔ $x)),
+    ("expr ↔ ", binary fun f x => do `($f ↔ $x)),
+    ("expr = ", binary fun f x => do `($f = $x)),
+    ("expr == ", binary fun f x => do `(HEq $f $x)),
+    ("expr ≠ ", binary fun f x => do `($f ≠ $x)),
+    ("expr ≈ ", fail),
+    ("expr ~ ", fail),
+    ("expr ≡ ", fail),
+    ("expr ⬝ ", fail),
+    ("expr ▸ ", binary fun f x => do `($f ▸ $x)),
+    ("expr ▹ ", fail),
+    ("expr ⊕ ", binary fun f x => do `(Sum $f $x)),
+    ("expr × ", binary fun f x => do `($f × $x)),
+    ("expr + ", binary fun f x => do `($f + $x)),
+    ("expr - ", binary fun f x => do `($f - $x)),
+    ("expr * ", binary fun f x => do `($f * $x)),
+    ("expr / ", binary fun f x => do `($f / $x)),
+    ("expr % ", binary fun f x => do `($f % $x)),
+    ("expr- ", unary fun x => do `(-$x)),
+    ("expr ^ ", binary fun f x => do `($f ^ $x)),
+    ("expr ∘ ", binary fun f x => do `($f ∘ $x)),
+    ("expr <= ", binary fun f x => do `($f ≤ $x)),
+    ("expr ≤ ", binary fun f x => do `($f ≤ $x)),
+    ("expr < ", binary fun f x => do `($f < $x)),
+    ("expr >= ", binary fun f x => do `($f ≥ $x)),
+    ("expr ≥ ", binary fun f x => do `($f ≥ $x)),
+    ("expr > ", binary fun f x => do `($f > $x)),
+    ("expr && ", binary fun f x => do `($f && $x)),
+    ("expr || ", binary fun f x => do `($f || $x)),
+    ("expr ∈ ", fail),
+    ("expr ∉ ", fail),
+    ("expr∅", const do `(∅)),
+    ("expr ∩ ", fail),
+    ("expr ∪ ", fail),
+    ("expr ⊆ ", fail),
+    ("expr ⊇ ", fail),
+    ("expr ⊂ ", fail),
+    ("expr ⊃ ", fail),
+    ("expr \\ ", fail),
+    ("expr ∣ ", fail),
+    ("expr ++ ", binary fun f x => do `($f ++ $x)),
+    ("expr :: ", binary fun f x => do `($f :: $x)),
+    ("expr ; ", fail),
+    ("expr ⁻¹", fail),
+    ("expr[ ,]", exprs fun stxs => do `([$stxs,*])),
+    ("expr ≟ ", fail),
+    ("expr =?= ", fail),
+    ("exprexists , ", binder fun bis e => do `(∃ $bis, $e)),
+    ("expr∃ , ", binder fun bis e => do `(∃ $bis, $e)),
+    ("expr∃! , ", binder fun bis e => do `(∃! $bis, $e)),
+    ("exprℕ", const do `(ℕ)),
+    ("exprℤ", const do `(ℤ))
+  ].foldl (fun m (a, k) => m.insert a ⟨k, true⟩) ∅
