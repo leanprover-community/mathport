@@ -30,6 +30,8 @@ syntax "{ " ident " ∈ " term " | " term " }" : term
 syntax (priority := low) "{" term " | " bracketedBinder+ " }" : term
 notation "ℕ" => Nat
 notation "ℤ" => Int
+syntax tactic " <;> " "[" tactic,* "]" : tactic
+syntax "do " doSeq : tactic
 
 open Lean.Elab.Command Lean.Parser Lean
 

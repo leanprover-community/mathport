@@ -127,8 +127,7 @@ def trBinderIdent : BinderName → Syntax
   | BinderName.ident n => mkNode ``binderIdent #[mkIdent n]
   | BinderName.«_» => mkNode ``binderIdent #[mkAtom "_"]
 
-inductive TacticContext
-  | seq
+inductive TacticContext | seq | one
 
 def optTy (ty : Option Syntax) : M (Option Syntax) :=
   ty.mapM fun stx => do `(Parser.Term.typeSpec| : $stx)
@@ -348,17 +347,43 @@ mutual
       let e ← trExpr e.kind
       if useFrom then `(Parser.Term.fromTerm| from $e) else e
     | Proof.block bl, _ => do `(by $(← trBlock bl))
-    | Proof.by tac, _ => do `(by $(← trTactic tac.kind))
+    | Proof.by tac, _ => do `(by $(← trTactic tac.kind TacticContext.seq))
 
   partial def trBlock : Block → (c :_:= TacticContext.seq) → M Syntax
     | ⟨_, none, none, #[]⟩, TacticContext.seq => do `(Parser.Tactic.tacticSeqBracketed| {})
     | ⟨_, none, none, tacs⟩, TacticContext.seq =>
       mkNode ``Parser.Tactic.tacticSeq1Indented <$> tacs.mapM fun tac => do
         mkGroupNode #[← trTactic tac.kind, mkNullNode]
+    | ⟨_, cl, cfg, tacs⟩, TacticContext.one => throw! "unsupported (TODO)"
     | ⟨_, cl, cfg, tacs⟩, _ => throw! "unsupported (TODO)"
 
-  partial def trTactic : Tactic → (c :_:= TacticContext.seq) → M Syntax
-    | _, _ => throw! "unsupported (TODO)"
+  partial def trTactic : Tactic → (c :_:= TacticContext.one) → M Syntax
+    | Tactic.block bl, c => trBlock bl c
+    | Tactic.by tac, c => trBlock ⟨true, none, none, #[tac]⟩ c
+    | tac, TacticContext.seq => do
+      mkNode ``Parser.Tactic.tacticSeq1Indented #[mkGroupNode #[← trTactic tac, mkNullNode]]
+    | Tactic.«;» tacs, TacticContext.one => do
+      let rec build (i : Nat) (lhs : Syntax) : M Syntax :=
+        if h : i < tacs.size then do
+          match ← trTacticOrList (tacs.get ⟨i, h⟩).kind with
+          | Sum.inl tac => `(tactic| $lhs <;> $(← build (i+1) tac))
+          | Sum.inr tacs => build (i+1) (← `(tactic| $lhs <;> [$[$tacs],*]))
+        else lhs
+      build 1 (← trTactic tacs[0].kind)
+    | Tactic.«<|>» tacs, TacticContext.one => do
+      let tacs ← tacs.mapM fun tac => trTactic tac.kind
+      `(tactic| first $[| $tacs]*)
+    | Tactic.«[]» tacs, _ => throw! "unsupported (impossible)"
+    | Tactic.exact_shortcut e, TacticContext.one => do `(tactic| exact $(← trExpr e.kind))
+    | Tactic.expr e, TacticContext.one => do
+      match ← trExpr e.kind with
+      | `(do $[$els]*) => `(tactic| do $[$els:doElem]*)
+      | stx => `(tactic| do $stx:term)
+    | Tactic.interactive n args, TacticContext.one => throw! "unsupported tactic {repr n}"
+
+  partial def trTacticOrList : Tactic → M (Sum Syntax (Array Syntax))
+    | Tactic.«[]» args => Sum.inr <$> args.mapM fun arg => trTactic arg.kind
+    | tac => Sum.inl <$> trTactic tac
 
   partial def trNotation (n : Choice) (args : Array (Spanned Arg)) : M Syntax := do
     let n ← match n with
