@@ -264,39 +264,28 @@ def LevelDecl := Option (Array #Name)
 instance : Inhabited Levels := ⟨none⟩
 instance : Inhabited LevelDecl := ⟨none⟩
 
+-- These are used to break up the huge mutual recursion below
+def NotationId := Nat
+def CommandId := Nat
+instance : Inhabited NotationId := ⟨(0:Nat)⟩
+instance : Inhabited CommandId := ⟨(0:Nat)⟩
+
 section
 set_option hygiene false
-local notation "Modifiers" => Array #Modifier
 local notation "Binders" => Array #Binder
-local notation "Attributes" => Array #Attribute
-local notation "PrecSymbol" => #Symbol × Option #Precedence
 
 mutual
-
-  inductive Attribute
-    | priority : #Expr → Attribute
-    | del (name : Name) : Attribute
-    | add (name : Name) (arg : Option #AttrArg) : Attribute
-    deriving Inhabited
-
-  inductive Precedence
-    | nat : Nat → Precedence
-    | expr : #Expr → Precedence
-    deriving Inhabited
 
   inductive Default
     | «:=» : #Expr → Default
     | «.» : #Name → Default
 
-  inductive Notation
-    | «notation» : Array #Literal → Option #Expr → Notation
-    | mixfix : MixfixKind → PrecSymbol → Option #Expr → Notation
-    deriving Inhabited
-
   inductive Binder
-    | «notation» : Notation → Binder
+    | «notation» : NotationId → Binder
     | binder : BinderInfo → Option (Array #BinderName) →
       Binders → Option #Expr → Option Default → Binder
+    | collection : BinderInfo → Array #BinderName →
+      (nota : Name) → (rhs : #Expr) → Binder
     deriving Inhabited
 
   inductive LambdaBinder
@@ -305,7 +294,7 @@ mutual
     deriving Inhabited
 
   inductive LetDecl
-    | «notation» : Notation → LetDecl
+    | «notation» : NotationId → LetDecl
     | var : #BinderName → Binders → Option #Expr → #Expr → LetDecl
     | pat : #Expr → #Expr → LetDecl
     deriving Inhabited
@@ -402,27 +391,21 @@ mutual
     deriving Inhabited
 
   inductive Param
-    | parse : Lean3.Expr → Param
+    | parse : Lean3.Expr → Array #VMCall → Param
     | expr : #Expr → Param
     | block : Block → Param
     deriving Inhabited
 
-  inductive Action
-    | prec : Precedence → Action
-    | prev : Action
-    | «scoped» : Option #Precedence → Option (#Name × #Expr) → Action
-    | fold (right : Bool)
-        (prec : Option #Precedence) (sep : PrecSymbol)
-        («rec» : #Name × #Name × #Expr) (ini : Option #Expr)
-        (term : Option PrecSymbol) : Action
-    deriving Inhabited
-
-  inductive Literal
-    | nat : Nat → Literal
-    | var : #Name → Option #Action → Literal
-    | sym : PrecSymbol → Literal
-    | binder : Option #Precedence → Literal
-    | binders : Option #Precedence → Literal
+  inductive VMCall
+    | ident : Name → VMCall
+    | nat : Nat → VMCall
+    | token : String → VMCall
+    | pat : Expr → VMCall
+    | expr : Expr → VMCall
+    | binders : Binders → VMCall
+    | block : Block → VMCall
+    | «inductive» : CommandId → VMCall
+    | command : Option CommandId → VMCall
     deriving Inhabited
 
 end
@@ -430,14 +413,50 @@ end
 
 def Binders := Array #Binder
 instance : Inhabited Binders := ⟨#[]⟩
-def Attributes := Array #Attribute
-instance : Inhabited Attributes := ⟨#[]⟩
-def PrecSymbol := #Symbol × Option #Precedence
-instance : Inhabited PrecSymbol := inferInstanceAs (Inhabited (_×_))
 
 partial def Expr.unparen : Expr → Expr
   | Expr.paren e => e.kind.unparen
   | e => e
+
+inductive Attribute
+  | priority : #Expr → Attribute
+  | del (name : Name) : Attribute
+  | add (name : Name) (arg : Option #AttrArg) : Attribute
+  deriving Inhabited
+
+def Attributes := Array #Attribute
+instance : Inhabited Attributes := ⟨#[]⟩
+
+inductive Precedence
+  | nat : Nat → Precedence
+  | expr : #Expr → Precedence
+  deriving Inhabited
+
+def PrecSymbol := #Symbol × Option #Precedence
+instance : Inhabited PrecSymbol := inferInstanceAs (Inhabited (_×_))
+
+inductive Action
+  | prec : Precedence → Action
+  | prev : Action
+  | «scoped» : Option #Precedence → Option (#Name × #Expr) → Action
+  | fold (right : Bool)
+      (prec : Option #Precedence) (sep : PrecSymbol)
+      («rec» : #Name × #Name × #Expr) (ini : Option #Expr)
+      (term : Option PrecSymbol) : Action
+  deriving Inhabited
+
+inductive Literal
+  | nat : Nat → Literal
+  | var : #Name → Option #Action → Literal
+  | sym : PrecSymbol → Literal
+  | binder : Option #Precedence → Literal
+  | binders : Option #Precedence → Literal
+  deriving Inhabited
+
+inductive Notation
+  | «notation» : Array #Literal → Option #Expr → Notation
+  | mixfix : MixfixKind → PrecSymbol → Option #Expr → Notation
+  deriving Inhabited
 
 inductive Modifier
   | «private» : Modifier
@@ -525,10 +544,14 @@ inductive PrintCmd
   | token : #Name → PrintCmd
   | ident : #Name → PrintCmd
 
+inductive InductiveCmd
+  | reg («class» : Bool) : Modifiers → #Name → LevelDecl → Binders →
+    (ty : Option #Expr) → Option Notation → Array #Intro → InductiveCmd
+  | «mutual» («class» : Bool) : Modifiers → LevelDecl → Binders →
+    Option Notation → Array (Mutual #Intro) → InductiveCmd
+
 inductive Command
-  | «prelude» : Command
   | initQuotient : Command
-  | «import» : Array #Name → Command
   | mdoc : String → Command
   | «universe» (var plural : Bool) : Array #Name → Command
   | «namespace» : #Name → Command
@@ -540,10 +563,7 @@ inductive Command
   | decl : DeclKind → Modifiers → Option #Name →
     LevelDecl → Binders → (ty : Option #Expr) → #DeclVal → Command
   | mutualDecl : DeclKind → Modifiers → LevelDecl → Binders → Array (Mutual Arm) → Command
-  | «inductive» («class» : Bool) : Modifiers → #Name → LevelDecl → Binders →
-    (ty : Option #Expr) → Option Notation → Array #Intro → Command
-  | mutualInductive («class» : Bool) : Modifiers → LevelDecl → Binders →
-    Option Notation → Array (Mutual #Intro) → Command
+  | «inductive» : InductiveCmd → Command
   | «structure» («class» : Bool) :
     Modifiers → #Name → LevelDecl → Binders → Array #Parent → (ty : Option #Expr) →
     Option #Mk → Array #Field → Command
@@ -642,7 +662,9 @@ mutual
       Default_repr dflt
     | Binder.binder bi (some vars) bis ty dflt, paren => bi.bracket paren $
       spaced repr vars ++ Binders_repr bis ++ optTy ty ++ Default_repr dflt
-    | Binder.notation n, _ => (Notation_repr n #[]).paren
+    | Binder.collection bi vars n rhs, paren => bi.bracket paren $
+      spaced repr vars ++ " " ++ n.toString ++ " " ++ Expr_repr rhs.kind
+    | Binder.notation n, _ => Format.paren s!"notation <{show Nat from n}>"
 
   partial def Binders_repr (bis : Binders) (paren := true) : Format :=
     let paren := paren || bis.size ≠ 1
@@ -661,7 +683,7 @@ mutual
     | LetDecl.var v bis ty val =>
       repr v ++ Binders_repr bis ++ optTy ty ++ " := " ++ Expr_repr val.kind
     | LetDecl.pat pat val => Expr_repr pat.kind ++ " := " ++ Expr_repr val.kind
-    | LetDecl.notation n => Notation_repr n #[]
+    | LetDecl.notation n => s!"notation <{show Nat from n}>"
 
   partial def Expr_repr : Expr → (prec : _ := 0) → Format
     | Expr.«...», _ => "..."
@@ -826,9 +848,21 @@ mutual
         ("begin" ++ s₁ ++ s₂ ++ Format.line ++ s₃).nest 2 ++ Format.line ++ "end"
 
   partial def Param_repr : Param → Format
-    | Param.parse e => repr e
+    | Param.parse e calls => Format.sbracket $
+      (", ":Format).joinSep $ calls.toList.map fun c => VMCall_repr c.kind
     | Param.expr e => Expr_repr e.kind
     | Param.block e => Block_repr e
+
+  partial def VMCall_repr : VMCall → Format
+    | VMCall.ident n => n.toString
+    | VMCall.nat n => repr n
+    | VMCall.token tk => repr tk
+    | VMCall.pat e => Expr_repr e
+    | VMCall.expr e => Expr_repr e
+    | VMCall.binders bis => "binders" ++ Binders_repr bis
+    | VMCall.block bl => Block_repr bl
+    | VMCall.inductive c => s!"inductive <{show Nat from c}>"
+    | VMCall.command c => s!"command <{repr $ show Option Nat from c}>"
 
   partial def optPrec_repr : Option #Precedence → Format
     | none => ""
@@ -971,10 +1005,20 @@ instance : Repr PrintCmd where reprPrec c _ := match c with
   | PrintCmd.token n => n.kind.toString
   | PrintCmd.ident n => n.kind.toString
 
+instance : Repr InductiveCmd where reprPrec c _ := match c with
+  | InductiveCmd.reg cl mods n us bis ty nota intros =>
+    repr mods ++ (if cl then "class " else "") ++ "inductive " ++
+    n.kind.toString ++ repr us ++ repr bis ++ optTy ty ++
+    (match nota with | none => "" | some n => "\n" ++ repr n) ++
+    Intros_repr intros
+  | InductiveCmd.mutual cl mods us bis nota inds =>
+    repr mods ++ (if cl then "class " else "") ++ "inductive " ++
+    Format.joinSep (inds.toList.map fun m => m.name.kind.toString) ", " ++ repr bis ++
+    (match nota with | none => "" | some n => "\n" ++ repr n) ++
+    Format.join (inds.toList.map (Mutual_repr Intros_repr))
+
 instance : Repr Command where reprPrec c _ := match c with
-  | Command.prelude => "prelude"
   | Command.initQuotient => "init_quotient"
-  | Command.«import» ns => "import " ++ Format.joinSep (ns.toList.map fun a => a.kind.toString) " "
   | Command.mdoc s => ("/-!" ++ s ++ "-/" : String)
   | Command.«universe» var pl ns =>
     "universe" ++ (if var then " variable" else "") ++ suffix pl ++
@@ -998,16 +1042,7 @@ instance : Repr Command where reprPrec c _ := match c with
     repr mods ++ repr dk ++ " " ++
     Format.joinSep (arms.toList.map fun m => m.name.kind.toString) ", " ++
     repr bis ++ Format.join (arms.toList.map (Mutual_repr Arms_repr))
-  | Command.inductive cl mods n us bis ty nota intros =>
-    repr mods ++ (if cl then "class " else "") ++ "inductive " ++
-    n.kind.toString ++ repr us ++ repr bis ++ optTy ty ++
-    (match nota with | none => "" | some n => "\n" ++ repr n) ++
-    Intros_repr intros
-  | Command.mutualInductive cl mods us bis nota inds =>
-    repr mods ++ (if cl then "class " else "") ++ "inductive " ++
-    Format.joinSep (inds.toList.map fun m => m.name.kind.toString) ", " ++ repr bis ++
-    (match nota with | none => "" | some n => "\n" ++ repr n) ++
-    Format.join (inds.toList.map (Mutual_repr Intros_repr))
+  | Command.inductive ind => repr ind
   | Command.structure cl mods n us bis exts ty mk flds =>
     repr mods ++ (if cl then "class " else "structure ") ++
     n.kind.toString ++ repr us ++ repr bis ++
@@ -1073,9 +1108,17 @@ def Notation.name4 := Name.mkSimple ∘ Notation.name '_' "term"
 end AST3
 
 structure AST3 where
+  «prelude» : Option #Unit
+  «import» : Array (Array #Name)
   commands : Array (Spanned AST3.Command)
+  indexed_nota : Array AST3.Notation
+  indexed_cmds : Array AST3.Command
 
 instance : Repr AST3 where reprPrec
-  | ⟨cmds⟩, _ => Format.join (cmds.toList.map fun c => repr c ++ "\n\n")
+  | ⟨prel, imps, cmds, _, _⟩, _ =>
+    (match prel with | none => "" | some _ => "prelude¬") ++
+    Format.join (imps.toList.map fun ns =>
+      "import " ++ Format.joinSep (ns.toList.map fun a => a.kind.toString) " " ++ "\n") ++
+    "\n" ++ Format.join (cmds.toList.map fun c => repr c ++ "\n\n")
 
 end Mathport

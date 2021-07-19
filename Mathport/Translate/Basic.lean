@@ -34,9 +34,12 @@ structure Scope where
   oldStructureCmd : Bool := false
   deriving Inhabited
 
+structure Context where
+  notations : Array Notation
+  commands : Array Command
+  deriving Inhabited
+
 structure State where
-  «prelude» : Bool := false
-  imports : Array Name := #[]
   commands : Array Syntax := #[]
   current : Scope := {}
   scopes : Array Scope := #[]
@@ -44,7 +47,7 @@ structure State where
   simpSets : NameSet := predefinedSimpSets
   deriving Inhabited
 
-abbrev M := EStateM String State
+abbrev M := ReaderT Context $ EStateM String State
 
 local instance : MonadQuotation M where
   getRef              := pure Syntax.missing
@@ -784,11 +787,15 @@ where
       some fun as => let (i, bs) := f as; (i+1, bs.push (as.getD i Syntax.missing))
     | _, _ => none
 
+def trInductiveCmd : InductiveCmd → M Unit
+  | InductiveCmd.reg cl mods n us bis ty nota intros =>
+     pushM $ trInductive cl mods n us bis ty nota intros
+  | InductiveCmd.mutual cl mods us bis nota inds =>
+    trMutual inds fun ⟨attrs, n, ty, intros⟩ => do
+      trInductive cl mods n us bis ty nota intros
+
 def trCommand : Command → M Unit
-  | Command.prelude => modify fun s => { s with «prelude» := true }
   | Command.initQuotient => pushM `(init_quot)
-  | Command.«import» ns => modify fun s =>
-    { s with imports := ns.foldl (fun a n => a.push n.kind) s.imports }
   | Command.mdoc doc =>
     push $ mkNode ``Parser.Command.modDocComment #[mkAtom "/!", mkAtom (doc ++ "-/")]
   | Command.«universe» _ _ ns =>
@@ -819,11 +826,7 @@ def trCommand : Command → M Unit
       match ← trDecl dk mods n us bis ty (DeclVal.eqns vals) with
       | none => throw! "unsupported"
       | some decl => decl
-  | Command.inductive cl mods n us bis ty nota intros =>
-     pushM $ trInductive cl mods n us bis ty nota intros
-  | Command.mutualInductive cl mods us bis nota inds =>
-    trMutual inds fun ⟨attrs, n, ty, intros⟩ => do
-      trInductive cl mods n us bis ty nota intros
+  | Command.inductive ind => trInductiveCmd ind
   | Command.structure cl mods n us bis exts ty m flds =>
     trStructure cl mods n us bis exts ty m flds
   | Command.attribute loc _ attrs ns => do
@@ -865,25 +868,24 @@ def trCommand : Command → M Unit
   | Command.userCommand n mods args => throw! "unsupported (TODO)"
 
 def AST3toData4 : AST3 → M Data4
-  | ⟨commands⟩ => do
+  | ⟨prel, imp, commands, _, _⟩ => do
     commands.forM fun c => trCommand c.kind
     let s ← get
     let header := mkNode ``Parser.Module.header #[
-      mkOptionalNode $ match s.prelude with
-      | true => some $ mkNode ``Parser.Module.prelude #[mkAtom "prelude"]
-      | false => none,
-      mkNullNode $ s.imports.map fun n =>
-        mkNode ``Parser.Module.import #[mkAtom "import", mkNullNode, mkIdent n]]
+      mkOptionalNode $ prel.map fun _ => mkNode ``Parser.Module.prelude #[mkAtom "prelude"],
+      mkNullNode $ imp.foldl (init := #[]) fun imp ns => ns.foldl (init := imp) fun imp n =>
+        imp.push $ mkNode ``Parser.Module.import #[mkAtom "import", mkNullNode, mkIdent n.kind]]
     pure ⟨mkNode ``Parser.Module.module #[header, mkNullNode s.commands], HashMap.empty⟩
 
-def M.run (m : M α) : Except String α := do
-  match EStateM.run m {} with
+def M.run (m : M α) (ctx : Context) : Except String α := do
+  match EStateM.run (m ctx) {} with
   | EStateM.Result.ok a _ => a
   | EStateM.Result.error e _ => throw e
 
 end Translate
 
-def AST3toData4 (ast : AST3) : Except String Data4 := (Translate.AST3toData4 ast).run
+def AST3toData4 (ast : AST3) : Except String Data4 :=
+  (Translate.AST3toData4 ast).run ⟨ast.indexed_nota, ast.indexed_cmds⟩
 
 -- open Lean Lean.Elab Lean.Elab.Term Lean.Elab.Tactic
 -- open Lean.Parser Lean.PrettyPrinter
@@ -892,14 +894,16 @@ def AST3toData4 (ast : AST3) : Except String Data4 := (Translate.AST3toData4 ast
 -- #eval show CoreM Unit from do
 --   let s ← IO.FS.readFile "/home/mario/Documents/lean/lean/library/init/data/nat/lemmas.ast.json"
 --   let json ← Json.parse s
---   let ⟨ast, commands, level, expr⟩ ← fromJson? json (α := Parse.RawAST3)
+--   let raw@⟨ast, file, level, expr⟩ ← fromJson? json (α := Parse.RawAST3)
+--   let ⟨prel, imp, commands, inot, icmd⟩ ← raw.toAST3
 --   let level := Parse.buildLevels level
 --   let expr := Parse.buildExprs level expr
+--   let commands := ast[ast[file].get!.children'[2]].get!.children'
 --   for c in commands[0:] do
 --     -- println! (repr (← Parse.getNode c |>.run ⟨ast, expr⟩)).group ++ "\n"
---     println! (repr (← Parse.getCommand c |>.run ⟨ast, expr⟩).kind).group ++ "\n"
---     let c ← Parse.getCommand c |>.run ⟨ast, expr⟩
---     let ⟨stx, _⟩ ← match AST3toData4 ⟨#[c]⟩ with
+--     println! (repr (← Parse.getCommand c |>.run ast expr).kind).group ++ "\n"
+--     let c ← Parse.getCommand c |>.run ast expr
+--     let ⟨stx, _⟩ ← match AST3toData4 ⟨none, #[], #[c], inot, icmd⟩ with
 --     | Except.ok e => e
 --     | Except.error e => throwError "{e}"
 --     -- println! "{stx}\n\n"
