@@ -65,3 +65,15 @@ def Option.mapM {α : Type u} {β : Type v} {m : Type v → Type w} [Monad m] (f
 
 def Lean.Syntax.mkCharLit (val : Char) (info := SourceInfo.none) : Syntax :=
   mkLit charLitKind (Char.quote val) info
+
+syntax (name := cmdQuot) "`(command|" incQuotDepth(command) ")" : term
+
+open Lean Elab in
+elab:max "throw!" interpStr:interpolatedStr(term) : term <= ty => do
+  let pos ← Elab.getRefPosition
+  let head := Syntax.mkStrLit $ mkErrorStringWithPos (← read).fileName pos ""
+  let str ← Elab.liftMacroM <| interpStr.expandInterpolatedStr (← `(String)) (← `(toString))
+  Elab.Term.elabTerm (← `(throw ($head ++ $str))) ty
+
+open Lean Elab Term Quotation in
+@[termElab cmdQuot] def elabCmdQuot : TermElab := adaptExpander stxQuot.expand

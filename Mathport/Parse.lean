@@ -420,6 +420,7 @@ mutual
     | "{", _, args => VMCall.block <$> getBlock true args
     | "inductive", _, args => VMCall.inductive <$> getInductiveId args
     | "command", _, args => VMCall.command <$> opt getCommandId (args.getD 0 0)
+    | "with_input", _, args => VMCall.withInput <$> args.mapM getVMCall
     | k, _, _ => throw s!"getVMCall parse error, unknown kind {k}"
 
 end

@@ -406,6 +406,7 @@ mutual
     | block : Block → VMCall
     | «inductive» : CommandId → VMCall
     | command : Option CommandId → VMCall
+    | withInput : Array #VMCall → VMCall
     deriving Inhabited
 
 end
@@ -863,6 +864,8 @@ mutual
     | VMCall.block bl => Block_repr bl
     | VMCall.inductive c => s!"inductive <{show Nat from c}>"
     | VMCall.command c => s!"command <{repr $ show Option Nat from c}>"
+    | VMCall.withInput calls => Format.sbracket $
+      (", ":Format).joinSep $ calls.toList.map fun c => VMCall_repr c.kind
 
   partial def optPrec_repr : Option #Precedence → Format
     | none => ""
@@ -916,6 +919,7 @@ instance : Repr Proof := ⟨fun n _ => Proof_repr n⟩
 instance : Repr Tactic := ⟨fun n _ => Tactic_repr n⟩
 instance : Repr Block := ⟨fun n _ => Block_repr n⟩
 instance : Repr Param := ⟨fun n _ => Param_repr n⟩
+instance : Repr VMCall := ⟨fun n _ => VMCall_repr n⟩
 instance : Repr PrecSymbol := ⟨fun n _ => PrecSymbol_repr n⟩
 instance : Repr Action := ⟨fun n _ => Action_repr n⟩
 instance : Repr Literal := ⟨fun n _ => Literal_repr n⟩
