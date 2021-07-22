@@ -33,6 +33,18 @@ instance : FromJson Unit := ⟨fun _ => ()⟩
 instance {α : Type u} {β : Type v} [FromJson α] [FromJson β] : FromJson (Sum α β) :=
   ⟨fun j => (fromJson? j).map Sum.inl <|> (@fromJson? β _ j).map Sum.inr⟩
 
+open Lean.Json in
+instance [FromJson α] [BEq α] [Hashable α] : FromJson (Std.HashSet α) where
+  fromJson? json := do
+    let Structured.arr elems ← fromJson? json | throw "JSON array expected"
+    elems.foldlM (init := {}) fun acc x => do acc.insert (← fromJson? x)
+
+open Lean.Json in
+instance [FromJson β] : FromJson (Std.HashMap String β) where
+  fromJson? json := do
+    let Structured.obj kvs ← fromJson? json | throw "JSON array expected"
+    kvs.foldM (init := {}) fun acc k v => do acc.insert k (← fromJson? v)
+
 def dummyFileMap : FileMap := ⟨"", #[0], #[1]⟩
 
 end Lean
@@ -77,3 +89,8 @@ elab:max "throw!" interpStr:interpolatedStr(term) : term <= ty => do
 
 open Lean Elab Term Quotation in
 @[termElab cmdQuot] def elabCmdQuot : TermElab := adaptExpander stxQuot.expand
+
+def String.cmp (x y : String) : Ordering :=
+  if x < y then Ordering.lt
+  else if x > y then Ordering.gt
+  else Ordering.eq
