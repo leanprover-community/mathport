@@ -5,6 +5,7 @@ Authors: Mario Carneiro, Daniel Selsam
 -/
 import Lean.Expr
 import Mathport.Util.Misc
+import Mathport.Util.Json
 import Mathport.Syntax.AST3
 
 namespace Mathport

@@ -8,22 +8,21 @@ import Std.Data.HashMap
 import Std.Data.HashSet
 import Std.Data.RBMap
 import Mathport.Util.Misc
+import Mathport.Util.Json
+import Mathport.Binary.Path
 
 namespace Mathport.Binary
 
 open Lean Lean.Json
 open Std (HashMap HashSet)
 
-instance [FromJson β] : FromJson (Std.HashMap Name β) where
-  fromJson? json := do
-    let Structured.obj kvs ← fromJson? json | throw "JSON obj expected"
-    kvs.foldM (init := {}) fun acc (k : String) v => do acc.insert k.toName (← fromJson? v)
-
 structure Config where
+  outRoot           : String := ""
+  modules           : HashMap String FilePath := {}
   customAligns      : HashMap Name Name := {}
   disabledInstances : HashSet Name := {}
-  sorries           : HashSet Name := {}
   neverSorries      : HashSet Name := {}
+  sorries           : HashSet Name := {}
   skipProofs        : Bool := false
   deriving FromJson
 

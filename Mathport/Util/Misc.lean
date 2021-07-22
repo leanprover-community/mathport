@@ -11,40 +11,6 @@ namespace Lean
 
 deriving instance Hashable for Position
 
-instance : FromJson Position where
-  fromJson?
-  | Json.arr a => do
-    unless a.size = 2 do throw "expected an array with two elements"
-    pure ⟨← fromJson? a[0], ← fromJson? a[1]⟩
-  | _ => throw "JSON array expected"
-
-instance : FromJson Name where
-  fromJson?
-  | Json.null => Name.anonymous
-  | Json.str s => s
-  | Json.arr a => a.foldrM (init := Name.anonymous) fun
-    | (i : Nat), n => n.mkNum i
-    | (s : String), n => n.mkStr s
-    | _, _ => throw "JSON string expected"
-  | _ => throw "JSON array expected"
-
-instance : FromJson Unit := ⟨fun _ => ()⟩
-
-instance {α : Type u} {β : Type v} [FromJson α] [FromJson β] : FromJson (Sum α β) :=
-  ⟨fun j => (fromJson? j).map Sum.inl <|> (@fromJson? β _ j).map Sum.inr⟩
-
-open Lean.Json in
-instance [FromJson α] [BEq α] [Hashable α] : FromJson (Std.HashSet α) where
-  fromJson? json := do
-    let Structured.arr elems ← fromJson? json | throw "JSON array expected"
-    elems.foldlM (init := {}) fun acc x => do acc.insert (← fromJson? x)
-
-open Lean.Json in
-instance [FromJson β] : FromJson (Std.HashMap String β) where
-  fromJson? json := do
-    let Structured.obj kvs ← fromJson? json | throw "JSON array expected"
-    kvs.foldM (init := {}) fun acc k v => do acc.insert k (← fromJson? v)
-
 def dummyFileMap : FileMap := ⟨"", #[0], #[1]⟩
 
 end Lean
@@ -94,3 +60,6 @@ def String.cmp (x y : String) : Ordering :=
   if x < y then Ordering.lt
   else if x > y then Ordering.gt
   else Ordering.eq
+
+def List.splitAt {α} (xs : List α) (i : Nat) : List α × List α :=
+  (xs.take i, xs.drop i)

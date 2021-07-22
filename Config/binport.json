@@ -1,0 +1,54 @@
+{
+    "outRoot"      : "~/projects/mathport/Lib4",
+
+    "modules"      : {
+	"Mathlib"  : "~/projects/mathlib3/src",
+	"Lean3Lib" : "~/projects/lean3/library",
+	"Lean3Pkg" : "~/projects/lean3/leanpkg"
+    },
+
+    "customAligns" : {
+	"has_zero"   : "Zero",
+	"has_one"    : "One",
+	"has_add"    : "Add",
+	"has_sub"    : "Sub",
+	"has_mul"    : "Mul",
+	"has_div"    : "Div",
+	"has_neg"    : "Neg",
+	"has_mod"    : "Mod",
+
+	"has_le"     : "LE",
+	"has_lt"     : "LT",
+
+	"has_beq"    : "BEq",
+
+	"has_append" : "Append",
+	"has_pure"   : "Pure",
+	"has_bind"   : "Bind",
+	"has_sizeof" : "SizeOf"
+    },
+
+    "disabledInstances" : [
+	"bool.decidable_eq",
+	"nat.decidable_eq",
+	"and.decidable",
+	"or.decidable",
+	"iff.decidable",
+	"not.decidable",
+	"implies.decidable",
+	"decidable.true",
+	"decidable.false",
+	"exists_prop_decidable",
+	"forall_prop_decidable",
+	"int.decidable_eq",
+	"nat.decidable_lt",
+	"nat.decidable_le"
+    ],
+
+    "neverSorries" : ["of_as_true"],
+
+    "sorries" : [],
+
+    "skipProofs" : false
+
+}
