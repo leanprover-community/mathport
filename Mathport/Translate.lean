@@ -25,7 +25,7 @@ def M.run (m : M α) : Array Notation → Array Command → EIO String α := do
   M.run' $ do
     let mut tacs := {}
     for (n, tac) in Tactic.builtinTactics do
-      tacs := tacs.insert n $ ← fun c s => pure fun a => tac a c s
+      tacs := tacs.insert n $ ← fun c s => pure fun a => (tac ⟨a⟩).run' {} c s
     modify fun s => { s with tactics := tacs }
     m
 

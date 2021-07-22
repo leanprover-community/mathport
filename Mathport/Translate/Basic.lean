@@ -30,7 +30,7 @@ structure State where
   scopes : Array Scope := #[]
   notations : HashMap String NotationEntry := predefinedNotations
   simpSets : NameSet := predefinedSimpSets
-  tactics : NameMap (Array AST3.Param → EIO String Syntax) := {}
+  tactics : NameMap (Array (Spanned AST3.Param) → EIO String Syntax) := {}
   deriving Inhabited
 
 structure Context where
@@ -175,7 +175,7 @@ mutual
       | stx => `(tactic| do $stx:term)
     | Tactic.interactive n args, TacticContext.one => do
       match (← get).tactics.find? n with
-      | some f => f $ args.map (·.kind)
+      | some f => f args
       | none => throw! "unsupported tactic {repr n}"
 
   partial def trTacticOrList : Tactic → M (Sum Syntax (Array Syntax))
@@ -234,7 +234,7 @@ end
 def trExplicitBinders : Array (Spanned Binder) → M Syntax
   | #[⟨_, _, Binder.binder _ (some vars) _ ty none⟩] => do
     let ty ← match ty with | none => #[] | some ty => do #[mkAtom ":", ← trExpr ty.kind]
-    mkNode ``explicitBinders #[mkNode ``unbracktedExplicitBinders #[
+    mkNode ``explicitBinders #[mkNode ``unbracketedExplicitBinders #[
       mkNullNode $ vars.map fun n => trBinderIdent n.kind, mkNullNode ty]]
   | bis => do
     let bis ← bis.mapM fun
@@ -738,7 +738,7 @@ def trNotationCmd (loc : LocalReserve) (attrs : Attributes) (nota : Notation) : 
   let fakeNode as := mkNode ``Parser.Term.app #[mkIdent n4, mkNullNode as]
   let cmd ← match nota with
   | Notation.mixfix m (tk, prec) (some e) =>
-    let p ← prec.mapM fun p => trPrec p.kind
+    let p ← match prec with | some p => trPrec p.kind | none => `(prec| 0)
     let tk := tk.kind.toString
     let s := Syntax.mkStrLit tk
     let e ← trExpr e.kind
@@ -746,23 +746,23 @@ def trNotationCmd (loc : LocalReserve) (attrs : Attributes) (nota : Notation) : 
     | MixfixKind.infix =>
       -- new := NotationKind.binary fun a b => mkNode n4 #[a, mkAtom tk, b]
       new := NotationKind.binary fun a b => fakeNode #[a, b]
-      `(command| $kind:attrKind infixl$[:$p]? $[$prio:namedPrio]? $s => $e)
+      `(command| $kind:attrKind infixl:$p $[$prio:namedPrio]? $s => $e)
     | MixfixKind.infixl =>
       -- new := NotationKind.binary fun a b => mkNode n4 #[a, mkAtom tk, b]
       new := NotationKind.binary fun a b => fakeNode #[a, b]
-      `(command| $kind:attrKind infixl$[:$p]? $[$prio:namedPrio]? $s => $e)
+      `(command| $kind:attrKind infixl:$p $[$prio:namedPrio]? $s => $e)
     | MixfixKind.infixr =>
       -- new := NotationKind.binary fun a b => mkNode n4 #[a, mkAtom tk, b]
       new := NotationKind.binary fun a b => fakeNode #[a, b]
-      `(command| $kind:attrKind infixr$[:$p]? $[$prio:namedPrio]? $s => $e)
+      `(command| $kind:attrKind infixr:$p $[$prio:namedPrio]? $s => $e)
     | MixfixKind.prefix =>
       -- new := NotationKind.unary fun a => mkNode n4 #[mkAtom tk, a]
       new := NotationKind.unary fun a => fakeNode #[a]
-      `(command| $kind:attrKind prefix$[:$p]? $[$prio:namedPrio]? $s => $e)
+      `(command| $kind:attrKind prefix:$p $[$prio:namedPrio]? $s => $e)
     | MixfixKind.postfix =>
       -- new := NotationKind.unary fun a => mkNode n4 #[a, mkAtom tk]
       new := NotationKind.unary fun a => fakeNode #[a]
-      `(command| $kind:attrKind postfix$[:$p]? $[$prio:namedPrio]? $s => $e)
+      `(command| $kind:attrKind postfix:$p $[$prio:namedPrio]? $s => $e)
   | Notation.notation lits (some e) =>
     let p ← match lits.get? 0 with
     | some ⟨_, _, Literal.sym tk⟩ => tk.2.mapM fun p => trPrec p.kind

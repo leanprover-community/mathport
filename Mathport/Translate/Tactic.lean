@@ -19,7 +19,7 @@ structure Context where
   args : Array (Spanned Param)
 
 structure State where
-  pos : Nat
+  pos : Nat := 0
 
 abbrev TacM := ReaderT Context $ StateT State M
 
@@ -52,10 +52,6 @@ def expr! : TacM AST3.Expr := do
 def itactic : TacM AST3.Block := do
   let Param.block bl ← next! | throw! "expecting tactic arg"
   bl
-
--- TODO(Mario): Why aren't the scoped notations working?
-local postfix:max "?" => optional
-local postfix:max "*" => many
 
 syntax "propagateTags " tactic : tactic
 
