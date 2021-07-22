@@ -3,7 +3,7 @@ Copyright (c) 2021 Microsoft Corporation. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Mario Carneiro, Daniel Selsam
 -/
-import Mathport.Util
+import Mathport.Util.Misc
 
 def Lean.BinderInfo.bracket (paren : Bool) : BinderInfo → Format → Format
   | BinderInfo.default,        f => if paren then f.paren else f.group

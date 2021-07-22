@@ -4,8 +4,8 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Mario Carneiro, Daniel Selsam
 -/
 import Lean.Expr
-import Mathport.Util
-import Mathport.AST3
+import Mathport.Util.Misc
+import Mathport.Syntax.AST3
 
 namespace Mathport
 

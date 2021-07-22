@@ -3,10 +3,11 @@ Copyright (c) 2021 Microsoft Corporation. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Mario Carneiro, Daniel Selsam
 -/
-import Mathport.Util
+import Lean
 
 namespace Mathport
 open Lean
+open System (FilePath)
 
 private def getImportsFor (lean3Filename : FilePath) : IO (List Import) := do
   -- TODO: parse header, translate module names, and then import them
