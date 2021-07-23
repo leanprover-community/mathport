@@ -18,9 +18,9 @@ open Lean Lean.Meta Lean.Elab Lean.Elab.Command
 
 def addDecl (n : Name) (d : Declaration) : BinportM Unit := do
   let path34 := (← read).path34
-  println! "[addDecl] START {path34.mrpath.path} {n}"
+  println! "[addDecl] START {path34.mrpath} {n}"
   Lean.addDecl d
-  println! "[addDecl] END   {path34.mrpath.path} {n}"
+  println! "[addDecl] END   {path34.mrpath} {n}"
   if shouldGenCodeFor d then
     match (← getEnv).compileDecl {} d with
     | Except.ok env    => println! "[compile] {n} SUCCESS!"
@@ -91,7 +91,7 @@ def applyMixfix (kind : MixfixKind) (n : Name) (prec : Nat) (tok : String) : Bin
 
   let nextIdx : Nat ← (← get).nNotations
   modify λ s => { s with nNotations := nextIdx + 1 }
-  let ns : Syntax := mkIdent $ s!"{"__".intercalate (← read).path34.mrpath.path.components}_{nextIdx}"
+  let ns : Syntax := mkIdent $ s!"{"__".intercalate (← read).path34.mrpath.components}_{nextIdx}"
   let stx ← `(namespace $ns:ident $stx end $ns:ident)
   elabCommand stx
 

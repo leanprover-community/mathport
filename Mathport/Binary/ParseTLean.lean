@@ -259,4 +259,14 @@ where
       if !line.isEmpty then parseLine line
     (← get).envModifications
 
+def parseTLeanImports (tlean : FilePath) : IO (Array String) := do
+  let line ← IO.FS.withFile tlean IO.FS.Mode.read fun h => h.getLine
+  let tokens := line.trim.splitOn " " |>.toArray
+  let nImports := tokens[1].toNat!
+  let mut paths := #[]
+  for i in [:nImports] do
+    if tokens[2+2*i+1] ≠ "-1" then throw $ IO.userError "found relative import!"
+    paths := paths.push $ tokens[2+2*i]
+  return paths
+
 end Mathport.Binary

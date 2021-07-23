@@ -39,7 +39,7 @@ def trExpr (e : Expr) (reduce : Bool := false) : BinportM Expr :=
   pure e
 
 def warnStr (msg : String) : BinportM Unit := do
-  println! "[warning] while processing {(← read).path34.mrpath.path}::{(← read).currDecl}:\n{msg}"
+  println! "[warning] while processing {(← read).path34.mrpath}::{(← read).currDecl}:\n{msg}"
 
 def warn (ex : Exception) : BinportM Unit := do
   warnStr (← ex.toMessageData.toString)
@@ -51,7 +51,7 @@ def BinportM.toIO (x : BinportM α) (ctx : Context) (env : Environment) : IO α 
   let x₁ : CommandElabM α := (x ctx).run' {}
 
   let cmdCtx : Lean.Elab.Command.Context := {
-    fileName := ctx.path34.mrpath.toDotPath.path,
+    fileName := path2dot ctx.path34.mrpath,
     fileMap  := dummyFileMap
   }
 

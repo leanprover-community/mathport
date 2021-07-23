@@ -17,7 +17,7 @@ open Lean Lean.Json
 open Std (HashMap HashSet)
 
 structure Config where
-  outRoot           : String := ""
+  outRoot           : FilePath
   modules           : HashMap String FilePath := {}
   customAligns      : HashMap Name Name := {}
   disabledInstances : HashSet Name := {}

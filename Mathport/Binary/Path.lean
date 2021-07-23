@@ -12,40 +12,29 @@ open System (FilePath)
 
 namespace Mathport.Binary
 
--- Example: data.nat.basic
-structure DotPath where
-  path : String
-  deriving Inhabited, Repr, FromJson
+def dot2path (dot : String) : FilePath :=
+  System.mkFilePath $ dot.splitOn "."
 
--- Example: data/nat/basic
-structure ModRelPath where
-  path   : FilePath
-  deriving Inhabited, Repr, FromJson
+def path2dot (p : FilePath) : String :=
+  ".".intercalate $ p.components
 
-def DotPath.toModRelPath (p : DotPath) : ModRelPath :=
-  ⟨System.mkFilePath $ p.path.splitOn "."⟩
-
-def ModRelPath.toDotPath (p : ModRelPath) : DotPath :=
-  ⟨".".intercalate $ p.path.components⟩
-
--- Example: Mathlib mathlib/src
 structure ModuleInfo where
-  l4name : FilePath
-  l3path : FilePath
+  l4mod  : String
+  l3root : FilePath
   deriving Inhabited, Repr, FromJson
 
 structure Path34 where
   modInfo : ModuleInfo
-  mrpath  : ModRelPath
+  mrpath  : FilePath -- "module-relative path"
   deriving Inhabited, Repr, FromJson
 
 def Path34.toLean3 (p : Path34) (suffix : String) : FilePath :=
-  (p.modInfo.l3path.join p.mrpath.path).withExtension suffix
+  (p.modInfo.l3root.join p.mrpath).withExtension suffix
 
 def Path34.toTLean (p : Path34) : FilePath :=
   p.toLean3 "tlean"
 
 def Path34.toLean4dot (p : Path34) : String :=
-  ".".intercalate [p.modInfo.l4name.toString, p.mrpath.toDotPath.path]
+  ".".intercalate [p.modInfo.l4mod, path2dot p.mrpath]
 
 end Mathport.Binary
