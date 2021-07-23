@@ -1,6 +1,6 @@
 /-
 Copyright (c) 2021 Microsoft Corporation. All rights reserved.
-Released under Apache 2.0 license as described in the file LICENSE.
+nReleased under Apache 2.0 license as described in the file LICENSE.
 Authors: Mario Carneiro, Daniel Selsam
 -/
 import Lean
@@ -63,3 +63,12 @@ def String.cmp (x y : String) : Ordering :=
 
 def List.splitAt {α} (xs : List α) (i : Nat) : List α × List α :=
   (xs.take i, xs.drop i)
+
+def Array.splitAt {α} (xs : Array α) (i : Nat) : Array α × Array α :=
+  ((xs.toList.take i).toArray, (xs.toList.drop i).toArray)
+
+-- TODO: faster version
+def Std.HashMap.insertWith [Hashable α] [BEq α] (m : HashMap α β) (merge : β → β → β) (a : α) (b : β) : HashMap α β :=
+  match m.find? a with
+  | none => m.insert a b
+  | some c => m.insert a (merge c b)

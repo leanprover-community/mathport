@@ -26,6 +26,18 @@ structure State where
 open Lean.Elab.Command in
 abbrev BinportM := ReaderT Context $ StateRefT State CommandElabM
 
+def isAligned (n : Name) : BinportM Bool := do
+  (← read).config.customAligns.contains n
+
+def trName (n : Name) : BinportM Name :=
+  -- TODO: lookup in either env extension or json
+  -- TODO: separate `trName` (dict lookup) vs `computeNewName` (complicated)
+  pure n
+
+def trExpr (e : Expr) (reduce : Bool := false) : BinportM Expr :=
+  -- TODO: names, numbers, auto-params
+  pure e
+
 def warnStr (msg : String) : BinportM Unit := do
   println! "[warning] while processing {(← read).path34.mrpath.path}::{(← read).currDecl}:\n{msg}"
 
