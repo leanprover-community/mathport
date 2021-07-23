@@ -18,8 +18,20 @@ structure Context where
   path34   : Path34
   currDecl : Name := Name.anonymous
 
--- TODO: this is really ProcessM (now that Parser has been split off)
+inductive ClashKind
+  | foundDefEq : ClashKind
+  | freshDecl  : ClashKind
+  deriving Inhabited, Repr
+
+structure NameInfo where
+  name4     : Name
+  clashKind : ClashKind
+  deriving Inhabited, Repr
+
 structure State where
+  -- TODO: this nameMap will eventually (soon?) be in an environment extension
+  -- For now, it will need to be stitched together from JSON files of imports
+  nameInfoMap    : HashMap Name NameInfo
   nNotations     : Nat                      := 0
   name2equations : HashMap Name (List Name) := {}
 
@@ -44,11 +56,11 @@ def warnStr (msg : String) : BinportM Unit := do
 def warn (ex : Exception) : BinportM Unit := do
   warnStr (← ex.toMessageData.toString)
 
-def liftMetaM {α} (x : MetaM α) : BinportM α := do
+def liftMetaM (x : MetaM α) : BinportM α := do
   liftTermElabM (declName? := some (← read).currDecl) (liftM x)
 
-def BinportM.toIO (x : BinportM α) (ctx : Context) (env : Environment) : IO α := do
-  let x₁ : CommandElabM α := (x ctx).run' {}
+def BinportM.toIO (x : BinportM α) (ctx : Context) (env : Environment) (nameInfoMap : HashMap Name NameInfo) : IO α := do
+  let x₁ : CommandElabM α := (x ctx).run' { nameInfoMap := nameInfoMap }
 
   let cmdCtx : Lean.Elab.Command.Context := {
     fileName := path2dot ctx.path34.mrpath,

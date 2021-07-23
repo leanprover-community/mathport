@@ -25,7 +25,8 @@ def genOLeanFor (config : Config) (path34 : Path34) : IO Unit := do
 
   withImportModulesConst (coreImports ++ extraImports.toList) (opts := {}) (trustLevel := 0) $ λ env₀ => do
     let env₀ := env₀.setMainModule (path2dot path34.mrpath)
-    discard <| BinportM.toIO (ctx := { config := config, path34 := path34 }) (env := env₀) do
+    let nameInfoMap : HashMap Name NameInfo := {} -- TODO: stitch together from imports
+    discard <| BinportM.toIO (ctx := { config := config, path34 := path34 }) (env := env₀) (nameInfoMap := nameInfoMap) do
       let mods ← parseTLean (path34.toLean3 "tlean")
       for mod in mods do applyModification mod
       writeModule (← getEnv) $ path34to4 config path34 "olean"
