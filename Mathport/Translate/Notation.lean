@@ -12,7 +12,7 @@ open Lean
 namespace Mathport
 namespace Translate
 
-local instance : MonadQuotation Id where
+scoped instance : MonadQuotation Id where
   getRef              := pure Syntax.missing
   withRef             := fun _ => id
   getCurrMacroScope   := pure 0

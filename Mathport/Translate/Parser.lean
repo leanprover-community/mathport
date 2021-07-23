@@ -113,10 +113,10 @@ def casesArg : ParserM (Option Name × Expr) := do
   | AST3.Expr.ident x => (some x, ← tk ":" *> pExpr)
   | _ => (none, t)
 
-def caseArg : ParserM (Array Name × Option (Array Name)) := do
-  (← ident_*, ← (tk ":" *> ident_*)?)
+def caseArg : ParserM (Array Name × Array Name) := do
+  (← ident_*, (← (tk ":" *> ident_*)?).getD #[])
 
-def case : ParserM (Array (Array Name × Option (Array Name))) := maybeListOf caseArg
+def case : ParserM (Array (Array Name × Array Name)) := maybeListOf caseArg
 
 inductive SimpArg
 | allHyps

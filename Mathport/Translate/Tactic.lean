@@ -72,9 +72,9 @@ def trLoc (loc : Location) : M (Option Syntax) := do
         mkOptionalNode $ if goal then mkAtom "⊢" else none]
   loc.map fun stx => mkNode ``Parser.Tactic.location #[mkAtom "at", stx]
 
-syntax "propagateTags " tactic : tactic
+syntax "propagateTags " tacticSeq : tactic
 def trPropagateTags : TacM Syntax := do
-  `(tactic| propagateTags $(← trBlock (← itactic)))
+  `(tactic| propagateTags $(← trBlock (← itactic)):tacticSeq)
 
 def trIntro : TacM Syntax := do
   match ← parse ident_ ? with
@@ -156,10 +156,293 @@ def trRw : TacM Syntax := do let (q, loc) ← trRwArgs; `(tactic| rw [$[$q],*] $
 
 syntax (name := _root_.Lean.Parser.Tactic.rwSeq)
   "rwa " Parser.Tactic.rwRuleSeq (Parser.Tactic.location)? : tactic
-
 def trRwA : TacM Syntax := do let (q, loc) ← trRwArgs; `(tactic| rwa [$[$q],*] $[$loc]?)
 
 def trERw : TacM Syntax := do let (q, loc) ← trRwArgs; `(tactic| erw [$[$q],*] $[$loc]?)
+
+syntax "withCases " tacticSeq : tactic
+def trWithCases : TacM Syntax := do `(tactic| withCases $(← trBlock (← itactic)):tacticSeq)
+
+def trGeneralize : TacM Syntax := do
+  let h ← parse ident ?
+  parse (tk ":")
+  let (e, x) ← parse generalizeArg
+  `(tactic| generalize $[$(h.map mkIdent) :]? $(← trExpr e) = $(mkIdent x))
+
+syntax (name := induction') "induction' " Parser.Tactic.casesTarget,+ (" using " ident)?
+  (" with " ident+)? (" generalizing " ident+)? : tactic
+
+def trInduction : TacM Syntax := do
+  let (hp, e) ← parse casesArg
+  let e ← trExpr e
+  let rec_name := (← parse usingIdent).map mkIdent
+  let ids ← parse withIdentList
+  let revert := match (← parse (tk "generalizing" *> ident*)?).getD #[] with
+  | #[] => none
+  | ids => some (ids.map mkIdent)
+  match hp, ids with
+  | none, #[] => `(tactic| induction $e $[using $rec_name]? $[generalizing $[$revert]*]?)
+  | _, _ =>
+    `(tactic| induction' $[$(hp.map mkIdent) :]? $e $[using $rec_name]?
+        with $[$(ids.map mkIdent)]* $[generalizing $[$revert]*]?)
+
+def mkIdent_ : Name → Syntax
+  | `_ => mkAtom "_"
+  | x => mkIdent x
+
+syntax caseArg := ident,+ " : " (ident <|> "_")*
+syntax (name := case') "case' " (("[" caseArg,* "]") <|> caseArg) " => " tacticSeq : tactic
+def trCase : TacM Syntax := do
+  let args ← parse case
+  let tac ← trBlock (← itactic)
+  let trCaseArg
+  | (tags, xs) => mkNode ``caseArg #[
+    (mkAtom ",").mkSep (tags.map mkIdent), mkAtom ":", mkNullNode $ xs.map mkIdent_]
+  match args with
+  | #[(#[tag], xs)] => `(tactic| case $(mkIdent tag) $[$(xs.map mkIdent_)]* => $tac:tacticSeq)
+  | #[arg] => `(tactic| case' $(trCaseArg arg):caseArg => $tac:tacticSeq)
+  | _ => `(tactic| case' [$[$(args.map trCaseArg)],*] => $tac:tacticSeq)
+
+syntax "destruct " term : tactic
+def trDestruct : TacM Syntax := do `(tactic| destruct $(← trExpr (← parse pExpr)))
+
+syntax (name := cases') "cases' " Parser.Tactic.casesTarget,+ (" using " ident)?
+  (" with " ident+)? : tactic
+def trCases : TacM Syntax := do
+  let (hp, e) ← parse casesArg
+  let e ← trExpr e
+  let ids ← parse withIdentList
+  match ids with
+  | #[] => `(tactic| cases $[$(hp.map mkIdent) :]? $e)
+  | _ => `(tactic| cases' $[$(hp.map mkIdent) :]? $e with $[$(ids.map mkIdent)]*)
+
+syntax (name := casesM) "casesM" "*"? ppSpace term,* : tactic
+def trCasesM : TacM Syntax := do
+  let _rec ← parse (tk "*")?
+  let ps ← liftM $ (← parse pExprListOrTExpr).mapM trExpr
+  match _rec with
+  | none => `(tactic| casesM $[$ps],*)
+  | some () => `(tactic| casesM* $[$ps],*)
+
+syntax (name := casesType) "casesType" "!"? "*"? ppSpace ident* : tactic
+def trCasesType : TacM Syntax := do
+  mkNode ``casesType #[
+    mkAtom "casesType",
+    mkOptionalNode $ (← parse (tk "!")?).map fun () => mkAtom "!",
+    mkOptionalNode $ (← parse (tk "*")?).map fun () => mkAtom "*",
+    mkNullNode $ (← parse ident*).map mkIdent]
+
+def trTrivial : TacM Syntax := `(tactic| trivial)
+
+syntax (name := «sorry») "sorry" : tactic
+def trSorry : TacM Syntax := `(tactic| sorry)
+
+def trContradiction : TacM Syntax := `(tactic| contradiction)
+
+syntax (name := iterate) "iterate " (num)? tacticSeq : tactic
+def trIterate : TacM Syntax := do
+  match ← parse (smallNat)?, ← trBlock (← itactic) with
+  | none, tac => `(tactic| repeat $tac:tacticSeq)
+  | some n, tac => `(tactic| iterate $(Syntax.mkNumLit (toString n)) $tac:tacticSeq)
+
+syntax (name := repeat') "repeat' " tacticSeq : tactic
+def trRepeat : TacM Syntax := do `(tactic| repeat' $(← trBlock (← itactic)):tacticSeq)
+
+def trTry : TacM Syntax := do `(tactic| try $(← trBlock (← itactic)):tacticSeq)
+
+def trSkip : TacM Syntax := `(tactic| skip)
+
+def trSolve1 : TacM Syntax := do trBlock (← itactic) TacticContext.one
+
+syntax (name := abstract) "abstract " (ident)? tacticSeq : tactic
+def trAbstract : TacM Syntax := do
+  `(tactic| abstract $[$((← parse (ident)?).map mkIdent)]? $(← trBlock (← itactic)):tacticSeq)
+
+def trAllGoals : TacM Syntax := do `(tactic| allGoals $(← trBlock (← itactic)):tacticSeq)
+
+syntax (name := anyGoals) "anyGoals " tacticSeq : tactic
+def trAnyGoals : TacM Syntax := do `(tactic| anyGoals $(← trBlock (← itactic)):tacticSeq)
+
+def trFocus : TacM Syntax := do `(tactic| focus $(← trBlock (← itactic)):tacticSeq)
+
+def trAssume : TacM Syntax := do
+  match ← parse (Sum.inl <$> (tk ":" *> pExpr) <|> Sum.inr <$> parseBinders) with
+  | Sum.inl ty => `(tactic| intro ($(mkIdent `this) : $(← trExpr ty)))
+  | Sum.inr bis => `(tactic| intro $[$(← trIntroBinders bis)]*)
+where
+  trIntroBinder : Binder → Array Syntax → M (Array Syntax)
+  | Binder.binder _ none _ _ _, out => do out.push $ ← `(_)
+  | Binder.binder _ (some vars) _ none _, out => pure $
+    vars.foldl (fun out v => out.push $ trBinderName v.kind) out
+  | Binder.binder _ (some vars) bis (some ty) _, out => do
+    let ty ← trDArrow bis ty.kind
+    vars.foldlM (init := out) fun out v => do
+      out.push $ ← `(($(trBinderName v.kind) : $ty))
+  | Binder.collection _ _ _ _, out => throw! "unsupported: assume with binder collection"
+  | Binder.notation _, out => throw! "unsupported: assume notation"
+
+  trIntroBinders (bis : Array (Spanned Binder)) : M (Array Syntax) := do
+    bis.foldlM (fun out bi => trIntroBinder bi.kind out) #[]
+
+syntax (name := have'') "have " Parser.Term.haveIdLhs : tactic
+def trHave : TacM Syntax := do
+  let h ← parse (ident)?
+  let h := mkNullNode $ match h with | none => #[] | some h => #[mkIdent h, mkNullNode]
+  let ty := mkOptionalNode $ ← trOptType (← parse (tk ":" *> pExpr)?)
+  match ← parse (tk ":=" *> pExpr)? with
+  | some pr =>
+    let haveId := mkNode ``Parser.Term.haveIdDecl #[h, ty, mkAtom ":=", ← trExpr pr]
+    `(tactic| have $haveId:haveDecl)
+  | none => mkNode ``have'' #[mkAtom "have", h, ty]
+
+syntax (name := let'') "let " Parser.Term.haveIdLhs : tactic
+def trLet : TacM Syntax := do
+  let h ← parse (ident)?
+  let ty := mkOptionalNode $ ← trOptType (← parse (tk ":" *> pExpr)?)
+  match ← parse (tk ":=" *> pExpr)? with
+  | some pr =>
+    let letId := mkNode ``Parser.Term.letIdDecl #[
+      mkIdent (h.getD `this), ty, mkAtom ":=", ← trExpr pr]
+    `(tactic| let $letId:letDecl)
+  | none =>
+    let h := mkNullNode $ match h with | none => #[] | some h => #[mkIdent h, mkNullNode]
+    mkNode ``let'' #[mkAtom "let", h, ty]
+
+syntax (name := suffices') "suffices " Parser.Term.haveIdLhs : tactic
+def trSuffices : TacM Syntax := do
+  let h ← parse (ident)?
+  let h := mkNullNode $ match h with | none => #[] | some h => #[mkIdent h, mkNullNode]
+  let ty := mkOptionalNode $ ← trOptType (← parse (tk ":" *> pExpr)?)
+  mkNode ``suffices' #[mkAtom "suffices", h, ty]
+
+def trTraceState : TacM Syntax := `(tactic| traceState)
+
+syntax (name := trace) "trace " term : tactic
+def trTrace : TacM Syntax := do `(tactic| trace $(← trExpr (← expr!)))
+
+syntax (name := existsi) "exists " term,* : tactic
+def trExistsI : TacM Syntax := do
+  `(tactic| exists $[$(← liftM $ (← parse pExprListOrTExpr).mapM trExpr)],*)
+
+def trConstructor : TacM Syntax := `(tactic| constructor)
+
+syntax (name := eConstructor) "econstructor" : tactic
+def trEConstructor : TacM Syntax := `(tactic| econstructor)
+
+syntax (name := left) "left" : tactic
+def trLeft : TacM Syntax := `(tactic| left)
+
+syntax (name := right) "right" : tactic
+def trRight : TacM Syntax := `(tactic| right)
+
+syntax (name := split) "split" : tactic
+def trSplit : TacM Syntax := `(tactic| split)
+
+syntax (name := constructorM) "constructorM" "*"? ppSpace term,* : tactic
+def trConstructorM : TacM Syntax := do
+  let _rec ← parse (tk "*")?
+  let ps ← liftM $ (← parse pExprListOrTExpr).mapM trExpr
+  match _rec with
+  | none => `(tactic| constructorM $[$ps],*)
+  | some () => `(tactic| constructorM* $[$ps],*)
+
+syntax (name := exFalso) "exFalso" : tactic
+def trExFalso : TacM Syntax := `(tactic| exFalso)
+
+def trInjection : TacM Syntax := do
+  let e ← trExpr (← parse pExpr)
+  let hs := match ← parse withIdentList with
+  | #[] => none
+  | hs => some $ hs.map mkIdent_
+  `(tactic| injection $e $[with $[$hs]*]?)
+
+syntax (name := injections) "injections " (" with " (colGt (ident <|> "_"))+)? : tactic
+def trInjections : TacM Syntax := do
+  let hs := match ← parse withIdentList with
+  | #[] => none
+  | hs => some $ hs.map mkIdent_
+  `(tactic| injections $[with $[$hs]*]?)
+
+def trSimp : TacM Syntax := do
+  let iota ← parse (tk "!")?
+  if iota.isSome then dbg_trace "unsupported simp config option: iota_eqn"
+  let trace ← parse (tk "?")?
+  if trace.isSome then dbg_trace "unsupported simp config option: trace_lemmas"
+  let only ← parse onlyFlag
+  let hs ← parse simpArgList
+  let (hs, all) ← hs.foldlM (init := (#[], true)) fun
+  | (hs, all), SimpArg.allHyps => (hs, true)
+  | (hs, all), SimpArg.symmExpr e => dbg_trace "unsupported: simp [← e]"; (hs, all)
+  | (hs, all), SimpArg.expr e => do
+    (hs.push $ mkNode ``Parser.Tactic.simpLemma #[mkNullNode, ← trExpr e], all)
+  | (hs, all), SimpArg.except e => do
+    (hs.push $ mkNode ``Parser.Tactic.simpErase #[mkAtom "-", mkIdent e], all)
+  let attrs ← parse withIdentList
+  unless attrs.isEmpty do dbg_trace "unsupported: simp sets"
+  let loc ← parse location
+  let cfg : Option Syntax := match ← expr? with
+  | none => none
+  | some (AST3.Expr.«{}») => none
+  | some (AST3.Expr.structInst _ none flds #[] false) => do
+    let mut cfg : Meta.Simp.Config := {}
+    for (⟨_, _, n⟩, ⟨_, _, e⟩) in flds do
+      match n, e with
+      | `max_steps, Expr.nat n => cfg := {cfg with maxSteps := n}
+      | `contextual, e => cfg := asBool e cfg fun cfg b => {cfg with contextual := b}
+      | `zeta, e => cfg := asBool e cfg fun cfg b => {cfg with zeta := b}
+      | `beta, e => cfg := asBool e cfg fun cfg b => {cfg with beta := b}
+      | `eta, e => cfg := asBool e cfg fun cfg b => {cfg with eta := b}
+      | `iota, e => cfg := asBool e cfg fun cfg b => {cfg with iota := b}
+      | `proj, e => cfg := asBool e cfg fun cfg b => {cfg with proj := b}
+      | `single_pass, e => cfg := asBool e cfg fun cfg b => {cfg with singlePass := b}
+      | `memoize, e => cfg := asBool e cfg fun cfg b => {cfg with memoize := b}
+      | _, _ => dbg_trace "unsupported simp config option: {n}"
+    if cfg == {} then return none
+    let default : Meta.Simp.Config := {}
+    let a := #[]
+      |> pushNat cfg {} `maxSteps (·.maxSteps)
+      |> pushNat cfg {} `maxDischargeDepth (·.maxDischargeDepth)
+      |> pushBool cfg {} `contextual (·.contextual)
+      |> pushBool cfg {} `memoize (·.memoize)
+      |> pushBool cfg {} `singlePass (·.singlePass)
+      |> pushBool cfg {} `zeta (·.zeta)
+      |> pushBool cfg {} `beta (·.beta)
+      |> pushBool cfg {} `eta (·.eta)
+      |> pushBool cfg {} `iota (·.iota)
+      |> pushBool cfg {} `proj (·.proj)
+      |> pushBool cfg {} `decide (·.decide)
+    `({ $[$(a.pop):structInstField ,]* $(a.back):structInstField })
+  | some _ => dbg_trace "unsupported simp config syntax"; none
+  let cfg := match cfg with
+  | none => mkNullNode
+  | some stx => mkNullNode #[mkAtom "(", mkAtom "config", mkAtom ":=", stx, mkAtom ")"]
+  let only := if only then mkNullNode #[mkAtom "only"] else mkNullNode
+  let hs := match hs with
+  | #[] => mkNullNode
+  | _ => mkNullNode #[mkAtom "[", (mkAtom ",").mkSep hs]
+  match all, loc with
+  | true, Location.wildcard =>
+    mkNode ``Parser.Tactic.simpAll #[mkAtom "simp_all", cfg, only, hs]
+  | _, _ => do
+    if all then dbg_trace "unsupported: simp [*]"
+    mkNode ``Parser.Tactic.simp #[mkAtom "simp", cfg, only, hs, mkOptionalNode $ ← trLoc loc]
+where
+  asBool {α} : AST3.Expr → α → (α → Bool → α) → α
+  | AST3.Expr.const _ ⟨_, _, `tt⟩ _, a, f => f a true
+  | AST3.Expr.const _ ⟨_, _, `ff⟩ _, a, f => f a false
+  | _, a, _ => a
+  push {β} [BEq β] (g : β → Syntax)
+    {α} (a b : α) (n : Name) (f : α → β) (args : Array Syntax) : Array Syntax := do
+    if f a == f b then args else
+      args.push do `(Parser.Term.structInstField| $(mkIdent n):ident := $(g (f a)))
+  pushNat := @push _ _ (Syntax.mkNumLit ∘ toString)
+  pushBool := @push _ _ fun | true => do `(true) | false => do `(false)
+
+def trTraceSimpSet : TacM Syntax := do
+  let only ← parse onlyFlag
+  let hs ← parse simpArgList
+  let attrs ← parse withIdentList
+  throw! "unsupported: trace_simp_set"
 
 def builtinTactics : List (Name × TacM Syntax) := [
   (`propagate_tags,      trPropagateTags),
@@ -186,47 +469,46 @@ def builtinTactics : List (Name × TacM Syntax) := [
   (`rwa,                 trRwA),
   (`erewrite,            trERw),
   (`erw,                 trERw),
-  (`with_cases,          throw "unsupported: with_cases"),
-  (`generalize,          throw "supported: generalize"),
-  (`induction,           throw "supported: induction"),
-  (`case,                throw "supported: case"),
-  (`destruct,            throw "unsupported: destruct"),
-  (`cases,               throw "supported: cases"),
-  (`cases_matching,      throw "unsupported: cases_matching"),
-  (`casesm,              throw "unsupported: casesm"),
-  (`cases_type,          throw "unsupported: cases_type"),
-  (`trivial,             throw "supported: trivial"),
-  (`admit,               throw "supported: admit"),
-  (`sorry,               throw "unsupported: sorry"),
-  (`contradiction,       throw "supported: contradiction"),
-  (`iterate,             throw "unsupported: iterate"),
-  (`repeat,              throw "supported: repeat"),
-  (`try,                 throw "supported: try"),
-  (`skip,                throw "supported: skip"),
-  (`solve1,              throw "unsupported: solve1"),
-  (`abstract,            throw "unsupported: abstract"),
-  (`all_goals,           throw "supported: all_goals"),
-  (`any_goals,           throw "unsupported: any_goals"),
-  (`focus,               throw "supported: focus"),
-  (`assume_core,         throw "unsupported: assume_core"),
-  (`assume,              throw "unsupported: assume"),
-  (`have,                throw "supported: have"),
-  (`let,                 throw "supported: let"),
-  (`suffices,            throw "supported: suffices"),
-  (`trace_state,         throw "supported: trace_state"),
-  (`trace,               throw "unsupported: trace"),
-  (`existsi,             throw "supported: existsi"),
-  (`constructor,         throw "supported: constructor"),
-  (`econstructor,        throw "unsupported: econstructor"),
-  (`left,                throw "unsupported: left"),
-  (`right,               throw "unsupported: right"),
-  (`split,               throw "unsupported: split"),
-  (`contructor_matching, throw "unsupported: contructor_matching"),
-  (`exfalso,             throw "unsupported: exfalso"),
-  (`injection,           throw "supported: injection"),
-  (`injections,          throw "unsupported: injections"),
-  (`simp,                throw "supported: simp"),
-  (`trace_simp_set,      throw "unsupported: trace_simp_set"),
+  (`with_cases,          trWithCases),
+  (`generalize,          trGeneralize),
+  (`induction,           trInduction),
+  (`case,                trCase),
+  (`destruct,            trDestruct),
+  (`cases,               trCases),
+  (`cases_matching,      trCasesM),
+  (`casesm,              trCasesM),
+  (`cases_type,          trCasesType),
+  (`trivial,             trTrivial),
+  (`admit,               trSorry),
+  (`sorry,               trSorry),
+  (`contradiction,       trContradiction),
+  (`iterate,             trIterate),
+  (`repeat,              trRepeat),
+  (`try,                 trTry),
+  (`skip,                trSkip),
+  (`solve1,              trSolve1),
+  (`abstract,            trAbstract),
+  (`all_goals,           trAllGoals),
+  (`any_goals,           trAnyGoals),
+  (`focus,               trFocus),
+  (`assume,              trAssume),
+  (`have,                trHave),
+  (`let,                 trLet),
+  (`suffices,            trSuffices),
+  (`trace_state,         trTraceState),
+  (`trace,               trTrace),
+  (`existsi,             trExistsI),
+  (`constructor,         trConstructor),
+  (`econstructor,        trEConstructor),
+  (`left,                trLeft),
+  (`right,               trRight),
+  (`split,               trSplit),
+  (`contructor_matching, trConstructorM),
+  (`exfalso,             trExFalso),
+  (`injection,           trInjection),
+  (`injections,          trInjections),
+  (`simp,                trSimp),
+  (`trace_simp_set,      trTraceSimpSet),
   (`simp_intros,         throw "unsupported: simp_intros"),
   (`dsimp,               throw "unsupported: dsimp"),
   (`reflexivity,         throw "supported: reflexivity"),
@@ -260,5 +542,4 @@ def builtinTactics : List (Name × TacM Syntax) := [
   (`done,                throw "supported: done"),
   (`show,                throw "supported: show"),
   (`specialize,          throw "unsupported: specialize"),
-  (`congr,               throw "unsupported:congr ")
-]
+  (`congr,               throw "unsupported: congr")]
