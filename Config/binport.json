@@ -1,10 +1,10 @@
 {
-    "outRoot"      : "~/projects/mathport/Lib4",
+    "outRoot"      : "/home/dselsam/projects/mathport/Lib4",
 
     "modules"      : {
-	"Mathlib"  : "~/projects/mathlib3/src",
-	"Lean3Lib" : "~/projects/lean3/library",
-	"Lean3Pkg" : "~/projects/lean3/leanpkg"
+	"Mathlib"  : "/home/dselsam/projects/mathlib3/src",
+	"Lean3"    : "/home/dselsam/projects/lean3/library",
+	"Lean3Pkg" : "/home/dselsam/projects/lean3/leanpkg"
     },
 
     "customAligns" : {

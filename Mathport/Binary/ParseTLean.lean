@@ -184,14 +184,6 @@ def parseLine (line : String) : ParseM Unit := do
       | ["#CLASS", c]                => emit $ EnvModification.class (← str2name c)
       | ["#CLASS_INSTANCE", c, i, p] => emit $ EnvModification.instance (← str2name c) (← str2name i) (← parseNat p)
 
-      | ("#CLASS_TRACK_ATTR" :: _)               => pure ()
-      | ("#AUXREC" :: _)                         => pure ()
-      | ("#NEW_NAMESPACE" :: _)                  => pure ()
-      | ("#NONCOMPUTABLE" :: _)                  => pure ()
-      | ("#NOCONF" :: _)                         => pure ()
-      | ("#TOKEN" :: _)                          => pure ()
-      | ("#USER_ATTR" :: _)                      => pure ()
-
       | ["#PROJECTION", proj, mk, nParams, i, ii] => do
         emit $ EnvModification.projection {
           projName     := ← str2name proj,
@@ -225,6 +217,15 @@ def parseLine (line : String) : ParseM Unit := do
           exceptNames := exceptNames
         }
         emit $ EnvModification.export exportDecl
+
+      | ("#CLASS_TRACK_ATTR" :: _)               => pure ()
+      | ("#AUXREC" :: _)                         => pure ()
+      | ("#NEW_NAMESPACE" :: _)                  => pure ()
+      | ("#NONCOMPUTABLE" :: _)                  => pure ()
+      | ("#NOCONF" :: _)                         => pure ()
+      | ("#TOKEN" :: _)                          => pure ()
+      | ("#USER_ATTR" :: _)                      => pure ()
+      | ("#RELATION" :: _)                       => pure ()
 
       | _ => throw $ IO.userError s!"[parseLine] unexpected case: '{line}'\n{tokens}"
 
