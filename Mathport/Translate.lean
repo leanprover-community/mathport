@@ -25,7 +25,7 @@ def M.run (m : M α) : Array Notation → Array Command → EIO String α := do
   M.run' $ do
     let mut tacs := {}
     for (n, tac) in Tactic.builtinTactics do
-      tacs := tacs.insert n $ ← fun c s => pure fun a => (tac ⟨a⟩).run' {} c s
+      tacs := tacs.insert n $ ← fun c s => pure fun a => tac.run a c s
     modify fun s => { s with tactics := tacs }
     m
 
@@ -46,18 +46,22 @@ def AST3toData4 (ast : AST3) : EIO String Data4 :=
 --   let level := Parse.buildLevels level
 --   let expr := Parse.buildExprs level expr
 --   let commands := ast[ast[file].get!.children'[2]].get!.children'
---   for c in commands[0:] do
+--   for c in commands[129:] do
 --     -- println! (repr (← Parse.getNode c |>.run ⟨ast, expr⟩)).group ++ "\n"
---     println! (repr (← Parse.getCommand c |>.run ast expr).kind).group ++ "\n"
---     let c ← Parse.getCommand c |>.run ast expr
---     let ⟨stx, _⟩ ← match ← (AST3toData4 ⟨none, #[], #[c], inot, icmd⟩).toIO' with
---     | Except.ok e => e
---     | Except.error e => throwError "{e}"
---     -- println! "{stx}\n\n"
---     let stx ← parenthesize Parser.Module.module.parenthesizer stx
---     -- println! "{stx}\n\n"
---     let fmt ← format Parser.Module.module.formatter stx
---     println! "{fmt}"
+--     -- println! (repr (← Parse.getCommand c |>.run ast expr).kind).group ++ "\n"
+--     let res ← Parse.getCommand c |>.run ast expr
+--     try
+--       let ⟨stx, _⟩ ← match ← (AST3toData4 ⟨none, #[], #[res], inot, icmd⟩).toIO' with
+--       | Except.ok e => e
+--       | Except.error e => throwError "{e}"
+--       -- println! "{stx}\n\n"
+--       let stx ← parenthesize Parser.Module.module.parenthesizer stx
+--       -- println! "{stx}\n\n"
+--       let fmt ← format Parser.Module.module.formatter stx
+--       println! "{fmt}"
+--     catch e =>
+--       println! (repr (← Parse.getCommand c |>.run ast expr).kind).group ++ "\n"
+--       println! "error: {← e.toMessageData.toString}"
 
 -- #eval show CoreM Unit from do
 --   let ⟨ast⟩ ← parseAST3 "/home/mario/Documents/lean/lean/library/init/logic.ast.json"

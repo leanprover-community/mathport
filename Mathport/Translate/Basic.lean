@@ -146,7 +146,7 @@ mutual
     | ⟨_, none, none, tacs⟩, TacticContext.seq =>
       mkNode ``Parser.Tactic.tacticSeq1Indented <$> tacs.mapM fun tac => do
         mkGroupNode #[← trTactic tac.kind, mkNullNode]
-    | ⟨_, cl, cfg, tacs⟩, TacticContext.one => throw! "unsupported (TODO)"
+    | bl, TacticContext.one => do `(tactic| · $(← trBlock bl):tacticSeq)
     | ⟨_, cl, cfg, tacs⟩, _ => throw! "unsupported (TODO)"
 
   partial def trTactic : Tactic → (c :_:= TacticContext.one) → M Syntax
@@ -424,8 +424,13 @@ def trExpr' : Expr → M Syntax
         `(Parser.Term.structInstFieldAbbrev| $(mkIdent lhs):ident)
       else
         `(Parser.Term.structInstField| $(mkIdent lhs):ident := $(← trExpr rhs))
-    let catchall := mkOptionalNode $ if catchall then some (mkAtom "..") else none
-    `({ $[$src with]? $[$flds:structInstField]* $catchall:optEllipsis })
+    -- TODO(Mario): formatter has trouble if you omit the commas
+    if catchall then
+      `({ $[$src with]? $[$flds:structInstField, ]* .. })
+    else if let some last := flds.back? then
+      `({ $[$src with]? $[$(flds.pop):structInstField, ]* $last:structInstField })
+    else
+      `({ $[$src with]? })
   | Expr.structInst S src flds srcs catchall => throw! "unsupported (TODO)"
   | Expr.atPat lhs rhs => do `($(mkIdent lhs.kind)@ $(← trExpr rhs.kind))
   | Expr.notation n args => trNotation n args
