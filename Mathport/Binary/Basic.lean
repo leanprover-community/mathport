@@ -21,7 +21,7 @@ structure Context where
 inductive ClashKind
   | foundDefEq : ClashKind
   | freshDecl  : ClashKind
-  deriving Inhabited, Repr
+  deriving Inhabited, Repr, BEq
 
 structure NameInfo where
   name4     : Name
@@ -39,16 +39,9 @@ open Lean.Elab.Command in
 abbrev BinportM := ReaderT Context $ StateRefT State CommandElabM
 
 def isAligned (n : Name) : BinportM Bool := do
-  (← read).config.customAligns.contains n
-
-def trName (n : Name) : BinportM Name :=
-  -- TODO: lookup in either env extension or json
-  -- TODO: separate `trName` (dict lookup) vs `computeNewName` (complicated)
-  pure n
-
-def trExpr (e : Expr) (reduce : Bool := false) : BinportM Expr :=
-  -- TODO: names, numbers, auto-params
-  pure e
+  match (← get).nameInfoMap.find? n with
+  | some ⟨_, cKind⟩ => cKind == ClashKind.foundDefEq
+  | _               => throwError "[isAligned] not found: '{n}'"
 
 def warnStr (msg : String) : BinportM Unit := do
   println! "[warning] while processing {(← read).path34.mrpath}::{(← read).currDecl}:\n{msg}"

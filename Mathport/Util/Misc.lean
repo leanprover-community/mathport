@@ -21,15 +21,12 @@ def Expr.replaceConstNames (e : Expr) (f : Name → Option Name) : Expr :=
     | proj n idx t .. => f n |>.map fun n' => mkProj n' idx t
     | _ => none
 
-
-def InductiveType.updateName (indType : InductiveType) (newIndName : Name) : InductiveType := do
-  let mut map : HashMap Name Name := ({} : HashMap Name Name).insert indType.name newIndName
-  for ctor in indType.ctors do
-    map := map.insert ctor.name (ctor.name.replacePrefix indType.name newIndName)
+def InductiveType.updateNames (indType : InductiveType) (newIndName : Name) : InductiveType := do
+  let map : HashMap Name Name := ({} : HashMap Name Name).insert indType.name newIndName
   { indType with
     name  := newIndName,
     ctors := indType.ctors.map fun ctor => { ctor with
-      name := map.find! ctor.name,
+      name := ctor.name.replacePrefix indType.name newIndName
       type := ctor.type.replaceConstNames fun n => map.find? n }
   }
 
@@ -37,7 +34,14 @@ def Declaration.collectNames : Declaration → List Name
   | Declaration.defnDecl defn          => [defn.name]
   | Declaration.thmDecl thm            => [thm.name]
   | Declaration.axiomDecl ax           => [ax.name]
-  | Declaration.inductDecl _ _ [ind] _ => ind.name :: ind.ctors.map Constructor.name
+  | Declaration.inductDecl _ _ [ind] _ => ind.name :: (ind.name ++ `rec) :: ind.ctors.map Constructor.name
+  | _ => panic! "unexpected declaration type"
+
+def Declaration.toName : Declaration → Name
+  | Declaration.defnDecl defn          => defn.name
+  | Declaration.thmDecl thm            => thm.name
+  | Declaration.axiomDecl ax           => ax.name
+  | Declaration.inductDecl _ _ [ind] _ => ind.name
   | _ => panic! "unexpected declaration type"
 
 end Lean

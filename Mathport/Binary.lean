@@ -17,6 +17,6 @@ def main (args : List String) : IO Unit := do
     let config ← parseJsonFile Config pathToConfig
     let some lean3path ← config.modules[lean4mod] | throw (IO.userError s!"no such module '{lean4mod}'")
     make config lean4mod mrp
-  | _ => throw $ IO.userError "usage: mathport binary <lean4mod> <lean3mrp> <recursive> <path-to-config>"
+  | _ => throw $ IO.userError "usage: mathport binary <lean4mod> <lean3mrp> <path-to-config>"
 
 end Mathport.Binary

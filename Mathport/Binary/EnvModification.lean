@@ -13,33 +13,21 @@ namespace Mathport.Binary
 open Lean
 
 inductive MixfixKind
-| «prefix»
-| «infixl»
-| «infixr»
-| «postfix»
-| «singleton»
+  | «prefix»
+  | «infixl»
+  | «infixr»
+  | «postfix»
+  | «singleton»
+  deriving Repr
 
 def MixfixKind.toAttr : MixfixKind → Name
-| MixfixKind.prefix     => `Lean.Parser.Command.prefix
-| MixfixKind.postfix    => `Lean.Parser.Command.postfix
-| MixfixKind.infixl     => `Lean.Parser.Command.infixl
-| MixfixKind.infixr     => `Lean.Parser.Command.infixr
-| MixfixKind.singleton  => `Lean.Parser.Command.notation
+  | MixfixKind.prefix     => `Lean.Parser.Command.prefix
+  | MixfixKind.postfix    => `Lean.Parser.Command.postfix
+  | MixfixKind.infixl     => `Lean.Parser.Command.infixl
+  | MixfixKind.infixr     => `Lean.Parser.Command.infixr
+  | MixfixKind.singleton  => `Lean.Parser.Command.notation
 
-instance : ToString MixfixKind :=
-  ⟨λ
-    | MixfixKind.prefix    => "prefix"
-    | MixfixKind.postfix   => "postfix"
-    | MixfixKind.infixl    => "infixl"
-    | MixfixKind.infixr    => "infixr"
-    | MixfixKind.singleton => "notation"⟩
-
-instance : BEq ReducibilityStatus :=
-  ⟨λ
-    | ReducibilityStatus.reducible,     ReducibilityStatus.reducible     => true
-    | ReducibilityStatus.semireducible, ReducibilityStatus.semireducible => true
-    | ReducibilityStatus.irreducible,   ReducibilityStatus.irreducible   => true
-    | _, _                                                               => false⟩
+deriving instance BEq for ReducibilityStatus
 
 structure ExportDecl : Type where
   currNs : Name
@@ -48,6 +36,7 @@ structure ExportDecl : Type where
   hadExplicit : Bool
   renames : Array (Name × Name)
   exceptNames : Array Name
+  deriving Repr
 
 structure ProjectionInfo : Type where
   -- pr_i A.. (mk A f_1 ... f_n) ==> f_i
@@ -59,16 +48,16 @@ structure ProjectionInfo : Type where
   deriving Repr
 
 inductive EnvModification : Type
-| decl           : Declaration → EnvModification
-| «class»        : (c : Name) → EnvModification
-| «instance»     : (c i : Name) → (prio : Nat) → EnvModification
-| simp           : (name : Name) → (prio : Nat) → EnvModification
-| «private»      : (pretty real : Name) → EnvModification
-| «protected»    : (name : Name) → EnvModification
-| «reducibility» : (name : Name) → ReducibilityStatus → EnvModification
-| «mixfix»       : MixfixKind → Name → Nat → String → EnvModification
-| «export»       : ExportDecl → EnvModification
-| «projection»   : ProjectionInfo → EnvModification
+  | decl           : Declaration → EnvModification
+  | «class»        : (c : Name) → EnvModification
+  | «instance»     : (c i : Name) → (prio : Nat) → EnvModification
+  | simp           : (name : Name) → (prio : Nat) → EnvModification
+  | «private»      : (pretty real : Name) → EnvModification
+  | «protected»    : (name : Name) → EnvModification
+  | «reducibility» : (name : Name) → ReducibilityStatus → EnvModification
+  | «mixfix»       : MixfixKind → Name → Nat → String → EnvModification
+  | «export»       : ExportDecl → EnvModification
+  | «projection»   : ProjectionInfo → EnvModification
 
 def EnvModification.toName : EnvModification → Name
   | EnvModification.decl d             =>
@@ -85,5 +74,19 @@ def EnvModification.toName : EnvModification → Name
   | EnvModification.mixfix _ n _ _     => n
   | EnvModification.export _           => `inExport
   | EnvModification.projection p       => p.projName
+
+open EnvModification in
+instance : ToString EnvModification where
+  toString
+    | decl d             => s!"<decl:{d.toName}>"
+    | «class» c          => s!"class {c}"
+    | «instance» c i ..  => s!"instance {c} {i}"
+    | simp n prio        => s!"simp {n} {prio}"
+    | «private» _ _      => "private"
+    | «protected» _      => "protected"
+    | «reducibility» _ _ => "reducibility"
+    | «mixfix» _ _ _ _   => "mixfix"
+    | «export» _         => "export"
+    | «projection» _     => "projection"
 
 end Mathport.Binary

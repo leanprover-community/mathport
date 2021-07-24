@@ -26,7 +26,7 @@ def replaceConstNames (e : Expr) : BinportM Expr := do
   let nameInfoMap := (← get).nameInfoMap
   e.replaceConstNames fun n => nameInfoMap.find? n |>.map NameInfo.name4
 
-def translate (e : Expr) (reduce : Bool := true) : BinportM Expr := do
+def trExpr (e : Expr) : BinportM Expr := do
   let s ← get
   let e ← replaceConstNames e
   let e ← liftMetaM <| Meta.transform e (pre := translateNumbers)

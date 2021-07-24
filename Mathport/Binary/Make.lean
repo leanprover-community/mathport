@@ -20,7 +20,7 @@ def genOLeanFor (config : Config) (path34 : Path34) : IO Unit := do
   println! s!"\n[genOLeanFor] START {path34.mrpath}\n"
   createDirectoriesIfNotExists (path34to4 config path34 "olean").toString
 
-  let coreImports  : List Import  := [{ module := `Init : Import }, { module := `PrePort : Import }]
+  let coreImports  : List Import  := [{ module := `Init : Import }]
   let extraImports : Array Import := (← parseTLeanImports (path34.toLean3 "tlean")).map fun dp => { module := dp.toName }
 
   withImportModulesConst (coreImports ++ extraImports.toList) (opts := {}) (trustLevel := 0) $ λ env₀ => do

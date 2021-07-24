@@ -10,29 +10,39 @@ import Mathport.Binary.Path
 import Mathport.Binary.Basic
 import Mathport.Binary.NDRec
 import Mathport.Binary.EnvModification
+import Mathport.Binary.TranslateName
+import Mathport.Binary.TranslateExpr
 
 namespace Mathport.Binary
 
 open Std (HashMap HashSet)
 open Lean Lean.Meta Lean.Elab Lean.Elab.Command
 
-def addDecl (n : Name) (d : Declaration) : BinportM Unit := do
+def refineAddDecl (decl : Declaration) : BinportM (Declaration × ClashKind) := do
   let path34 := (← read).path34
-  println! "[addDecl] START {path34.mrpath} {n}"
-  Lean.addDecl d
-  println! "[addDecl] END   {path34.mrpath} {n}"
-  if shouldGenCodeFor d then
-    match (← getEnv).compileDecl {} d with
-    | Except.ok env    => println! "[compile] {n} SUCCESS!"
-                          setEnv env
-    | Except.error err => let msg ← err.toMessageData (← getOptions)
-                          let msg ← msg.toString
-                          println! "[compile] {n} {msg}"
+  println! "[addDecl] START REFINE {path34.mrpath} {decl.toName}"
+  let ⟨decl, clashKind⟩ ← refineLean4NamesAndUpdateMap decl
+  match clashKind with
+  | ClashKind.foundDefEq =>
+    println! "[addDecl] FOUND DEF-EQ {path34.mrpath} {decl.toName}"
+  | ClashKind.freshDecl =>
+    println! "[addDecl] START CHECK  {path34.mrpath} {decl.toName}"
+    Lean.addDecl decl
+    println! "[addDecl] END CHECK    {path34.mrpath} {decl.toName}"
+    if shouldGenCodeFor decl then
+      match (← getEnv).compileDecl {} decl with
+      | Except.ok env    => println! "[compile] {decl.toName} SUCCESS!"
+                            setEnv env
+      | Except.error err => let msg ← err.toMessageData (← getOptions)
+                            let msg ← msg.toString
+                            println! "[compile] {decl.toName} {msg}"
+  pure (decl, clashKind)
+
 where
-  shouldGenCodeFor (d : Declaration) : Bool :=
+  shouldGenCodeFor (decl : Declaration) : Bool :=
     -- TODO: sadly, noncomputable comes after the definition
     -- (so if this isn't good enough, we will need to refactor)
-    match d with
+    match decl with
     | Declaration.defnDecl _ => true
     | _                      => false
 
@@ -59,11 +69,15 @@ def applyExport (d : ExportDecl) : BinportM Unit := do
   else
     let mut env ← getEnv
     for (n1, n2) in d.renames do
-      env := addAlias env (← trName n1) (← trName n2)
+      -- TODO: name translation doesn't work for the alias
+      -- We should probably inspect the suffixes and modify/remove the prefixes
+      -- env := addAlias env (← lookupLean4Name n1) (← lookupLean4Name n2)
+      println! "[export] SKIP {n1} := {n1}"
+      continue
     setEnv env
 
 def applyMixfix (kind : MixfixKind) (n : Name) (prec : Nat) (tok : String) : BinportM Unit := do
-  let n ← trName n
+  let n ← lookupLean4Name n
 
   -- For now, we avoid the `=` `=` clash by making all Mathlib notations
   -- lower priority than the Lean4 ones.
@@ -96,9 +110,9 @@ def applyMixfix (kind : MixfixKind) (n : Name) (prec : Nat) (tok : String) : Bin
   elabCommand stx
 
 def applySimpLemma (n : Name) (prio : Nat) : BinportM Unit := do
-  tryAddSimpLemma (← trName n) prio
+  tryAddSimpLemma (← lookupLean4Name n) prio
   for eqn in (← get).name2equations.findD n [] do
-    tryAddSimpLemma (← trName eqn) prio
+    tryAddSimpLemma (← lookupLean4Name eqn) prio
 where
   tryAddSimpLemma (n : Name) (prio : Nat) : BinportM Unit :=
     try
@@ -108,7 +122,7 @@ where
 
 def applyReducibility (n : Name) (status : ReducibilityStatus) : BinportM Unit := do
   -- (note: this will fail/no-op if it declares reducible in a new module)
-  try setAttr { name := reducibilityToName status } (← trName n)
+  try setAttr { name := reducibilityToName status } (← lookupLean4Name n)
   catch ex => warn ex
 where
   reducibilityToName (status : ReducibilityStatus) : Name :=
@@ -118,13 +132,13 @@ where
     | ReducibilityStatus.irreducible => `irreducible
 
 def applyProjection (proj : ProjectionInfo) : BinportM Unit := do
-  setEnv $ addProjectionFnInfo (← getEnv) (← trName proj.projName) (← trName proj.ctorName) proj.nParams proj.index proj.fromClass
+  setEnv $ addProjectionFnInfo (← getEnv) (← lookupLean4Name proj.projName) (← lookupLean4Name proj.ctorName) proj.nParams proj.index proj.fromClass
 
 def applyClass (n : Name) : BinportM Unit := do
   let env ← getEnv
   if ← isAligned n then return ()
   -- (for meta classes, Lean4 won't know about the decl)
-  match addClass env (← trName n) with
+  match addClass env (← lookupLean4Name n) with
   | Except.error msg => warnStr msg
   | Except.ok env    => setEnv env
 
@@ -133,73 +147,35 @@ def applyInstance (nc ni : Name) (prio : Nat) : BinportM Unit := do
   -- TODO: `prio.pred`?
   if not $ (← read).config.disabledInstances.contains ni then
     try
-      liftMetaM $ addInstance (← trName ni) AttributeKind.global prio
-      setAttr { name := `inferTCGoalsRL } (← trName ni)
+      liftMetaM $ addInstance (← lookupLean4Name ni) AttributeKind.global prio
+      setAttr { name := `inferTCGoalsRL } (← lookupLean4Name ni)
     catch ex => warn ex
 
 def applyAxiomVal (ax : AxiomVal) : BinportM Unit := do
-  let name ← trName ax.name
-  let type ← trExpr ax.type
-
-  if ← isAligned ax.name then return ()
-  maybeRegisterEquation ax.name
-
-  addDecl ax.name $ Declaration.axiomDecl {
-    ax with
-      name := name,
-      type := type
+  let (decl, clashKind) ← refineAddDecl $ Declaration.axiomDecl { ax with
+    type := (← trExpr ax.type)
   }
+  if clashKind == ClashKind.freshDecl then maybeRegisterEquation decl.toName
 
 def applyTheoremVal (thm : TheoremVal) : BinportM Unit := do
-  let name ← trName thm.name
-  let type ← trExpr thm.type
-
-  if ← isAligned thm.name then return ()
-  maybeRegisterEquation thm.name
-
-  if ← shouldAxiomatize thm.name then
-    println! "sorry skipping: {thm.name}"
-    addDecl thm.name $ Declaration.axiomDecl {
-      thm with
-        name     := name,
-        type     := type,
-        isUnsafe := false -- TODO: what to put here?
-    }
-  else
-    let value ← trExpr thm.value
-    addDecl thm.name $ Declaration.thmDecl {
-      thm with
-        name  := name,
-        type  := type,
-        value := value
-    }
-where
-  shouldAxiomatize (thmName : Name) : BinportM Bool := do
-    if (← read).config.sorries.contains thm.name then return true
-    if (← read).config.skipProofs ∧ ¬ (← read).config.neverSorries.contains thm.name then return true
-    return false
+  let (decl, clashKind) ← refineAddDecl $ Declaration.thmDecl { thm with
+    type := (← trExpr thm.type),
+    value := (← trExpr thm.value)
+  }
+  if clashKind == ClashKind.freshDecl then maybeRegisterEquation decl.toName
 
 def applyDefinitionVal (defn : DefinitionVal) : BinportM Unit := do
-  let name ← trName defn.name
-  let type ← trExpr defn.type
-
-  if ← isAligned defn.name then return ()
-  if ← isBadSUnfold name then return ()
-
-  let value ← trExpr defn.value
-
-  addDecl defn.name $ Declaration.defnDecl {
-    defn with
-      name  := name,
-      type  := type,
-      value := value,
-      hints := defn.hints
+  if ← isBadSUnfold3 defn.name then return ()
+  discard <| refineAddDecl $ Declaration.defnDecl { defn with
+    type  := (← trExpr defn.type),
+    value := (← trExpr defn.value)
   }
 where
-  isBadSUnfold (n : Name) : BinportM Bool := do
-    if !n.isStr then return false
-    if n.getString! != "_sunfold" then return false
-    match (← getEnv).find? (n.getPrefix ++ `_main) with
+  isBadSUnfold3 (n3 : Name) : BinportM Bool := do
+    if !n3.isStr then return false
+    if n3.getString! != "_sunfold" then return false
+    let pfix4 ← lookupLean4Name n3.getPrefix
+    match (← getEnv).find? (pfix4 ++ `_main) with
     | some cinfo =>
       match cinfo.value? with
       -- bad means the original function isn't actually recursive
@@ -207,35 +183,31 @@ where
       | _ => throwError "should have value"
     | _ => return false /- this can happen when e.g. `nat.add._main -> Nat.add` (which may be needed due to eqn lemmas) -/
 
-def applyInductiveDecl (lps : List Name) (nParams : Nat) (ind : InductiveType) (isUnsafe : Bool) : BinportM Unit := do
-  let name ← trName ind.name
-  let type ← trExpr ind.type (reduce := false)
+def applyInductiveDecl (lps : List Name) (nParams : Nat) (indType : InductiveType) (isUnsafe : Bool) : BinportM Unit := do
+  let (decl, clashKind) ← refineAddDecl $ Declaration.inductDecl lps nParams [{ indType with
+    type  := (← trExpr indType.type),
+    ctors := (← indType.ctors.mapM fun ctor => do pure { ctor with type := (← trExpr ctor.type) })
+  }] isUnsafe
+  if clashKind == ClashKind.freshDecl then mkAuxDecls decl.toName
 
-  if not (← isAligned ind.name) then
-    let ctors ← ind.ctors.mapM fun (ctor : Constructor) => do
-      let cname ← trName ctor.name
-      let ctype ← trExpr ctor.type (reduce := false)
-      pure { ctor with name := cname, type := ctype }
-    addDecl ind.name $ Declaration.inductDecl lps nParams
-      [{ ind with name := name, type := type, ctors := ctors }] isUnsafe
-    mkAuxDecls name
-
-  match ← liftMetaM $ mkNDRec name with
+  match ← liftMetaM $ mkNDRec decl.toName (indType.name ++ `ndrec /- old name -/) with
   | some ndRec => do
-    let ndRecName := mkNDRecName name
-    addDecl ndRecName ndRec
-    setAttr { name := `reducible } ndRecName
+    -- TODO: this will create a spurious alignment, and will *miss* the alignment `eq.rec` -> `Eq.ndrec`
+    -- For now, we just add the missing alignment manually
+    let (ndRecDecl, clashKind) ← refineAddDecl ndRec
+    modify fun s => { s with nameInfoMap := s.nameInfoMap.insert (indType.name ++ `rec) ⟨ndRecDecl.toName, ClashKind.freshDecl⟩ }
+    if clashKind == ClashKind.freshDecl then setAttr { name := `reducible } ndRecDecl.toName
   | none => pure ()
 
 where
-  mkAuxDecls (name : Name) : BinportM Unit :=
+  mkAuxDecls (name : Name) : BinportM Unit := do
     try
       -- these may fail for the invalid inductive types currently being accepted
       -- by the temporary patch https://github.com/dselsam/lean4/commit/1bef1cb3498cf81f93095bda16ed8bc65af42535
       mkRecOn name
       mkCasesOn name
       mkNoConfusion name
-      mkBelow name -- already there
+      mkBelow name
       mkIBelow name
       mkBRecOn name
       mkBInductionOn name
@@ -243,6 +215,7 @@ where
 
 
 def applyModification (mod : EnvModification) : BinportM Unit := withReader (fun ctx => { ctx with currDecl := mod.toName }) do
+  println! "[apply] {mod}"
   match mod with
   | EnvModification.export d               => applyExport d
   | EnvModification.mixfix kind n prec tok => applyMixfix kind n prec tok

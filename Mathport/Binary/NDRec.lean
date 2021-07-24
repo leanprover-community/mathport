@@ -10,9 +10,7 @@ namespace Mathport.Binary
 
 open Lean Lean.Meta
 
-def mkNDRecName (indTy : Name) : Name := indTy ++ `ndrec
-
-def mkNDRec (indTy : Name) : MetaM (Option Declaration) := do
+def mkNDRec (indTy ndRecName : Name) : MetaM (Option Declaration) := do
   let some (ConstantInfo.inductInfo indI) ← getConst? indTy | throwError (toString indTy)
   let indTy' ← inferType (mkConst indI.name (indI.levelParams.map mkLevelParam))
   let useDepElim ← forallTelescopeReducing indTy' $ fun _ indSort => do
@@ -39,7 +37,7 @@ def mkNDRec (indTy : Name) : MetaM (Option Declaration) := do
         let val ← Meta.mkLambdaFVars ((params).push oldMotive) $ mkAppN crec ((params).push newMotive)
         let ty ← inferType val
         pure $ Declaration.defnDecl {
-            name        := mkNDRecName indTy,
+            name        := ndRecName,
             levelParams := recI.levelParams,
             type        := ty,
             value       := val,
