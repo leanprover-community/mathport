@@ -87,11 +87,6 @@ elab:max "throw!" interpStr:interpolatedStr(term) : term <= ty => do
 open Lean Elab Term Quotation in
 @[termElab cmdQuot] def elabCmdQuot : TermElab := adaptExpander stxQuot.expand
 
-def String.cmp (x y : String) : Ordering :=
-  if x < y then Ordering.lt
-  else if x > y then Ordering.gt
-  else Ordering.eq
-
 def List.splitAt {α} (xs : List α) (i : Nat) : List α × List α :=
   (xs.take i, xs.drop i)
 

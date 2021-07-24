@@ -13,12 +13,12 @@ open Std (HashMap)
 inductive ClashKind
   | foundDefEq : ClashKind
   | freshDecl  : ClashKind
-  deriving Inhabited, Repr, BEq
+  deriving Inhabited, Repr, BEq, FromJson, ToJson
 
 structure NameInfo where
   name4     : Name
   clashKind : ClashKind
-  deriving Inhabited, Repr
+  deriving Inhabited, Repr, FromJson, ToJson
 
 abbrev NameInfoMap := HashMap Name NameInfo
 

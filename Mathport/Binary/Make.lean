@@ -5,6 +5,7 @@ Authors: Daniel Selsam
 -/
 import Mathport.Util.System
 import Mathport.Util.Parse
+import Mathport.Util.Json
 import Mathport.Util.Import
 import Mathport.Binary.Basic
 import Mathport.Binary.Path
@@ -21,18 +22,28 @@ def genOLeanFor (config : Config) (path34 : Path34) : IO Unit := do
   createDirectoriesIfNotExists (path34to4 config path34 "olean").toString
 
   let coreImports  : List Import  := [{ module := `Init : Import }]
-  let extraImports : Array Import ← (← parseTLeanImports (path34.toLean3 "tlean")).mapM fun dp => do
-    let import ← (← resolveDotPath3 config dp).toLean4dot.toName
-    println! "[import] {import}"
-    pure { module := import }
+
+  -- Always initialize nameInfoMap using `config`
+  let mut nameInfoMap : NameInfoMap := config.customAligns.fold (init := ({} : NameInfoMap)) fun m n3 n4 =>
+    m.insert n3 ⟨n4, ClashKind.foundDefEq⟩
+
+  let importDots ← parseTLeanImports (path34.toLean3 "tlean")
+
+  let mut extraImports := #[]
+
+  for importDot in importDots do
+    let import34 ← resolveDotPath3 config importDot
+    let modInfoMap ← parseJsonFile (HashMap Name NameInfo) (path34to4 config import34 "aux.json")
+    for (k, v) in modInfoMap.toList do nameInfoMap := nameInfoMap.insert k v
+    extraImports := extraImports.push { module := import34.toLean4dot.toName : Import }
 
   withImportModulesConst (coreImports ++ extraImports.toList) (opts := {}) (trustLevel := 0) $ λ env₀ => do
     let env₀ := env₀.setMainModule (path2dot path34.mrpath)
-    let nameInfoMap : HashMap Name NameInfo := {} -- TODO: stitch together from imports
     discard <| BinportM.toIO (ctx := { config := config, path34 := path34 }) (env := env₀) (nameInfoMap := nameInfoMap) do
       let mods ← parseTLean (path34.toLean3 "tlean")
       for mod in mods do applyModification mod
       writeModule (← getEnv) $ path34to4 config path34 "olean"
+      IO.FS.writeFile (path34to4 config path34 "aux.json") $ toString (toJson (← get).nameInfoMap)
       println! "\n[genOLeanFor] END   {path34.mrpath}\n"
 
 abbrev Job := Task (Except IO.Error Unit)

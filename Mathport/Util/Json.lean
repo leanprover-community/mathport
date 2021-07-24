@@ -4,6 +4,8 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Mario Carneiro, Daniel Selsam
 -/
 import Lean
+import Std.Data.RBMap
+import Mathport.Util.String
 
 open Lean Lean.Json
 open System (FilePath)
@@ -19,6 +21,14 @@ instance : FromJson Position where
     unless a.size = 2 do throw "expected an array with two elements"
     pure ⟨← fromJson? a[0], ← fromJson? a[1]⟩
   | _ => throw "JSON array expected"
+
+instance : ToJson Name where
+  toJson n :=
+    let rec core
+      | Name.str p s .. => toJson s :: core p
+      | Name.num p k .. => toJson k :: core p
+      | _ => []
+    Json.arr (core n).toArray
 
 instance : FromJson Name where
   fromJson?
@@ -52,3 +62,11 @@ instance [FromJson β] : FromJson (Std.HashMap Name β) where
   fromJson? json := do
     let Structured.obj kvs ← fromJson? json | throw "JSON obj expected"
     kvs.foldM (init := {}) fun acc (k : String) v => do acc.insert k.toName (← fromJson? v)
+
+open Lean.Json in
+open Std (RBNode) in
+instance [ToJson β] : ToJson (Std.HashMap Name β) where
+  toJson map := do
+    let obj := Structured.obj $ map.fold (init := RBNode.leaf) fun kvs k v =>
+      kvs.insert String.cmp (toString k) (toJson v)
+    toJson obj

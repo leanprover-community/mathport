@@ -14,4 +14,9 @@ def snake2camel (snake : String) : String :=
 def snake2pascal (snake : String) : String :=
   join (snake.splitOn "_" |>.map capitalize)
 
+def cmp (x y : String) : Ordering :=
+  if x < y then Ordering.lt
+  else if x > y then Ordering.gt
+  else Ordering.eq
+
 end String

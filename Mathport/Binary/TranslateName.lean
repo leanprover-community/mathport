@@ -58,8 +58,12 @@ def mkCandidateLean4NameForKind (nameInfoMap : HashMap Name NameInfo) (n3 : Name
   | _                => Name.anonymous
 
 def mkCandidateLean4Name (n3 : Name) (type : Expr) : BinportM Name := do
-  if (← get).nameInfoMap.contains n3 then throwError "mkCandidateLean4Name should not be called after adding decl, '{n3}'"
-  pure $ mkCandidateLean4NameForKind (← get).nameInfoMap n3 (← liftMetaM <| getExprKind type)
+  match (← get).nameInfoMap.find? n3 with
+  | none => pure $ mkCandidateLean4NameForKind (← get).nameInfoMap n3 (← liftMetaM <| getExprKind type)
+  | some ⟨n4, _⟩ =>
+    if !(← read).config.customAligns.contains n3 then
+      throwError "mkCandidateLean4Name should not be called after adding decl, '{n3}'"
+    pure n4
 
 open ClashKind
 

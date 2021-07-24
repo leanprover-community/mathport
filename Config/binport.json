@@ -8,8 +8,6 @@
     },
 
     "customAligns" : {
-	"has_zero"   : "Zero",
-	"has_one"    : "One",
 	"has_add"    : "Add",
 	"has_sub"    : "Sub",
 	"has_mul"    : "Mul",
