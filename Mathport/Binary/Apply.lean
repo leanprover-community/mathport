@@ -30,6 +30,7 @@ def refineAddDecl (decl : Declaration) : BinportM (Declaration × ClashKind) := 
     Lean.addDecl decl
     println! "[addDecl] END CHECK    {path34.mrpath} {decl.toName}"
     if shouldGenCodeFor decl then
+      println! "[compile] {decl.toName} START"
       match (← getEnv).compileDecl {} decl with
       | Except.ok env    => println! "[compile] {decl.toName} SUCCESS!"
                             setEnv env

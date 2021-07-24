@@ -8,6 +8,11 @@
     },
 
     "customAligns" : {
+        "quot"       : "Quot",
+        "quot.mk"    : ["mk", "Quot"],
+        "quot.lift"  : ["lift", "Quot"],
+        "quot.ind"   : ["ind", "Quot"],
+
 	"has_add"    : "Add",
 	"has_sub"    : "Sub",
 	"has_mul"    : "Mul",
