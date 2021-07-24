@@ -42,15 +42,15 @@ partial def isNumber? (e : Expr) : Option NumInfo := do
     type    := e.getArg! 0,
     hasOne? := e.getArg! 1
   }
-  -- TODO: may need to check if these instances are def-eq
-  -- (I am hoping that mathlib does not produce terms in which they are not)
   else if e.isAppOfArity `bit0 3 then OptionM.run $ do
+    -- TODO: may need to check if these instances are def-eq
+    -- (I am hoping that mathlib does not produce terms in which they are not)
     let info ← isNumber? $ e.getArg! 2
     some { info with
              number  := info.number * 2,
              hasAdd? := info.hasAdd? <|> e.getArg! 1 }
   else if e.isAppOfArity `bit1 4 then OptionM.run $ do
-    let info ← isNumber? $ e.getArg! 2
+    let info ← isNumber? $ e.getArg! 3
     some { info with
              number  := info.number * 2 + 1,
              hasAdd? := info.hasAdd? <|> e.getArg! 2 }

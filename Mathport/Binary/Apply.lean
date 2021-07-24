@@ -27,6 +27,13 @@ def refineAddDecl (decl : Declaration) : BinportM (Declaration × ClashKind) := 
     println! "[addDecl] FOUND DEF-EQ {path34.mrpath} {decl.toName}"
   | ClashKind.freshDecl =>
     println! "[addDecl] START CHECK  {path34.mrpath} {decl.toName}"
+/-
+    println! "[addDecl] TYPE {
+      match decl with
+      | Declaration.defnDecl defn => some (fmt defn.type ++ "\n" ++ fmt defn.value)
+      | Declaration.thmDecl thm   => some (fmt thm.type ++ "\n" ++ fmt thm.value)
+      | _ => none}"
+-/
     Lean.addDecl decl
     println! "[addDecl] END CHECK    {path34.mrpath} {decl.toName}"
     if shouldGenCodeFor decl then
@@ -78,6 +85,7 @@ def applyExport (d : ExportDecl) : BinportM Unit := do
     setEnv env
 
 def applyMixfix (kind : MixfixKind) (n : Name) (prec : Nat) (tok : String) : BinportM Unit := do
+try
   let n ← lookupLean4Name n
 
   -- For now, we avoid the `=` `=` clash by making all Mathlib notations
@@ -109,6 +117,7 @@ def applyMixfix (kind : MixfixKind) (n : Name) (prec : Nat) (tok : String) : Bin
   let ns : Syntax := mkIdent $ s!"{"__".intercalate (← read).path34.mrpath.components}_{nextIdx}"
   let stx ← `(namespace $ns:ident $stx end $ns:ident)
   elabCommand stx
+catch ex => warn ex
 
 def applySimpLemma (n : Name) (prio : Nat) : BinportM Unit := do
   tryAddSimpLemma (← lookupLean4Name n) prio
@@ -128,20 +137,23 @@ def applyReducibility (n : Name) (status : ReducibilityStatus) : BinportM Unit :
 where
   reducibilityToName (status : ReducibilityStatus) : Name :=
     match status with
-    | ReducibilityStatus.reducible => `reducible
+    | ReducibilityStatus.reducible     => `reducible
     | ReducibilityStatus.semireducible => `semireducible
-    | ReducibilityStatus.irreducible => `irreducible
+    | ReducibilityStatus.irreducible   => `irreducible
 
 def applyProjection (proj : ProjectionInfo) : BinportM Unit := do
-  setEnv $ addProjectionFnInfo (← getEnv) (← lookupLean4Name proj.projName) (← lookupLean4Name proj.ctorName) proj.nParams proj.index proj.fromClass
+  try
+    setEnv $ addProjectionFnInfo (← getEnv) (← lookupLean4Name proj.projName) (← lookupLean4Name proj.ctorName) proj.nParams proj.index proj.fromClass
+  catch ex => warn ex
 
 def applyClass (n : Name) : BinportM Unit := do
-  let env ← getEnv
-  if ← isAligned n then return ()
+  -- if ← isAligned n then return ()
   -- (for meta classes, Lean4 won't know about the decl)
-  match addClass env (← lookupLean4Name n) with
-  | Except.error msg => warnStr msg
-  | Except.ok env    => setEnv env
+  try
+    match addClass (← getEnv) (← lookupLean4Name n) with
+    | Except.error msg => warnStr msg
+    | Except.ok env    => setEnv env
+  catch ex => warn ex
 
 def applyInstance (nc ni : Name) (prio : Nat) : BinportM Unit := do
   -- (for meta instances, Lean4 won't know about the decl)

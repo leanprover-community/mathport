@@ -7,28 +7,47 @@
 	"Lean3Pkg" : "/home/dselsam/projects/lean3/leanpkg"
     },
 
+    "stringsToKeep" : ["_sunfold", "equations", "private"],
+
     "customAligns" : {
-        "quot"       : "Quot",
-        "quot.mk"    : ["mk", "Quot"],
-        "quot.lift"  : ["lift", "Quot"],
-        "quot.ind"   : ["ind", "Quot"],
+        "quot"          : "Quot",
+        "quot.mk"       : ["mk", "Quot"],
+        "quot.lift"     : ["lift", "Quot"],
+        "quot.ind"      : ["ind", "Quot"],
 
-	"has_add"    : "Add",
-	"has_sub"    : "Sub",
-	"has_mul"    : "Mul",
-	"has_div"    : "Div",
-	"has_neg"    : "Neg",
-	"has_mod"    : "Mod",
+        "nat.add._main"  : ["add", "Nat"],
+        "nat.sub._main"  : ["sub", "Nat"],
+        "nat.neg._main"  : ["neg", "Nat"],
+        "nat.mul._main"  : ["mul", "Nat"],
+        "nat.div._main"  : ["div", "Nat"],
+        "nat.pred._main" : ["pred", "Nat"],
 
-	"has_le"     : "LE",
-	"has_lt"     : "LT",
+        "heq"           : "HEq",
 
-	"has_beq"    : "BEq",
+        "punit"         : "PUnit",
+        "pprod"         : "PProd",
 
-	"has_append" : "Append",
-	"has_pure"   : "Pure",
-	"has_bind"   : "Bind",
-	"has_sizeof" : "SizeOf"
+	"has_add"       : "Add",
+	"has_sub"       : "Sub",
+	"has_mul"       : "Mul",
+	"has_div"       : "Div",
+	"has_neg"       : "Neg",
+	"has_mod"       : "Mod",
+
+	"has_le"        : "LE",
+	"has_lt"        : "LT",
+
+	"has_beq"       : "BEq",
+
+	"has_append"    : "Append",
+	"has_pure"      : "Pure",
+	"has_bind"      : "Bind",
+	"has_sizeof"    : "SizeOf",
+        "has_seq"       : "Seq",
+        "has_seq_left"  : "SeqLeft",
+        "has_seq_right" : "SeqRight",
+
+        "Int.negSuccOfNat" : ["negSucc", "Int"]
     },
 
     "disabledInstances" : [

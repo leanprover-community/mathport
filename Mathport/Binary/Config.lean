@@ -19,6 +19,7 @@ open Std (HashMap HashSet)
 structure Config where
   outRoot           : FilePath
   modules           : HashMap String FilePath := {}
+  stringsToKeep     : HashSet Name := {}
   customAligns      : HashMap Name Name := {}
   disabledInstances : HashSet Name := {}
   neverSorries      : HashSet Name := {}

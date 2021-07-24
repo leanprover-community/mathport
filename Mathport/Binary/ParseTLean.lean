@@ -227,6 +227,7 @@ def parseLine (line : String) : ParseM Unit := do
       | ("#USER_ATTR" :: _)                      => pure ()
       | ("#RELATION" :: _)                       => pure ()
       | ("#UNIFICATION_HINT" :: _)               => pure ()
+      | ("#INVERSE" :: _)                        => pure ()
       | _ => throw $ IO.userError s!"[parseLine] unexpected case: '{line}'\n{tokens}"
 
     parseIntros : List String → ParseM (List Constructor)
