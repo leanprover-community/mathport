@@ -21,7 +21,10 @@ def genOLeanFor (config : Config) (path34 : Path34) : IO Unit := do
   createDirectoriesIfNotExists (path34to4 config path34 "olean").toString
 
   let coreImports  : List Import  := [{ module := `Init : Import }]
-  let extraImports : Array Import := (← parseTLeanImports (path34.toLean3 "tlean")).map fun dp => { module := dp.toName }
+  let extraImports : Array Import ← (← parseTLeanImports (path34.toLean3 "tlean")).mapM fun dp => do
+    let import ← (← resolveDotPath3 config dp).toLean4dot.toName
+    println! "[import] {import}"
+    pure { module := import }
 
   withImportModulesConst (coreImports ++ extraImports.toList) (opts := {}) (trustLevel := 0) $ λ env₀ => do
     let env₀ := env₀.setMainModule (path2dot path34.mrpath)
@@ -66,6 +69,7 @@ end Make
 open Make in
 def make (config : Config) (l4mod mrpath : String) : IO Unit := do
   let some LEAN_PATH ← IO.getEnv "LEAN_PATH" | throw (IO.userError "LEAN_PATH not set")
+  println! "[searchPath] {LEAN_PATH}"
   Lean.initSearchPath LEAN_PATH
   let target := mkPath34 config l4mod mrpath
   let job ← (visit target) { config := config } |>.run' (s := {})

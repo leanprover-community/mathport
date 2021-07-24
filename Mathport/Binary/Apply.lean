@@ -69,7 +69,7 @@ def applyExport (d : ExportDecl) : BinportM Unit := do
   else
     let mut env ← getEnv
     for (n1, n2) in d.renames do
-      -- TODO: name translation doesn't work for the alias
+      -- TODO: naive name translation doesn't work for the alias
       -- We should probably inspect the suffixes and modify/remove the prefixes
       -- env := addAlias env (← lookupLean4Name n1) (← lookupLean4Name n2)
       println! "[export] SKIP {n1} := {n1}"
