@@ -7,6 +7,7 @@ import Lean
 import Mathport.Util.Misc
 import Mathport.Binary.Config
 import Mathport.Binary.Path
+import Mathport.Binary.NameInfoMap
 
 namespace Mathport.Binary
 
@@ -18,20 +19,10 @@ structure Context where
   path34   : Path34
   currDecl : Name := Name.anonymous
 
-inductive ClashKind
-  | foundDefEq : ClashKind
-  | freshDecl  : ClashKind
-  deriving Inhabited, Repr, BEq
-
-structure NameInfo where
-  name4     : Name
-  clashKind : ClashKind
-  deriving Inhabited, Repr
-
 structure State where
   -- TODO: this nameMap will eventually (soon?) be in an environment extension
   -- For now, it will need to be stitched together from JSON files of imports
-  nameInfoMap    : HashMap Name NameInfo
+  nameInfoMap    : NameInfoMap
   nNotations     : Nat                      := 0
   name2equations : HashMap Name (List Name) := {}
 
