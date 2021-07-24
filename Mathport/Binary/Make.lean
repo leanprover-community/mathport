@@ -43,6 +43,8 @@ def genOLeanFor (config : Config) (path34 : Path34) : IO Unit := do
       let mods ← parseTLean (path34.toLean3 "tlean")
       for mod in mods do applyModification mod
       writeModule (← getEnv) $ path34to4 config path34 "olean"
+      -- TODO: reading and writing these *enormous* maps to JSON is *extremely* expensive
+      -- This is not even a viable temporary solution. There is no way to build binport with this.
       IO.FS.writeFile (path34to4 config path34 "aux.json") $ toString (toJson (← get).nameInfoMap)
       println! "\n[genOLeanFor] END   {path34.mrpath}\n"
 
