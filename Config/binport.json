@@ -22,6 +22,9 @@
         "nat.div._main"  : ["div", "Nat"],
         "nat.pred._main" : ["pred", "Nat"],
 
+        "opt_param"     : "optParam",
+        "auto_param"    : "autoParam",
+
         "heq"           : "HEq",
 
         "punit"         : "PUnit",

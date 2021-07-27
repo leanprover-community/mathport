@@ -23,9 +23,11 @@ namespace Mathport.Binary
 open Lean Lean.Meta
 
 def trExprCore (ctx : Context) (st : State) (cmdCtx : Elab.Command.Context) (cmdState : Elab.Command.State) (e : Expr) : MetaM Expr := do
-  let e ← replaceConstNames e
-  let e ← Meta.transform e (pre := translateNumbers)
-  let e ← Meta.transform e (pre := translateAutoParams)
+  let mut e ← replaceConstNames e
+  e ← Meta.transform e (pre := translateNumbers)
+  match (getRenameMap cmdState.env).find? `auto_param with
+  | none => pure ()
+  | some ap4 => e ← Meta.transform e (pre := translateAutoParams ap4)
   e
 
 where
@@ -44,10 +46,10 @@ where
         let inst := mkAppN (mkConst `OfNat.mk [level]) #[type, mkNatLit n, e]
         TransformStep.done $ mkAppN (mkConst `OfNat.ofNat [level]) #[type, mkNatLit n, inst]
 
-  translateAutoParams e : MetaM TransformStep :=
+  translateAutoParams (ap4 : Name) (e : Expr) : MetaM TransformStep :=
     -- def auto_param : Sort u → name → Sort u :=
     -- λ (α : Sort u) (tac_name : name), α
-    if e.isAppOfArity `Mathlib.auto_param 2 then do
+    if e.isAppOfArity ap4 2 then do
       let level    := e.getAppFn.constLevels!.head!
       let type     := e.getArg! 0
       let tacName3 ← Meta.reduce (e.getArg! 1)
@@ -56,7 +58,7 @@ where
         let tacName ← mkCandidateLean4NameForKindIO tacName3 ExprKind.eDef
         let substr : Expr := mkAppN (mkConst `String.toSubstring) #[toExpr $ tacName.toString]
         let tacSyntax := mkAppN (mkConst `Lean.Syntax.ident) #[mkConst `Lean.SourceInfo.none, substr, toExpr tacName, toExpr ([] : List (Prod Name (List String)))]
-        TransformStep.done $ mkAppN (mkConst `autoParam [level]) #[type, tacSyntax ]
+        TransformStep.done $ mkAppN (mkConst `autoParam [level]) #[type, tacSyntax]
         catch ex => do
         -- they prove theorems about auto_param!
         println! "[decode] {(← ex.toMessageData.toString)}"
