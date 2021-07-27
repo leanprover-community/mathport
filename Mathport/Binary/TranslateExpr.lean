@@ -41,11 +41,7 @@ where
       | some info@⟨n, level, type, hasZero?, hasOne?, hasAdd?⟩ =>
         -- TODO: we will want to avoid wrapping "normal" Nat numbers
         -- (current workaround is for the OfNat instances to `no_index` the numbers)
-        let inst :=
-          if false && (← isDefEq type (mkConst `Nat)) then
-            mkApp (mkConst `instOfNatNat) (mkNatLit n)
-          else
-            mkAppN (mkConst `OfNat.mk [level]) #[type, mkNatLit n, e]
+        let inst := mkAppN (mkConst `OfNat.mk [level]) #[type, mkNatLit n, e]
         TransformStep.done $ mkAppN (mkConst `OfNat.ofNat [level]) #[type, mkNatLit n, inst]
 
   translateAutoParams e : MetaM TransformStep :=
