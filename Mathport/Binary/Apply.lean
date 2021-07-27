@@ -183,9 +183,19 @@ def applyTheoremVal (thm : TheoremVal) : BinportM Unit := do
 
 def applyDefinitionVal (defn : DefinitionVal) : BinportM Unit := do
   if ← isBadSUnfold3 defn.name then return ()
+
+  -- TODO: MetaM is completely broken on binport without disabling the tryHeuristic
+  -- for these definitions that in Lean3 had self_opt=false.
+  -- As a workaround, we mark them (and anything else of the form "to_*") as abbrevs.
+  let hints :=
+    if defn.name.isStr && defn.name.getString!.startsWith "to_" then
+      ReducibilityHints.abbrev
+    else defn.hints
+
   discard <| refineAddDecl $ Declaration.defnDecl { defn with
-    type  := (← trExpr defn.type),
+    type  := (← trExpr defn.type)
     value := (← trExpr defn.value)
+    hints := hints
   }
 where
   isBadSUnfold3 (n3 : Name) : BinportM Bool := do
