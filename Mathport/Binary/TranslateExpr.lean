@@ -30,7 +30,7 @@ def trExprCore (ctx : Context) (st : State) (cmdCtx : Elab.Command.Context) (cmd
 
 where
   replaceConstNames (e : Expr) : MetaM Expr := do
-    e.replaceConstNames fun n => (getNameInfoMap cmdState.env).find? n |>.map NameInfo.name4
+    e.replaceConstNames fun n => (getRenameMap cmdState.env).find? n
 
   translateNumbers e : MetaM TransformStep :=  do
     match isConcreteNat? e with

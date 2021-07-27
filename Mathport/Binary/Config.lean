@@ -20,6 +20,7 @@ structure Config where
   outRoot           : FilePath
   modules           : HashMap String FilePath := {}
   stringsToKeep     : HashSet Name := {}
+  initialAlignments : HashMap Name Name := {}
   disabledInstances : HashSet Name := {}
   neverSorries      : HashSet Name := {}
   sorries           : HashSet Name := {}

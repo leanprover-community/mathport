@@ -9,7 +9,7 @@
 
     "stringsToKeep" : ["_sunfold", "equations", "private"],
 
-    "customAligns" : {
+    "initialAlignments" : {
         "quot"          : "Quot",
         "quot.mk"       : ["mk", "Quot"],
         "quot.lift"     : ["lift", "Quot"],
@@ -46,6 +46,21 @@
         "has_seq"       : "Seq",
         "has_seq_left"  : "SeqLeft",
         "has_seq_right" : "SeqRight",
+
+        "module"        : "ModuleS",
+        "algebra"       : "AlgebraS",
+        "comm_ring"     : "CommRingS",
+        "group"         : "GroupS",
+        "monoid"        : "MonoidS",
+
+        "Module"        : "ModuleCat",
+        "Algebra"       : "AlgebraCat",
+        "CommRing"      : "CommRingCat",
+        "Group"         : "GroupCat",
+        "Mon"           : "MonoidCat",
+
+        "kleisli"       : "KleisliS",
+        "Kleisli"       : "KleisliCat",
 
         "Int.negSuccOfNat" : ["negSucc", "Int"]
     },

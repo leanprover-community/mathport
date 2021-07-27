@@ -14,6 +14,7 @@ import Lean
 import Mathport.Util.Misc
 import Mathport.Util.String
 import Mathport.Binary.Basic
+import Mathport.Binary.RenameExt
 
 namespace Mathport.Binary
 
@@ -26,7 +27,7 @@ inductive ExprKind
 
 partial def translatePrefix (pfix3 : Name) : BinportM Name := do
   match ← lookupNameExt pfix3 with
-  | some ⟨pfix4, _⟩ => pfix4
+  | some pfix4 => pfix4
   | none =>
     match pfix3 with
     | Name.anonymous  ..  => Name.anonymous
@@ -63,9 +64,12 @@ where
 def mkCandidateLean4Name (n3 : Name) (type : Expr) : BinportM Name := do
   match ← lookupNameExt n3 with
   | none => mkCandidateLean4NameForKind n3 (← liftMetaM <| getExprKind type)
-  | some ⟨n4, _⟩ => pure n4
+  | some n4 => pure n4
 
-open ClashKind
+inductive ClashKind
+  | foundDefEq : ClashKind
+  | freshDecl  : ClashKind
+  deriving Inhabited, Repr, BEq
 
 -- Given a declaration whose expressions have already been translated to Lean4
 -- (i.e. the names *occurring* in the expressions have been translated
@@ -88,10 +92,10 @@ where
     match (← getEnv).find? ax3.name with
     | some (ConstantInfo.axiomInfo ax4) =>
       if ← isDefEqUpto ax3.levelParams ax3.type ax4.levelParams ax4.type then
-        pure (Declaration.axiomDecl ax3, foundDefEq, [])
+        pure (Declaration.axiomDecl ax3, ClashKind.foundDefEq, [])
       else
         refineAx { ax3 with name := extendName ax3.name }
-    | none => pure (Declaration.axiomDecl ax3, freshDecl, [])
+    | none => pure (Declaration.axiomDecl ax3, ClashKind.freshDecl, [])
     | _ => refineAx { ax3 with name := extendName ax3.name }
 
   refineThm (thm3 : TheoremVal) := do
@@ -99,10 +103,10 @@ where
     match (← getEnv).find? thm3.name with
     | some (ConstantInfo.thmInfo thm4) =>
       if ← isDefEqUpto thm3.levelParams thm3.type thm4.levelParams thm4.type then
-        pure (Declaration.thmDecl thm3, foundDefEq, [])
+        pure (Declaration.thmDecl thm3, ClashKind.foundDefEq, [])
       else
         refineThm { thm3 with name := extendName thm3.name }
-    | none => pure (Declaration.thmDecl thm3, freshDecl, [])
+    | none => pure (Declaration.thmDecl thm3, ClashKind.freshDecl, [])
     | _ => refineThm { thm3 with name := extendName thm3.name }
 
   refineDef (defn3 : DefinitionVal) := do
@@ -110,10 +114,10 @@ where
     match (← getEnv).find? defn3.name with
     | some (ConstantInfo.defnInfo defn4) =>
       if ← isDefEqUpto defn3.levelParams defn3.value defn4.levelParams defn4.value then
-        pure (Declaration.defnDecl defn3, foundDefEq, [])
+        pure (Declaration.defnDecl defn3, ClashKind.foundDefEq, [])
       else
         refineDef { defn3 with name := extendName defn3.name }
-    | none => pure (Declaration.defnDecl defn3, freshDecl, [])
+    | none => pure (Declaration.defnDecl defn3, ClashKind.freshDecl, [])
     | _ => refineDef { defn3 with name := extendName defn3.name }
 
   refineInd (lps : List Name) (numParams : Nat) (indType3 : InductiveType) (isUnsafe : Bool) := do
@@ -129,9 +133,9 @@ where
           let some (ConstantInfo.ctorInfo ctor4) ← (← getEnv).find? name4 | throwError "constructor '{name4}' not found"
           isDefEqUpto lps ctor3.type ctor4.levelParams ctor4.type
         if ← ctors.allM (fun (x, y) => ctorsDefEq x y) then
-          pure (Declaration.inductDecl lps numParams [indType3] isUnsafe, foundDefEq, indVal.ctors)
+          pure (Declaration.inductDecl lps numParams [indType3] isUnsafe, ClashKind.foundDefEq, indVal.ctors)
         else recurse
-    | none => pure (Declaration.inductDecl lps numParams [indType3] isUnsafe, freshDecl, [])
+    | none => pure (Declaration.inductDecl lps numParams [indType3] isUnsafe, ClashKind.freshDecl, [])
     | _ => println! "[refineInd] not an IND"
            recurse
 
@@ -146,7 +150,7 @@ def refineLean4NamesAndUpdateMap (decl : Declaration) : BinportM (Declaration ×
   let (decl', clashKind, ctors) ← refineLean4Names decl
   let tr (n3 n4 : Name) := do
     println! "[translateName] {n3} -> {n4}"
-    addNameAlignment n3 ⟨n4, clashKind⟩
+    addNameAlignment n3 n4
 
   tr decl.toName decl'.toName
 
