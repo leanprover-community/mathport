@@ -23,7 +23,6 @@
         "nat.pred._main" : ["pred", "Nat"],
 
         "opt_param"     : "optParam",
-        "auto_param"    : "autoParam",
 
         "heq"           : "HEq",
 
@@ -53,13 +52,17 @@
         "module"        : "ModuleS",
         "algebra"       : "AlgebraS",
         "comm_ring"     : "CommRingS",
+        "comm_semiring" : "CommSemiRingS",
         "group"         : "GroupS",
+        "ring"          : "RingS",
         "monoid"        : "MonoidS",
 
         "Module"        : "ModuleCat",
         "Algebra"       : "AlgebraCat",
         "CommRing"      : "CommRingCat",
+        "CommSemiRing"  : "CommSemiRingCat",
         "Group"         : "GroupCat",
+        "Ring"          : "RingCat",
         "Mon"           : "MonoidCat",
 
         "category_theory.kleisli"       : ["KleisliS", "CategoryTheory"],

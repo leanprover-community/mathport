@@ -26,7 +26,9 @@ def genOLeanFor (config : Config) (path34 : Path34) : IO Unit := do
     let import34 : Path34 ← resolveDotPath3 config dp
     { module := import34.toLean4dot.toName : Import }
 
-  withImportModulesConst (coreImports ++ extraImports.toList) (opts := {}) (trustLevel := 0) $ λ env => do
+  let opts := ({} : Options).setBool `pp.all true
+
+  withImportModulesConst (coreImports ++ extraImports.toList) (opts := opts) (trustLevel := 0) $ λ env => do
     let env := env.setMainModule path34.toLean4dot
     let env := loadInitialAlignments config env
     discard <| BinportM.runIO (ctx := { config := config, path34 := path34 }) (env := env) do

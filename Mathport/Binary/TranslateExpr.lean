@@ -27,7 +27,8 @@ def trExprCore (ctx : Context) (st : State) (cmdCtx : Elab.Command.Context) (cmd
   e ← Meta.transform e (pre := translateNumbers)
   match (getRenameMap cmdState.env).find? `auto_param with
   | none => pure ()
-  | some ap4 => e ← Meta.transform e (pre := translateAutoParams ap4)
+  | some ap4 =>
+    e ← Meta.transform e (pre := translateAutoParams ap4)
   e
 
 where
@@ -58,10 +59,13 @@ where
         let tacName ← mkCandidateLean4NameForKindIO tacName3 ExprKind.eDef
         let substr : Expr := mkAppN (mkConst `String.toSubstring) #[toExpr $ tacName.toString]
         let tacSyntax := mkAppN (mkConst `Lean.Syntax.ident) #[mkConst `Lean.SourceInfo.none, substr, toExpr tacName, toExpr ([] : List (Prod Name (List String)))]
-        TransformStep.done $ mkAppN (mkConst `autoParam [level]) #[type, tacSyntax]
-        catch ex => do
+        let e' := mkAppN (mkConst `autoParam [level]) #[type, tacSyntax]
+        unless ← Meta.isDefEq e e' do throwError "[translateAutoParams] introduced non-defeq, {fmt e} != {fmt e'}"
+        TransformStep.done e'
+      catch ex => do
         -- they prove theorems about auto_param!
         println! "[decode] {(← ex.toMessageData.toString)}"
+        -- strip the auto_param?
         TransformStep.visit e
     else
       TransformStep.visit e
