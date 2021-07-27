@@ -59,8 +59,8 @@
         "Group"         : "GroupCat",
         "Mon"           : "MonoidCat",
 
-        "kleisli"       : "KleisliS",
-        "Kleisli"       : "KleisliCat",
+        "category_theory.kleisli"       : ["KleisliS", "CategoryTheory"],
+        "category_theory.Kleisli"       : ["KleisliCat", "CategoryTheory"],
 
         "Int.negSuccOfNat" : ["negSucc", "Int"]
     },

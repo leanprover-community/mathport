@@ -5,14 +5,18 @@ Authors: Daniel Selsam
 -/
 namespace String
 
-def snake2camel (snake : String) : String :=
-  match snake.splitOn "_" with
-  | []          => ""
-  | [component] => component
-  | first::rest => join $ first :: rest.map capitalize
+def snake2pascalCamel (snake : String) (lc : Bool) : String := do
+  let mut pascal := join (snake.splitOn "_" |>.map capitalize)
+  if lc then pascal := decapitalize pascal
+  if snake.startsWith "_" then pascal := "_" ++ pascal
+  if snake.endsWith "_" then pascal := pascal ++ "_"
+  pascal
 
 def snake2pascal (snake : String) : String :=
-  join (snake.splitOn "_" |>.map capitalize)
+  snake2pascalCamel snake (lc := false)
+
+def snake2camel (snake : String) : String :=
+  snake2pascalCamel snake (lc := true)
 
 def cmp (x y : String) : Ordering :=
   if x < y then Ordering.lt
