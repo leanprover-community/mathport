@@ -48,7 +48,10 @@ private def parseHints (s : String) : ParseM ReducibilityHints := do
     | [height, selfOpt] =>
       let height ← parseNat height
       let selfOpt ← parseBool selfOpt
-      if h : height < UInt32.size then ReducibilityHints.regular ⟨⟨height, h⟩⟩
+      -- Lean4 does not have reducibility hints, and so we mark these
+      -- as abbrev to avoid tryHeuristic
+      if !selfOpt then ReducibilityHints.abbrev
+      else if h : height < UInt32.size then ReducibilityHints.regular ⟨⟨height, h⟩⟩
       else throw $ IO.userError s!"Reducibility hint too large {height}"
     | _ => throw $ IO.userError s!"failed to parse reducibility hint: {s}"
 
