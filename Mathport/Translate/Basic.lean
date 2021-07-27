@@ -314,9 +314,9 @@ def trNotation (n : Choice) (args : Array (Spanned Arg)) : M Syntax := do
     let args ← args.mapM fun | Arg.expr e => trExpr e | _ => throw! "unsupported notation {repr n}"
     mkNode ``Parser.Term.app #[mkIdent n, mkNullNode args]
 
-partial def trAppArgs : Expr → M (Syntax × Array Syntax)
-  | Expr.app f x => do let (f, args) ← trAppArgs f.kind; (f, args.push (← trExpr x.kind))
-  | e => do (← trExpr e, #[])
+partial def trAppArgs [Inhabited α] : (e : Expr) → (m : Expr → M α) → M (α × Array Syntax)
+  | Expr.app f x, m => do let (f, args) ← trAppArgs f.kind m; (f, args.push (← trExpr x.kind))
+  | e, m => do (← m e, #[])
 
 def trExpr' : Expr → M Syntax
   | Expr.«...» => `(Parser.Term.calcDots| ...)
@@ -352,7 +352,7 @@ def trExpr' : Expr → M Syntax
     if dArrowHeuristic then trDArrow bis e.kind else
       `(∀ $[$(← trBinders { allowSimple := some false } bis)]*, $(← trExpr e.kind))
   | e@(Expr.app _ _) => do
-    let (f, args) ← trAppArgs e
+    let (f, args) ← trAppArgs e trExpr
     mkNode ``Parser.Term.app #[f, mkNullNode args]
   | Expr.show t pr => do
     mkNode ``Parser.Term.show #[mkAtom "show", ← trExpr t.kind, ← trProof pr.kind]
