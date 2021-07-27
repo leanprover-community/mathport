@@ -184,9 +184,10 @@ def applyTheoremVal (thm : TheoremVal) : BinportM Unit := do
 def applyDefinitionVal (defn : DefinitionVal) : BinportM Unit := do
   if ← isBadSUnfold3 defn.name then return ()
 
-  -- TODO: MetaM is completely broken on binport without disabling the tryHeuristic
-  -- for these definitions that in Lean3 had self_opt=false.
-  -- As a workaround, we mark them (and anything else of the form "to_*") as abbrevs.
+  -- TODO: MetaM does not have a def-eq cache, and so whereas Lean3 was robust to some
+  -- manually written `to_*` definitions not disable self_opt, a single bad definition
+  -- can (currently) cause exponential blowup in Lean4.
+  -- As a workaround, we mark anything of the form `to_*` as abbrevs.
   let hints :=
     if defn.name.isStr && defn.name.getString!.startsWith "to_" then
       ReducibilityHints.abbrev
