@@ -18,6 +18,11 @@ namespace Mathport.Binary
 open Std (HashMap HashSet)
 open Lean Lean.Meta Lean.Elab Lean.Elab.Command
 
+def printIndType (lps : List Name) (indType : InductiveType) : BinportM Unit := do
+  println! "[inductive] {indType.name}.\{{lps}}. : {fmt indType.type}"
+  for ctor in indType.ctors do
+    println! "  {ctor.name} : {fmt ctor.type}"
+
 def refineAddDecl (decl : Declaration) : BinportM (Declaration × ClashKind) := do
   let path34 := (← read).path34
   println! "[addDecl] START REFINE {path34.mrpath} {decl.toName}"
@@ -27,12 +32,12 @@ def refineAddDecl (decl : Declaration) : BinportM (Declaration × ClashKind) := 
     println! "[addDecl] FOUND DEF-EQ {path34.mrpath} {decl.toName}"
   | ClashKind.freshDecl =>
     println! "[addDecl] START CHECK  {path34.mrpath} {decl.toName}"
+
 /-
-    println! "[addDecl] TYPE {
-      match decl with
-      | Declaration.defnDecl defn => some (fmt defn.type ++ "\n" ++ fmt defn.value)
-      | Declaration.thmDecl thm   => some (fmt thm.type ++ "\n" ++ fmt thm.value)
-      | _ => none}"
+    match decl with
+    | Declaration.defnDecl defn => println! "[defn] {defn.name} : {fmt defn.type} := {fmt defn.value}"
+    | Declaration.inductDecl lps _ [indType] _ => printIndType lps indType
+    | _ => pure ()
 -/
     Lean.addDecl decl
     println! "[addDecl] END CHECK    {path34.mrpath} {decl.toName}"
@@ -86,7 +91,7 @@ def applyExport (d : ExportDecl) : BinportM Unit := do
 
 def applyMixfix (kind : MixfixKind) (n : Name) (prec : Nat) (tok : String) : BinportM Unit := do
 try
-  let n ← lookupLean4Name n
+  let n ← findLean4Name! n
 
   -- For now, we avoid the `=` `=` clash by making all Mathlib notations
   -- lower priority than the Lean4 ones.
@@ -120,9 +125,9 @@ try
 catch ex => warn ex
 
 def applySimpLemma (n : Name) (prio : Nat) : BinportM Unit := do
-  tryAddSimpLemma (← lookupLean4Name n) prio
+  tryAddSimpLemma (← findLean4Name! n) prio
   for eqn in (← get).name2equations.findD n [] do
-    tryAddSimpLemma (← lookupLean4Name eqn) prio
+    tryAddSimpLemma (← findLean4Name! eqn) prio
 where
   tryAddSimpLemma (n : Name) (prio : Nat) : BinportM Unit :=
     try
@@ -132,7 +137,7 @@ where
 
 def applyReducibility (n : Name) (status : ReducibilityStatus) : BinportM Unit := do
   -- (note: this will fail/no-op if it declares reducible in a new module)
-  try setAttr { name := reducibilityToName status } (← lookupLean4Name n)
+  try setAttr { name := reducibilityToName status } (← findLean4Name! n)
   catch ex => warn ex
 where
   reducibilityToName (status : ReducibilityStatus) : Name :=
@@ -143,14 +148,14 @@ where
 
 def applyProjection (proj : ProjectionInfo) : BinportM Unit := do
   try
-    setEnv $ addProjectionFnInfo (← getEnv) (← lookupLean4Name proj.projName) (← lookupLean4Name proj.ctorName) proj.nParams proj.index proj.fromClass
+    setEnv $ addProjectionFnInfo (← getEnv) (← findLean4Name! proj.projName) (← findLean4Name! proj.ctorName) proj.nParams proj.index proj.fromClass
   catch ex => warn ex
 
 def applyClass (n : Name) : BinportM Unit := do
   -- if ← isAligned n then return ()
   -- (for meta classes, Lean4 won't know about the decl)
   try
-    match addClass (← getEnv) (← lookupLean4Name n) with
+    match addClass (← getEnv) (← findLean4Name! n) with
     | Except.error msg => warnStr msg
     | Except.ok env    => setEnv env
   catch ex => warn ex
@@ -160,8 +165,8 @@ def applyInstance (nc ni : Name) (prio : Nat) : BinportM Unit := do
   -- TODO: `prio.pred`?
   if not $ (← read).config.disabledInstances.contains ni then
     try
-      liftMetaM $ addInstance (← lookupLean4Name ni) AttributeKind.global prio
-      setAttr { name := `inferTCGoalsRL } (← lookupLean4Name ni)
+      liftMetaM $ addInstance (← findLean4Name! ni) AttributeKind.global prio
+      setAttr { name := `inferTCGoalsRL } (← findLean4Name! ni)
     catch ex => warn ex
 
 def applyAxiomVal (ax : AxiomVal) : BinportM Unit := do
@@ -187,7 +192,7 @@ where
   isBadSUnfold3 (n3 : Name) : BinportM Bool := do
     if !n3.isStr then return false
     if n3.getString! != "_sunfold" then return false
-    let pfix4 ← lookupLean4Name n3.getPrefix
+    let pfix4 ← findLean4Name! n3.getPrefix
     match (← getEnv).find? (pfix4 ++ `_main) with
     | some cinfo =>
       match cinfo.value? with
@@ -208,7 +213,7 @@ def applyInductiveDecl (lps : List Name) (nParams : Nat) (indType : InductiveTyp
     -- TODO: this will create a spurious alignment, and will *miss* the alignment `eq.rec` -> `Eq.ndrec`
     -- For now, we just add the missing alignment manually
     let (ndRecDecl, clashKind) ← refineAddDecl ndRec
-    modify fun s => { s with nameInfoMap := s.nameInfoMap.insert (indType.name ++ `rec) ⟨ndRecDecl.toName, ClashKind.freshDecl⟩ }
+    addNameAlignment (indType.name ++ `rec) ⟨ndRecDecl.toName, ClashKind.freshDecl⟩
     if clashKind == ClashKind.freshDecl then setAttr { name := `reducible } ndRecDecl.toName
   | none => pure ()
 

@@ -15,9 +15,6 @@ namespace Mathport.Binary
 def dot2path (dot : String) : FilePath :=
   System.mkFilePath $ dot.splitOn "."
 
-def path2dot (p : FilePath) : String :=
-  ".".intercalate $ p.components
-
 structure ModuleInfo where
   l4mod  : String
   l3root : FilePath
@@ -35,6 +32,10 @@ def Path34.toTLean (p : Path34) : FilePath :=
   p.toLean3 "tlean"
 
 def Path34.toLean4dot (p : Path34) : String :=
-  ".".intercalate [p.modInfo.l4mod, path2dot p.mrpath]
+  ".".intercalate (p.modInfo.l4mod :: (p.mrpath.components.map String.snake2pascal))
+
+def Path34.toLean4 (p : Path34) : FilePath :=
+  let mrp : FilePath := ⟨"/".intercalate (p.mrpath.components.map String.snake2pascal)⟩
+  (FilePath.mk p.modInfo.l4mod).join mrp
 
 end Mathport.Binary

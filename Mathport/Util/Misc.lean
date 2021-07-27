@@ -7,6 +7,9 @@ import Lean
 import Std.Data.HashMap
 import Std.Data.RBMap
 
+def uncurry (f : α → β → γ) : α × β → γ
+  | (x, y) => f x y
+
 namespace Lean
 
 open Std (HashMap)

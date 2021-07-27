@@ -24,23 +24,30 @@ inductive ExprKind
   | eDef
   | eProof
 
-partial def translatePrefix (config : Config) (nameInfoMap : HashMap Name NameInfo) (pfix3 : Name) : Name := do
-  match nameInfoMap.find? pfix3 with
+partial def translatePrefix (pfix3 : Name) : BinportM Name := do
+  match ← lookupNameExt pfix3 with
   | some ⟨pfix4, _⟩ => pfix4
   | none =>
     match pfix3 with
     | Name.anonymous  ..  => Name.anonymous
-    | Name.num pfix3 k .. => Name.mkNum (translatePrefix config nameInfoMap pfix3) k
+    | Name.num pfix3 k .. => Name.mkNum (← translatePrefix pfix3) k
     | Name.str pfix3 s .. =>
-      let s := if config.stringsToKeep.contains s then s else s.snake2pascal
-      Name.mkStr (translatePrefix config nameInfoMap pfix3) s
+      let s := if (← read).config.stringsToKeep.contains s then s else s.snake2pascal
+      Name.mkStr (← translatePrefix pfix3) s
 
-def translateSuffix (config : Config) (s : String) (eKind : ExprKind) : String := do
-  if config.stringsToKeep.contains s then s else
+def translateSuffix (s : String) (eKind : ExprKind) : BinportM String := do
+  if (← read).config.stringsToKeep.contains s then s else
     match eKind with
     | ExprKind.eSort  => s.snake2pascal
     | ExprKind.eDef   => s.snake2camel
     | ExprKind.eProof => s
+
+def mkCandidateLean4NameForKind (n3 : Name) (eKind : ExprKind) : BinportM Name := do
+  let pfix4 ← translatePrefix n3.getPrefix
+  match n3 with
+  | Name.num _ k ..  => Name.mkNum pfix4 k
+  | Name.str _ s ..  => Name.mkStr pfix4 (← translateSuffix s eKind)
+  | _                => Name.anonymous
 
 def getExprKind (type : Expr) : MetaM ExprKind := do
   if ← isProp type then ExprKind.eProof
@@ -53,20 +60,10 @@ where
       | Expr.sort .. => true
       | _ => false
 
-def mkCandidateLean4NameForKind (config : Config) (nameInfoMap : HashMap Name NameInfo) (n3 : Name) (eKind : ExprKind) : Name :=
-  let pfix4 := translatePrefix config nameInfoMap n3.getPrefix
-  match n3 with
-  | Name.num _ k ..  => Name.mkNum pfix4 k
-  | Name.str _ s ..  => Name.mkStr pfix4 (translateSuffix config s eKind)
-  | _                => Name.anonymous
-
 def mkCandidateLean4Name (n3 : Name) (type : Expr) : BinportM Name := do
-  match (← get).nameInfoMap.find? n3 with
-  | none => pure $ mkCandidateLean4NameForKind (← read).config (← get).nameInfoMap n3 (← liftMetaM <| getExprKind type)
-  | some ⟨n4, _⟩ =>
-    if !(← read).config.customAligns.contains n3 then
-      throwError "mkCandidateLean4Name should not be called after adding decl, '{n3}'"
-    pure n4
+  match ← lookupNameExt n3 with
+  | none => mkCandidateLean4NameForKind n3 (← liftMetaM <| getExprKind type)
+  | some ⟨n4, _⟩ => pure n4
 
 open ClashKind
 
@@ -87,7 +84,7 @@ partial def refineLean4Names (decl : Declaration) : BinportM (Declaration × Cla
 
 where
   refineAx (ax3 : AxiomVal) := do
-    println! "[refineAx] {ax3.name}"
+    println! "[refineAx] {ax3.name} {fmt ax3.type}"
     match (← getEnv).find? ax3.name with
     | some (ConstantInfo.axiomInfo ax4) =>
       if ← isDefEqUpto ax3.levelParams ax3.type ax4.levelParams ax4.type then
@@ -109,6 +106,7 @@ where
     | _ => refineThm { thm3 with name := extendName thm3.name }
 
   refineDef (defn3 : DefinitionVal) := do
+    println! "[refineDef] {defn3.name}"
     match (← getEnv).find? defn3.name with
     | some (ConstantInfo.defnInfo defn4) =>
       if ← isDefEqUpto defn3.levelParams defn3.value defn4.levelParams defn4.value then
@@ -119,6 +117,7 @@ where
     | _ => refineDef { defn3 with name := extendName defn3.name }
 
   refineInd (lps : List Name) (numParams : Nat) (indType3 : InductiveType) (isUnsafe : Bool) := do
+    println! "[refineInd] {indType3.name}"
     let recurse := refineInd lps numParams (indType3.updateNames (extendName indType3.name)) isUnsafe
     match (← getEnv).find? indType3.name with
     | some (ConstantInfo.inductInfo indVal) =>
@@ -133,7 +132,8 @@ where
           pure (Declaration.inductDecl lps numParams [indType3] isUnsafe, foundDefEq, indVal.ctors)
         else recurse
     | none => pure (Declaration.inductDecl lps numParams [indType3] isUnsafe, freshDecl, [])
-    | _ => recurse
+    | _ => println! "[refineInd] not an IND"
+           recurse
 
   isDefEqUpto (lvls₁ : List Name) (t₁ : Expr) (lvls₂ : List Name) (t₂ : Expr) : BinportM Bool := do
     Kernel.isDefEq (← getEnv) {} t₁ (t₂.instantiateLevelParams lvls₂ $ lvls₁.map mkLevelParam)
@@ -146,7 +146,7 @@ def refineLean4NamesAndUpdateMap (decl : Declaration) : BinportM (Declaration ×
   let (decl', clashKind, ctors) ← refineLean4Names decl
   let tr (n3 n4 : Name) := do
     println! "[translateName] {n3} -> {n4}"
-    modify fun s => { s with nameInfoMap := s.nameInfoMap.insert n3 ⟨n4, clashKind⟩ }
+    addNameAlignment n3 ⟨n4, clashKind⟩
 
   tr decl.toName decl'.toName
 
@@ -158,15 +158,5 @@ def refineLean4NamesAndUpdateMap (decl : Declaration) : BinportM (Declaration ×
   | _, _ => pure ()
 
   pure (decl', clashKind)
-
-def lookupLean4Name (n3 : Name) : BinportM Name := do
-  match (← get).nameInfoMap.find? n3 with
-  | some ⟨n4, _⟩ => pure n4
-  | none         => throwError "name not found: '{n3}'"
-
-def lookupLean4NameInCore (nameInfoMap : HashMap Name NameInfo) (n3 : Name) : CoreM Name := do
-  match nameInfoMap.find? n3 with
-  | some ⟨n4, _⟩ => pure n4
-  | none         => throwError "name not found: '{n3}'"
 
 end Mathport.Binary

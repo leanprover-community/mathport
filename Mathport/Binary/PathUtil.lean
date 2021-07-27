@@ -9,7 +9,7 @@ import Mathport.Binary.Path
 namespace Mathport.Binary
 
 def path34to4 (config : Config) (p : Path34) (suffix : String) : FilePath :=
-  ((config.outRoot.join p.modInfo.l4mod).join p.mrpath).withExtension suffix
+  (config.outRoot.join p.toLean4).withExtension suffix
 
 def mkPath34 (config : Config) (l4mod : String) (mrpath : FilePath) : Path34 := {
   modInfo := ⟨l4mod, config.modules.find! l4mod⟩,
