@@ -38,6 +38,7 @@ def AST3toData4 (ast : AST3) : EIO String Data4 :=
 -- open Lean.Parser Lean.PrettyPrinter
 
 -- -- set_option trace.PrettyPrinter.parenthesize true in
+-- -- set_option trace.PrettyPrinter.format true in
 -- #eval show CoreM Unit from do
 --   let s ← IO.FS.readFile "/home/mario/Documents/lean/lean/library/init/data/nat/lemmas.ast.json"
 --   let json ← Json.parse s

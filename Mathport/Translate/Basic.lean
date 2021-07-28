@@ -142,18 +142,17 @@ def optTy (ty : Option Syntax) : M (Option Syntax) :=
 mutual
 
   partial def trBlock : Block → (c :_:= TacticContext.seq) → M Syntax
-    | ⟨_, none, none, #[]⟩, TacticContext.seq => do `(Parser.Tactic.tacticSeqBracketed| {})
-    | ⟨_, none, none, tacs⟩, TacticContext.seq =>
-      mkNode ``Parser.Tactic.tacticSeq1Indented <$> tacs.mapM fun tac => do
-        mkGroupNode #[← trTactic tac.kind, mkNullNode]
+    | ⟨_, none, none, #[]⟩, TacticContext.seq => do `(Parser.Tactic.tacticSeq| {})
+    | ⟨_, none, none, tacs⟩, TacticContext.seq => do
+      mkNode ``Parser.Tactic.tacticSeq #[mkNode ``Parser.Tactic.tacticSeq1Indented #[
+        mkNullNode $ ← tacs.mapM fun tac => do mkGroupNode #[← trTactic tac.kind, mkNullNode]]]
     | bl, TacticContext.one => do `(tactic| · $(← trBlock bl):tacticSeq)
     | ⟨_, cl, cfg, tacs⟩, _ => throw! "unsupported (TODO)"
 
   partial def trTactic : Tactic → (c :_:= TacticContext.one) → M Syntax
     | Tactic.block bl, c => trBlock bl c
     | Tactic.by tac, c => trBlock ⟨true, none, none, #[tac]⟩ c
-    | tac, TacticContext.seq => do
-      mkNode ``Parser.Tactic.tacticSeq1Indented #[mkGroupNode #[← trTactic tac, mkNullNode]]
+    | tac, TacticContext.seq => trBlock ⟨true, none, none, #[Spanned.dummy tac]⟩
     | Tactic.«;» tacs, TacticContext.one => do
       let rec build (i : Nat) (lhs : Syntax) : M Syntax :=
         if h : i < tacs.size then do
@@ -182,11 +181,11 @@ mutual
 
 end
 
-def trBinderDefault (allowTac := true) : Default → M Syntax
+def trBinderDefault : Default → M Syntax
   | Default.«:=» e => do `(Parser.Term.binderDefault| := $(← trExpr e.kind))
   | Default.«.» e => do
-    unless allowTac do throw! "unsupported"
-    `(Parser.Term.binderTactic| := by $(← trTactic $ Tactic.expr $ e.map Expr.ident))
+    `(Parser.Term.binderTactic| := by
+      $(← trTactic (Tactic.expr $ e.map Expr.ident) TacticContext.seq):tacticSeq)
 
 mutual
 
@@ -398,8 +397,8 @@ def trExpr' : Expr → M Syntax
   | Expr.«:» e ty => do `(($(← trExpr e.kind) : $(← trExpr ty.kind)))
   | Expr.hole es => throw! "unsupported"
   | Expr.«#[]» es => throw! "unsupported"
-  | Expr.by tac => do `(by $(← trTactic tac.kind))
-  | Expr.begin tacs => do `(by $(← trBlock tacs))
+  | Expr.by tac => do `(by $(← trTactic tac.kind TacticContext.seq):tacticSeq)
+  | Expr.begin tacs => do `(by $(← trBlock tacs):tacticSeq)
   | Expr.let bis e => do
     bis.foldrM (init := ← trExpr e.kind) fun bi stx => do
       `(let $(← trLetDecl bi.kind):letDecl $stx)
@@ -417,8 +416,9 @@ def trExpr' : Expr → M Syntax
     `({$(mkIdent x.kind) ∈ $(← trExpr ty.kind) | $(← trExpr p.kind)})
   | Expr.setReplacement e bis => do
     `({$(← trExpr e.kind) | $[$(← trBinders {} bis):bracketedBinder]*})
-  | Expr.structInst _ src flds #[] catchall => do
+  | Expr.structInst _ src flds srcs catchall => do
     let src ← src.mapM fun s => trExpr s.kind
+    let flds := flds ++ srcs.map fun e => (Spanned.dummy `__, e)
     let flds ← flds.mapM fun (⟨_, _, lhs⟩, ⟨_, _, rhs⟩) => do
       if (match rhs with | Expr.ident rhs => rhs == lhs | _ => false : Bool) then
         `(Parser.Term.structInstFieldAbbrev| $(mkIdent lhs):ident)
@@ -431,7 +431,6 @@ def trExpr' : Expr → M Syntax
       `({ $[$src with]? $[$(flds.pop):structInstField, ]* $last:structInstField })
     else
       `({ $[$src with]? })
-  | Expr.structInst S src flds srcs catchall => throw! "unsupported (TODO)"
   | Expr.atPat lhs rhs => do `($(mkIdent lhs.kind)@ $(← trExpr rhs.kind))
   | Expr.notation n args => trNotation n args
   | Expr.userNotation n args => throw! "unsupported user notation {n}"
@@ -689,7 +688,7 @@ def trField : Field → Array Syntax → M (Array Syntax)
       `(Parser.Command.structInstBinder| [$[$ns]* $[$im]? $(← sig true):declSig])
     | _ => do
       let sig ← sig false
-      let dflt ← dflt.mapM (trBinderDefault false)
+      let dflt ← dflt.mapM trBinderDefault
       if ns.size = 1 then
         `(Parser.Command.structSimpleBinder| $(ns[0]):ident $[$im]? $sig:optDeclSig $[$dflt]?)
       else

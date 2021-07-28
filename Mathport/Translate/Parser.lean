@@ -110,7 +110,7 @@ def generalizeArg : ParserM (Expr × Name) := do
 def casesArg : ParserM (Option Name × Expr) := do
   let t ← pExpr
   match t.unparen with
-  | AST3.Expr.ident x => (some x, ← tk ":" *> pExpr)
+  | AST3.Expr.ident x => (do (some x, ← tk ":" *> pExpr)) <|> do (none, t)
   | _ => (none, t)
 
 def caseArg : ParserM (Array Name × Array Name) := do

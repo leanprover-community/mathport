@@ -412,7 +412,7 @@ where
   pushBool := @push _ _ fun | true => do `(true) | false => do `(false)
 
 def trSimpArgs (hs : Array Parser.SimpArg) : M (Array Syntax × Bool) :=
-  hs.foldlM (init := (#[], true)) fun
+  hs.foldlM (init := (#[], false)) fun
   | (hs, all), SimpArg.allHyps => (hs, true)
   | (hs, all), SimpArg.symmExpr e => dbg_trace "unsupported: simp [← e]"; (hs, all)
   | (hs, all), SimpArg.expr e => do
@@ -436,7 +436,7 @@ def trSimp : TacM Syntax := do
   let only := if only then mkNullNode #[mkAtom "only"] else mkNullNode
   let hs := match hs with
   | #[] => mkNullNode
-  | _ => mkNullNode #[mkAtom "[", (mkAtom ",").mkSep hs]
+  | _ => mkNullNode #[mkAtom "[", (mkAtom ",").mkSep hs, mkAtom "]"]
   match all, loc with
   | true, Location.wildcard =>
     mkNode ``Parser.Tactic.simpAll #[mkAtom "simp_all", cfg, only, hs]
@@ -467,7 +467,7 @@ def trSimpIntros : TacM Syntax := do
   let only := if only then mkNullNode #[mkAtom "only"] else mkNullNode
   let hs := match hs with
   | #[] => mkNullNode
-  | _ => mkNullNode #[mkAtom "[", (mkAtom ",").mkSep hs]
+  | _ => mkNullNode #[mkAtom "[", (mkAtom ",").mkSep hs, mkAtom "]"]
   mkNode ``simpIntro #[mkAtom "simpIntro", cfg, ids, only, hs]
 
 syntax (name := dSimp) "dsimp " ("(" &"config" " := " term ")")? (&"only ")?
@@ -487,7 +487,7 @@ def trDSimp : TacM Syntax := do
   let only := if only then mkNullNode #[mkAtom "only"] else mkNullNode
   let hs := match hs with
   | #[] => mkNullNode
-  | _ => mkNullNode #[mkAtom "[", (mkAtom ",").mkSep hs]
+  | _ => mkNullNode #[mkAtom "[", (mkAtom ",").mkSep hs, mkAtom "]"]
   mkNode ``dSimp #[mkAtom "dsimp", cfg, only, hs, mkOptionalNode $ ← trLoc loc]
 
 def trRefl : TacM Syntax := `(tactic| rfl)
