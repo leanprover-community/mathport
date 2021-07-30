@@ -98,6 +98,8 @@ where
     else if d % 5 == 0 then findExp (n * 2) (d / 5) (exp + 1)
     else none
 
+def mkCDot : Syntax := mkNode ``Parser.Term.cdot #[mkAtom "·"]
+
 structure BinderContext where
   -- if true, only allow simple for no type
   allowSimple : Option Bool := none
@@ -187,6 +189,15 @@ def trBinderDefault : Default → M Syntax
     `(Parser.Term.binderTactic| := by
       $(← trTactic (Tactic.expr $ e.map Expr.ident) TacticContext.seq):tacticSeq)
 
+def trBinary (n : Name) (lhs rhs : Syntax) : M Syntax := do
+  match (← get).notations.find? n.getString! with
+  | some ⟨NotationKind.unary f, _⟩ => f lhs
+  | some ⟨NotationKind.binary f, _⟩ => f lhs rhs
+  | some ⟨NotationKind.nary f, _⟩ => f #[lhs, rhs]
+  | _ =>
+    dbg_trace "unsupported notation {repr n}"
+    mkNode ``Parser.Term.app #[mkIdent n, mkNullNode #[lhs, rhs]]
+
 mutual
 
   partial def trDArrow (bis : Array (Spanned Binder)) (ty : Expr) : M Syntax := do
@@ -215,6 +226,16 @@ mutual
       else
         let dflt ← mkOptionalNode <$> dflt.mapM trBinderDefault
         out.push $ mkNode ``Parser.Term.explicitBinder #[mkAtom "(", vars, ty, dflt, mkAtom ")"]
+    | bc, bic@(Binder.collection bi vars n e), out => do
+      dbg_trace "expanding binder collection {repr bic}"
+      let vars := vars.map $ Spanned.map fun | BinderName.ident v => v | _ => `_x
+      let vars1 := vars.map $ Spanned.map BinderName.ident
+      let mut out ← trBinder bc (Binder.binder bi (some vars1) #[] none none) out
+      let H := #[Spanned.dummy BinderName._]
+      for v in vars do
+        let ty := Expr.notation (Choice.one n) #[v.map $ Arg.expr ∘ Expr.ident, e.map Arg.expr]
+        out ← trBinder bc (Binder.binder bi (some H) #[] (some (Spanned.dummy ty)) none) out
+      out
     | _, _, _ => throw! "unsupported"
   where
     trSimple
@@ -281,8 +302,8 @@ def trProof : Proof → (useFrom : Bool := true) → M Syntax
   | Proof.«from» _ e, useFrom => do
     let e ← trExpr e.kind
     if useFrom then `(Parser.Term.fromTerm| from $e) else e
-  | Proof.block bl, _ => do `(by $(← trBlock bl))
-  | Proof.by tac, _ => do `(by $(← trTactic tac.kind TacticContext.seq))
+  | Proof.block bl, _ => do `(by $(← trBlock bl):tacticSeq)
+  | Proof.by tac, _ => do `(by $(← trTactic tac.kind TacticContext.seq):tacticSeq)
 
 def trNotation (n : Choice) (args : Array (Spanned Arg)) : M Syntax := do
   let n ← match n with
@@ -312,6 +333,14 @@ def trNotation (n : Choice) (args : Array (Spanned Arg)) : M Syntax := do
     dbg_trace "unsupported notation {repr n}"
     let args ← args.mapM fun | Arg.expr e => trExpr e | _ => throw! "unsupported notation {repr n}"
     mkNode ``Parser.Term.app #[mkIdent n, mkNullNode args]
+
+def trInfixFn (n : Choice) (e : Option (Spanned Expr)) : M Syntax := do
+  let n ← match n with
+  | Choice.one n => n
+  | Choice.many ns => if ns[1:].all (ns[0] == ·) then ns[0] else throw! "unsupported"
+  trBinary n mkCDot $ ← match e with
+  | none => mkCDot
+  | some e => trExpr e.kind
 
 partial def trAppArgs [Inhabited α] : (e : Expr) → (m : Expr → M α) → M (α × Array Syntax)
   | Expr.app f x, m => do let (f, args) ← trAppArgs f.kind m; (f, args.push (← trExpr x.kind))
@@ -390,7 +419,7 @@ def trExpr' : Expr → M Syntax
   | Expr.«`» false n => `($(Syntax.mkNameLit s!"`{n}"):nameLit)
   | Expr.«`» true n => `(`$(Syntax.mkNameLit s!"`{n}"):nameLit)
   | Expr.«⟨⟩» es => do `(⟨$[$(← es.mapM fun e => trExpr e.kind)],*⟩)
-  | Expr.infix_fn c e => throw! "unsupported (TODO)"
+  | Expr.infix_fn n e => trInfixFn n e
   | Expr.«(,)» es => do
     `(($(← trExpr es[0].kind):term, $[$(← es[1:].toArray.mapM fun e => trExpr e.kind)],*))
   | Expr.«.()» e => trExpr e.kind
@@ -451,7 +480,9 @@ def trAttr (prio : Option Expr) : Attribute → M (Option TrAttr)
     | `congr => `congr
     | `inline => `inline
     | `pattern => `matchPattern
-    | _ => throw! "unsupported attr -{n}"
+    | _ =>
+      dbg_trace "unsupported attr -{n}"
+      return none
     TrAttr.del (← `(Parser.Command.eraseAttr| -$(mkIdent n)))
   | AST3.Attribute.add `parsing_only none => TrAttr.parsingOnly
   | AST3.Attribute.add `unify none => TrAttr.unify
@@ -476,12 +507,11 @@ def trAttr (prio : Option Expr) : Attribute → M (Option TrAttr)
     | _, _ =>
       if builtinAttributes.contains n then
         dbg_trace "suppressing unsupported attr {n}"
-        return none
       else if (← get).simpSets.contains n then
         dbg_trace "suppressing simp set attr {n}"
-        return none
       else
-        throw! "unknown attr {n}"
+        dbg_trace "suppressing unknown attr {n}"
+      return none
     TrAttr.add attr
 
 def trAttrKind : AttributeKind → M Syntax

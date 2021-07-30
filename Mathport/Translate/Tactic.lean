@@ -79,7 +79,7 @@ def trPropagateTags : TacM Syntax := do
 def trIntro : TacM Syntax := do
   match ← parse ident_ ? with
   | none => `(tactic| intro)
-  | some h => `(tactic| intro $(mkIdent h))
+  | some h => `(tactic| intro $(mkIdent h):ident)
 
 def trIntros : TacM Syntax := do
   match ← parse ident_* with
@@ -292,7 +292,7 @@ def trHave : TacM Syntax := do
   match ← parse (tk ":=" *> pExpr)? with
   | some pr =>
     let haveId := mkNode ``Parser.Term.haveIdDecl #[h, ty, mkAtom ":=", ← trExpr pr]
-    `(tactic| have $haveId:haveDecl)
+    `(tactic| have $haveId:haveIdDecl)
   | none => mkNode ``have'' #[mkAtom "have", h, ty]
 
 syntax (name := let'') "let " Parser.Term.haveIdLhs : tactic
@@ -303,7 +303,7 @@ def trLet : TacM Syntax := do
   | some pr =>
     let letId := mkNode ``Parser.Term.letIdDecl #[
       mkIdent (h.getD `this), ty, mkAtom ":=", ← trExpr pr]
-    `(tactic| let $letId:letDecl)
+    `(tactic| let $letId:letIdDecl)
   | none =>
     let h := mkNullNode $ match h with | none => #[] | some h => #[mkIdent h, mkNullNode]
     mkNode ``let'' #[mkAtom "let", h, ty]
@@ -595,7 +595,7 @@ def trMatchTarget : TacM Syntax := do
   if m.isSome then dbg_trace "unsupported: match_target reducibility"
   `(tactic| matchTarget $t)
 
-syntax (name := byCases) "byCases " (ident ":")? term : tactic
+syntax (name := byCases) "byCases " (ident " : ")? term : tactic
 def trByCases : TacM Syntax := do
   let (n, q) ← parse casesArg
   let q ← trExpr q

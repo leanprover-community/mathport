@@ -93,5 +93,6 @@ def predefinedNotations : HashMap String NotationEntry := [
     ("expr∃ , ", binder fun bis e => do `(∃ $bis, $e)),
     ("expr∃! , ", binder fun bis e => do `(∃! $bis, $e)),
     ("exprℕ", const do `(ℕ)),
-    ("exprℤ", const do `(ℤ))
+    ("exprℤ", const do `(ℤ)),
+    ("exprdec_trivial", const do `(by decide))
   ].foldl (fun m (a, k) => m.insert a ⟨k, true⟩) ∅
