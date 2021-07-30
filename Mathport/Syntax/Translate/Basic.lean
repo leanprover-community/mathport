@@ -26,12 +26,30 @@ structure State where
   commands : Array Syntax := #[]
   current : Scope := {}
   scopes : Array Scope := #[]
-  notations : HashMap String NotationEntry := predefinedNotations
+  notations : HashMap String NotationEntry
   simpSets : NameSet := predefinedSimpSets
   tactics : NameMap (Array (Spanned AST3.Param) → EIO String Syntax) := {}
   deriving Inhabited
 
+def AuxData := HashMap String NotationEntry
+
+structure NotationJson where
+  n3 : String
+  n4 : Name
+  desc : NotationDesc
+  deriving FromJson, ToJson
+
+def AuxData.initial : AuxData := predefinedNotations
+
+def AuxData.merge (d : AuxData) (filename : FilePath) : IO AuxData := do
+  let s ← IO.FS.readFile filename
+  let json ← Json.parse s
+  pure $ (← fromJson? json (α := Array NotationJson)).foldl (init := d) fun
+    | d, ⟨n3, n4, NotationDesc.builtin⟩ => d
+    | d, ⟨n3, n4, desc⟩ => d.insert n3 ⟨n4, desc, desc.toKind n4, false⟩
+
 structure Context where
+  renameMap : HashMap Name Name
   notations : Array Notation
   commands : Array Command
   trExpr : Expr → EIO String Syntax
@@ -59,6 +77,13 @@ def AST3toData4 : AST3 → M Data4
       mkNullNode $ imp.foldl (init := #[]) fun imp ns => ns.foldl (init := imp) fun imp n =>
         imp.push $ mkNode ``Parser.Module.import #[mkAtom "import", mkNullNode, mkIdent n.kind]]
     pure ⟨mkNode ``Parser.Module.module #[header, mkNullNode s.commands], HashMap.empty⟩
+
+def renameIdent (n : Name) : M Name := do
+  match (← read).renameMap.find? n with
+  | none => n
+  | some n => n
+
+def mkIdentR (n : Name) : M Syntax := do mkIdent (← renameIdent n)
 
 def push (stx : Syntax) : M Unit :=
   modify fun s => { s with commands := s.commands.push stx }
@@ -191,9 +216,9 @@ def trBinderDefault : Default → M Syntax
 
 def trBinary (n : Name) (lhs rhs : Syntax) : M Syntax := do
   match (← get).notations.find? n.getString! with
-  | some ⟨NotationKind.unary f, _⟩ => f lhs
-  | some ⟨NotationKind.binary f, _⟩ => f lhs rhs
-  | some ⟨NotationKind.nary f, _⟩ => f #[lhs, rhs]
+  | some ⟨_, _, NotationKind.unary f, _⟩ => f lhs
+  | some ⟨_, _, NotationKind.binary f, _⟩ => f lhs rhs
+  | some ⟨_, _, NotationKind.nary f, _⟩ => f #[lhs, rhs]
   | _ =>
     dbg_trace "unsupported notation {repr n}"
     mkNode ``Parser.Term.app #[mkIdent n, mkNullNode #[lhs, rhs]]
@@ -310,22 +335,22 @@ def trNotation (n : Choice) (args : Array (Spanned Arg)) : M Syntax := do
   | Choice.one n => n
   | Choice.many ns => if ns[1:].all (ns[0] == ·) then ns[0] else throw! "unsupported"
   match (← get).notations.find? n.getString!, args.map (·.kind) with
-  | some ⟨NotationKind.const stx, _⟩, #[] => stx
-  | some ⟨NotationKind.const stx, _⟩, _ => throw! "unsupported (impossible)"
-  | some ⟨NotationKind.unary f, _⟩, #[Arg.expr e] => f (← trExpr e)
-  | some ⟨NotationKind.unary f, _⟩, _ => throw! "unsupported (impossible)"
-  | some ⟨NotationKind.binary f, _⟩, #[Arg.expr e₁, Arg.expr e₂] => f (← trExpr e₁) (← trExpr e₂)
-  | some ⟨NotationKind.binary f, _⟩, _ => throw! "unsupported (impossible)"
-  | some ⟨NotationKind.nary f, _⟩, args =>
+  | some ⟨_, _, NotationKind.const stx, _⟩, #[] => stx
+  | some ⟨_, _, NotationKind.const stx, _⟩, _ => throw! "unsupported (impossible)"
+  | some ⟨_, _, NotationKind.unary f, _⟩, #[Arg.expr e] => f (← trExpr e)
+  | some ⟨_, _, NotationKind.unary f, _⟩, _ => throw! "unsupported (impossible)"
+  | some ⟨_, _, NotationKind.binary f, _⟩, #[Arg.expr e₁, Arg.expr e₂] => f (← trExpr e₁) (← trExpr e₂)
+  | some ⟨_, _, NotationKind.binary f, _⟩, _ => throw! "unsupported (impossible)"
+  | some ⟨_, _, NotationKind.nary f, _⟩, args =>
     f <$> args.mapM fun | Arg.expr e => trExpr e | _ => throw! "unsupported (impossible)"
-  | some ⟨NotationKind.exprs f, _⟩, #[Arg.exprs es] => f $ ← es.mapM fun e => trExpr e.kind
-  | some ⟨NotationKind.exprs f, _⟩, _ => throw! "unsupported (impossible)"
-  | some ⟨NotationKind.binder f, _⟩, #[Arg.binder bi, Arg.expr e] => do
+  | some ⟨_, _, NotationKind.exprs f, _⟩, #[Arg.exprs es] => f $ ← es.mapM fun e => trExpr e.kind
+  | some ⟨_, _, NotationKind.exprs f, _⟩, _ => throw! "unsupported (impossible)"
+  | some ⟨_, _, NotationKind.binder f, _⟩, #[Arg.binder bi, Arg.expr e] => do
     f (← trExplicitBinders #[Spanned.dummy bi]) (← trExpr e)
-  | some ⟨NotationKind.binder f, _⟩, #[Arg.binders bis, Arg.expr e] => do
+  | some ⟨_, _, NotationKind.binder f, _⟩, #[Arg.binders bis, Arg.expr e] => do
     if bis.isEmpty then trExpr e else f (← trExplicitBinders bis) (← trExpr e)
-  | some ⟨NotationKind.binder f, _⟩, _ => throw! "unsupported (impossible)"
-  | some ⟨NotationKind.fail, _⟩, args =>
+  | some ⟨_, _, NotationKind.binder f, _⟩, _ => throw! "unsupported (impossible)"
+  | some ⟨_, _, NotationKind.fail, _⟩, args =>
     dbg_trace "unsupported notation {repr n}"
     let args ← args.mapM fun | Arg.expr e => trExpr e | _ => throw! "unsupported notation {repr n}"
     mkNode ``Parser.Term.app #[mkIdent n, mkNullNode args]
@@ -352,11 +377,11 @@ def trExpr' : Expr → M Syntax
   | Expr.«_» => `(_)
   | Expr.«()» => `(())
   | Expr.«{}» => `({})
-  | Expr.ident n => mkIdent n
-  | Expr.const _ n none => mkIdent n.kind
-  | Expr.const _ n (some #[]) => mkIdent n.kind
+  | Expr.ident n => mkIdentR n
+  | Expr.const _ n none => mkIdentR n.kind
+  | Expr.const _ n (some #[]) => mkIdentR n.kind
   | Expr.const _ n (some l) => do
-    mkNode ``Parser.Term.explicitUniv #[mkIdent n.kind,
+    mkNode ``Parser.Term.explicitUniv #[← mkIdentR n.kind,
       mkAtom ".{", (mkAtom ",").mkSep $ ← l.mapM fun e => trLevel e.kind, mkAtom "}"]
   | Expr.nat n => Syntax.mkNumLit (toString n)
   | Expr.decimal n d => (scientificLitOfDecimal n d).get!
@@ -759,12 +784,12 @@ def trNotationCmd (loc : LocalReserve) (attrs : Attributes) (nota : Notation) : 
   let kind ← if loc.1 then `(Parser.Term.attrKind| local) else `(Parser.Term.attrKind|)
   let n := nota.name3
   let skip : Bool := match (← get).notations.find? n with
-  | some ⟨_, skip⟩ => skip
+  | some ⟨_, _, _, skip⟩ => skip
   | none => false
   if skip && !loc.1 then return
   let prio ← s.prio.mapM fun prio => do
     `(Parser.Command.namedPrio| (priority := $(← trPrio prio)))
-  let mut new := NotationKind.fail
+  let mut desc := NotationDesc.fail
   let n4 := nota.name4
   -- FIXME, this is wrong but lets the parenthesizer work on local notations
   let fakeNode as := mkNode ``Parser.Term.app #[mkIdent n4, mkNullNode as]
@@ -776,62 +801,55 @@ def trNotationCmd (loc : LocalReserve) (attrs : Attributes) (nota : Notation) : 
     let e ← trExpr e.kind
     match m with
     | MixfixKind.infix =>
-      -- new := NotationKind.binary fun a b => mkNode n4 #[a, mkAtom tk, b]
-      new := NotationKind.binary fun a b => fakeNode #[a, b]
+      desc := NotationDesc.infix tk
       `(command| $kind:attrKind infixl:$p $[$prio:namedPrio]? $s => $e)
     | MixfixKind.infixl =>
-      -- new := NotationKind.binary fun a b => mkNode n4 #[a, mkAtom tk, b]
-      new := NotationKind.binary fun a b => fakeNode #[a, b]
+      desc := NotationDesc.infix tk
       `(command| $kind:attrKind infixl:$p $[$prio:namedPrio]? $s => $e)
     | MixfixKind.infixr =>
-      -- new := NotationKind.binary fun a b => mkNode n4 #[a, mkAtom tk, b]
-      new := NotationKind.binary fun a b => fakeNode #[a, b]
+      desc := NotationDesc.infix tk
       `(command| $kind:attrKind infixr:$p $[$prio:namedPrio]? $s => $e)
     | MixfixKind.prefix =>
-      -- new := NotationKind.unary fun a => mkNode n4 #[mkAtom tk, a]
-      new := NotationKind.unary fun a => fakeNode #[a]
+      desc := NotationDesc.prefix tk
       `(command| $kind:attrKind prefix:$p $[$prio:namedPrio]? $s => $e)
     | MixfixKind.postfix =>
-      -- new := NotationKind.unary fun a => mkNode n4 #[a, mkAtom tk]
-      new := NotationKind.unary fun a => fakeNode #[a]
+      desc := NotationDesc.postfix tk
       `(command| $kind:attrKind postfix:$p $[$prio:namedPrio]? $s => $e)
   | Notation.notation lits (some e) =>
     let p ← match lits.get? 0 with
-    | some ⟨_, _, Literal.sym tk⟩ => tk.2.mapM fun p => trPrec p.kind
-    | some ⟨_, _, Literal.var _ _⟩ => match lits.get? 1 with
-      | some ⟨_, _, Literal.sym tk⟩ => tk.2.mapM fun p => trPrec p.kind
+    | some ⟨_, _, AST3.Literal.sym tk⟩ => tk.2.mapM fun p => trPrec p.kind
+    | some ⟨_, _, AST3.Literal.var _ _⟩ => match lits.get? 1 with
+      | some ⟨_, _, AST3.Literal.sym tk⟩ => tk.2.mapM fun p => trPrec p.kind
       | _ => none
     | _ => none
-    new := match lits with
-    | #[⟨_, _, Literal.sym tk⟩] =>
-      NotationKind.const (mkNode n4 #[mkAtom tk.1.kind.toString])
+    desc := match lits with
+    | #[⟨_, _, AST3.Literal.sym tk⟩] => NotationDesc.const tk.1.kind.toString
     | _ => match mkNAry lits with
-      | some f =>
-        -- NotationKind.nary fun stxs => mkNode n4 (f stxs).2
-        NotationKind.nary @fakeNode
-      | none => NotationKind.fail
+      | some lits => NotationDesc.nary lits
+      | none => NotationDesc.fail
     let lits ← lits.mapM fun
-    | ⟨_, _, Literal.sym tk⟩ => Syntax.mkStrLit tk.1.kind.toString
-    | ⟨_, _, Literal.var x none⟩ =>
+    | ⟨_, _, AST3.Literal.sym tk⟩ => Syntax.mkStrLit tk.1.kind.toString
+    | ⟨_, _, AST3.Literal.var x none⟩ =>
       `(Parser.Command.identPrec| $(mkIdent x.kind):ident)
-    | ⟨_, _, Literal.var x (some ⟨_, _, Action.prec p⟩)⟩ => do
+    | ⟨_, _, AST3.Literal.var x (some ⟨_, _, Action.prec p⟩)⟩ => do
       `(Parser.Command.identPrec| $(mkIdent x.kind):ident : $(← trPrec p))
     | _ => throw! "unsupported"
     let e ← trExpr e.kind
     `(command| $kind:attrKind notation$[:$p]? $[$prio:namedPrio]? $[$lits]* => $e)
   | _ => throw! "unsupported (impossible)"
   push cmd
-  modify fun s => { s with notations := s.notations.insert n ⟨new, false⟩ }
+  let k := desc.toKind n4
+  modify fun s => { s with notations := s.notations.insert n ⟨n4, desc, k, false⟩ }
 where
-  mkNAry (lits : Array (Spanned AST3.Literal)) :
-    Option (Array Syntax → Nat × Array Syntax) :=
-    lits.foldl (init := some fun stx => (0, #[])) fun
-    | some f, ⟨_, _, Literal.sym tk⟩ =>
-      let stx := mkAtom tk.1.kind.toString
-      some fun as => let (i, bs) := f as; (i, bs.push stx)
-    | some f, ⟨_, _, Literal.var _ _⟩ =>
-      some fun as => let (i, bs) := f as; (i+1, bs.push (as.getD i Syntax.missing))
-    | _, _ => none
+  mkNAry (lits : Array (Spanned AST3.Literal)) : OptionM (Array Literal) := do
+    let mut i := 0
+    let mut out := #[]
+    for lit in lits do
+      match lit with
+      | ⟨_, _, AST3.Literal.sym tk⟩ => out := out.push (Literal.sym tk.1.kind.toString)
+      | ⟨_, _, AST3.Literal.var _ _⟩ => out := out.push (Literal.var i); i := i + 1
+      | _ => none
+    out
 
 def trInductiveCmd : InductiveCmd → M Unit
   | InductiveCmd.reg cl mods n us bis ty nota intros =>
