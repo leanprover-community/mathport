@@ -81,7 +81,12 @@ partial def refineLean4Names (decl : Declaration) : BinportM (Declaration × Cla
   | Declaration.thmDecl thm                 =>
     refineThm { thm with name := ← mkCandidateLean4Name thm.name thm.type}
   | Declaration.defnDecl defn               =>
-    refineDef { defn with name := ← mkCandidateLean4Name defn.name defn.type }
+    let name ← ← mkCandidateLean4Name defn.name defn.type
+    -- Optimization: don't bother def-eq checking constructions that we know will be def-eq
+    if name.isStr && (← read).config.defEqConstructions.contains name.getString! then
+      let clashKind := if (← getEnv).contains name then ClashKind.foundDefEq else ClashKind.freshDecl
+      return (Declaration.defnDecl { defn with name := name }, clashKind, [])
+    refineDef { defn with name := name }
   | Declaration.inductDecl lps nps [indType] iu =>
     refineInd lps nps (indType.updateNames (← mkCandidateLean4Name indType.name indType.type)) iu
   | _                                       => throwError "unexpected declaration type"

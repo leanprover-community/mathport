@@ -17,14 +17,15 @@ open Lean Lean.Json
 open Std (HashMap HashSet)
 
 structure Config where
-  outRoot           : FilePath
-  modules           : HashMap String FilePath := {}
-  stringsToKeep     : HashSet Name := {}
-  initialAlignments : HashMap Name Name := {}
-  disabledInstances : HashSet Name := {}
-  neverSorries      : HashSet Name := {}
-  sorries           : HashSet Name := {}
-  skipProofs        : Bool := false
+  outRoot            : FilePath
+  modules            : HashMap String FilePath := {}
+  defEqConstructions : HashSet String := {}
+  stringsToKeep      : HashSet Name := {}
+  initialAlignments  : HashMap Name Name := {}
+  disabledInstances  : HashSet Name := {}
+  neverSorries       : HashSet Name := {}
+  sorries            : HashSet Name := {}
+  skipProofs         : Bool := false
   deriving FromJson
 
 end Mathport.Binary

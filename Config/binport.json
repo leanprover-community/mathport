@@ -9,6 +9,8 @@
 
     "stringsToKeep" : ["_sunfold", "equations", "private"],
 
+    "defEqConstructions" : ["casesOn", "noConfusion", "ibelow", "brecOn", "bInductionOn"],
+
     "initialAlignments" : {
         "quot"          : "Quot",
         "quot.mk"       : ["mk", "Quot"],
