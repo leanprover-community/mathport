@@ -6,3 +6,11 @@ Authors: Mario Carneiro, Daniel Selsam
 import Mathport.Syntax.AST3
 import Mathport.Syntax.Data4
 import Mathport.Syntax.Parse
+
+namespace Mathport.Syntax
+
+def main (args : List String) : IO Unit := do
+  pure ()
+
+
+end Mathport.Syntax

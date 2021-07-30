@@ -12,4 +12,5 @@ import Mathport.Refine
 unsafe def main (args : List String) : IO Unit := do
   match args with
   | ("binary"::args) => do Mathport.Binary.main args
-  | _ => throw $ IO.userError "usage: mathport binary ..."
+  | ("syntax"::args) => do Mathport.Syntax.main args
+  | _ => throw $ IO.userError "usage: mathport [binary|syntax] ..."
