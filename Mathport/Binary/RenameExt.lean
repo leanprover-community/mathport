@@ -50,4 +50,20 @@ def loadInitialAlignments (config : Config) (env : Environment) : Environment :=
 
   x.run' env
 
+namespace Translate
+
+open Lean.Elab Lean.Elab.Command
+
+syntax (name := translate) "#translate " ident : command
+
+@[commandElab translate] def elabTranslate : CommandElab
+  | `(#translate%$tk $id:ident) => do
+    let name := id.getId
+    match getRenameMap (← getEnv) |>.find? name with
+    | none => logInfoAt tk "name `{name} not found"
+    | some name4 => logInfoAt tk "`{name} ==> `{name4}"
+  | _ => throwUnsupportedSyntax
+
+end Translate
+
 end Mathport.Binary
