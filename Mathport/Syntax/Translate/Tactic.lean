@@ -3,8 +3,8 @@ Copyright (c) 2021 Microsoft Corporation. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Mario Carneiro
 -/
-import Mathport.Translate.Basic
-import Mathport.Translate.Parser
+import Mathport.Syntax.Translate.Basic
+import Mathport.Syntax.Translate.Parser
 
 -- open Lean (Syntax Name mkIdent mkNode mkAtom)
 open Lean

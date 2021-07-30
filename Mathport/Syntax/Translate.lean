@@ -3,7 +3,11 @@ Copyright (c) 2021 Microsoft Corporation. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Mario Carneiro, Daniel Selsam
 -/
-import Mathport.Translate.Tactic
+import Mathport.Syntax.Translate.Basic
+import Mathport.Syntax.Translate.Attributes
+import Mathport.Syntax.Translate.Notation
+import Mathport.Syntax.Translate.Parser
+import Mathport.Syntax.Translate.Tactic
 
 namespace Mathport
 

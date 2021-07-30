@@ -5,8 +5,6 @@ Authors: Mario Carneiro, Daniel Selsam
 -/
 import Mathport.Binary
 import Mathport.Syntax
-import Mathport.Translate
-import Mathport.Refine
 
 -- TODO: process entire library in parallel
 unsafe def main (args : List String) : IO Unit := do

@@ -3,10 +3,10 @@ Copyright (c) 2021 Microsoft Corporation. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Mario Carneiro, Daniel Selsam
 -/
-import Mathport.Syntax
-import Mathport.Translate.Notation
-import Mathport.Translate.Attributes
-import Mathport.Translate.Parser
+import Mathport.Syntax.Data4
+import Mathport.Syntax.Translate.Notation
+import Mathport.Syntax.Translate.Attributes
+import Mathport.Syntax.Translate.Parser
 
 namespace Mathport
 

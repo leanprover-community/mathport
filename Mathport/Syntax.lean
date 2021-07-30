@@ -6,6 +6,7 @@ Authors: Mario Carneiro, Daniel Selsam
 import Mathport.Syntax.AST3
 import Mathport.Syntax.Data4
 import Mathport.Syntax.Parse
+import Mathport.Syntax.Translate
 
 namespace Mathport.Syntax
 

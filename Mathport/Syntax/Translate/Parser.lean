@@ -4,7 +4,8 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Mario Carneiro
 -/
 import Std.Data.HashMap
-import Mathport.Syntax
+import Mathport.Syntax.AST3
+import Mathport.Syntax.Data4
 
 open Std (HashMap)
 open Lean hiding Expr

@@ -22,3 +22,5 @@ def builtinAttributes : Lean.NameSet := [
 def predefinedSimpSets : Lean.NameSet :=
   [`norm, `pre_smt].foldl (·.insert) ∅
 
+end Translate
+end Mathport
