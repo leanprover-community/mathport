@@ -408,9 +408,9 @@ def trExpr' : Expr → M Syntax
   | Expr.calc args => do
     let (lhs, rhs) := args[0]
     mkNode ``Parser.Term.calc #[mkAtom "calc",
-      ← trExpr lhs.kind, mkAtom ":", ← trExpr rhs.kind,
+      mkNode ``Parser.Term.calcFirst #[← trExpr lhs.kind, mkAtom ":", ← trExpr rhs.kind],
       mkNullNode $ ← args[1:].toArray.mapM fun (lhs, rhs) => do
-        mkNullNode #[← trExpr lhs.kind, mkAtom ":", ← trExpr rhs.kind]]
+        mkNode ``Parser.Term.calcRest #[← trExpr lhs.kind, mkAtom ":", ← trExpr rhs.kind]]
   | Expr.«@» _ e => do `(@$(← trExpr e.kind))
   | Expr.pattern e => trExpr e.kind
   | Expr.«`()» lazy expr e => throw! "unsupported (TODO)"
@@ -900,7 +900,7 @@ def trCommand' : Command → M Unit
     | _, _ => throw! "unsupported (TODO)"
   | Command.declareTrace n => throw! "unsupported (TODO)"
   | Command.addKeyEquivalence a b => throw! "unsupported"
-  | Command.runCmd e => do pushM `(#eval $(← trExpr e.kind))
+  | Command.runCmd e => do pushM `(run_cmd $(← trExpr e.kind))
   | Command.check e => do pushM `(#check $(← trExpr e.kind))
   | Command.reduce _ e => do pushM `(#reduce $(← trExpr e.kind))
   | Command.eval e => do pushM `(#eval $(← trExpr e.kind))

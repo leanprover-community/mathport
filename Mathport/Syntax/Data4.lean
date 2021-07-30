@@ -32,11 +32,45 @@ notation "ℕ" => Nat
 notation "ℤ" => Int
 syntax tactic " <;> " "[" tactic,* "]" : tactic
 syntax "do " doSeq : tactic
+syntax (name := Lean.Elab.Command.runCmd) "run_cmd " term : command
 
-open Lean.Elab.Command Lean.Parser Lean
+open Lean.Elab.Command Lean.Parser Lean Elab Meta
 
 @[commandElab includeCmd] def elabIncludeCmd : CommandElab := fun stx => pure ()
 @[commandElab omitCmd] def elabOmitCmd : CommandElab := fun stx => pure ()
+
+unsafe def elabRunCmdUnsafe : CommandElab
+  | `(run_cmd $term) =>
+    let n := `_runCmd
+    runTermElabM (some n) fun _ => do
+      let e ← Term.elabTerm term none
+      Term.synthesizeSyntheticMVarsNoPostponing
+      let e ← withLocalDeclD `env (mkConst ``Lean.Environment) fun env =>
+          withLocalDeclD `opts (mkConst ``Lean.Options) fun opts => do
+            let e ← mkAppM ``Lean.runMetaEval #[env, opts, e]
+            mkLambdaFVars #[env, opts] e
+      let env ← getEnv
+      let opts ← getOptions
+      let act ← try
+        let type ← inferType e
+        let decl := Declaration.defnDecl {
+          name        := n
+          levelParams := []
+          type        := type
+          value       := e
+          hints       := ReducibilityHints.opaque
+          safety      := DefinitionSafety.unsafe }
+        Term.ensureNoUnassignedMVars decl
+        addAndCompile decl
+        evalConst (Environment → Options → IO (String × Except IO.Error Environment)) n
+      finally setEnv env
+      match (← act env opts).2 with
+      | Except.error e => throwError e.toString
+      | Except.ok env  => do setEnv env; pure ()
+  | _ => throwUnsupportedSyntax
+
+@[implementedBy elabRunCmdUnsafe] constant elabRunCmd' : CommandElab
+@[commandElab Lean.Elab.Command.runCmd] def elabRunCmd : CommandElab := elabRunCmd'
 
 namespace Lean
 namespace Parser.Term
@@ -50,12 +84,21 @@ def calcLHS : Parser where
     trailingLoop tables c s
   info := (calcDots >> termParser).info
 
+run_cmd show CoreM _ from
+  modifyEnv fun env => addSyntaxNodeKind env ``calcDots
+
 open Lean.PrettyPrinter Lean.Elab.Term
 
-@[combinatorFormatter Lean.Parser.Term.calcLHS] def calcLHS.formatter : Formatter := pure ()
-@[combinatorParenthesizer Lean.Parser.Term.calcLHS] def calcLHS.parenthesizer : Parenthesizer := pure ()
+@[formatter Lean.Parser.Term.calcDots] def calcDots.formatter : Formatter :=
+Formatter.visitArgs $ Parser.symbol.formatter "..."
+@[parenthesizer Lean.Parser.Term.calcDots] def calcDots.parenthesizer : Parenthesizer :=
+Parenthesizer.visitArgs $ Parser.symbol.parenthesizer "..."
+@[combinatorFormatter Lean.Parser.Term.calcLHS] def calcLHS.formatter : Formatter := termParser.formatter
+@[combinatorParenthesizer Lean.Parser.Term.calcLHS] def calcLHS.parenthesizer : Parenthesizer := termParser.parenthesizer
 
-syntax (name := «calc») "calc " term " : " term (calcLHS " : " term)* : term
+syntax calcFirst := ppLine term " : " term
+syntax calcRest := ppLine calcLHS " : " term
+syntax (name := «calc») "calc " calcFirst calcRest* : term
 
 end Parser.Term
 
