@@ -42,12 +42,11 @@ def lookupNameExt! (n3 : Name) : BinportM Name := do
   | some n4 => pure n4
   | none    => throwError "name not found: '{n3}'"
 
-def loadInitialAlignments (config : Config) (env : Environment) : Environment := do
+def addNameAlignments (alignments : List (Name × Name)) (env : Environment) : Environment := do
   let x : StateM Environment Environment := do
-    for (n3, n4) in config.initialAlignments.toList do
+    for (n3, n4) in alignments do
       modify fun env => mathportRenameExtension.addEntry env (n3, n4)
     get
-
   x.run' env
 
 namespace Translate

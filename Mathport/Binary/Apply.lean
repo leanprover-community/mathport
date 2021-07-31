@@ -6,7 +6,6 @@ Authors: Daniel Selsam
 import Lean
 import Mathport.Util.Misc
 import Mathport.Binary.Config
-import Mathport.Binary.Path
 import Mathport.Binary.Basic
 import Mathport.Binary.NDRec
 import Mathport.Binary.EnvModification
@@ -24,14 +23,14 @@ def printIndType (lps : List Name) (indType : InductiveType) : BinportM Unit := 
     println! "  {ctor.name} : {fmt ctor.type}"
 
 def refineAddDecl (decl : Declaration) : BinportM (Declaration × ClashKind) := do
-  let path34 := (← read).path34
-  println! "[addDecl] START REFINE {path34.mrpath} {decl.toName}"
+  let path := (← read).path
+  println! "[addDecl] START REFINE {path.mod3} {decl.toName}"
   let ⟨decl, clashKind⟩ ← refineLean4NamesAndUpdateMap decl
   match clashKind with
   | ClashKind.foundDefEq =>
-    println! "[addDecl] FOUND DEF-EQ {path34.mrpath} {decl.toName}"
+    println! "[addDecl] FOUND DEF-EQ {path.mod3} {decl.toName}"
   | ClashKind.freshDecl =>
-    println! "[addDecl] START CHECK  {path34.mrpath} {decl.toName}"
+    println! "[addDecl] START CHECK  {path.mod3} {decl.toName}"
 
 /-
     match decl with
@@ -40,7 +39,7 @@ def refineAddDecl (decl : Declaration) : BinportM (Declaration × ClashKind) := 
     | _ => pure ()
 -/
     Lean.addDecl decl
-    println! "[addDecl] END CHECK    {path34.mrpath} {decl.toName}"
+    println! "[addDecl] END CHECK    {path.mod3} {decl.toName}"
     if shouldGenCodeFor decl then
       println! "[compile] {decl.toName} START"
       match (← getEnv).compileDecl {} decl with
@@ -119,7 +118,7 @@ try
 
   let nextIdx : Nat ← (← get).nNotations
   modify λ s => { s with nNotations := nextIdx + 1 }
-  let ns : Syntax := mkIdent $ s!"{"__".intercalate (← read).path34.mrpath.components}_{nextIdx}"
+  let ns : Syntax := mkIdent $ s!"{"__".intercalate ((← read).path.mod4.components.map Name.getString!)}_{nextIdx}"
   let stx ← `(namespace $ns:ident $stx end $ns:ident)
   elabCommand stx
 catch ex => warn ex

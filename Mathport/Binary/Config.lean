@@ -9,7 +9,7 @@ import Std.Data.HashSet
 import Std.Data.RBMap
 import Mathport.Util.Misc
 import Mathport.Util.Json
-import Mathport.Binary.Path
+import Mathport.Util.Path
 
 namespace Mathport.Binary
 
@@ -17,8 +17,7 @@ open Lean Lean.Json
 open Std (HashMap HashSet)
 
 structure Config where
-  outRoot            : FilePath
-  modules            : HashMap String FilePath := {}
+  pathConfig         : Path.Config
   defEqConstructions : HashSet String := {}
   stringsToKeep      : HashSet Name := {}
   initialAlignments  : HashMap Name Name := {}

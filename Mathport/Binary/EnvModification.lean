@@ -6,7 +6,7 @@ Authors: Daniel Selsam
 import Lean
 import Std.Data.HashSet
 import Std.Data.HashMap
-import Mathport.Binary.Path
+import Mathport.Util.Misc
 
 namespace Mathport.Binary
 
@@ -60,11 +60,7 @@ inductive EnvModification : Type
   | «projection»   : ProjectionInfo → EnvModification
 
 def EnvModification.toName : EnvModification → Name
-  | EnvModification.decl d             =>
-    match d with
-    | Declaration.defnDecl d => d.name
-    | Declaration.thmDecl d  => d.name
-    | _                      => Name.anonymous
+  | EnvModification.decl d             => d.toName
   | EnvModification.class c            => c
   | EnvModification.instance _ i _     => i
   | EnvModification.simp n _           => n

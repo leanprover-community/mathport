@@ -6,7 +6,6 @@ Authors: Daniel Selsam
 import Lean
 import Mathport.Util.Misc
 import Mathport.Binary.Config
-import Mathport.Binary.Path
 
 namespace Mathport.Binary
 
@@ -15,7 +14,7 @@ open Lean Lean.Meta Lean.Elab.Command
 
 structure Context where
   config   : Config
-  path34   : Path34
+  path     : Path
   currDecl : Name := Name.anonymous
 
 structure State where
@@ -26,7 +25,7 @@ open Lean.Elab.Command in
 abbrev BinportM := ReaderT Context $ StateRefT State CommandElabM
 
 def warnStr (msg : String) : BinportM Unit := do
-  println! "[warning] while processing {(← read).path34.mrpath}::{(← read).currDecl}:\n{msg}"
+  println! "[warning] while processing {(← read).path.mod3}::{(← read).currDecl}:\n{msg}"
 
 def warn (ex : Exception) : BinportM Unit := do
   warnStr (← ex.toMessageData.toString)
@@ -44,6 +43,6 @@ def BinportM.toIO (x : BinportM α) (ctx : Context) (st : State) (cmdCtx : Elab.
   | Except.ok a => pure a
 
 def BinportM.runIO (x : BinportM α) (ctx : Context) (env : Environment) : IO α := do
-  toIO x ctx {} { fileName := ctx.path34.mrpath.toString, fileMap := dummyFileMap } (Lean.Elab.Command.mkState env)
+  toIO x ctx {} { fileName := ctx.path.toLean3 ctx.config.pathConfig "lean" |>.toString, fileMap := dummyFileMap } (Lean.Elab.Command.mkState env)
 
 end Mathport.Binary
