@@ -7,12 +7,11 @@ import Lean
 import Mathport.Util.Import
 import Mathport.Util.Json
 import Mathport.Util.Parse
-import Mathport.Binary.Basic
-import Mathport.Binary.Config
 
-namespace Mathport.Binary
+namespace Mathport
 
 open Lean
+open System (FilePath)
 open Std (HashMap)
 
 abbrev RenameMap := HashMap Name Name
@@ -30,16 +29,13 @@ initialize mathportRenameExtension : SimplePersistentEnvExtension (Name × Name)
 def getRenameMap (env : Environment) : RenameMap := do
   mathportRenameExtension.getState env
 
-def addNameAlignmentCore (n3 n4 : Name) : CoreM Unit := do
+def addNameAlignment (n3 n4 : Name) : CoreM Unit := do
   modifyEnv fun env => mathportRenameExtension.addEntry env (n3, n4)
 
-def addNameAlignment (n3 n4 : Name) : BinportM Unit := do
-  liftCoreM <| addNameAlignmentCore n3 n4
-
-def lookupNameExt (n3 : Name) : BinportM (Option Name) := do
+def lookupNameExt (n3 : Name) : CoreM (Option Name) := do
   getRenameMap (← getEnv) |>.find? n3
 
-def lookupNameExt! (n3 : Name) : BinportM Name := do
+def lookupNameExt! (n3 : Name) : CoreM Name := do
   match ← lookupNameExt n3 with
   | some n4 => pure n4
   | none    => throwError "name not found: '{n3}'"
@@ -70,4 +66,4 @@ syntax (name := translate) "#translate " ident : command
 
 end Translate
 
-end Mathport.Binary
+end Mathport

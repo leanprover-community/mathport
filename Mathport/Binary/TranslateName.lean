@@ -13,8 +13,9 @@ As of now, Lean4 uses:
 import Lean
 import Mathport.Util.Misc
 import Mathport.Util.String
+import Mathport.Util.RenameExt
 import Mathport.Binary.Basic
-import Mathport.Binary.RenameExt
+
 
 namespace Mathport.Binary
 

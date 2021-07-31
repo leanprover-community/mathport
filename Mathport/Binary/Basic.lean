@@ -5,6 +5,7 @@ Authors: Daniel Selsam
 -/
 import Lean
 import Mathport.Util.Misc
+import Mathport.Util.RenameExt
 import Mathport.Binary.Config
 
 namespace Mathport.Binary
@@ -35,6 +36,15 @@ def liftCoreM (x : CoreM α) : BinportM α := do
 
 def liftMetaM (x : MetaM α) : BinportM α := do
   liftTermElabM (declName? := some (← read).currDecl) (liftM x)
+
+def addNameAlignment (n3 n4 : Name) : BinportM Unit := do
+  liftCoreM $ Mathport.addNameAlignment n3 n4
+
+def lookupNameExt (n3 : Name) : BinportM (Option Name) := do
+  liftCoreM $ Mathport.lookupNameExt n3
+
+def lookupNameExt! (n3 : Name) : BinportM Name := do
+  liftCoreM $ Mathport.lookupNameExt! n3
 
 def BinportM.toIO (x : BinportM α) (ctx : Context) (st : State) (cmdCtx : Elab.Command.Context) (cmdState : Elab.Command.State) : IO α := do
   match ← ((x ctx).run' st) cmdCtx |>.run' cmdState |>.toIO' with
