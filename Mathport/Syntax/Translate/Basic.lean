@@ -48,6 +48,11 @@ def AuxData.merge (d : AuxData) (filename : FilePath) : IO AuxData := do
     | d, ⟨n3, n4, NotationDesc.builtin⟩ => d
     | d, ⟨n3, n4, desc⟩ => d.insert n3 ⟨n4, desc, desc.toKind n4, false⟩
 
+def AuxData.export (d : AuxData) (filename : FilePath) : IO Unit := do
+  let json ← toJson (α := Array NotationJson) $
+    d.fold (fun out n3 ⟨n4, desc, _, _⟩ => out.push ⟨n3, n4, desc⟩) #[]
+  IO.FS.writeFile filename $ toString json
+
 structure Context where
   renameMap : HashMap Name Name
   notations : Array Notation
