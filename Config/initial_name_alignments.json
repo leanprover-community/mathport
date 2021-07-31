@@ -1,0 +1,61 @@
+{
+    "quot"          : "Quot",
+    "quot.mk"       : ["mk", "Quot"],
+    "quot.lift"     : ["lift", "Quot"],
+    "quot.ind"      : ["ind", "Quot"],
+
+    "nat.add._main"  : ["add", "Nat"],
+    "nat.sub._main"  : ["sub", "Nat"],
+    "nat.neg._main"  : ["neg", "Nat"],
+    "nat.mul._main"  : ["mul", "Nat"],
+    "nat.div._main"  : ["div", "Nat"],
+    "nat.pred._main" : ["pred", "Nat"],
+
+    "opt_param"     : "optParam",
+
+    "heq"           : "HEq",
+
+    "punit"         : "PUnit",
+    "pprod"         : "PProd",
+
+    "has_add"       : "Add",
+    "has_sub"       : "Sub",
+    "has_mul"       : "Mul",
+    "has_div"       : "Div",
+    "has_neg"       : "Neg",
+    "has_mod"       : "Mod",
+
+    "has_le"        : "LE",
+    "has_lt"        : "LT",
+
+    "has_beq"       : "BEq",
+
+    "has_append"    : "Append",
+    "has_pure"      : "Pure",
+    "has_bind"      : "Bind",
+    "has_sizeof"    : "SizeOf",
+    "has_seq"       : "Seq",
+    "has_seq_left"  : "SeqLeft",
+    "has_seq_right" : "SeqRight",
+
+    "module"        : "ModuleS",
+    "algebra"       : "AlgebraS",
+    "comm_ring"     : "CommRingS",
+    "comm_semiring" : "CommSemiRingS",
+    "group"         : "GroupS",
+    "ring"          : "RingS",
+    "monoid"        : "MonoidS",
+
+    "Module"        : "ModuleCat",
+    "Algebra"       : "AlgebraCat",
+    "CommRing"      : "CommRingCat",
+    "CommSemiRing"  : "CommSemiRingCat",
+    "Group"         : "GroupCat",
+    "Ring"          : "RingCat",
+    "Mon"           : "MonCat",
+
+    "category_theory.kleisli" : "CategoryTheory.KleisliS",
+    "category_theory.Kleisli" : "CategoryTheory.KleisliCat",
+
+    "Int.negSuccOfNat" : "Int.negSucc"
+}

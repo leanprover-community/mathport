@@ -20,7 +20,6 @@ structure Config where
   pathConfig         : Path.Config
   defEqConstructions : HashSet String := {}
   stringsToKeep      : HashSet Name := {}
-  initialAlignments  : HashMap Name Name := {}
   disabledInstances  : HashSet Name := {}
   neverSorries       : HashSet Name := {}
   sorries            : HashSet Name := {}

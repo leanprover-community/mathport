@@ -5,6 +5,8 @@ Authors: Daniel Selsam
 -/
 import Lean
 import Mathport.Util.Import
+import Mathport.Util.Json
+import Mathport.Util.Parse
 import Mathport.Binary.Basic
 import Mathport.Binary.Config
 
@@ -42,12 +44,15 @@ def lookupNameExt! (n3 : Name) : BinportM Name := do
   | some n4 => pure n4
   | none    => throwError "name not found: '{n3}'"
 
-def addNameAlignments (alignments : List (Name × Name)) (env : Environment) : Environment := do
+def INITIAL_NAME_ALIGNMENTS_PATH : FilePath := ⟨"Config/initial_name_alignments.json"⟩
+
+def addInitialNameAlignments (env : Environment) : IO Environment := do
+  let alignments ← parseJsonFile (HashMap Name Name) INITIAL_NAME_ALIGNMENTS_PATH
   let x : StateM Environment Environment := do
-    for (n3, n4) in alignments do
+    for (n3, n4) in alignments.toList do
       modify fun env => mathportRenameExtension.addEntry env (n3, n4)
     get
-  x.run' env
+  pure $ x.run' env
 
 namespace Translate
 

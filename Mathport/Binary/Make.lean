@@ -30,7 +30,7 @@ def genOLeanFor (config : Config) (path : Path) : IO Unit := do
 
   withImportModulesConst (coreImports ++ extraImports.toList) (opts := opts) (trustLevel := 0) $ λ env => do
     let env := env.setMainModule path.mod4
-    let env := addNameAlignments config.initialAlignments.toList env
+    let env ← addInitialNameAlignments env
     discard <| BinportM.runIO (ctx := { config := config, path := path }) (env := env) do
       let mods ← parseTLean (path.toLean3 pcfg "tlean")
       for mod in mods do applyModification mod
