@@ -60,7 +60,7 @@ where
         let substr : Expr := mkAppN (mkConst `String.toSubstring) #[toExpr $ tacName.toString]
         let tacSyntax := mkAppN (mkConst `Lean.Syntax.ident) #[mkConst `Lean.SourceInfo.none, substr, toExpr tacName, toExpr ([] : List (Prod Name (List String)))]
         let e' := mkAppN (mkConst `autoParam [level]) #[type, tacSyntax]
-        unless ← Meta.isDefEq e e' do throwError "[translateAutoParams] introduced non-defeq, {fmt e} != {fmt e'}"
+        unless ← Meta.isDefEq e e' do throwError "[translateAutoParams] introduced non-defeq, {e} != {e'}"
         TransformStep.done e'
       catch ex => do
         -- they prove theorems about auto_param!

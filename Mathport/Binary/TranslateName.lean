@@ -94,7 +94,7 @@ partial def refineLean4Names (decl : Declaration) : BinportM (Declaration × Cla
 
 where
   refineAx (ax3 : AxiomVal) := do
-    println! "[refineAx] {ax3.name} {fmt ax3.type}"
+    println! "[refineAx] {ax3.name} {ax3.type}"
     match (← getEnv).find? ax3.name with
     | some (ConstantInfo.axiomInfo ax4) =>
       if ← isDefEqUpto ax3.levelParams ax3.type ax4.levelParams ax4.type then

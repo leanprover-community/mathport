@@ -447,7 +447,7 @@ def trExpr' : Expr → M Syntax
   | Expr.«%%» e => throw! "unsupported (TODO)"
   | Expr.«`[]» tacs => throw! "unsupported (TODO)"
   | Expr.«`» false n => `($(Syntax.mkNameLit s!"`{n}"):nameLit)
-  | Expr.«`» true n => `(`$(Syntax.mkNameLit s!"`{n}"):nameLit)
+  | Expr.«`» true n => `(``$(mkIdent n):ident)
   | Expr.«⟨⟩» es => do `(⟨$[$(← es.mapM fun e => trExpr e.kind)],*⟩)
   | Expr.infix_fn n e => trInfixFn n e
   | Expr.«(,)» es => do
