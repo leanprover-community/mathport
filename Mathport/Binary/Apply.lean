@@ -18,9 +18,9 @@ open Std (HashMap HashSet)
 open Lean Lean.Meta Lean.Elab Lean.Elab.Command
 
 def printIndType (lps : List Name) (indType : InductiveType) : BinportM Unit := do
-  println! "[inductive] {indType.name}.\{{lps}}. : {fmt indType.type}"
+  println! "[inductive] {indType.name}.\{{lps}}. : {indType.type}"
   for ctor in indType.ctors do
-    println! "  {ctor.name} : {fmt ctor.type}"
+    println! "  {ctor.name} : {ctor.type}"
 
 def refineAddDecl (decl : Declaration) : BinportM (Declaration × ClashKind) := do
   let path := (← read).path
@@ -34,7 +34,7 @@ def refineAddDecl (decl : Declaration) : BinportM (Declaration × ClashKind) := 
 
 /-
     match decl with
-    | Declaration.defnDecl defn => println! "[defn] {defn.name} : {fmt defn.type} := {fmt defn.value}"
+    | Declaration.defnDecl defn => println! "[defn] {defn.name} : {defn.type} := {defn.value}"
     | Declaration.inductDecl lps _ [indType] _ => printIndType lps indType
     | _ => pure ()
 -/
