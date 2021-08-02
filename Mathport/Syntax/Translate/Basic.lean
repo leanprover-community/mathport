@@ -50,7 +50,9 @@ def AuxData.merge (d : AuxData) (filename : FilePath) : IO AuxData := do
 
 def AuxData.export (d : AuxData) (filename : FilePath) : IO Unit := do
   let json ← toJson (α := Array NotationJson) $
-    d.fold (fun out n3 ⟨n4, desc, _, _⟩ => out.push ⟨n3, n4, desc⟩) #[]
+    d.fold (init := #[]) fun
+    | out, n3, ⟨n4, NotationDesc.builtin, _, _⟩ => out
+    | out, n3, ⟨n4, desc, _, _⟩ => out.push ⟨n3, n4, desc⟩
   IO.FS.writeFile filename $ toString json
 
 structure Context where
@@ -81,7 +83,13 @@ def AST3toData4 : AST3 → M Data4
         mkNullNode $ imp.foldl (init := #[]) fun imp ns => ns.foldl (init := imp) fun imp n =>
           imp.push $ mkNode ``Parser.Module.import #[mkAtom "import", mkNullNode, mkIdent n.kind]]
     modify fun s => { s with output := fmt }
-    commands.forM fun c => trCommand c.kind
+    commands.forM fun c => do
+      try trCommand c.kind
+      catch e =>
+        let e := s!"error: {← e.toMessageData.toString}"
+        println! e
+        modify fun s => { s with
+          output := s.output ++ "-- " ++ e ++ "\n" ++ (repr c.kind).group ++ "\n\n" }
     let s ← get
     pure ⟨s.output, HashMap.empty⟩
 
@@ -93,8 +101,12 @@ def renameIdent (n : Name) : M Name := do
 def mkIdentR (n : Name) : M Syntax := do mkIdent (← renameIdent n)
 
 def push (stx : Syntax) : M Unit := do
-  let stx ← Lean.PrettyPrinter.parenthesizeCommand stx
-  let fmt ← Lean.PrettyPrinter.formatCommand stx
+  let stx ←
+    try Lean.PrettyPrinter.parenthesizeCommand stx
+    catch e => throw! "failed to parenthesize: {← e.toMessageData.toString}" -- \nin: {stx}"
+  let fmt ←
+    try Lean.PrettyPrinter.formatCommand stx
+    catch e => throw! "failed to format: {← e.toMessageData.toString}" -- \nin: {stx}"
   modify fun s => { s with output := s.output ++ fmt ++ "\n\n" }
 
 def pushM (stx : M Syntax) : M Unit := stx >>= push
