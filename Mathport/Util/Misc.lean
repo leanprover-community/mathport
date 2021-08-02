@@ -85,7 +85,7 @@ elab:max "throw!" interpStr:interpolatedStr(term) : term <= ty => do
   let pos ← Elab.getRefPosition
   let head := Syntax.mkStrLit $ mkErrorStringWithPos (← read).fileName pos ""
   let str ← Elab.liftMacroM <| interpStr.expandInterpolatedStr (← `(String)) (← `(toString))
-  Elab.Term.elabTerm (← `(throw ($head ++ $str))) ty
+  Elab.Term.elabTerm (← `(throwError ($head ++ $str : String))) ty
 
 open Lean Elab Term Quotation in
 @[termElab cmdQuot] def elabCmdQuot : TermElab := adaptExpander stxQuot.expand

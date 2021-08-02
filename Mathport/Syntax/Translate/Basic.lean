@@ -23,12 +23,12 @@ structure Scope where
   deriving Inhabited
 
 structure State where
-  commands : Array Syntax := #[]
+  output : Format := ""
   current : Scope := {}
   scopes : Array Scope := #[]
   notations : HashMap String NotationEntry
   simpSets : NameSet := predefinedSimpSets
-  tactics : NameMap (Array (Spanned AST3.Param) → EIO String Syntax) := {}
+  tactics : NameMap (Array (Spanned AST3.Param) → CoreM Syntax) := {}
   deriving Inhabited
 
 def AuxData := HashMap String NotationEntry
@@ -57,11 +57,11 @@ structure Context where
   renameMap : HashMap Name Name
   notations : Array Notation
   commands : Array Command
-  trExpr : Expr → EIO String Syntax
-  trCommand : Command → EIO String Unit
+  trExpr : Expr → CoreM Syntax
+  trCommand : Command → CoreM Unit
   deriving Inhabited
 
-abbrev M := ReaderT Context $ StateRefT State $ EIO String
+abbrev M := ReaderT Context $ StateRefT State CoreM
 
 scoped instance : MonadQuotation M where
   getRef              := pure Syntax.missing
@@ -75,13 +75,15 @@ def trCommand (e : Command) : M Unit := do (← read).trCommand e
 
 def AST3toData4 : AST3 → M Data4
   | ⟨prel, imp, commands, _, _⟩ => do
+    let fmt ← PrettyPrinter.format Parser.Module.header.formatter $
+      mkNode ``Parser.Module.header #[
+        mkOptionalNode $ prel.map fun _ => mkNode ``Parser.Module.prelude #[mkAtom "prelude"],
+        mkNullNode $ imp.foldl (init := #[]) fun imp ns => ns.foldl (init := imp) fun imp n =>
+          imp.push $ mkNode ``Parser.Module.import #[mkAtom "import", mkNullNode, mkIdent n.kind]]
+    modify fun s => { s with output := fmt }
     commands.forM fun c => trCommand c.kind
     let s ← get
-    let header := mkNode ``Parser.Module.header #[
-      mkOptionalNode $ prel.map fun _ => mkNode ``Parser.Module.prelude #[mkAtom "prelude"],
-      mkNullNode $ imp.foldl (init := #[]) fun imp ns => ns.foldl (init := imp) fun imp n =>
-        imp.push $ mkNode ``Parser.Module.import #[mkAtom "import", mkNullNode, mkIdent n.kind]]
-    pure ⟨mkNode ``Parser.Module.module #[header, mkNullNode s.commands], HashMap.empty⟩
+    pure ⟨s.output, HashMap.empty⟩
 
 def renameIdent (n : Name) : M Name := do
   match (← read).renameMap.find? n with
@@ -90,8 +92,10 @@ def renameIdent (n : Name) : M Name := do
 
 def mkIdentR (n : Name) : M Syntax := do mkIdent (← renameIdent n)
 
-def push (stx : Syntax) : M Unit :=
-  modify fun s => { s with commands := s.commands.push stx }
+def push (stx : Syntax) : M Unit := do
+  let stx ← Lean.PrettyPrinter.parenthesizeCommand stx
+  let fmt ← Lean.PrettyPrinter.formatCommand stx
+  modify fun s => { s with output := s.output ++ fmt ++ "\n\n" }
 
 def pushM (stx : M Syntax) : M Unit := stx >>= push
 

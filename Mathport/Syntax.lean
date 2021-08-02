@@ -38,21 +38,16 @@ def genLeanFor (pcfg : Path.Config) (path : Path) : IO Unit := do
     let mut auxData := AuxData.initial
     for ipath in ipaths do auxData ← auxData.merge $ ipath.toLean4 pcfg "aux.json"
 
-    let ast3 ← parseAST3 $ path.toLean3 pcfg "ast.json"
-    let ⟨⟨stx, _⟩, finalAuxData⟩ ← (Mathport.AST3toData4 (getRenameMap binportEnv) ast3 |>.run auxData).toIO IO.userError
-    finalAuxData.export $ path.toLean4 pcfg "aux.json"
-
     -- TODO: expose IO interface elsewhere. More of synport will end up being in CoreM-extending monads.
     let coreCtx   : Core.Context := {}
     -- TODO: the binport env will not be able to parenthesize the module in general.
     -- Synport needs to produce an environment that can parenthesize it.
     let coreState : Core.State := { env := binportEnv }
-    let mkFmt : CoreM Format := do
-      let stx ← Lean.PrettyPrinter.parenthesize Parser.Module.module.parenthesizer stx
-      let fmt ← Lean.PrettyPrinter.format Parser.Module.module.formatter stx
-      fmt
 
-    let ⟨fmt, _⟩ ← mkFmt.toIO coreCtx coreState
+    let ast3 ← parseAST3 $ path.toLean3 pcfg "ast.json"
+    let ⟨⟨⟨fmt, _⟩, finalAuxData⟩, _⟩ ← Core.CoreM.toIO (ctx := coreCtx) (s := coreState) do
+      Mathport.AST3toData4 (getRenameMap binportEnv) ast3 |>.run auxData
+    finalAuxData.export $ path.toLean4 pcfg "aux.json"
     IO.FS.writeFile (path.toLean4 pcfg "syn.lean") (toString fmt)
     println! "\n[genLeanFor] END   {path.mod3}\n"
 

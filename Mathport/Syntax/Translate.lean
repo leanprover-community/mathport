@@ -20,14 +20,14 @@ open Std (HashMap)
 open AST3
 
 partial def M.run' (m : M α) :
-  HashMap Name Name → Array Notation → Array Command → AuxData → EIO String α :=
+  HashMap Name Name → Array Notation → Array Command → AuxData → CoreM α :=
   fun map nota cmds d => do
     let s ← ST.mkRef {notations := d}
     let rec ctx := ⟨map, nota, cmds, fun e => trExpr' e ctx s, fun c => trCommand' c ctx s⟩
     m ctx s
 
 def M.run (m : M α) :
-  HashMap Name Name → Array Notation → Array Command → StateT AuxData (EIO String) α := do
+  HashMap Name Name → Array Notation → Array Command → StateT AuxData CoreM α :=
   M.run' $ do
     let mut tacs := {}
     for (n, tac) in Tactic.builtinTactics do
@@ -37,7 +37,7 @@ def M.run (m : M α) :
 
 end Translate
 
-def AST3toData4 (renameMap : HashMap Name Name) (ast : AST3) : StateT Translate.AuxData (EIO String) Data4 :=
+def AST3toData4 (renameMap : HashMap Name Name) (ast : AST3) : StateT Translate.AuxData CoreM Data4 :=
   (Translate.AST3toData4 ast).run renameMap ast.indexed_nota ast.indexed_cmds
 
 -- open Lean Lean.Elab Lean.Elab.Term Lean.Elab.Tactic

@@ -9,8 +9,8 @@ namespace Mathport
 open Lean
 
 structure Data4 where
-  module : Syntax
-  exprs  : HashMap Position Expr
+  fmt : Format
+  exprs : HashMap Position Expr
   deriving Inhabited
 
 end Mathport

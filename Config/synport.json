@@ -1,8 +1,8 @@
 {
-    "outRoot" : "/home/dselsam/projects/mathport/Lib4",
-    "packages" : {
-	"Mathlib"  : "/home/dselsam/projects/mathlib3/src",
-	"Lean3"    : "/home/dselsam/projects/lean3/library",
-	"Lean3Pkg" : "/home/dselsam/projects/lean3/leanpkg"
+    "outRoot": "/home/dselsam/projects/mathport/Lib4",
+    "packages": {
+        "Mathlib": "/home/dselsam/projects/mathlib3/src",
+        "Lean3": "/home/dselsam/projects/lean3/library",
+        "Lean3Pkg": "/home/dselsam/projects/lean3/leanpkg"
     }
 }
