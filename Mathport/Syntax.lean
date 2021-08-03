@@ -45,8 +45,8 @@ def genLeanFor (pcfg : Path.Config) (path : Path) : IO Unit := do
       let coreState : Core.State := { env := synportEnv }
       let ast3 ← parseAST3 $ path.toLean3 pcfg "ast.json"
 
-      let (fmt, s) ← Core.CoreM.toIO (ctx := coreCtx) (s := coreState) do
-        Mathport.AST3toData4 (getRenameMap binportEnv) ast3 |>.run auxData
+      let (⟨fmt, _⟩, s) ← Core.CoreM.toIO (ctx := coreCtx) (s := coreState) do
+        Mathport.AST3toData4 (getRenameMap binportEnv) ast3
 
       writeModule s.env $ path.toLean4 pcfg "Aux.olean"
       IO.FS.writeFile (path.toLean4 pcfg "Syn.lean") (toString fmt)

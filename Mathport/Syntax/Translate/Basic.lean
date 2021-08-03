@@ -22,38 +22,31 @@ structure Scope where
   oldStructureCmd : Bool := false
   deriving Inhabited
 
+abbrev NotationEntries := HashMap String NotationEntry
+
 structure State where
   output : Format := ""
   current : Scope := {}
   scopes : Array Scope := #[]
-  notations : HashMap String NotationEntry
   simpSets : NameSet := predefinedSimpSets
   tactics : NameMap (Array (Spanned AST3.Param) → CoreM Syntax) := {}
   deriving Inhabited
 
-def AuxData := HashMap String NotationEntry
+def NotationEntries.insertPair (m : NotationEntries) : String × NotationEntry → NotationEntries
+  | (s, ne) => m.insert s ne
 
-structure NotationJson where
-  n3 : String
-  n4 : Name
-  desc : NotationDesc
-  deriving FromJson, ToJson
+initialize synportNotationExtension : SimplePersistentEnvExtension (String × NotationEntry) NotationEntries ←
+  registerSimplePersistentEnvExtension {
+    name          := `Mathport.Translate.synportNotationExtension
+    addEntryFn    := NotationEntries.insertPair
+    addImportedFn := fun es => mkStateFromImportedEntries NotationEntries.insertPair {} es
+  }
 
-def AuxData.initial : AuxData := predefinedNotations
+def getNotationEntry? (s : String) : CoreM (Option NotationEntry) := do
+  synportNotationExtension.getState (← getEnv) |>.find? s
 
-def AuxData.merge (d : AuxData) (filename : FilePath) : IO AuxData := do
-  let s ← IO.FS.readFile filename
-  let json ← Json.parse s
-  pure $ (← fromJson? json (α := Array NotationJson)).foldl (init := d) fun
-    | d, ⟨n3, n4, NotationDesc.builtin⟩ => d
-    | d, ⟨n3, n4, desc⟩ => d.insert n3 ⟨n4, desc, desc.toKind n4, false⟩
-
-def AuxData.export (d : AuxData) (filename : FilePath) : IO Unit := do
-  let json ← toJson (α := Array NotationJson) $
-    d.fold (init := #[]) fun
-    | out, n3, ⟨n4, NotationDesc.builtin, _, _⟩ => out
-    | out, n3, ⟨n4, desc, _, _⟩ => out.push ⟨n3, n4, desc⟩
-  IO.FS.writeFile filename $ toString json
+def registerNotationEntry (s : String) (ne : NotationEntry) : CoreM Unit := do
+  modifyEnv fun env => synportNotationExtension.addEntry env (s, ne)
 
 structure Context where
   renameMap : HashMap Name Name
@@ -237,7 +230,7 @@ def trBinderDefault : Default → M Syntax
       $(← trTactic (Tactic.expr $ e.map Expr.ident) TacticContext.seq):tacticSeq)
 
 def trBinary (n : Name) (lhs rhs : Syntax) : M Syntax := do
-  match (← get).notations.find? n.getString! with
+  match ← getNotationEntry? n.getString! with
   | some ⟨_, _, NotationKind.unary f, _⟩ => f lhs
   | some ⟨_, _, NotationKind.binary f, _⟩ => f lhs rhs
   | some ⟨_, _, NotationKind.nary f, _⟩ => f #[lhs, rhs]
@@ -356,7 +349,7 @@ def trNotation (n : Choice) (args : Array (Spanned Arg)) : M Syntax := do
   let n ← match n with
   | Choice.one n => n
   | Choice.many ns => if ns[1:].all (ns[0] == ·) then ns[0] else throw! "unsupported"
-  match (← get).notations.find? n.getString!, args.map (·.kind) with
+  match ← getNotationEntry? n.getString!, args.map (·.kind) with
   | some ⟨_, _, NotationKind.const stx, _⟩, #[] => stx
   | some ⟨_, _, NotationKind.const stx, _⟩, _ => throw! "unsupported (impossible)"
   | some ⟨_, _, NotationKind.unary f, _⟩, #[Arg.expr e] => f (← trExpr e)
@@ -805,7 +798,7 @@ def trNotationCmd (loc : LocalReserve) (attrs : Attributes) (nota : Notation) : 
   if loc.2 then return
   let kind ← if loc.1 then `(Parser.Term.attrKind| local) else `(Parser.Term.attrKind|)
   let n := nota.name3
-  let skip : Bool := match (← get).notations.find? n with
+  let skip : Bool := match ← getNotationEntry? n with
   | some ⟨_, _, _, skip⟩ => skip
   | none => false
   if skip && !loc.1 then return
@@ -859,7 +852,7 @@ def trNotationCmd (loc : LocalReserve) (attrs : Attributes) (nota : Notation) : 
   | _ => throw! "unsupported (impossible)"
   push cmd
   let k := desc.toKind n4
-  modify fun s => { s with notations := s.notations.insert n ⟨n4, desc, k, false⟩ }
+  registerNotationEntry n ⟨n4, desc, k, false⟩
 where
   mkNAry (lits : Array (Spanned AST3.Literal)) : OptionM (Array Literal) := do
     let mut i := 0
