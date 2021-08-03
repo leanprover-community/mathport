@@ -24,33 +24,33 @@ open Translate
 
 def genLeanFor (pcfg : Path.Config) (path : Path) : IO Unit := do
   println! s!"\n[genLeanFor] START {path.mod3}\n"
-  createDirectoriesIfNotExists (path.toLean4 pcfg "syn.lean").toString
+  createDirectoriesIfNotExists (path.toLean4 pcfg "Syn.lean").toString
 
-  let coreImports : List Import  := [{ module := `Mathport.Syntax.Data4 : Import }]
-  let ipaths ← (← parseTLeanImports (path.toLean3 pcfg "tlean")).mapM (resolveMod3 pcfg)
-  let extraImports : Array Import := ipaths.map fun ipath => { module := ipath.package ++ ipath.mod4 : Import }
+  -- binport imports the future
+  let binportImports : List Import := [{ module := path.package ++ path.mod4 : Import }]
+
+  let mut synportImports : Array Import := #[{ module := `Mathport.Syntax.Data4 }]
+  for ipath in ← (← parseTLeanImports (path.toLean3 pcfg "tlean")).mapM (resolveMod3 pcfg) do
+    synportImports := synportImports.push { module := ipath.package ++ (ipath.mod4.appendAfter ".Aux") : Import }
 
   let opts := ({} : Options)
 
-  withImportModulesConst (coreImports ++ extraImports.toList) (opts := opts) (trustLevel := 0) $ λ binportEnv => do
-    let binportEnv := binportEnv.setMainModule path.mod4
-    let binportEnv ← addInitialNameAlignments binportEnv
+  withImportModulesConst binportImports (opts := opts) (trustLevel := 0) $ λ binportEnv => do
+    withImportModulesConst synportImports.toList (opts := opts) (trustLevel := 0) $ λ synportEnv => do
+      let binportEnv := binportEnv.setMainModule path.mod4
+      let binportEnv ← addInitialNameAlignments binportEnv
 
-    let mut auxData := AuxData.initial
-    for ipath in ipaths do auxData ← auxData.merge $ ipath.toLean4 pcfg "aux.json"
+      -- TODO: expose IO interface elsewhere. More of synport will end up being in CoreM-extending monads.
+      let coreCtx   : Core.Context := {}
+      let coreState : Core.State := { env := synportEnv }
+      let ast3 ← parseAST3 $ path.toLean3 pcfg "ast.json"
 
-    -- TODO: expose IO interface elsewhere. More of synport will end up being in CoreM-extending monads.
-    let coreCtx   : Core.Context := {}
-    -- TODO: the binport env will not be able to parenthesize the module in general.
-    -- Synport needs to produce an environment that can parenthesize it.
-    let coreState : Core.State := { env := binportEnv }
+      let (fmt, s) ← Core.CoreM.toIO (ctx := coreCtx) (s := coreState) do
+        Mathport.AST3toData4 (getRenameMap binportEnv) ast3 |>.run auxData
 
-    let ast3 ← parseAST3 $ path.toLean3 pcfg "ast.json"
-    let ⟨⟨⟨fmt, _⟩, finalAuxData⟩, _⟩ ← Core.CoreM.toIO (ctx := coreCtx) (s := coreState) do
-      Mathport.AST3toData4 (getRenameMap binportEnv) ast3 |>.run auxData
-    finalAuxData.export $ path.toLean4 pcfg "aux.json"
-    IO.FS.writeFile (path.toLean4 pcfg "syn.lean") (toString fmt)
-    println! "\n[genLeanFor] END   {path.mod3}\n"
+      writeModule s.env $ path.toLean4 pcfg "Aux.olean"
+      IO.FS.writeFile (path.toLean4 pcfg "Syn.lean") (toString fmt)
+      println! "\n[genLeanFor] END   {path.mod3}\n"
 
 abbrev Job := Task (Except IO.Error Unit)
 
