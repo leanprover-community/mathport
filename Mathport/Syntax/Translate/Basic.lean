@@ -22,7 +22,16 @@ structure Scope where
   oldStructureCmd : Bool := false
   deriving Inhabited
 
-abbrev NotationEntries := HashMap String NotationEntry
+structure NotationData where
+  n3 : String
+  n4 : Name
+  desc : NotationDesc
+
+def NotationData.unpack : NotationData → NotationEntry
+  | ⟨n3, n4, NotationDesc.builtin⟩ => (predefinedNotations.find? n3).get!
+  | ⟨n3, n4, desc⟩ => ⟨n4, desc, desc.toKind n4, false⟩
+
+abbrev NotationEntries := HashMap String NotationData
 
 structure State where
   output : Format := ""
@@ -32,21 +41,21 @@ structure State where
   tactics : NameMap (Array (Spanned AST3.Param) → CoreM Syntax) := {}
   deriving Inhabited
 
-def NotationEntries.insertPair (m : NotationEntries) : String × NotationEntry → NotationEntries
-  | (s, ne) => m.insert s ne
+def NotationEntries.insert (m : NotationEntries) : NotationData → NotationEntries
+  | d => HashMap.insert m d.n3 d
 
-initialize synportNotationExtension : SimplePersistentEnvExtension (String × NotationEntry) NotationEntries ←
+initialize synportNotationExtension : SimplePersistentEnvExtension NotationData NotationEntries ←
   registerSimplePersistentEnvExtension {
     name          := `Mathport.Translate.synportNotationExtension
-    addEntryFn    := NotationEntries.insertPair
-    addImportedFn := fun es => mkStateFromImportedEntries NotationEntries.insertPair {} es
+    addEntryFn    := NotationEntries.insert
+    addImportedFn := fun es => mkStateFromImportedEntries NotationEntries.insert {} es
   }
 
 def getNotationEntry? (s : String) : CoreM (Option NotationEntry) := do
-  synportNotationExtension.getState (← getEnv) |>.find? s
+  synportNotationExtension.getState (← getEnv) |>.find? s |>.map (·.unpack)
 
-def registerNotationEntry (s : String) (ne : NotationEntry) : CoreM Unit := do
-  modifyEnv fun env => synportNotationExtension.addEntry env (s, ne)
+def registerNotationEntry (d : NotationData) : CoreM Unit := do
+  modifyEnv fun env => synportNotationExtension.addEntry env d
 
 structure Context where
   renameMap : HashMap Name Name
@@ -851,8 +860,7 @@ def trNotationCmd (loc : LocalReserve) (attrs : Attributes) (nota : Notation) : 
     `(command| $kind:attrKind notation$[:$p]? $[$prio:namedPrio]? $[$lits]* => $e)
   | _ => throw! "unsupported (impossible)"
   push cmd
-  let k := desc.toKind n4
-  registerNotationEntry n ⟨n4, desc, k, false⟩
+  registerNotationEntry ⟨n, n4, desc⟩
 where
   mkNAry (lits : Array (Spanned AST3.Literal)) : OptionM (Array Literal) := do
     let mut i := 0

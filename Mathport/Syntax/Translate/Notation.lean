@@ -28,6 +28,7 @@ inductive NotationKind
   | nary : (Array Syntax → Syntax) → NotationKind
   | exprs : (Array Syntax → Syntax) → NotationKind
   | binder : (Syntax → Syntax → Syntax) → NotationKind
+  deriving Inhabited
 
 inductive Literal
   | var : Nat → Literal
@@ -42,13 +43,14 @@ inductive NotationDesc
   | «prefix» (tk : String)
   | «postfix» (tk : String)
   | nary (lits : Array Literal)
-  deriving FromJson, ToJson
+  deriving FromJson, ToJson, Inhabited
 
 structure NotationEntry where
   name : Name
   desc : NotationDesc
   kind : NotationKind
   skipDecl := false
+  deriving Inhabited
 
 -- fake version
 def NotationDesc.toKind (n4 : Name) : NotationDesc → NotationKind :=
