@@ -20,10 +20,10 @@ def genOLeanFor (config : Config) (path : Path) : IO Unit := do
   let pcfg := config.pathConfig
 
   println! s!"\n[genOLeanFor] START {path.mod3}\n"
-  createDirectoriesIfNotExists (path.toLean4 pcfg "olean").toString
+  createDirectoriesIfNotExists (path.toLean4 pcfg ".olean").toString
 
   let coreImports  : List Import  := [{ module := `Init : Import }]
-  let extraImports : Array Import ← (← parseTLeanImports (path.toLean3 pcfg "tlean")).mapM fun mod3 => do
+  let extraImports : Array Import ← (← parseTLeanImports (path.toLean3 pcfg ".tlean")).mapM fun mod3 => do
     let ipath : Path ← resolveMod3 pcfg mod3
     { module := ipath.package ++ ipath.mod4 : Import }
 
@@ -33,9 +33,9 @@ def genOLeanFor (config : Config) (path : Path) : IO Unit := do
     let env := env.setMainModule path.mod4
     let env ← addInitialNameAlignments env
     discard <| BinportM.runIO (ctx := { config := config, path := path }) (env := env) do
-      let mods ← parseTLean (path.toLean3 pcfg "tlean")
+      let mods ← parseTLean (path.toLean3 pcfg ".tlean")
       for mod in mods do applyModification mod
-      writeModule (← getEnv) $ path.toLean4 pcfg "olean"
+      writeModule (← getEnv) $ path.toLean4 pcfg ".olean"
       println! "\n[genOLeanFor] END   {path.mod3}\n"
 
 abbrev Job := Task (Except IO.Error Unit)
@@ -57,7 +57,7 @@ partial def visit (target : Path) : MakeM Job := do
       IO.asTask (pure ())
     else
       let mut jobs := #[]
-      for mod3 in ← parseTLeanImports (target.toLean3 pcfg "tlean") do
+      for mod3 in ← parseTLeanImports (target.toLean3 pcfg ".tlean") do
         let ipath ← resolveMod3 pcfg mod3
         jobs := jobs.push (← visit ipath)
       for job in jobs do

@@ -30,20 +30,22 @@ structure Path where
 
 def Path.toLean3 (cfg : Path.Config) (p : Path) (suffix : String) : FilePath := do
   let l3root := cfg.packages.find! p.package
-  (l3root / p.mod3.toFilePath).withExtension suffix
+  let path := l3root / p.mod3.toFilePath
+  ⟨path.toString ++ suffix⟩
 
 def Path.mod4 (p : Path) : Name :=
   p.mod3.mapStrings String.snake2pascal
 
 def Path.toLean4 (cfg : Path.Config) (p : Path) (suffix : String) : FilePath := do
-  cfg.outRoot / (FilePath.mk p.package) / p.mod4.toFilePath |>.withExtension suffix
+  let path := cfg.outRoot / (FilePath.mk p.package) / p.mod4.toFilePath
+  ⟨path.toString ++ suffix⟩
 
 def resolveMod3 (cfg : Path.Config) (mod3 : Name) : IO Path := do
   for (package, root3) in cfg.packages.toList do
     let path := Path.mk package mod3
-    if ← (path.toLean3 cfg "tlean").pathExists then return path
+    if ← (path.toLean3 cfg ".tlean").pathExists then return path
     let path := Path.mk package (mod3 ++ `default)
-    if ← (path.toLean3 cfg "tlean").pathExists then return path
+    if ← (path.toLean3 cfg ".tlean").pathExists then return path
   throw $ IO.userError s!"[resolveMod3] failed to resolve '{mod3}'"
 
 end Mathport

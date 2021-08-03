@@ -30,8 +30,8 @@ def genLeanFor (pcfg : Path.Config) (path : Path) : IO Unit := do
   let binportImports : List Import := [{ module := path.package ++ path.mod4 : Import }]
 
   let mut synportImports : Array Import := #[{ module := `Mathport.Syntax.Data4 }]
-  for ipath in ← (← parseTLeanImports (path.toLean3 pcfg "tlean")).mapM (resolveMod3 pcfg) do
-    synportImports := synportImports.push { module := ipath.package ++ (ipath.mod4.appendAfter ".Aux") : Import }
+  for ipath in ← (← parseTLeanImports (path.toLean3 pcfg ".tlean")).mapM (resolveMod3 pcfg) do
+    synportImports := synportImports.push { module := ipath.package ++ (ipath.mod4.appendAfter "Aux") : Import }
 
   let opts := ({} : Options)
 
@@ -43,7 +43,7 @@ def genLeanFor (pcfg : Path.Config) (path : Path) : IO Unit := do
       -- TODO: expose IO interface elsewhere. More of synport will end up being in CoreM-extending monads.
       let coreCtx   : Core.Context := {}
       let coreState : Core.State := { env := synportEnv }
-      let ast3 ← parseAST3 $ path.toLean3 pcfg "ast.json"
+      let ast3 ← parseAST3 $ path.toLean3 pcfg ".ast.json"
 
       let (⟨fmt, _⟩, s) ← Core.CoreM.toIO (ctx := coreCtx) (s := coreState) do
         Mathport.AST3toData4 (getRenameMap binportEnv) ast3
@@ -65,7 +65,7 @@ partial def visit (pcfg : Path.Config) (target : Path) : StateRefT State IO Job 
     --   IO.asTask (pure ())
     -- else
       let mut jobs := #[]
-      for mod3 in ← parseTLeanImports (target.toLean3 pcfg "tlean") do
+      for mod3 in ← parseTLeanImports (target.toLean3 pcfg ".tlean") do
         let ipath ← resolveMod3 pcfg mod3
         jobs := jobs.push (← visit pcfg ipath)
       for job in jobs do
