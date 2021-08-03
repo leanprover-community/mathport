@@ -5,6 +5,7 @@ Authors: Mario Carneiro
 -/
 import Std.Data.HashMap
 import Mathport.Syntax.Data4
+import Mathport.Util.Json
 
 open Std (HashMap)
 open Lean
@@ -55,7 +56,7 @@ def NotationDesc.toKind (n4 : Name) : NotationDesc → NotationKind :=
   fun
   | NotationDesc.builtin => NotationKind.fail
   | NotationDesc.fail => NotationKind.fail
-  | NotationDesc.const tk => NotationKind.const $ mkNode n4 #[mkAtom tk]
+  | NotationDesc.const _ => NotationKind.const $ fakeNode #[]
   | NotationDesc.infix _ => NotationKind.binary fun a b => fakeNode #[a, b]
   | NotationDesc.prefix _ => NotationKind.unary fun a => fakeNode #[a]
   | NotationDesc.postfix _ => NotationKind.unary fun a => fakeNode #[a]

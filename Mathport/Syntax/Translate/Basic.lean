@@ -168,6 +168,7 @@ partial def trPrio : Expr → M Syntax
 partial def trPrecExpr : Expr → M Syntax
   | Expr.nat n => Syntax.mkNumLit (toString n)
   | Expr.paren e => trPrecExpr e.kind -- do `(prec| ($(← trPrecExpr e.kind)))
+  | Expr.ident `max => do `(prec| max)
   | _ => throw! "unsupported"
 
 def trPrec : Precedence → M Syntax
@@ -812,8 +813,6 @@ def trNotationCmd (loc : LocalReserve) (attrs : Attributes) (nota : Notation) : 
     `(Parser.Command.namedPrio| (priority := $(← trPrio prio)))
   let mut desc := NotationDesc.fail
   let n4 := nota.name4
-  -- FIXME, this is wrong but lets the parenthesizer work on local notations
-  let fakeNode as := mkNode ``Parser.Term.app #[mkIdent n4, mkNullNode as]
   let cmd ← match nota with
   | Notation.mixfix m (tk, prec) (some e) =>
     let p ← match prec with | some p => trPrec p.kind | none => `(prec| 0)

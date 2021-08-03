@@ -14,7 +14,8 @@ import Mathport.Syntax.Data4
 import Mathport.Syntax.Parse
 import Mathport.Syntax.Translate
 
-namespace Mathport.Syntax
+namespace Mathport
+namespace Syntax
 
 namespace Make
 
@@ -25,7 +26,7 @@ def genLeanFor (pcfg : Path.Config) (path : Path) : IO Unit := do
   println! s!"\n[genLeanFor] START {path.mod3}\n"
   createDirectoriesIfNotExists (path.toLean4 pcfg "syn.lean").toString
 
-  let coreImports : List Import  := [{ module := `Init : Import }]
+  let coreImports : List Import  := [{ module := `Mathport.Syntax.Data4 : Import }]
   let ipaths ← (← parseTLeanImports (path.toLean3 pcfg "tlean")).mapM (resolveMod3 pcfg)
   let extraImports : Array Import := ipaths.map fun ipath => { module := ipath.package ++ ipath.mod4 : Import }
 
@@ -60,9 +61,9 @@ partial def visit (pcfg : Path.Config) (target : Path) : StateRefT State IO Job 
   match (← get).path2task.find? target with
   | some task => pure task
   | none      => do
-    if ← target.toLean4 pcfg "syn.lean" |>.pathExists then
-      IO.asTask (pure ())
-    else
+    -- if ← target.toLean4 pcfg "syn.lean" |>.pathExists then
+    --   IO.asTask (pure ())
+    -- else
       let mut jobs := #[]
       for mod3 in ← parseTLeanImports (target.toLean3 pcfg "tlean") do
         let ipath ← resolveMod3 pcfg mod3
@@ -93,5 +94,40 @@ def main (args : List String) : IO Unit := do
 
   | _ => throw $ IO.userError "usage: mathport binary <lean4mod> <lean3mrp> <path-to-config>"
 
+end Syntax
 
-end Mathport.Syntax
+-- open Lean Lean.Elab Lean.Elab.Term Lean.Elab.Tactic
+-- open Lean.Parser Lean.PrettyPrinter
+
+-- -- set_option trace.PrettyPrinter.parenthesize true in
+-- -- set_option trace.PrettyPrinter.format true in
+-- #eval show CoreM Unit from do
+--   let s ← IO.FS.readFile "/home/mario/Documents/lean/lean/library/init/data/quot.ast.json"
+--   let json ← Json.parse s
+--   let raw@⟨ast, file, level, expr⟩ ← fromJson? json (α := Parse.RawAST3)
+--   let ⟨prel, imp, commands, inot, icmd⟩ ← raw.toAST3
+--   let level := Parse.buildLevels level
+--   let expr := Parse.buildExprs level expr
+--   let commands := ast[ast[file].get!.children'[2]].get!.children'
+--   for c in commands[14:20] do
+--     println! (repr (← Parse.getNode c |>.run ast expr)).group ++ "\n"
+--     -- println! (repr (← Parse.getCommand c |>.run ast expr).kind).group ++ "\n"
+--     let res ← Parse.getCommand c |>.run ast expr
+--     try
+--       let (⟨fmt, _⟩, _) ← AST3toData4 {} ⟨none, #[], #[res], inot, icmd⟩ Translate.AuxData.initial
+--       println! "{fmt}"
+--     catch e =>
+--       println! (repr (← Parse.getCommand c |>.run ast expr).kind).group ++ "\n"
+--       println! "error: {← e.toMessageData.toString}"
+
+-- #eval show CoreM Unit from do
+--   let ⟨ast⟩ ← parseAST3 "/home/mario/Documents/lean/lean/library/init/logic.ast.json"
+--   let ⟨stx, _⟩ ← match AST3toData4 ⟨ast[290:292].toArray⟩ with
+--   | Except.ok e => e
+--   | Except.error e => throwError "{e}"
+--   -- let stx := stx[1][0]
+--   println! "{stx[1]}\n\n"
+--   let stx ← parenthesize Parser.Module.module.parenthesizer stx
+--   println! "{stx}\n\n"
+--   let fmt ← format Parser.Module.module.formatter stx
+--   println! "{fmt}"
