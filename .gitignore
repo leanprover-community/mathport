@@ -1,3 +1,5 @@
 /PreData
 build
 *.olean
+*.aux.json
+*Syn.lean

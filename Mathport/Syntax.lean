@@ -41,15 +41,16 @@ def genLeanFor (pcfg : Path.Config) (path : Path) : IO Unit := do
       let binportEnv ← addInitialNameAlignments binportEnv
 
       -- TODO: expose IO interface elsewhere. More of synport will end up being in CoreM-extending monads.
-      let coreCtx   : Core.Context := {}
-      let coreState : Core.State := { env := synportEnv }
+      let fileName := path.toLean4 pcfg "Syn.lean"
+      let cmdCtx := { fileName := fileName.toString, fileMap := dummyFileMap }
+
       let ast3 ← parseAST3 $ path.toLean3 pcfg ".ast.json"
 
-      let (⟨fmt, _⟩, s) ← Core.CoreM.toIO (ctx := coreCtx) (s := coreState) do
-        Mathport.AST3toData4 (getRenameMap binportEnv) ast3
+      let (⟨fmt, _⟩, env) ← Elab.Command.CommandElabM.toIO' (ctx := cmdCtx) (env := synportEnv) do
+        (← Mathport.AST3toData4 (getRenameMap binportEnv) ast3, ← getEnv)
 
-      writeModule s.env $ path.toLean4 pcfg "Aux.olean"
-      IO.FS.writeFile (path.toLean4 pcfg "Syn.lean") (toString fmt)
+      writeModule env $ path.toLean4 pcfg "Aux.olean"
+      IO.FS.writeFile fileName (toString fmt)
       println! "\n[genLeanFor] END   {path.mod3}\n"
 
 abbrev Job := Task (Except IO.Error Unit)

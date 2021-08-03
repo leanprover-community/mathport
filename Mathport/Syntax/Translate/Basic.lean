@@ -12,6 +12,7 @@ namespace Mathport
 
 open Lean hiding Expr Expr.app Expr.const Expr.sort Level Level.imax Level.max Level.param
 open Lean.Elab (Visibility)
+open Lean.Elab.Command (CommandElabM liftCoreM)
 
 namespace Translate
 
@@ -38,7 +39,7 @@ structure State where
   current : Scope := {}
   scopes : Array Scope := #[]
   simpSets : NameSet := predefinedSimpSets
-  tactics : NameMap (Array (Spanned AST3.Param) → CoreM Syntax) := {}
+  tactics : NameMap (Array (Spanned AST3.Param) → CommandElabM Syntax) := {}
   deriving Inhabited
 
 def NotationEntries.insert (m : NotationEntries) : NotationData → NotationEntries
@@ -51,35 +52,28 @@ initialize synportNotationExtension : SimplePersistentEnvExtension NotationData 
     addImportedFn := fun es => mkStateFromImportedEntries NotationEntries.insert {} es
   }
 
-def getNotationEntry? (s : String) : CoreM (Option NotationEntry) := do
+def getNotationEntry? (s : String) : CommandElabM (Option NotationEntry) := do
   synportNotationExtension.getState (← getEnv) |>.find? s |>.map (·.unpack)
 
-def registerNotationEntry (d : NotationData) : CoreM Unit := do
+def registerNotationEntry (d : NotationData) : CommandElabM Unit := do
   modifyEnv fun env => synportNotationExtension.addEntry env d
 
 structure Context where
   renameMap : HashMap Name Name
   notations : Array Notation
   commands : Array Command
-  trExpr : Expr → CoreM Syntax
-  trCommand : Command → CoreM Unit
+  trExpr : Expr → CommandElabM Syntax
+  trCommand : Command → CommandElabM Unit
   deriving Inhabited
 
-abbrev M := ReaderT Context $ StateRefT State CoreM
-
-scoped instance : MonadQuotation M where
-  getRef              := pure Syntax.missing
-  withRef             := fun _ => id
-  getCurrMacroScope   := pure 0
-  getMainModule       := pure `_fakeMod
-  withFreshMacroScope := id
+abbrev M := ReaderT Context $ StateRefT State CommandElabM
 
 def trExpr (e : Expr) : M Syntax := do (← read).trExpr e
 def trCommand (e : Command) : M Unit := do (← read).trCommand e
 
 def AST3toData4 : AST3 → M Data4
   | ⟨prel, imp, commands, _, _⟩ => do
-    let fmt ← PrettyPrinter.format Parser.Module.header.formatter $
+    let fmt ← liftCoreM $ PrettyPrinter.format Parser.Module.header.formatter $
       mkNode ``Parser.Module.header #[
         mkOptionalNode $ prel.map fun _ => mkNode ``Parser.Module.prelude #[mkAtom "prelude"],
         mkNullNode $ imp.foldl (init := #[]) fun imp ns => ns.foldl (init := imp) fun imp n =>
@@ -103,10 +97,10 @@ def renameIdent (n : Name) : M Name := do
 def mkIdentR (n : Name) : M Syntax := do mkIdent (← renameIdent n)
 
 def push (stx : Syntax) : M Unit := do
-  let stx ←
-    try Lean.PrettyPrinter.parenthesizeCommand stx
-    catch e => throw! "failed to parenthesize: {← e.toMessageData.toString}" -- \nin: {stx}"
-  let fmt ←
+  let fmt ← liftCoreM $ do
+    let stx ←
+      try Lean.PrettyPrinter.parenthesizeCommand stx
+      catch e => throw! "failed to parenthesize: {← e.toMessageData.toString}" -- \nin: {stx}"
     try Lean.PrettyPrinter.formatCommand stx
     catch e => throw! "failed to format: {← e.toMessageData.toString}" -- \nin: {stx}"
   modify fun s => { s with output := s.output ++ fmt ++ "\n\n" }

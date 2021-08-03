@@ -101,3 +101,16 @@ def Std.HashMap.insertWith [Hashable α] [BEq α] (m : HashMap α β) (merge : �
   match m.find? a with
   | none => m.insert a b
   | some c => m.insert a (merge c b)
+
+namespace Lean.Elab.Command
+
+def CommandElabM.toIO (x : CommandElabM α) (ctx : Context) (s : State) : IO α := do
+  match ← x ctx |>.run' s |>.toIO' with
+  | Except.error (Exception.error _ msg)   => do throw $ IO.userError (← msg.toString)
+  | Except.error (Exception.internal id _) => throw $ IO.userError $ "internal exception #" ++ toString id.idx
+  | Except.ok a => pure a
+
+def CommandElabM.toIO' (x : CommandElabM α) (ctx : Context) (env : Environment) : IO α := do
+  toIO x ctx (mkState env)
+
+end Lean.Elab.Command

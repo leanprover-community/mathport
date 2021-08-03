@@ -13,19 +13,20 @@ namespace Mathport
 
 open Lean hiding Expr Expr.app Expr.const Expr.sort Level Level.imax Level.max Level.param
 open Lean.Elab (Visibility)
+open Lean.Elab.Command (CommandElabM)
 
 namespace Translate
 
 open Std (HashMap)
 open AST3
 
-partial def M.run' (m : M α) : HashMap Name Name → Array Notation → Array Command → CoreM α :=
-  fun map nota cmds => do
-    let s ← ST.mkRef {}
-    let rec ctx := ⟨map, nota, cmds, fun e => trExpr' e ctx s, fun c => trCommand' c ctx s⟩
-    m ctx s
+partial def M.run' (m : M α) (map : HashMap Name Name)
+  (nota : Array Notation) (cmds : Array Command) : CommandElabM α := do
+  let s ← ST.mkRef {}
+  let rec ctx := ⟨map, nota, cmds, fun e => trExpr' e ctx s, fun c => trCommand' c ctx s⟩
+  m ctx s
 
-def M.run (m : M α) : HashMap Name Name → Array Notation → Array Command → CoreM α :=
+def M.run (m : M α) : HashMap Name Name → Array Notation → Array Command → CommandElabM α :=
   M.run' $ do
     let mut tacs := {}
     for (n, tac) in Tactic.builtinTactics do
@@ -35,5 +36,5 @@ def M.run (m : M α) : HashMap Name Name → Array Notation → Array Command �
 
 end Translate
 
-def AST3toData4 (renameMap : HashMap Name Name) (ast : AST3) : CoreM Data4 :=
+def AST3toData4 (renameMap : HashMap Name Name) (ast : AST3) : CommandElabM Data4 :=
   (Translate.AST3toData4 ast).run renameMap ast.indexed_nota ast.indexed_cmds

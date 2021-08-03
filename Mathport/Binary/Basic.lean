@@ -46,11 +46,8 @@ def lookupNameExt (n3 : Name) : BinportM (Option Name) := do
 def lookupNameExt! (n3 : Name) : BinportM Name := do
   liftCoreM $ Mathport.lookupNameExt! n3
 
-def BinportM.toIO (x : BinportM α) (ctx : Context) (st : State) (cmdCtx : Elab.Command.Context) (cmdState : Elab.Command.State) : IO α := do
-  match ← ((x ctx).run' st) cmdCtx |>.run' cmdState |>.toIO' with
-  | Except.error (Exception.error _ msg)   => do throw $ IO.userError (← msg.toString)
-  | Except.error (Exception.internal id _) => throw $ IO.userError $ "internal exception #" ++ toString id.idx
-  | Except.ok a => pure a
+def BinportM.toIO (x : BinportM α) (ctx : Context) (st : State) : Elab.Command.Context → Elab.Command.State → IO α :=
+  ((x ctx).run' st).toIO
 
 def BinportM.runIO (x : BinportM α) (ctx : Context) (env : Environment) : IO α := do
   toIO x ctx {} { fileName := ctx.path.toLean3 ctx.config.pathConfig "lean" |>.toString, fileMap := dummyFileMap } (Lean.Elab.Command.mkState env)
