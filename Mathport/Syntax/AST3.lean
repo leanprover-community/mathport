@@ -1081,33 +1081,34 @@ instance : Repr Command where reprPrec c _ := match c with
   | Command.userCommand n mods args => repr mods ++ n.toString ++
     Format.join (args.toList.map fun a => " " ++ Param_repr a.kind)
 
-def Notation.name (sp : Char) (start : String) : Notation → String
+def Notation.name (sp : Char) (f : PrecSymbol → String) (withTerm : Bool) (start : String) :
+  Notation → String
 | Notation.notation lits _ => do
   let mut s := start
   for ⟨_, _, lit⟩ in lits do
     match lit with
     | Literal.nat n => s := s ++ toString n
-    | Literal.sym tk => s := s ++ tk.1.kind.trim
+    | Literal.sym tk => s := s ++ f tk
     | Literal.var _ none => s := s.push sp
     | Literal.var _ (some ⟨_, _, Action.prec _⟩) => s := s.push sp
     | Literal.var _ (some ⟨_, _, Action.prev⟩) => s := s.push sp
     | Literal.var _ (some ⟨_, _, Action.scoped _ _⟩) => s := s.push sp
     | Literal.var _ (some ⟨_, _, Action.fold _ _ sep _ _ term⟩) =>
-      s := s.push sp ++ sep.1.kind.trim
-      if let some term := term then s := s ++ term.1.kind.trim
+      s := s.push sp ++ f sep
+      if withTerm then if let some term := term then s := s ++ f term
     | Literal.binder _ => s := s.push sp
     | Literal.binders _ => s := s.push sp
   s
 | Notation.mixfix mk tk _ =>
   match mk with
-  | MixfixKind.infix => start.push sp ++ tk.1.kind.trim.push sp
-  | MixfixKind.infixl => start.push sp ++ tk.1.kind.trim.push sp
-  | MixfixKind.infixr => start.push sp ++ tk.1.kind.trim.push sp
-  | MixfixKind.postfix => start.push sp ++ tk.1.kind.trim
-  | MixfixKind.prefix => start ++ tk.1.kind.trim.push sp
+  | MixfixKind.infix => start.push sp ++ (f tk).push sp
+  | MixfixKind.infixl => start.push sp ++ (f tk).push sp
+  | MixfixKind.infixr => start.push sp ++ (f tk).push sp
+  | MixfixKind.postfix => start.push sp ++ f tk
+  | MixfixKind.prefix => start ++ (f tk).push sp
 
-def Notation.name3 := Notation.name ' ' "expr"
-def Notation.name4 := Name.mkSimple ∘ Notation.name '_' "term"
+def Notation.name3 := Notation.name ' ' (·.1.kind.toString) true "expr"
+def Notation.name4 := Name.mkSimple ∘ Notation.name '_' (·.1.kind.trim) false "term"
 
 end AST3
 

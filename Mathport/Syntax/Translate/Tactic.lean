@@ -158,7 +158,7 @@ def trGeneralize : TacM Syntax := do
 def trInduction : TacM Syntax := do
   let (hp, e) ← parse casesArg
   let e ← trExpr e
-  let rec_name := (← parse usingIdent).map mkIdent
+  let rec_name ← liftM $ (← parse usingIdent).mapM mkIdentI
   let ids ← parse withIdentList
   let revert := match (← parse (tk "generalizing" *> ident*)?).getD #[] with
   | #[] => none
@@ -177,12 +177,12 @@ def trCase : TacM Syntax := do
   let args ← parse case
   let tac ← trBlock (← itactic)
   let trCaseArg
-  | (tags, xs) => mkNode ``caseArg #[
-    (mkAtom ",").mkSep (tags.map mkIdent), mkAtom ":", mkNullNode $ xs.map mkIdent_]
+  | (tags, xs) => do mkNode ``caseArg #[
+    (mkAtom ",").mkSep (← liftM $ tags.mapM mkIdentI), mkAtom ":", mkNullNode $ xs.map mkIdent_]
   match args with
   | #[(#[tag], xs)] => `(tactic| case $(mkIdent tag) $[$(xs.map mkIdent_)]* => $tac:tacticSeq)
-  | #[arg] => `(tactic| case' $(trCaseArg arg):caseArg => $tac:tacticSeq)
-  | _ => `(tactic| case' [$[$(args.map trCaseArg)],*] => $tac:tacticSeq)
+  | #[arg] => `(tactic| case' $(← trCaseArg arg):caseArg => $tac:tacticSeq)
+  | _ => `(tactic| case' [$[$(← args.mapM trCaseArg)],*] => $tac:tacticSeq)
 
 def trDestruct : TacM Syntax := do `(tactic| destruct $(← trExpr (← parse pExpr)))
 
@@ -228,7 +228,8 @@ def trSkip : TacM Syntax := `(tactic| skip)
 def trSolve1 : TacM Syntax := do trBlock (← itactic) TacticContext.one
 
 def trAbstract : TacM Syntax := do
-  `(tactic| abstract $[$((← parse (ident)?).map mkIdent)]? $(← trBlock (← itactic)):tacticSeq)
+  `(tactic| abstract $[$(← liftM $ (← parse (ident)?).mapM mkIdentF)]?
+      $(← trBlock (← itactic)):tacticSeq)
 
 def trAllGoals : TacM Syntax := do `(tactic| allGoals $(← trBlock (← itactic)):tacticSeq)
 
@@ -377,7 +378,7 @@ def trSimpArgs (hs : Array Parser.SimpArg) : M (Array Syntax × Bool) :=
   | (hs, all), SimpArg.expr e => do
     (hs.push $ mkNode ``Parser.Tactic.simpLemma #[mkNullNode, ← trExpr e], all)
   | (hs, all), SimpArg.except e => do
-    (hs.push $ mkNode ``Parser.Tactic.simpErase #[mkAtom "-", mkIdent e], all)
+    (hs.push $ mkNode ``Parser.Tactic.simpErase #[mkAtom "-", ← mkIdentI e], all)
 
 def trSimp : TacM Syntax := do
   let iota ← parse (tk "!")?
@@ -474,10 +475,10 @@ def trDUnfold : TacM Syntax := do
   | none => mkNullNode
   | some stx => mkNullNode #[mkAtom "(", mkAtom "config", mkAtom ":=", stx, mkAtom ")"]
   mkNode ``Parser.Tactic.dUnfold #[mkAtom "dunfold", cfg,
-    mkNullNode $ cs.map mkIdent, mkOptionalNode $ ← trLoc loc]
+    mkNullNode $ ← liftM $ cs.mapM mkIdentI, mkOptionalNode $ ← trLoc loc]
 
 def trDelta : TacM Syntax := do
-  `(tactic| delta $[$((← parse ident*).map mkIdent)]* $[$(← trLoc (← parse location))]?)
+  `(tactic| delta $[$(← liftM $ (← parse ident*).mapM mkIdentI)]* $[$(← trLoc (← parse location))]?)
 
 def trUnfoldProjs : TacM Syntax := do
   let loc ← parse location
@@ -493,7 +494,7 @@ def trUnfold : TacM Syntax := do
   | none => mkNullNode
   | some stx => mkNullNode #[mkAtom "(", mkAtom "config", mkAtom ":=", stx, mkAtom ")"]
   mkNode ``Parser.Tactic.unfold #[mkAtom "unfold", cfg,
-    mkNullNode $ cs.map mkIdent, mkOptionalNode $ ← trLoc loc]
+    mkNullNode $ ← liftM $ cs.mapM mkIdentI, mkOptionalNode $ ← trLoc loc]
 
 def trUnfold1 : TacM Syntax := do
   let cs ← parse ident*
@@ -502,7 +503,7 @@ def trUnfold1 : TacM Syntax := do
   | none => mkNullNode
   | some stx => mkNullNode #[mkAtom "(", mkAtom "config", mkAtom ":=", stx, mkAtom ")"]
   mkNode ``Parser.Tactic.unfold1 #[mkAtom "unfold1", cfg,
-    mkNullNode $ cs.map mkIdent, mkOptionalNode $ ← trLoc loc]
+    mkNullNode $ ← liftM $ cs.mapM mkIdentI, mkOptionalNode $ ← trLoc loc]
 
 def trApplyOptParam : TacM Syntax := `(tactic| inferOptParam)
 

@@ -29,7 +29,7 @@ def genLeanFor (pcfg : Path.Config) (path : Path) : IO Unit := do
   -- binport imports the future
   let binportImports : List Import := [{ module := path.package ++ path.mod4 : Import }]
 
-  let mut synportImports : Array Import := #[{ module := `Mathport.Syntax.Data4 }]
+  let mut synportImports : Array Import := #[{ module := `Mathport.Syntax.Prelude }]
   for ipath in ← (← parseTLeanImports (path.toLean3 pcfg ".tlean")).mapM (resolveMod3 pcfg) do
     synportImports := synportImports.push { module := ipath.package ++ (ipath.mod4.appendAfter "Aux") : Import }
 
@@ -103,8 +103,8 @@ end Syntax
 -- -- set_option trace.PrettyPrinter.parenthesize true in
 -- -- set_option trace.PrettyPrinter.format true in
 -- #eval show CoreM Unit from do
---   -- let s ← IO.FS.readFile "/home/mario/Documents/lean/lean/library/init/data/quot.ast.json"
---   let s ← IO.FS.readFile "/home/mario/Documents/lean/mathport/PreData/mathlib3/ring_theory/nullstellensatz.ast.json"
+--   let s ← IO.FS.readFile "/home/mario/Documents/lean/mathport/PreData/lean3/init/logic.ast.json"
+--   -- let s ← IO.FS.readFile "/home/mario/Documents/lean/mathport/PreData/mathlib3/ring_theory/nullstellensatz.ast.json"
 --   let json ← Json.parse s
 --   let raw@⟨ast, file, level, expr⟩ ← fromJson? json (α := Parse.RawAST3)
 --   let ⟨prel, imp, commands, inot, icmd⟩ ← raw.toAST3
@@ -116,7 +116,9 @@ end Syntax
 --   let mut opts : Options := {}
 --   -- opts := opts.setBool `trace.PrettyPrinter.parenthesize true
 --   let s := Elab.Command.mkState (← getEnv) {} opts
---   for c in commands[27:28] do
+--   let mut i := 242
+--   for c in commands[i:] do
+--     println! "cmd[{i}]"; i := i + 1
 --     -- println! (repr (← Parse.getNode c |>.run ast expr)).group ++ "\n"
 --     -- println! (repr (← Parse.getCommand c |>.run ast expr).kind).group ++ "\n"
 --     let res ← Parse.getCommand c |>.run ast expr
