@@ -4,6 +4,7 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Daniel Selsam
 -/
 import Lean
+import Mathport.Util.Misc
 import Mathport.Util.Import
 import Mathport.Util.Json
 import Mathport.Util.Parse
@@ -13,6 +14,31 @@ namespace Mathport
 open Lean
 open System (FilePath)
 open Std (HashMap)
+
+def INITIAL_NAME_ALIGNMENTS_PATH : FilePath := ⟨"Config/initial_name_alignments.json"⟩
+
+-- During synport, we need to guess how to capitalize a field name without knowing
+-- the complete name. As a heuristic, we store a map from last-component-of-lean3-name
+-- to all the lean4 names with that last component. When queried on a new field name,
+-- if all in a bucket agree, we use that style for it.
+abbrev FieldNameMap := HashMap String (List Name)
+
+def FieldNameMap.insert (m : FieldNameMap) : Name × Name → FieldNameMap
+  | ⟨n3, n4⟩ => if n3.isStr then m.insertWith List.append n3.getString! [n4] else m
+
+initialize mathportFieldNameExtension : SimplePersistentEnvExtension (Name × Name) FieldNameMap ←
+  registerSimplePersistentEnvExtension {
+    name          := `Mathport.fieldNameExtension
+    addEntryFn    := FieldNameMap.insert
+    addImportedFn := fun es => mkStateFromImportedEntries FieldNameMap.insert {} es
+  }
+
+def getFieldNameMap (env : Environment) : FieldNameMap := do
+  mathportFieldNameExtension.getState env
+
+def addPossibleFieldName (n3 n4 : Name) : CoreM Unit := do
+  modifyEnv fun env => mathportFieldNameExtension.addEntry env (n3, n4)
+
 
 abbrev RenameMap := HashMap Name Name
 
@@ -39,8 +65,6 @@ def lookupNameExt! (n3 : Name) : CoreM Name := do
   match ← lookupNameExt n3 with
   | some n4 => pure n4
   | none    => throwError "name not found: '{n3}'"
-
-def INITIAL_NAME_ALIGNMENTS_PATH : FilePath := ⟨"Config/initial_name_alignments.json"⟩
 
 def addInitialNameAlignments (env : Environment) : IO Environment := do
   let alignments ← parseJsonFile (HashMap Name Name) INITIAL_NAME_ALIGNMENTS_PATH

@@ -157,6 +157,7 @@ def refineLean4NamesAndUpdateMap (decl : Declaration) : BinportM (Declaration ×
   let tr (n3 n4 : Name) := do
     println! "[translateName] {n3} -> {n4}"
     addNameAlignment n3 n4
+    addPossibleFieldName n3 n4
 
   tr decl.toName decl'.toName
 

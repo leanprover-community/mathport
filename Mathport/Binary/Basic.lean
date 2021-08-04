@@ -40,6 +40,9 @@ def liftMetaM (x : MetaM α) : BinportM α := do
 def addNameAlignment (n3 n4 : Name) : BinportM Unit := do
   liftCoreM $ Mathport.addNameAlignment n3 n4
 
+def addPossibleFieldName (n3 n4 : Name) : BinportM Unit := do
+  liftCoreM $ Mathport.addPossibleFieldName n3 n4
+
 def lookupNameExt (n3 : Name) : BinportM (Option Name) := do
   liftCoreM $ Mathport.lookupNameExt n3
 
