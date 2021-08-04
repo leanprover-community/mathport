@@ -35,6 +35,7 @@ def genOLeanFor (config : Config) (path : Path) : IO Unit := do
     discard <| BinportM.runIO (ctx := { config := config, path := path }) (env := env) do
       let mods ← parseTLean (path.toLean3 pcfg ".tlean")
       for mod in mods do applyModification mod
+      postprocessModule
       writeModule (← getEnv) $ path.toLean4 pcfg ".olean"
       println! "\n[genOLeanFor] END   {path.mod3}\n"
 

@@ -5,6 +5,7 @@ Authors: Daniel Selsam
 -/
 import Lean
 import Mathport.Util.Misc
+import Mathport.Util.While
 import Mathport.Binary.Config
 import Mathport.Binary.Basic
 import Mathport.Binary.NDRec
@@ -147,8 +148,41 @@ where
 
 def applyProjection (proj : ProjectionInfo) : BinportM Unit := do
   try
-    setEnv $ addProjectionFnInfo (← getEnv) (← lookupNameExt! proj.projName) (← lookupNameExt! proj.ctorName) proj.nParams proj.index proj.fromClass
+    -- we lookup names inside `try`, because meta things may have been skipped
+    let projName ← lookupNameExt! proj.projName
+    let ctorName ← lookupNameExt! proj.ctorName
+    let indName := ctorName.getPrefix
+    setEnv $ addProjectionFnInfo (← getEnv) projName ctorName proj.nParams proj.index proj.fromClass
+    let descr := (← get).structures.findD indName ⟨indName, #[]⟩
+    match (← getEnv).find? ctorName with
+    | some (ConstantInfo.ctorInfo ctor) =>
+      let fieldInfo ← mkFieldInfo ctor.numParams ctor.type projName
+      modify fun s => { s with structures := s.structures.insert indName ⟨descr.structName, descr.fields.push fieldInfo⟩ }
+    | _ => warnStr "projection for something other than constructor {projName}, {ctorName}"
   catch ex => warn ex
+where
+  mkFieldInfo (numParams : Nat) (ctorType : Expr) (projName : Name) : BinportM StructureFieldInfo := do
+    match projName with
+    | Name.str _ fieldName .. =>
+      pure {
+        fieldName := fieldName,
+        projFn := projName,
+        subobject? := (collectSubobjects numParams ctorType).find? fieldName
+      }
+    | _ => throwError "unexpected projName with num field: {projName}"
+
+  collectSubobjects (numParams : Nat) (type : Expr) : HashMap Name Name := do
+    let mut subobjects : HashMap Name Name := {}
+    let mut type := type
+    let mut i    := 0
+    while type.isForall do
+      if i > numParams then
+        let name := type.bindingName!
+        if name.isStr && name.getString!.startsWith "_to_" then
+          let parentName := type.bindingDomain!.getAppFn.constName!
+          subobjects := subobjects.insert name parentName
+      type := type.bindingDomain!
+    subobjects
 
 def applyClass (n : Name) : BinportM Unit := do
   -- (for meta classes, Lean4 won't know about the decl)
@@ -260,5 +294,15 @@ def applyModification (mod : EnvModification) : BinportM Unit := withReader (fun
     | Declaration.defnDecl defn               => applyDefinitionVal defn
     | Declaration.inductDecl lps nps [ind] iu => applyInductiveDecl lps nps ind iu
     | _                                       => throwError "unexpected declaration type"
+
+def postprocessModule : BinportM Unit := do
+  registerStructures
+where
+  registerStructures := do
+    for (structName, structDescr) in (← get).structures.toList do
+      modifyEnv fun env => registerStructure env structDescr
+      println! "[registerStructure] {structName}"
+      for ⟨fieldName, projName, subobject?⟩ in structDescr.fields do
+        println! "[registerStructure.field] {structName} {fieldName} {projName} {subobject?}"
 
 end Mathport.Binary

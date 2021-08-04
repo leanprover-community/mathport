@@ -19,8 +19,9 @@ structure Context where
   currDecl : Name := Name.anonymous
 
 structure State where
-  nNotations     : Nat                      := 0
-  name2equations : HashMap Name (List Name) := {}
+  nNotations     : Nat                         := 0
+  name2equations : HashMap Name (List Name)    := {}
+  structures     : HashMap Name StructureDescr := {}
 
 open Lean.Elab.Command in
 abbrev BinportM := ReaderT Context $ StateRefT State CommandElabM
@@ -47,7 +48,9 @@ def lookupNameExt (n3 : Name) : BinportM (Option Name) := do
   Rename.resolveIdent? (← getEnv) n3
 
 def lookupNameExt! (n3 : Name) : BinportM Name := do
-  Rename.resolveIdent! (← getEnv) n3
+  match ← lookupNameExt n3 with
+  | some n4 => pure n4
+  | _       => throwError "[lookupNameExt!] name not found, {n3}"
 
 def BinportM.toIO (x : BinportM α) (ctx : Context) (st : State) : Elab.Command.Context → Elab.Command.State → IO α :=
   ((x ctx).run' st).toIO
