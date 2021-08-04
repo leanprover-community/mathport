@@ -3,6 +3,7 @@ Copyright (c) 2021 Microsoft Corporation. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Mario Carneiro, Daniel Selsam
 -/
+import Mathport.Bridge.RenameExt
 import Mathport.Syntax.Data4
 import Mathport.Syntax.Translate.Notation
 import Mathport.Syntax.Translate.Attributes
@@ -61,7 +62,7 @@ def registerNotationEntry (d : NotationData) : CommandElabM Unit := do
   modifyEnv fun env => synportNotationExtension.addEntry env d
 
 structure Context where
-  renameMap : HashMap Name Name
+  binportEnv : Environment
   notations : Array Notation
   commands : Array Command
   trExpr : Expr → CommandElabM Syntax
@@ -73,15 +74,12 @@ abbrev M := ReaderT Context $ StateRefT State CommandElabM
 def trExpr (e : Expr) : M Syntax := do (← read).trExpr e
 def trCommand (e : Command) : M Unit := do (← read).trCommand e
 
-def renameIdent (n : Name) : M Name := do
-  match (← read).renameMap.find? n with
-  | none => n
-  | some n => n
-
-def renameNamespace (n : Name) : M Name := n
-def renameAttr (n : Name) : M Name := n
-def renameModule (n : Name) : M Name := n
-def renameField (n : Name) : M Name := n
+def getBinportEnv : M Environment := do (← read).binportEnv
+def renameIdent (n : Name) : M Name := do Rename.resolveIdent! (← getBinportEnv) n
+def renameNamespace (n : Name) : M Name := do Rename.renameNamespace (← getBinportEnv) n
+def renameAttr (n : Name) : M Name := do Rename.renameAttr n
+def renameModule (n : Name) : M Name := do Rename.renameModule n
+def renameField (n : Name) : M Name := do Rename.renameField? (← getBinportEnv) n |>.getD n
 
 def mkIdentI (n : Name) : M Syntax := do mkIdent (← renameIdent n)
 def mkIdentA (n : Name) : M Syntax := do mkIdent (← renameAttr n)

@@ -20,13 +20,13 @@ namespace Translate
 open Std (HashMap)
 open AST3
 
-partial def M.run' (m : M α) (map : HashMap Name Name)
+partial def M.run' (m : M α) (binportEnv : Environment)
   (nota : Array Notation) (cmds : Array Command) : CommandElabM α := do
   let s ← ST.mkRef {}
-  let rec ctx := ⟨map, nota, cmds, fun e => trExpr' e ctx s, fun c => trCommand' c ctx s⟩
+  let rec ctx := ⟨binportEnv, nota, cmds, fun e => trExpr' e ctx s, fun c => trCommand' c ctx s⟩
   m ctx s
 
-def M.run (m : M α) : HashMap Name Name → Array Notation → Array Command → CommandElabM α :=
+def M.run (m : M α) : Environment → Array Notation → Array Command → CommandElabM α :=
   M.run' $ do
     let mut tacs := {}
     for (n, tac) in Tactic.builtinTactics do
@@ -36,5 +36,5 @@ def M.run (m : M α) : HashMap Name Name → Array Notation → Array Command �
 
 end Translate
 
-def AST3toData4 (renameMap : HashMap Name Name) (ast : AST3) : CommandElabM Data4 :=
-  (Translate.AST3toData4 ast).run renameMap ast.indexed_nota ast.indexed_cmds
+def AST3toData4 (binportEnv : Environment) (ast : AST3) : CommandElabM Data4 :=
+  (Translate.AST3toData4 ast).run binportEnv ast.indexed_nota ast.indexed_cmds
