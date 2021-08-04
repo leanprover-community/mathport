@@ -431,7 +431,8 @@ def trExpr' : Expr → M Syntax
     let bis ← bis.foldlM (fun out bi => trLambdaBinder bi.kind out) #[]
     `(fun $[$bis]* => $(← trExpr e.kind))
   | Expr.Pi bis e => do
-    let dArrowHeuristic := !bis.any fun | ⟨_, _, Binder.binder _ _ _ none _⟩ => true | _ => false
+    -- let dArrowHeuristic := !bis.any fun | ⟨_, _, Binder.binder _ _ _ none _⟩ => true | _ => false
+    let dArrowHeuristic := false
     if dArrowHeuristic then trDArrow bis e.kind else
       `(∀ $[$(← trBinders { allowSimple := some false } bis)]*, $(← trExpr e.kind))
   | e@(Expr.app _ _) => do
