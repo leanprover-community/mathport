@@ -243,11 +243,7 @@ def parseLine (line : String) : ParseM Unit := do
     parseBinderInfo : String → ParseM BinderInfo
       | "#BD" => BinderInfo.default
       | "#BI" => BinderInfo.implicit
-
-      | "#BS" =>
-        -- Lean4 is missing support for strictImplicit, so we convert here
-        BinderInfo.implicit -- BinderInfo.strictImplicit
-
+      | "#BS" => BinderInfo.strictImplicit
       | "#BC" => BinderInfo.instImplicit
       | s     => throw $ IO.userError s!"[parseBinderInfo] unexpected: {s}"
 
