@@ -151,40 +151,41 @@ def applyProjection (proj : ProjectionInfo) : BinportM Unit := do
     -- we lookup names inside `try`, because meta things may have been skipped
     let projName ← lookupNameExt! proj.projName
     let ctorName ← lookupNameExt! proj.ctorName
-    let indName := ctorName.getPrefix
+    let structName := ctorName.getPrefix
     setEnv $ addProjectionFnInfo (← getEnv) projName ctorName proj.nParams proj.index proj.fromClass
-    let descr := (← get).structures.findD indName ⟨indName, #[]⟩
+    let descr := (← get).structures.findD structName ⟨structName, #[]⟩
     match (← getEnv).find? ctorName with
     | some (ConstantInfo.ctorInfo ctor) =>
-      let fieldInfo ← mkFieldInfo ctor.numParams ctor.type projName
-      modify fun s => { s with structures := s.structures.insert indName ⟨descr.structName, descr.fields.push fieldInfo⟩ }
+      let fieldInfo ← mkFieldInfo ctor.numParams ctor.type projName proj.projName
+      modify fun s => { s with structures := s.structures.insert structName ⟨descr.structName, descr.fields.push fieldInfo⟩ }
     | _ => warnStr "projection for something other than constructor {projName}, {ctorName}"
   catch ex => warn ex
 where
-  mkFieldInfo (numParams : Nat) (ctorType : Expr) (projName : Name) : BinportM StructureFieldInfo := do
-    match projName with
-    | Name.str _ fieldName .. =>
+  mkFieldInfo (numParams : Nat) (ctorType : Expr) (projName projName3 : Name) : BinportM StructureFieldInfo := do
+    match projName, projName3 with
+    | Name.str _ fieldName .., Name.str _ fieldName3 .. =>
       pure {
         fieldName := fieldName,
         projFn := projName,
-        subobject? := getSubobject? numParams ctorType fieldName
+        subobject? := getSubobject? numParams ctorType fieldName3
       }
-    | _ => throwError "unexpected projName with num field: {projName}"
+    | _, _ => throwError "unexpected projName with num field: {projName}"
 
-  getSubobject? (numParams : Nat) (type : Expr) (fieldName : String) : Option Name := do
-    let candidateName := "_" ++ fieldName
-
+  getSubobject? (numParams : Nat) (type : Expr) (fieldName3 : String) : Option Name := do
+    -- Note: we do not translate binder names, so we need the *lean3* fieldName here
+    let candidateName := "_" ++ fieldName3
     let mut type := type
     let mut i    := 0
 
     while type.isForall do
-      if i > numParams then
+      if i ≥ numParams then
         match type.bindingName! with
         | Name.str Name.anonymous s .. =>
           if s == candidateName then
             return some type.bindingDomain!.getAppFn.constName!
         | _ => pure ()
       type := type.bindingBody!
+      i := i + 1
     return none
 
 def applyClass (n : Name) : BinportM Unit := do
