@@ -103,23 +103,27 @@ end Syntax
 -- -- set_option trace.PrettyPrinter.parenthesize true in
 -- -- set_option trace.PrettyPrinter.format true in
 -- #eval show CoreM Unit from do
---   let s ← IO.FS.readFile "/home/mario/Documents/lean/lean/library/init/data/quot.ast.json"
+--   -- let s ← IO.FS.readFile "/home/mario/Documents/lean/lean/library/init/data/quot.ast.json"
+--   let s ← IO.FS.readFile "/home/mario/Documents/lean/mathport/PreData/mathlib3/ring_theory/nullstellensatz.ast.json"
 --   let json ← Json.parse s
 --   let raw@⟨ast, file, level, expr⟩ ← fromJson? json (α := Parse.RawAST3)
 --   let ⟨prel, imp, commands, inot, icmd⟩ ← raw.toAST3
 --   let level := Parse.buildLevels level
 --   let expr := Parse.buildExprs level expr
 --   let commands := ast[ast[file].get!.children'[2]].get!.children'
---   for c in commands[14:20] do
---     println! (repr (← Parse.getNode c |>.run ast expr)).group ++ "\n"
+--   let cmdCtx := { fileName := "<input>", fileMap := dummyFileMap }
+--   let env ← getEnv
+--   let mut opts : Options := {}
+--   -- opts := opts.setBool `trace.PrettyPrinter.parenthesize true
+--   let s := Elab.Command.mkState (← getEnv) {} opts
+--   for c in commands[27:28] do
+--     -- println! (repr (← Parse.getNode c |>.run ast expr)).group ++ "\n"
 --     -- println! (repr (← Parse.getCommand c |>.run ast expr).kind).group ++ "\n"
 --     let res ← Parse.getCommand c |>.run ast expr
---     try
---       let (⟨fmt, _⟩, _) ← AST3toData4 {} ⟨none, #[], #[res], inot, icmd⟩ Translate.AuxData.initial
+--     Elab.Command.CommandElabM.toIO (ctx := cmdCtx) (s := s) do
+--       let ⟨fmt, _⟩ ← Mathport.AST3toData4 {} ⟨none, #[], #[res], inot, icmd⟩
 --       println! "{fmt}"
---     catch e =>
---       println! (repr (← Parse.getCommand c |>.run ast expr).kind).group ++ "\n"
---       println! "error: {← e.toMessageData.toString}"
+--       printTraces
 
 -- #eval show CoreM Unit from do
 --   let ⟨ast⟩ ← parseAST3 "/home/mario/Documents/lean/lean/library/init/logic.ast.json"

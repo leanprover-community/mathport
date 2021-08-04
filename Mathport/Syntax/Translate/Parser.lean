@@ -5,7 +5,7 @@ Authors: Mario Carneiro
 -/
 import Std.Data.HashMap
 import Mathport.Syntax.AST3
-import Mathport.Syntax.Data4
+import Mathport.Syntax.Prelude
 
 open Std (HashMap)
 open Lean hiding Expr
@@ -133,5 +133,107 @@ def simpArg : ParserM SimpArg :=
 
 def simpArgList : ParserM (Array SimpArg) :=
   (tk "*" *> #[SimpArg.allHyps]) <|> listOf simpArg <|> pure #[]
+
+inductive RCasesPat : Type
+  | one : Name → RCasesPat
+  | clear : RCasesPat
+  | typed : RCasesPat → AST3.Expr → RCasesPat
+  | tuple : Array RCasesPat → RCasesPat
+  | alts : Array RCasesPat → RCasesPat
+  deriving Inhabited
+
+def RCasesPat.alts' : Array RCasesPat → RCasesPat
+| #[p] => p
+| ps => alts ps
+
+mutual
+
+partial def rcasesPat : Bool → ParserM RCasesPat
+| true =>
+  (brackets "(" ")" (rcasesPat false)) <|>
+  (RCasesPat.tuple <$> brackets "⟨" "⟩" (sepBy (tk ",") (rcasesPat false))) <|>
+  (tk "-" *> RCasesPat.clear) <|>
+  (RCasesPat.one <$> ident_)
+| false => do
+  let pat ← RCasesPat.alts' <$> rcasesPatList
+  (tk ":" *> pat.typed <$> pExpr) <|> pure pat
+
+partial def rcasesPatList (pats : Array RCasesPat := #[]) : ParserM (Array RCasesPat) := do
+  pats.push (← rcasesPat true) |> rcasesPatListRest
+
+partial def rcasesPatListRest (pats : Array RCasesPat) : ParserM (Array RCasesPat) :=
+  (tk "|" *> rcasesPatList pats) <|>
+  -- hack to support `-|-` patterns, because `|-` is a token
+  (tk "|-" *> rcasesPatListRest (pats.push RCasesPat.clear)) <|>
+  pure pats
+
+end
+
+inductive RCasesArgs
+  | hint (tgt : Sum AST3.Expr (Array AST3.Expr)) (depth : Option ℕ)
+  | rcases (name : Option Name) (tgt : AST3.Expr) (pat : RCasesPat)
+  | rcasesMany (tgt : Array AST3.Expr) (pat : RCasesPat)
+
+def rcasesArgs : ParserM RCasesArgs := do
+  let hint ← (tk "?")?
+  let p ← (Sum.inr <$> brackets "⟨" "⟩" (sepBy (tk ",") pExpr)) <|>
+          (Sum.inl <$> pExpr)
+  match hint with
+  | none => do
+    let p ← (do
+      let Sum.inl t ← p | failure
+      let AST3.Expr.ident h ← t.unparen | failure
+      Sum.inl (h, ← tk ":" *> pExpr)) <|>
+      pure (Sum.inr p)
+    let ids ← (tk "with" *> rcasesPat false)?
+    let ids := ids.getD (RCasesPat.tuple #[])
+    pure $ match p with
+    | Sum.inl (name, tgt) => RCasesArgs.rcases (some name) tgt ids
+    | Sum.inr (Sum.inl tgt) => RCasesArgs.rcases none tgt ids
+    | Sum.inr (Sum.inr tgts) => RCasesArgs.rcasesMany tgts ids
+  | some _ => do
+    let depth ← (tk ":" *> smallNat)?
+    pure $ RCasesArgs.hint p depth
+
+
+inductive RIntroPat : Type
+  | one : RCasesPat → RIntroPat
+  | binder : Array RIntroPat → Option AST3.Expr → RIntroPat
+  | pat : RCasesPat → Option AST3.Expr → RIntroPat
+  deriving Inhabited
+
+mutual
+
+partial def rintroPatHi : ParserM RIntroPat :=
+  brackets "(" ")" rintroPat <|> RIntroPat.one <$> rcasesPat true
+
+partial def rintroPat : ParserM RIntroPat := do
+  let f ← match ← rintroPatHi* with
+  | #[] => failure
+  | #[RIntroPat.one pat] => do
+    RIntroPat.pat $ RCasesPat.alts' (← rcasesPatListRest #[pat])
+  | pats => RIntroPat.binder pats
+  f $ ← (tk ":" *> pExpr)?
+
+end
+
+/-- Syntax for a `rintro` patern: `('?' (: n)?) | rintro_pat`. -/
+def rintroArg : ParserM (Sum (Array RIntroPat × Option AST3.Expr) (Option ℕ)) :=
+(tk "?" *> Sum.inr <$> (tk ":" *> smallNat)?) <|>
+do Sum.inl (← rintroPatHi*, ← (tk ":" *> pExpr)?)
+
+/-- Parses `patt? (: expr)? (:= expr)?`, the arguments for `obtain`.
+ (This is almost the same as `rcasesPat false`,
+but it allows the pattern part to be empty.) -/
+def obtainArg :
+  ParserM ((Option RCasesPat × Option AST3.Expr) × Option (Array AST3.Expr)) := do
+  let (pat, tp) ←
+    (do pure $ match ← rcasesPat false with
+      | RCasesPat.typed pat tp => (some pat, some tp)
+      | pat => (some pat, none)) <|>
+    (do (none, ← (tk ":" *> pExpr)?))
+  ((pat, tp), ← (tk ":=" *> do
+    (guard tp.isNone *> brackets "⟨" "⟩" (sepBy (tk ",") pExpr)) <|>
+    (do #[← pExpr]))?)
 
 end Parser
