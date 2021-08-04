@@ -78,7 +78,7 @@ def resolveIdent? (n3 : Name) : Option Name :=
 
 -- For both binport and synport
 def resolveIdent! (n3 : Name) : Name :=
-  resolveIdent? env n3 |>.get!
+  resolveIdent? env n3 |>.getD n3
 
 -- For both binport and synport
 def renameModule (n : Name) : Name :=

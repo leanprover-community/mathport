@@ -808,6 +808,17 @@ def trStructure (cl : Bool) (mods : Modifiers) (n : Spanned Name) (us : LevelDec
     id, bis, exts, ty, flds, ← `(Parser.Command.optDeriving|)]
   pushM `(command| $mods:declModifiers $decl:structure)
 
+partial def mkUnusedName [Monad m] [MonadResolveName m] [MonadEnv m]
+  (baseName : Name) : m Name := do
+  let ns ← getCurrNamespace
+  let env ← getEnv
+  if env.contains (ns ++ baseName) then
+    let rec loop (idx : Nat) := do
+      let name := baseName.appendIndexAfter idx
+      if env.contains (ns ++ name) then loop (idx+1) else name
+    loop 1
+  else baseName
+
 def trNotationCmd (loc : LocalReserve) (attrs : Attributes) (nota : Notation) : M Unit := do
   let (s, attrs) := (← trAttributes attrs false AttributeKind.global |>.run ({}, #[])).2
   unless attrs.isEmpty do throw! "unsupported (impossible)"
@@ -821,7 +832,6 @@ def trNotationCmd (loc : LocalReserve) (attrs : Attributes) (nota : Notation) : 
   let prio ← s.prio.mapM fun prio => do
     `(Parser.Command.namedPrio| (priority := $(← trPrio prio)))
   let mut desc := NotationDesc.fail
-  let n4 := nota.name4
   let (e, cmd) ← match nota with
   | Notation.mixfix m (tk, prec) (some e) =>
     let p ← match prec with | some p => trPrec p.kind | none => `(prec| 0)
@@ -830,19 +840,24 @@ def trNotationCmd (loc : LocalReserve) (attrs : Attributes) (nota : Notation) : 
     let cmd ← match m with
     | MixfixKind.infix =>
       desc := NotationDesc.infix tk
-      pure fun e => `(command| $kind:attrKind infixl:$p $[$prio:namedPrio]? $s => $e)
+      pure fun n e => `(command|
+        $kind:attrKind infixl:$p $[$n:namedName]? $[$prio:namedPrio]? $s => $e)
     | MixfixKind.infixl =>
       desc := NotationDesc.infix tk
-      pure fun e => `(command| $kind:attrKind infixl:$p $[$prio:namedPrio]? $s => $e)
+      pure fun n e => `(command|
+        $kind:attrKind infixl:$p $[$n:namedName]? $[$prio:namedPrio]? $s => $e)
     | MixfixKind.infixr =>
       desc := NotationDesc.infix tk
-      pure fun e => `(command| $kind:attrKind infixr:$p $[$prio:namedPrio]? $s => $e)
+      pure fun n e => `(command|
+        $kind:attrKind infixr:$p $[$n:namedName]? $[$prio:namedPrio]? $s => $e)
     | MixfixKind.prefix =>
       desc := NotationDesc.prefix tk
-      pure fun e => `(command| $kind:attrKind prefix:$p $[$prio:namedPrio]? $s => $e)
+      pure fun n e => `(command|
+        $kind:attrKind prefix:$p $[$n:namedName]? $[$prio:namedPrio]? $s => $e)
     | MixfixKind.postfix =>
       desc := NotationDesc.postfix tk
-      pure fun e => `(command| $kind:attrKind postfix:$p $[$prio:namedPrio]? $s => $e)
+      pure fun n e => `(command|
+        $kind:attrKind postfix:$p $[$n:namedName]? $[$prio:namedPrio]? $s => $e)
     (e, cmd)
   | Notation.notation lits (some e) =>
     let p ← match lits.get? 0 with
@@ -863,11 +878,13 @@ def trNotationCmd (loc : LocalReserve) (attrs : Attributes) (nota : Notation) : 
     | ⟨_, _, AST3.Literal.var x (some ⟨_, _, Action.prec p⟩)⟩ => do
       `(Parser.Command.identPrec| $(mkIdent x.kind):ident : $(← trPrec p))
     | _ => throw! "unsupported"
-    (e, fun e => `(command| $kind:attrKind notation$[:$p]? $[$prio:namedPrio]? $[$lits]* => $e))
+    (e, fun n e => `(command|
+      $kind:attrKind notation$[:$p]? $[$n:namedName]? $[$prio:namedPrio]? $[$lits]* => $e))
   | _ => throw! "unsupported (impossible)"
-  try Elab.Command.elabCommand (← cmd (← `(sorry)))
+  let n4 ← mkUnusedName nota.name4
+  try Elab.Command.elabCommand (← cmd (some (mkIdent n4)) (← `(sorry)))
   catch e => dbg_trace "failed to add syntax {repr n4}: {← e.toMessageData.toString}"
-  push (← cmd (← trExpr e.kind))
+  push (← cmd none (← trExpr e.kind))
   registerNotationEntry ⟨n, n4, desc⟩
 where
   mkNAry (lits : Array (Spanned AST3.Literal)) : OptionM (Array Literal) := do
