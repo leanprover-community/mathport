@@ -3,27 +3,43 @@ import Lean.Elab.Command
 -- To fix upstream:
 -- * bracketedExplicitBinders doesn't support optional types
 
-syntax (name := includeCmd) "include " ident+ : command
-syntax (name := omitCmd) "omit " ident+ : command
-syntax (name := parameterCmd) "parameter " bracketedBinder+ : command
-syntax:lead (name := noMatch) "match " matchDiscr,* " with" "." : term
-syntax (name := noFun) "fun" "." : term
-syntax (name := noncomputableTheory) "noncomputable " "theory" : command
-syntax "{" term,* "}" : term
-syntax "{ " ident (" : " term)? " | " term " }" : term
-syntax "{ " ident " ∈ " term " | " term " }" : term
-syntax (priority := low) "{" term " | " bracketedBinder+ " }" : term
-notation "ℕ" => Nat
-notation "ℤ" => Int
-syntax tactic " <;> " "[" tactic,* "]" : tactic
-syntax "do " doSeq : tactic
+namespace Lean
+
+namespace Parser.Command
+
+syntax (name := include) "include " ident+ : command
+syntax (name := omit) "omit " ident+ : command
+syntax (name := parameter) "parameter " bracketedBinder+ : command
+syntax (name := noncomputableTheory) (docComment)? "noncomputable " "theory" : command
 syntax (name := Lean.Elab.Command.runCmd) "run_cmd " term : command
 
-open Lean.Elab.Command Lean.Parser Lean Elab Meta
+macro (name := binderNotation) ak:Term.attrKind "binder_notation "
+  prec:optPrecedence name:optNamedName prio:optNamedPrio s:str " => " val:ident : command =>
+  `($ak:attrKind macro
+    $[$(prec.getOptional?):precedence]?
+    $[$(name.getOptional?):namedName]?
+    $[$(prio.getOptional?):namedPrio]?
+    $s:strLit xs:explicitBinders ", " b:term : term =>
+    expandExplicitBinders ``$val:ident xs b)
 
-@[commandElab includeCmd] def elabIncludeCmd : CommandElab := fun stx => pure ()
-@[commandElab omitCmd] def elabOmitCmd : CommandElab := fun stx => pure ()
+-- Using /! as a workaround since /-! is not lexed properly
+@[commandParser] def modDocComment := leading_parser
+  ppDedent $ "/!" >> commentBody >> ppLine
 
+end Parser.Command
+
+namespace Elab.Command
+
+@[commandElab Parser.Command.include]
+def elabIncludeCmd : CommandElab := fun _ => pure ()
+
+@[commandElab Parser.Command.omit]
+def elabOmitCmd : CommandElab := fun _ => pure ()
+
+@[commandElab Parser.Command.modDocComment]
+def Elab.Command.elabModDocComment : CommandElab := fun _ => pure ()
+
+open Meta in
 unsafe def elabRunCmdUnsafe : CommandElab
   | `(run_cmd $term) =>
     let n := `_runCmd
@@ -54,11 +70,20 @@ unsafe def elabRunCmdUnsafe : CommandElab
       | Except.ok env  => do setEnv env; pure ()
   | _ => throwUnsupportedSyntax
 
+-- TODO(Mario): Why is the extra indirection needed?
 @[implementedBy elabRunCmdUnsafe] constant elabRunCmd' : CommandElab
 @[commandElab Lean.Elab.Command.runCmd] def elabRunCmd : CommandElab := elabRunCmd'
 
-namespace Lean
+end Elab.Command
+
 namespace Parser.Term
+
+syntax:lead (name := noMatch) "match " matchDiscr,* " with" "." : term
+syntax (name := noFun) "fun" "." : term
+syntax "{" term,* "}" : term
+syntax "{ " ident (" : " term)? " | " term " }" : term
+syntax "{ " ident " ∈ " term " | " term " }" : term
+syntax (priority := low) "{" term " | " bracketedBinder+ " }" : term
 
 def calcDots := leading_parser symbol "..."
 def calcLHS : Parser where
@@ -74,35 +99,41 @@ run_cmd show CoreM _ from
 
 open Lean.PrettyPrinter Lean.Elab.Term
 
-@[formatter Lean.Parser.Term.calcDots] def calcDots.formatter : Formatter :=
-Formatter.visitArgs $ Parser.symbol.formatter "..."
-@[parenthesizer Lean.Parser.Term.calcDots] def calcDots.parenthesizer : Parenthesizer :=
-Parenthesizer.visitArgs $ Parser.symbol.parenthesizer "..."
-@[combinatorFormatter Lean.Parser.Term.calcLHS] def calcLHS.formatter : Formatter := termParser.formatter
-@[combinatorParenthesizer Lean.Parser.Term.calcLHS] def calcLHS.parenthesizer : Parenthesizer := termParser.parenthesizer
+@[formatter Lean.Parser.Term.calcDots]
+def calcDots.formatter : Formatter :=
+  Formatter.visitArgs $ Parser.symbol.formatter "..."
+
+@[parenthesizer Lean.Parser.Term.calcDots]
+def calcDots.parenthesizer : Parenthesizer :=
+  Parenthesizer.visitArgs $ Parser.symbol.parenthesizer "..."
+
+@[combinatorFormatter Lean.Parser.Term.calcLHS]
+def calcLHS.formatter : Formatter := termParser.formatter
+
+@[combinatorParenthesizer Lean.Parser.Term.calcLHS]
+def calcLHS.parenthesizer : Parenthesizer := termParser.parenthesizer
 
 syntax calcFirst := ppLine term " : " term
 syntax calcRest := ppLine calcLHS " : " term
 syntax (name := «calc») "calc " calcFirst calcRest* : term
 
-end Parser.Term
+end Term
 
-namespace Parser.Command
+namespace Tactic
 
--- Using /! as a workaround since /-! is not lexed properly
-@[commandParser] def modDocComment := leading_parser ppDedent $ "/!" >> commentBody >> ppLine
+syntax tactic " <;> " "[" tactic,* "]" : tactic
+syntax "do " doSeq : tactic
 
-end Parser.Command
+end Tactic
 
-namespace Elab.Term
+notation "ℕ" => Nat
+notation "ℤ" => Int
 
-@[macro Lean.Parser.Term.calc] def expandCalc : Macro := fun stx => `(sorry)
-
-end Elab.Term
+end Parser
 
 def ExistsUnique {α : Sort u} (p : α → Prop) := ∃ x, p x ∧ ∀ y, p y → y = x
 
-macro "∃! " xs:explicitBinders ", " b:term : term => expandExplicitBinders ``ExistsUnique xs b
+binder_notation "∃! " => ExistsUnique
 
 namespace Parser.Tactic
 
