@@ -878,7 +878,7 @@ def trNotationCmd (loc : LocalReserve) (attrs : Attributes) (nota : Notation) : 
       `(Parser.Command.identPrec| $(mkIdent x.kind):ident)
     | ⟨_, _, AST3.Literal.var x (some ⟨_, _, Action.prec p⟩)⟩ => do
       `(Parser.Command.identPrec| $(mkIdent x.kind):ident : $(← trPrec p))
-    | _ => throw! "unsupported"
+    | _ => throw! "unsupported: unusual notation (binders?)"
     (e, fun n e => `(command|
       $kind:attrKind notation$[:$p]? $[$n:namedName]? $[$prio:namedPrio]? $[$lits]* => $e))
   | _ => throw! "unsupported (impossible)"
@@ -957,7 +957,10 @@ def trCommand' : Command → M Unit
   | Command.hide ops => unless ops.isEmpty do
       throw! "unsupported"
       -- pushM `(hide $[$(ops.map fun n => mkIdent n.kind)]*)
-  | Command.theory #[⟨_, _, Modifier.noncomputable⟩] => pushM `(command| noncomputable theory)
+  | Command.theory #[⟨_, _, Modifier.noncomputable⟩] =>
+    pushM `(command| noncomputable theory)
+  | Command.theory #[⟨_, _, Modifier.doc doc⟩, ⟨_, _, Modifier.noncomputable⟩] =>
+    pushM `(command| $(trDocComment doc):docComment noncomputable theory)
   | Command.theory _ => throw! "unsupported (impossible)"
   | Command.setOption n val => match n.kind, val.kind with
     | `old_structure_cmd, OptionVal.bool b =>
