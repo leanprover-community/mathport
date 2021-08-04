@@ -167,22 +167,25 @@ where
       pure {
         fieldName := fieldName,
         projFn := projName,
-        subobject? := (collectSubobjects numParams ctorType).find? fieldName
+        subobject? := getSubobject? numParams ctorType fieldName
       }
     | _ => throwError "unexpected projName with num field: {projName}"
 
-  collectSubobjects (numParams : Nat) (type : Expr) : HashMap Name Name := do
-    let mut subobjects : HashMap Name Name := {}
+  getSubobject? (numParams : Nat) (type : Expr) (fieldName : String) : Option Name := do
+    let candidateName := "_" ++ fieldName
+
     let mut type := type
     let mut i    := 0
+
     while type.isForall do
       if i > numParams then
-        let name := type.bindingName!
-        if name.isStr && name.getString!.startsWith "_to_" then
-          let parentName := type.bindingDomain!.getAppFn.constName!
-          subobjects := subobjects.insert name parentName
-      type := type.bindingDomain!
-    subobjects
+        match type.bindingName! with
+        | Name.str Name.anonymous s .. =>
+          if s == candidateName then
+            return some type.bindingDomain!.getAppFn.constName!
+        | _ => pure ()
+      type := type.bindingBody!
+    return none
 
 def applyClass (n : Name) : BinportM Unit := do
   -- (for meta classes, Lean4 won't know about the decl)
