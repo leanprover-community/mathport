@@ -4,11 +4,11 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Mario Carneiro, Daniel Selsam
 -/
 import Lean
-import Mathport.Util.Path
 import Mathport.Util.System
 import Mathport.Util.Import
 import Mathport.Util.Parse
-import Mathport.Util.RenameExt
+import Mathport.Bridge.Path
+import Mathport.Bridge.RenameExt
 import Mathport.Syntax.AST3
 import Mathport.Syntax.Data4
 import Mathport.Syntax.Parse

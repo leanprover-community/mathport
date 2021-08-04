@@ -5,6 +5,8 @@ Authors: Daniel Selsam
 -/
 import Lean
 import Mathport.Util.Misc
+import Mathport.Util.Name
+import Mathport.Util.String
 import Mathport.Util.Import
 import Mathport.Util.Json
 import Mathport.Util.Parse
@@ -58,14 +60,6 @@ def getRenameMap (env : Environment) : RenameMap := do
 def addNameAlignment (n3 n4 : Name) : CoreM Unit := do
   modifyEnv fun env => mathportRenameExtension.addEntry env (n3, n4)
 
-def lookupNameExt (n3 : Name) : CoreM (Option Name) := do
-  getRenameMap (← getEnv) |>.find? n3
-
-def lookupNameExt! (n3 : Name) : CoreM Name := do
-  match ← lookupNameExt n3 with
-  | some n4 => pure n4
-  | none    => throwError "name not found: '{n3}'"
-
 def addInitialNameAlignments (env : Environment) : IO Environment := do
   let alignments ← parseJsonFile (HashMap Name Name) INITIAL_NAME_ALIGNMENTS_PATH
   let x : StateM Environment Environment := do
@@ -73,6 +67,48 @@ def addInitialNameAlignments (env : Environment) : IO Environment := do
       modify fun env => mathportRenameExtension.addEntry env (n3, n4)
     get
   pure $ x.run' env
+
+namespace Rename
+
+variable (env : Environment)
+
+-- For both binport and synport
+def resolveIdent? (n3 : Name) : Option Name :=
+  getRenameMap env |>.find? n3
+
+-- For both binport and synport
+def resolveIdent! (n3 : Name) : Name :=
+  resolveIdent? env n3 |>.get!
+
+-- For both binport and synport
+def renameModule (n : Name) : Name :=
+  n.mapStrings String.snake2pascal
+
+-- For synport only
+-- TODO: better heuristic/binport index?
+partial def renameNamespace (ns3 : Name) : Name :=
+  match resolveIdent? env ns3 with
+  | some ns4 => ns4
+  | none =>
+    match ns3 with
+    | Name.str p s .. => renameNamespace p |>.mkStr s.snake2pascal
+    | Name.num p k .. => renameNamespace p |>.mkNum k
+    | Name.anonymous  => Name.anonymous
+
+-- For synport only
+def renameAttr (n : Name) : Name :=
+  n
+
+-- For synport only
+def renameField? (n : Name) : Option Name :=
+  match n with
+  | Name.str Name.anonymous s .. =>
+    match getFieldNameMap env |>.find? s with
+    | some (c::cs) => Name.mkSimple $ s.convertSnake c.getString!.getCapsKind
+    | _ => none
+  | _ => none
+
+end Rename
 
 namespace Translate
 

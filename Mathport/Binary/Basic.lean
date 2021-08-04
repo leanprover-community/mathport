@@ -5,7 +5,7 @@ Authors: Daniel Selsam
 -/
 import Lean
 import Mathport.Util.Misc
-import Mathport.Util.RenameExt
+import Mathport.Bridge.RenameExt
 import Mathport.Binary.Config
 
 namespace Mathport.Binary
@@ -44,10 +44,10 @@ def addPossibleFieldName (n3 n4 : Name) : BinportM Unit := do
   liftCoreM $ Mathport.addPossibleFieldName n3 n4
 
 def lookupNameExt (n3 : Name) : BinportM (Option Name) := do
-  liftCoreM $ Mathport.lookupNameExt n3
+  Rename.resolveIdent? (← getEnv) n3
 
 def lookupNameExt! (n3 : Name) : BinportM Name := do
-  liftCoreM $ Mathport.lookupNameExt! n3
+  Rename.resolveIdent! (← getEnv) n3
 
 def BinportM.toIO (x : BinportM α) (ctx : Context) (st : State) : Elab.Command.Context → Elab.Command.State → IO α :=
   ((x ctx).run' st).toIO

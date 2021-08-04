@@ -4,7 +4,7 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Daniel Selsam
 -/
 import Mathport.Util.System
-import Mathport.Util.RenameExt
+import Mathport.Bridge.RenameExt
 import Mathport.Binary.Basic
 import Mathport.Binary.Apply
 import Mathport.Binary.Config

@@ -7,6 +7,7 @@ Utilities for managing paths.
 -/
 import Mathport.Util.Json
 import Mathport.Util.Name
+import Mathport.Bridge.RenameExt
 import Std.Data.HashMap
 
 namespace Mathport
@@ -34,7 +35,7 @@ def Path.toLean3 (cfg : Path.Config) (p : Path) (suffix : String) : FilePath := 
   ⟨path.toString ++ suffix⟩
 
 def Path.mod4 (p : Path) : Name :=
-  p.mod3.mapStrings String.snake2pascal
+  Rename.renameModule p.mod3
 
 def Path.toLean4 (cfg : Path.Config) (p : Path) (suffix : String) : FilePath := do
   let path := cfg.outRoot / (FilePath.mk p.package) / p.mod4.toFilePath

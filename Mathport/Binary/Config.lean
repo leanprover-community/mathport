@@ -9,7 +9,7 @@ import Std.Data.HashSet
 import Std.Data.RBMap
 import Mathport.Util.Misc
 import Mathport.Util.Json
-import Mathport.Util.Path
+import Mathport.Bridge.Path
 
 namespace Mathport.Binary
 

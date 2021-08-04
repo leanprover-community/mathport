@@ -18,6 +18,25 @@ def snake2pascal (snake : String) : String :=
 def snake2camel (snake : String) : String :=
   snake2pascalCamel snake (lc := true)
 
+inductive CapsKind
+  | snake
+  | camel
+  | pascal
+
+def getCapsKind (snake : String) : CapsKind := do
+  let mut s := snake
+  let startPos := if s.startsWith "_" then 1 else 0
+  let stopPos  := if s.endsWith "_" then s.length - 1 else s.length
+  s := Substring.mk s startPos stopPos |>.toString
+  if s.contains '_' then CapsKind.snake
+  else if s.front == s.front.toLower then CapsKind.camel
+  else CapsKind.pascal
+
+def convertSnake (snake : String) : CapsKind → String
+  | CapsKind.snake  => snake
+  | CapsKind.camel  => snake.snake2camel
+  | CapsKind.pascal => snake.snake2pascal
+
 def cmp (x y : String) : Ordering :=
   if x < y then Ordering.lt
   else if x > y then Ordering.gt
