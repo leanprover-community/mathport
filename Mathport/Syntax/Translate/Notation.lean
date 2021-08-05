@@ -5,6 +5,7 @@ Authors: Mario Carneiro
 -/
 import Std.Data.HashMap
 import Mathport.Util.Json
+import Mathport.Util.Misc
 import Mathport.Syntax.Prelude
 
 open Std (HashMap)
@@ -12,13 +13,6 @@ open Lean
 
 namespace Mathport
 namespace Translate
-
-scoped instance : MonadQuotation Id where
-  getRef              := pure Syntax.missing
-  withRef             := fun _ => id
-  getCurrMacroScope   := pure 0
-  getMainModule       := pure `_fakeMod
-  withFreshMacroScope := id
 
 inductive NotationKind
   | fail

@@ -865,7 +865,7 @@ private def isIdentPrec : AST3.Literal → Bool
 
 private def trMixfix (kind : Syntax) (prio : Option Syntax)
   (m : AST3.MixfixKind) (tk : String) (prec : Option (Spanned AST3.Precedence)) :
-  M (NotationDesc × (Option Syntax → Syntax → M Syntax)) := do
+  M (NotationDesc × (Option Syntax → Syntax → Id Syntax)) := do
   let p ← match prec with | some p => trPrec p.kind | none => `(prec| 0)
   let s := Syntax.mkStrLit tk
   match m with
@@ -886,7 +886,7 @@ private def trMixfix (kind : Syntax) (prio : Option Syntax)
       $kind:attrKind postfix:$p $[$n:namedName]? $[$prio:namedPrio]? $s => $e))
 
 private def trNotation4 (kind : Syntax) (prio p : Option Syntax)
-  (lits : Array (Spanned AST3.Literal)) : M (Option Syntax → Syntax → M Syntax) := do
+  (lits : Array (Spanned AST3.Literal)) : M (Option Syntax → Syntax → Id Syntax) := do
   let lits ← lits.mapM fun
   | ⟨_, _, AST3.Literal.sym tk⟩ => Syntax.mkStrLit tk.1.kind.toString
   | ⟨_, _, AST3.Literal.var x none⟩ =>
@@ -922,7 +922,7 @@ where
         mkIdent p, mkAtom "=>", ← trExpr e, mkAtom ")"]]]
 
 private def trNotation3 (kind : Syntax) (prio p : Option Syntax)
-  (lits : Array (Spanned AST3.Literal)) : M (Option Syntax → Syntax → M Syntax) := do
+  (lits : Array (Spanned AST3.Literal)) : M (Option Syntax → Syntax → Id Syntax) := do
   let lits ← lits.mapM fun lit => trNotation3Item lit.kind
   pure fun n e => `(command|
     $kind:attrKind notation3$[:$p]? $[$n:namedName]? $[$prio:namedPrio]? $[$lits]* => $e)
@@ -959,12 +959,14 @@ def trNotationCmd (loc : LocalReserve) (attrs : Attributes) (nota : Notation) : 
     | false => trNotation3 kind prio p lits
     (e, desc, cmd)
   | _ => throw! "unsupported (impossible)"
-  let n4 ← mkUnusedName nota.name4
-  let nn ← `(Parser.Command.namedName| (name := $(mkIdent n4)))
-  try elabCommand (← cmd (some nn) (← `(sorry)))
-  catch e => dbg_trace "failed to add syntax {repr n4}: {← e.toMessageData.toString}"
-  pushM $ cmd none $ ← trExpr e.kind
-  registerNotationEntry ⟨n, (← getCurrNamespace) ++ n4, desc⟩
+  let n4 ← Elab.Command.withWeakNamespace (← getEnv).mainModule $ do
+    let n4 ← mkUnusedName nota.name4
+    let nn ← `(Parser.Command.namedName| (name := $(mkIdent n4)))
+    try elabCommand $ cmd (some nn) (← `(sorry))
+    catch e => dbg_trace "failed to add syntax {repr n4}: {← e.toMessageData.toString}"
+    pure $ (← getCurrNamespace) ++ n4
+  push $ cmd none $ ← trExpr e.kind
+  registerNotationEntry ⟨n, n4, desc⟩
 
 end
 

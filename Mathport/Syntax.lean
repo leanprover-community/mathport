@@ -36,9 +36,11 @@ def genLeanFor (pcfg : Path.Config) (path : Path) : IO Unit := do
   let opts := ({} : Options)
 
   withImportModulesConst binportImports (opts := opts) (trustLevel := 0) $ λ binportEnv => do
+    let binportEnv := binportEnv.setMainModule path.mod4
+    let binportEnv ← addInitialNameAlignments binportEnv
+
     withImportModulesConst synportImports.toList (opts := opts) (trustLevel := 0) $ λ synportEnv => do
-      let binportEnv := binportEnv.setMainModule path.mod4
-      let binportEnv ← addInitialNameAlignments binportEnv
+      let synportEnv := synportEnv.setMainModule path.mod4
 
       -- TODO: expose IO interface elsewhere. More of synport will end up being in CoreM-extending monads.
       let fileName := path.toLean4 pcfg "Syn.lean"

@@ -78,6 +78,14 @@ def Option.mapM {α : Type u} {β : Type v} {m : Type v → Type w} [Monad m] (f
 def Lean.Syntax.mkCharLit (val : Char) (info := SourceInfo.none) : Syntax :=
   mkLit charLitKind (Char.quote val) info
 
+open Lean in
+instance : MonadQuotation Id where
+  getRef              := pure Syntax.missing
+  withRef             := fun _ => id
+  getCurrMacroScope   := pure 0
+  getMainModule       := pure `_fakeMod
+  withFreshMacroScope := id
+
 open Lean Elab in
 elab:max "throw!" interpStr:interpolatedStr(term) : term <= ty => do
   let pos ← Elab.getRefPosition
@@ -107,5 +115,13 @@ def CommandElabM.toIO (x : CommandElabM α) (ctx : Context) (s : State) : IO α 
 
 def CommandElabM.toIO' (x : CommandElabM α) (ctx : Context) (env : Environment) : IO α := do
   toIO x ctx (mkState env)
+
+/-- Changes the current namespace without causing scoped things to go out of scope -/
+def withWeakNamespace (ns : Name) (m : CommandElabM α) : CommandElabM α := do
+  let old ← getCurrNamespace
+  modifyScope fun s => { s with currNamespace := old ++ ns }
+  let a ← m
+  modifyScope fun s => { s with currNamespace := old }
+  a
 
 end Lean.Elab.Command
