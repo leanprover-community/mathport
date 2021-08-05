@@ -553,6 +553,18 @@ def trSpecialize : TacM Syntax := do
 
 def trCongr : TacM Syntax := do `(tactic| congr)
 
+def trRSimp : TacM Syntax := do `(tactic| rsimp)
+
+def trCompVal : TacM Syntax := do `(tactic| compVal)
+
+def trAsync : TacM Syntax := do `(tactic| async $(← trBlock (← itactic)):tacticSeq)
+
+def trConv : TacM Syntax := throw! "unsupported: conv"
+
+def trMinTac : TacM Syntax := do
+  -- wrong, but better than breakage
+  `(tactic| exact minTac $(← trExpr (← parse pExpr)) $(← trExpr (← parse pExpr)))
+
 mutual
 
 partial def trRCasesPat : RCasesPat → M Syntax
@@ -711,6 +723,11 @@ def builtinTactics : List (Name × TacM Syntax) := [
   (`show,                trShow),
   (`specialize,          trSpecialize),
   (`congr,               trCongr),
+  (`rsimp,               trRSimp),
+  (`async,               trAsync),
+  (`comp_val,            trCompVal),
+  (`conv,                trConv),
+  (`min_tac,             trMinTac),
   (`rcases,              trRCases),
   (`rintro,              trRIntro),
   (`rintros,             trRIntro),

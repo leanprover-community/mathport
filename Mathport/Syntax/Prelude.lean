@@ -207,6 +207,10 @@ syntax (name := byContra) "byContra " (colGt ident)? : tactic
 syntax (name := typeCheck) "typeCheck " term : tactic
 syntax (name := specialize) "specialize " ident (colGt term:arg)+ : tactic
 syntax (name := congr) "congr " (colGt num)? : tactic
+syntax (name := rsimp) "rsimp" : tactic
+syntax (name := compVal) "compVal" : tactic
+syntax (name := async) "async " tacticSeq : tactic
+
 declare_syntax_cat rcasesPat
 syntax rcasesPatMed := rcasesPat (" | " rcasesPat)*
 syntax rcasesPatLo := rcasesPatMed (" : " term)?
@@ -218,6 +222,7 @@ syntax (name := rcasesPat.paren) "(" rcasesPatLo ")" : rcasesPat
 syntax (name := rcasesHint) "rcases?" Parser.Tactic.casesTarget,* (" : " num)? : tactic
 syntax (name := rcases) "rcases" Parser.Tactic.casesTarget,* (" with " rcasesPat)? : tactic
 syntax (name := obtain) "obtain" (ppSpace rcasesPat)? (" : " term)? (" := " term,+)? : tactic
+
 declare_syntax_cat rintroPat
 syntax (name := rintroPat.one) rcasesPat : rintroPat
 syntax (name := rintroPat.binder) "(" (rintroPat+ <|> rcasesPatMed) (" : " term)? ")" : rintroPat
