@@ -30,8 +30,8 @@ def genLeanFor (pcfg : Path.Config) (path : Path) : IO Unit := do
   let binportImports : List Import := [{ module := path.package ++ path.mod4 : Import }]
 
   let mut synportImports : Array Import := #[{ module := `Mathport.Syntax.Prelude }]
-  for ipath in ← (← parseTLeanImports (path.toLean3 pcfg ".tlean")).mapM (resolveMod3 pcfg) do
-    synportImports := synportImports.push { module := ipath.package ++ (ipath.mod4.appendAfter "Aux") : Import }
+  for mod3 in ← parseTLeanImports (path.toLean3 pcfg ".tlean") do
+    synportImports := synportImports.push { module := (← Rename.renameModule pcfg mod3).appendAfter "Aux" : Import }
 
   let opts := ({} : Options)
 
@@ -47,7 +47,7 @@ def genLeanFor (pcfg : Path.Config) (path : Path) : IO Unit := do
       let ast3 ← parseAST3 $ path.toLean3 pcfg ".ast.json"
 
       let (⟨fmt, _⟩, env) ← Elab.Command.CommandElabM.toIO' (ctx := cmdCtx) (env := synportEnv) do
-        (← Mathport.AST3toData4 binportEnv ast3, ← getEnv)
+        (← Mathport.AST3toData4 ast3 pcfg binportEnv, ← getEnv)
 
       writeModule env $ path.toLean4 pcfg "Aux.olean"
       IO.FS.writeFile fileName (toString fmt)
@@ -103,6 +103,7 @@ end Syntax
 -- -- set_option trace.PrettyPrinter.parenthesize true in
 -- -- set_option trace.PrettyPrinter.format true in
 -- #eval show CoreM Unit from do
+--   let pcfg : Path.Config := { outRoot := "", packages := {} }
 --   let s ← IO.FS.readFile "/home/mario/Documents/lean/mathport/PreData/lean3/init/logic.ast.json"
 --   -- let s ← IO.FS.readFile "/home/mario/Documents/lean/mathport/PreData/mathlib3/ring_theory/nullstellensatz.ast.json"
 --   let json ← Json.parse s
@@ -123,7 +124,7 @@ end Syntax
 --     -- println! (repr (← Parse.getCommand c |>.run ast expr).kind).group ++ "\n"
 --     let res ← Parse.getCommand c |>.run ast expr
 --     Elab.Command.CommandElabM.toIO (ctx := cmdCtx) (s := s) do
---       let ⟨fmt, _⟩ ← Mathport.AST3toData4 env ⟨none, #[], #[res], inot, icmd⟩
+--       let ⟨fmt, _⟩ ← Mathport.AST3toData4 ⟨none, #[], #[res], inot, icmd⟩ pcfg env
 --       println! "{fmt}"
 --       printTraces
 

@@ -3,7 +3,7 @@ Copyright (c) 2021 Microsoft Corporation. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Mario Carneiro, Daniel Selsam
 -/
-import Mathport.Bridge.RenameExt
+import Mathport.Bridge.Path
 import Mathport.Syntax.Data4
 import Mathport.Syntax.Translate.Notation
 import Mathport.Syntax.Translate.Attributes
@@ -62,6 +62,7 @@ def registerNotationEntry (d : NotationData) : CommandElabM Unit := do
   modifyEnv fun env => synportNotationExtension.addEntry env d
 
 structure Context where
+  pcfg : Path.Config
   binportEnv : Environment
   notations : Array Notation
   commands : Array Command
@@ -78,7 +79,7 @@ def getBinportEnv : M Environment := do (← read).binportEnv
 def renameIdent (n : Name) : M Name := do Rename.resolveIdent! (← getBinportEnv) n
 def renameNamespace (n : Name) : M Name := do Rename.renameNamespace (← getBinportEnv) n
 def renameAttr (n : Name) : M Name := do Rename.renameAttr n
-def renameModule (n : Name) : M Name := do Rename.renameModule n
+def renameModule (n : Name) : M Name := do Rename.renameModule (← read).pcfg n
 def renameField (n : Name) : M Name := do Rename.renameField? (← getBinportEnv) n |>.getD n
 
 def mkIdentI (n : Name) : M Syntax := do mkIdent (← renameIdent n)

@@ -35,7 +35,7 @@ def Path.toLean3 (cfg : Path.Config) (p : Path) (suffix : String) : FilePath := 
   ⟨path.toString ++ suffix⟩
 
 def Path.mod4 (p : Path) : Name :=
-  Rename.renameModule p.mod3
+  p.mod3.mapStrings String.snake2pascal
 
 def Path.toLean4 (cfg : Path.Config) (p : Path) (suffix : String) : FilePath := do
   let path := cfg.outRoot / (FilePath.mk p.package) / p.mod4.toFilePath
@@ -48,5 +48,10 @@ def resolveMod3 (cfg : Path.Config) (mod3 : Name) : IO Path := do
     let path := Path.mk package (mod3 ++ `default)
     if ← (path.toLean3 cfg ".tlean").pathExists then return path
   throw $ IO.userError s!"[resolveMod3] failed to resolve '{mod3}'"
+
+-- For both binport and synport
+def Rename.renameModule (pcfg : Path.Config) (mod3 : Name) : IO Name := do
+  let ipath : Path ← resolveMod3 pcfg mod3
+  pure $ ipath.package ++ ipath.mod4
 
 end Mathport

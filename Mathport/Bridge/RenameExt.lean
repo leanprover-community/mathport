@@ -80,10 +80,6 @@ def resolveIdent? (n3 : Name) : Option Name :=
 def resolveIdent! (n3 : Name) : Name :=
   resolveIdent? env n3 |>.getD n3
 
--- For both binport and synport
-def renameModule (n : Name) : Name :=
-  n.mapStrings String.snake2pascal
-
 -- For synport only
 -- TODO: better heuristic/binport index?
 partial def renameNamespace (ns3 : Name) : Name :=
