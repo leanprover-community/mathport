@@ -227,7 +227,7 @@ mutual
       | stx => `(tactic| do $stx:term)
     | Tactic.interactive n args, TacticContext.one => do
       match (← get).tactics.find? n with
-      | some f => f args
+      | some f => try f args catch e => throw! "in {n}: {← e.toMessageData.toString}"
       | none => throw! "unsupported tactic {repr n}"
 
   partial def trTacticOrList : Tactic → M (Sum Syntax (Array Syntax))
@@ -369,8 +369,11 @@ def trNotation (n : Choice) (args : Array (Spanned Arg)) : M Syntax := do
   | some ⟨_, _, NotationKind.unary f, _⟩, _ => throw! "unsupported (impossible)"
   | some ⟨_, _, NotationKind.binary f, _⟩, #[Arg.expr e₁, Arg.expr e₂] => f (← trExpr e₁) (← trExpr e₂)
   | some ⟨_, _, NotationKind.binary f, _⟩, _ => throw! "unsupported (impossible)"
-  | some ⟨_, _, NotationKind.nary f, _⟩, args =>
-    f <$> args.mapM fun | Arg.expr e => trExpr e | _ => throw! "unsupported (impossible)"
+  | some ⟨_, _, NotationKind.nary f, _⟩, args => f <$> args.mapM fun
+    | Arg.expr e => trExpr e
+    | Arg.binder bi => trExplicitBinders #[Spanned.dummy bi]
+    | Arg.binders bis => trExplicitBinders bis
+    | _ => throw! "unsupported (impossible)"
   | some ⟨_, _, NotationKind.exprs f, _⟩, #[Arg.exprs es] => f $ ← es.mapM fun e => trExpr e.kind
   | some ⟨_, _, NotationKind.exprs f, _⟩, _ => throw! "unsupported (impossible)"
   | some ⟨_, _, NotationKind.binder f, _⟩, #[Arg.binder bi, Arg.expr e] => do
@@ -818,6 +821,90 @@ partial def mkUnusedName [Monad m] [MonadResolveName m] [MonadEnv m]
     loop 1
   else baseName
 
+section
+
+private def mkNAry (lits : Array (Spanned AST3.Literal)) : OptionM (Array Literal) := do
+  let mut i := 0
+  let mut out := #[]
+  for lit in lits do
+    match lit with
+    | ⟨_, _, AST3.Literal.sym tk⟩ => out := out.push (Literal.tk tk.1.kind.toString)
+    | ⟨_, _, AST3.Literal.var _ _⟩ => out := out.push (Literal.arg i); i := i + 1
+    | ⟨_, _, AST3.Literal.binder _⟩ => out := out.push (Literal.arg i); i := i + 1
+    | ⟨_, _, AST3.Literal.binders _⟩ => out := out.push (Literal.arg i); i := i + 1
+    | _ => none
+  out
+
+private def isIdentPrec : AST3.Literal → Bool
+  | AST3.Literal.sym _ => true
+  | AST3.Literal.var _ none => true
+  | AST3.Literal.var _ (some ⟨_, _, Action.prec _⟩) => true
+  | _ => false
+
+private def trMixfix (kind : Syntax) (prio : Option Syntax)
+  (m : AST3.MixfixKind) (tk : String) (prec : Option (Spanned AST3.Precedence)) :
+  M (NotationDesc × (Option Syntax → Syntax → M Syntax)) := do
+  let p ← match prec with | some p => trPrec p.kind | none => `(prec| 0)
+  let s := Syntax.mkStrLit tk
+  match m with
+  | MixfixKind.infix =>
+    (NotationDesc.infix tk, fun n e => `(command|
+      $kind:attrKind infixl:$p $[$n:namedName]? $[$prio:namedPrio]? $s => $e))
+  | MixfixKind.infixl =>
+    (NotationDesc.infix tk, fun n e => `(command|
+      $kind:attrKind infixl:$p $[$n:namedName]? $[$prio:namedPrio]? $s => $e))
+  | MixfixKind.infixr =>
+    (NotationDesc.infix tk, fun n e => `(command|
+      $kind:attrKind infixr:$p $[$n:namedName]? $[$prio:namedPrio]? $s => $e))
+  | MixfixKind.prefix =>
+    (NotationDesc.prefix tk, fun n e => `(command|
+      $kind:attrKind prefix:$p $[$n:namedName]? $[$prio:namedPrio]? $s => $e))
+  | MixfixKind.postfix =>
+    (NotationDesc.postfix tk, fun n e => `(command|
+      $kind:attrKind postfix:$p $[$n:namedName]? $[$prio:namedPrio]? $s => $e))
+
+private def trNotation4 (kind : Syntax) (prio p : Option Syntax)
+  (lits : Array (Spanned AST3.Literal)) : M (Option Syntax → Syntax → M Syntax) := do
+  let lits ← lits.mapM fun
+  | ⟨_, _, AST3.Literal.sym tk⟩ => Syntax.mkStrLit tk.1.kind.toString
+  | ⟨_, _, AST3.Literal.var x none⟩ =>
+    `(Parser.Command.identPrec| $(mkIdent x.kind):ident)
+  | ⟨_, _, AST3.Literal.var x (some ⟨_, _, Action.prec p⟩)⟩ => do
+    `(Parser.Command.identPrec| $(mkIdent x.kind):ident : $(← trPrec p))
+  | _ => throw! "unsupported (impossible)"
+  pure fun n e => `(command|
+    $kind:attrKind notation$[:$p]? $[$n:namedName]? $[$prio:namedPrio]? $[$lits]* => $e)
+
+private def trNotation3Item (lit : AST3.Literal) : M Syntax := do
+  let stxs ← match lit with
+  | AST3.Literal.sym tk => sym tk
+  | AST3.Literal.binder _ => binders
+  | AST3.Literal.binders _ => binders
+  | AST3.Literal.var x none => var x
+  | AST3.Literal.var x (some ⟨_, _, Action.prec _⟩) => var x
+  | AST3.Literal.var x (some ⟨_, _, Action.prev⟩) => var x
+  | AST3.Literal.var x (some ⟨_, _, Action.scoped _ sc⟩) => scope x sc
+  | _ => throw! "unsupported"
+  mkNode ``Parser.Command.notation3Item stxs
+where
+  sym tk := #[Syntax.mkStrLit tk.1.kind.toString]
+  var x := #[mkIdent x.kind, mkNullNode]
+  binders := #[mkNode ``Parser.Command.bindersItem #[mkAtom "(", mkAtom "...", mkAtom ")"]]
+  scope x sc := do
+    let (p, e) := match sc with
+    | none => (`x, Expr.ident `x)
+    | some (p, e) => (p.kind, e.kind)
+    #[mkIdent x.kind, mkNullNode #[
+      mkNode ``Parser.Command.identScope #[
+        mkAtom ":", mkAtom "(", mkAtom "scoped",
+        mkIdent p, mkAtom "=>", ← trExpr e, mkAtom ")"]]]
+
+private def trNotation3 (kind : Syntax) (prio p : Option Syntax)
+  (lits : Array (Spanned AST3.Literal)) : M (Option Syntax → Syntax → M Syntax) := do
+  let lits ← lits.mapM fun lit => trNotation3Item lit.kind
+  pure fun n e => `(command|
+    $kind:attrKind notation3$[:$p]? $[$n:namedName]? $[$prio:namedPrio]? $[$lits]* => $e)
+
 def trNotationCmd (loc : LocalReserve) (attrs : Attributes) (nota : Notation) : M Unit := do
   let (s, attrs) := (← trAttributes attrs false AttributeKind.global |>.run ({}, #[])).2
   unless attrs.isEmpty do throw! "unsupported (impossible)"
@@ -830,34 +917,9 @@ def trNotationCmd (loc : LocalReserve) (attrs : Attributes) (nota : Notation) : 
   if skip && !loc.1 then return
   let prio ← s.prio.mapM fun prio => do
     `(Parser.Command.namedPrio| (priority := $(← trPrio prio)))
-  let mut desc := NotationDesc.fail
-  let (e, cmd) ← match nota with
+  let (e, desc, cmd) ← match nota with
   | Notation.mixfix m (tk, prec) (some e) =>
-    let p ← match prec with | some p => trPrec p.kind | none => `(prec| 0)
-    let tk := tk.kind.toString
-    let s := Syntax.mkStrLit tk
-    let cmd ← match m with
-    | MixfixKind.infix =>
-      desc := NotationDesc.infix tk
-      pure fun n e => `(command|
-        $kind:attrKind infixl:$p $[$n:namedName]? $[$prio:namedPrio]? $s => $e)
-    | MixfixKind.infixl =>
-      desc := NotationDesc.infix tk
-      pure fun n e => `(command|
-        $kind:attrKind infixl:$p $[$n:namedName]? $[$prio:namedPrio]? $s => $e)
-    | MixfixKind.infixr =>
-      desc := NotationDesc.infix tk
-      pure fun n e => `(command|
-        $kind:attrKind infixr:$p $[$n:namedName]? $[$prio:namedPrio]? $s => $e)
-    | MixfixKind.prefix =>
-      desc := NotationDesc.prefix tk
-      pure fun n e => `(command|
-        $kind:attrKind prefix:$p $[$n:namedName]? $[$prio:namedPrio]? $s => $e)
-    | MixfixKind.postfix =>
-      desc := NotationDesc.postfix tk
-      pure fun n e => `(command|
-        $kind:attrKind postfix:$p $[$n:namedName]? $[$prio:namedPrio]? $s => $e)
-    (e, cmd)
+    (e, ← trMixfix kind prio m tk.kind.toString prec)
   | Notation.notation lits (some e) =>
     let p ← match lits.get? 0 with
     | some ⟨_, _, AST3.Literal.sym tk⟩ => tk.2.mapM fun p => trPrec p.kind
@@ -865,36 +927,23 @@ def trNotationCmd (loc : LocalReserve) (attrs : Attributes) (nota : Notation) : 
       | some ⟨_, _, AST3.Literal.sym tk⟩ => tk.2.mapM fun p => trPrec p.kind
       | _ => none
     | _ => none
-    desc := match lits with
+    let desc := match lits with
     | #[⟨_, _, AST3.Literal.sym tk⟩] => NotationDesc.const tk.1.kind.toString
     | _ => match mkNAry lits with
       | some lits => NotationDesc.nary lits
       | none => NotationDesc.fail
-    let lits ← lits.mapM fun
-    | ⟨_, _, AST3.Literal.sym tk⟩ => Syntax.mkStrLit tk.1.kind.toString
-    | ⟨_, _, AST3.Literal.var x none⟩ =>
-      `(Parser.Command.identPrec| $(mkIdent x.kind):ident)
-    | ⟨_, _, AST3.Literal.var x (some ⟨_, _, Action.prec p⟩)⟩ => do
-      `(Parser.Command.identPrec| $(mkIdent x.kind):ident : $(← trPrec p))
-    | _ => throw! "unsupported: unusual notation (binders?)"
-    (e, fun n e => `(command|
-      $kind:attrKind notation$[:$p]? $[$n:namedName]? $[$prio:namedPrio]? $[$lits]* => $e))
+    let cmd ← match lits.all fun lit => isIdentPrec lit.kind with
+    | true => trNotation4 kind prio p lits
+    | false => trNotation3 kind prio p lits
+    (e, desc, cmd)
   | _ => throw! "unsupported (impossible)"
   let n4 ← mkUnusedName nota.name4
   try Elab.Command.elabCommand (← cmd (some (mkIdent n4)) (← `(sorry)))
   catch e => dbg_trace "failed to add syntax {repr n4}: {← e.toMessageData.toString}"
-  push (← cmd none (← trExpr e.kind))
+  pushM $ cmd none $ ← trExpr e.kind
   registerNotationEntry ⟨n, n4, desc⟩
-where
-  mkNAry (lits : Array (Spanned AST3.Literal)) : OptionM (Array Literal) := do
-    let mut i := 0
-    let mut out := #[]
-    for lit in lits do
-      match lit with
-      | ⟨_, _, AST3.Literal.sym tk⟩ => out := out.push (Literal.sym tk.1.kind.toString)
-      | ⟨_, _, AST3.Literal.var _ _⟩ => out := out.push (Literal.var i); i := i + 1
-      | _ => none
-    out
+
+end
 
 def trInductiveCmd : InductiveCmd → M Unit
   | InductiveCmd.reg cl mods n us bis ty nota intros =>

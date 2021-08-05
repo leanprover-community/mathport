@@ -1,9 +1,23 @@
 import Lean.Elab.Command
+import Lean.Elab.Quotation
 
 -- To fix upstream:
 -- * bracketedExplicitBinders doesn't support optional types
 
 namespace Lean
+
+namespace Parser.Term
+
+syntax (name := cmdQuot) "`(command|" incQuotDepth(command) ")" : term
+
+end Parser.Term
+
+namespace Elab.Term
+
+open Lean Elab Term Quotation in
+@[termElab cmdQuot] def elabCmdQuot : TermElab := adaptExpander stxQuot.expand
+
+end Elab.Term
 
 namespace Parser.Command
 
@@ -11,16 +25,28 @@ syntax (name := include) "include " ident+ : command
 syntax (name := omit) "omit " ident+ : command
 syntax (name := parameter) "parameter " bracketedBinder+ : command
 syntax (name := noncomputableTheory) (docComment)? "noncomputable " "theory" : command
-syntax (name := Lean.Elab.Command.runCmd) "run_cmd " term : command
+syntax (name := runCmd) "run_cmd " term : command
 
-macro (name := binderNotation) ak:Term.attrKind "binder_notation "
-  prec:optPrecedence name:optNamedName prio:optNamedPrio s:str " => " val:ident : command =>
-  `($ak:attrKind macro
+syntax bindersItem := "(" "..." ")"
+
+syntax identScope := ":" "(" "scoped " ident " => " term ")"
+
+syntax notation3Item := strLit <|> bindersItem <|> (ident (identScope)?)
+
+macro ak:Term.attrKind "notation3 "
+  prec:optPrecedence name:optNamedName prio:optNamedPrio
+  lits:(notation3Item+) " => " val:term : command => do
+  let args ← lits.getArgs.mapM fun lit =>
+    let k := lit[0].getKind
+    if k == strLitKind then `(macroArg| $(lit[0]):strLit)
+    else if k == ``bindersItem then withFreshMacroScope `(macroArg| bi:explicitBinders)
+    else withFreshMacroScope `(macroArg| $(lit[0]):ident:term)
+  `(command| $ak:attrKind macro
     $[$(prec.getOptional?):precedence]?
     $[$(name.getOptional?):namedName]?
     $[$(prio.getOptional?):namedPrio]?
-    $s:strLit xs:explicitBinders ", " b:term : term =>
-    expandExplicitBinders ``$val:ident xs b)
+    $(args[0]):macroArg $[$(args[1:].toArray):macroArg]* : term =>
+    `(sorry))
 
 -- Using /! as a workaround since /-! is not lexed properly
 @[commandParser] def modDocComment := leading_parser
@@ -72,7 +98,7 @@ unsafe def elabRunCmdUnsafe : CommandElab
 
 -- TODO(Mario): Why is the extra indirection needed?
 @[implementedBy elabRunCmdUnsafe] constant elabRunCmd' : CommandElab
-@[commandElab Lean.Elab.Command.runCmd] def elabRunCmd : CommandElab := elabRunCmd'
+@[commandElab runCmd] def elabRunCmd : CommandElab := elabRunCmd'
 
 end Elab.Command
 
@@ -133,7 +159,7 @@ end Parser
 
 def ExistsUnique {α : Sort u} (p : α → Prop) := ∃ x, p x ∧ ∀ y, p y → y = x
 
-binder_notation "∃! " => ExistsUnique
+notation3 "∃! " (...) ", " x:(scoped f => ExistsUnique f) => x
 
 namespace Parser.Tactic
 

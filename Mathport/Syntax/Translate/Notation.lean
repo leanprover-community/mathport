@@ -31,8 +31,8 @@ inductive NotationKind
   deriving Inhabited
 
 inductive Literal
-  | var : Nat → Literal
-  | sym : String → Literal
+  | tk : String → Literal
+  | arg : Nat → Literal
   deriving FromJson, ToJson
 
 inductive NotationDesc
@@ -72,8 +72,8 @@ def NotationDesc.toKind (n4 : Name) : NotationDesc → NotationKind :=
 --   | NotationDesc.prefix tk => NotationKind.unary fun a => mkNode n4 #[mkAtom tk, a]
 --   | NotationDesc.postfix tk => NotationKind.unary fun a => mkNode n4 #[a, mkAtom tk]
 --   | NotationDesc.nary lits => NotationKind.nary fun as => mkNode n4 $ lits.map fun
---     | Literal.var i => as.getD i Syntax.missing
---     | Literal.sym tk => mkAtom tk
+--     | Literal.arg i => as.getD i Syntax.missing
+--     | Literal.tk tk => mkAtom tk
 
 open NotationKind in set_option hygiene false in
 def predefinedNotations : HashMap String NotationEntry := [
