@@ -52,28 +52,28 @@ structure NotationEntry where
   skipDecl := false
   deriving Inhabited
 
--- fake version
-def NotationDesc.toKind (n4 : Name) : NotationDesc → NotationKind :=
-  let fakeNode as := mkNode ``Parser.Term.app #[mkIdent n4, mkNullNode as]
-  fun
-  | NotationDesc.builtin => NotationKind.fail
-  | NotationDesc.fail => NotationKind.fail
-  | NotationDesc.const _ => NotationKind.const $ fakeNode #[]
-  | NotationDesc.infix _ => NotationKind.binary fun a b => fakeNode #[a, b]
-  | NotationDesc.prefix _ => NotationKind.unary fun a => fakeNode #[a]
-  | NotationDesc.postfix _ => NotationKind.unary fun a => fakeNode #[a]
-  | NotationDesc.nary _ => NotationKind.nary @fakeNode
-
--- def NotationDesc.toKind (n4 : Name) : NotationDesc → NotationKind
+-- -- fake version
+-- def NotationDesc.toKind (n4 : Name) : NotationDesc → NotationKind :=
+--   let fakeNode as := mkNode ``Parser.Term.app #[mkIdent n4, mkNullNode as]
+--   fun
 --   | NotationDesc.builtin => NotationKind.fail
 --   | NotationDesc.fail => NotationKind.fail
---   | NotationDesc.const tk => NotationKind.const $ mkNode n4 #[mkAtom tk]
---   | NotationDesc.infix tk => NotationKind.binary fun a b => mkNode n4 #[a, mkAtom tk, b]
---   | NotationDesc.prefix tk => NotationKind.unary fun a => mkNode n4 #[mkAtom tk, a]
---   | NotationDesc.postfix tk => NotationKind.unary fun a => mkNode n4 #[a, mkAtom tk]
---   | NotationDesc.nary lits => NotationKind.nary fun as => mkNode n4 $ lits.map fun
---     | Literal.arg i => as.getD i Syntax.missing
---     | Literal.tk tk => mkAtom tk
+--   | NotationDesc.const _ => NotationKind.const $ fakeNode #[]
+--   | NotationDesc.infix _ => NotationKind.binary fun a b => fakeNode #[a, b]
+--   | NotationDesc.prefix _ => NotationKind.unary fun a => fakeNode #[a]
+--   | NotationDesc.postfix _ => NotationKind.unary fun a => fakeNode #[a]
+--   | NotationDesc.nary _ => NotationKind.nary @fakeNode
+
+def NotationDesc.toKind (n4 : Name) : NotationDesc → NotationKind
+  | NotationDesc.builtin => NotationKind.fail
+  | NotationDesc.fail => NotationKind.fail
+  | NotationDesc.const tk => NotationKind.const $ mkNode n4 #[mkAtom tk]
+  | NotationDesc.infix tk => NotationKind.binary fun a b => mkNode n4 #[a, mkAtom tk, b]
+  | NotationDesc.prefix tk => NotationKind.unary fun a => mkNode n4 #[mkAtom tk, a]
+  | NotationDesc.postfix tk => NotationKind.unary fun a => mkNode n4 #[a, mkAtom tk]
+  | NotationDesc.nary lits => NotationKind.nary fun as => mkNode n4 $ lits.map fun
+    | Literal.arg i => as.getD i Syntax.missing
+    | Literal.tk tk => mkAtom tk
 
 open NotationKind in set_option hygiene false in
 def predefinedNotations : HashMap String NotationEntry := [
