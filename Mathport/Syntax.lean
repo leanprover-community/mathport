@@ -100,11 +100,9 @@ end Syntax
 -- open Lean Lean.Elab Lean.Elab.Term Lean.Elab.Tactic
 -- open Lean.Parser Lean.PrettyPrinter
 
--- -- set_option trace.PrettyPrinter.parenthesize true in
--- -- set_option trace.PrettyPrinter.format true in
 -- #eval show CoreM Unit from do
 --   let pcfg : Path.Config := { outRoot := "", packages := {} }
---   let s ← IO.FS.readFile "/home/mario/Documents/lean/mathport/PreData/lean3/init/logic.ast.json"
+--   let s ← IO.FS.readFile "/home/mario/Documents/lean/mathport/PreData/lean3/init/core.ast.json"
 --   -- let s ← IO.FS.readFile "/home/mario/Documents/lean/mathport/PreData/mathlib3/ring_theory/nullstellensatz.ast.json"
 --   let json ← Json.parse s
 --   let raw@⟨ast, file, level, expr⟩ ← fromJson? json (α := Parse.RawAST3)
@@ -115,10 +113,11 @@ end Syntax
 --   let cmdCtx := { fileName := "<input>", fileMap := dummyFileMap }
 --   let env ← getEnv
 --   let mut opts : Options := {}
---   -- opts := opts.setBool `trace.PrettyPrinter.parenthesize true
+--   opts := opts.setBool `trace.PrettyPrinter.parenthesize true
+--   -- opts := opts.setBool `trace.PrettyPrinter.format true
 --   let s := Elab.Command.mkState (← getEnv) {} opts
---   let mut i := 242
---   for c in commands[i:] do
+--   let mut i := 1
+--   for c in commands[i:i+1] do
 --     println! "cmd[{i}]"; i := i + 1
 --     -- println! (repr (← Parse.getNode c |>.run ast expr)).group ++ "\n"
 --     -- println! (repr (← Parse.getCommand c |>.run ast expr).kind).group ++ "\n"

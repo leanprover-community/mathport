@@ -35,7 +35,7 @@ syntax notation3Item := strLit <|> bindersItem <|> (ident (identScope)?)
 
 macro ak:Term.attrKind "notation3 "
   prec:optPrecedence name:optNamedName prio:optNamedPrio
-  lits:(notation3Item+) " => " val:term : command => do
+  lits:((ppSpace notation3Item)+) " => " val:term : command => do
   let args ← lits.getArgs.mapM fun lit =>
     let k := lit[0].getKind
     if k == strLitKind then `(macroArg| $(lit[0]):strLit)
