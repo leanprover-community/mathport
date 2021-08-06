@@ -759,10 +759,12 @@ private partial def getChunk (acc : String) (i : String.Pos) : Bool × String.Po
 
 private partial def parseChunks [Repr α] (acc : String) (i : String.Pos)
   (out : Array (Sum String α)) : ParserM (Array (Sum String α)) := do
-  let (next, i, chunk) := getChunk input acc i
+  let (next, i, acc) := getChunk input acc i
   if next then
     let (a, sz) ← withInput p
-    parseChunks "}" (i + sz) (out.push (Sum.inl (acc.push '{')) |>.push (Sum.inr a))
+    let i := i + sz
+    guard (input.get i == '}'); let i := input.next i
+    parseChunks "}" i (out.push (Sum.inl (acc.push '{')) |>.push (Sum.inr a))
   else
     out.push (Sum.inl (acc.push '\"'))
 

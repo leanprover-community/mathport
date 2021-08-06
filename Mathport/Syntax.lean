@@ -64,7 +64,7 @@ partial def visit (pcfg : Path.Config) (target : Path) : StateRefT State IO Job 
   match (← get).path2task.find? target with
   | some task => pure task
   | none      => do
-    -- if ← target.toLean4 pcfg "syn.lean" |>.pathExists then
+    -- if ← target.toLean4 pcfg "Syn.lean" |>.pathExists then
     --   IO.asTask (pure ())
     -- else
       let mut jobs := #[]
