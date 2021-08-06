@@ -110,6 +110,10 @@ syntax "{" term,* "}" : term
 syntax "{ " ident (" : " term)? " | " term " }" : term
 syntax "{ " ident " ∈ " term " | " term " }" : term
 syntax (priority := low) "{" term " | " bracketedBinder+ " }" : term
+syntax "quote " term : term
+syntax "pquote " term : term
+syntax "ppquote " term : term
+syntax "%%" term : term
 
 def calcDots := leading_parser symbol "..."
 def calcLHS : Parser where

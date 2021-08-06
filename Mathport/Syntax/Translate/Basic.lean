@@ -42,6 +42,7 @@ structure State where
   scopes : Array Scope := #[]
   simpSets : NameSet := predefinedSimpSets
   tactics : NameMap (Array (Spanned AST3.Param) → CommandElabM Syntax) := {}
+  userNota : NameMap (Array (Spanned AST3.Param) → CommandElabM Syntax) := {}
   deriving Inhabited
 
 def NotationEntries.insert (m : NotationEntries) : NotationData → NotationEntries
@@ -362,7 +363,7 @@ def trArm : Arm → M Syntax
       | $[$(← lhs.mapM fun e => trExpr e.kind)],* => $(← trExpr rhs.kind))
 
 def trDoElem : DoElem → M Syntax
-  | DoElem.let decl => do `(doElem| let $(← trLetDecl decl.kind))
+  | DoElem.let decl => do `(doElem| let $(← trLetDecl decl.kind):letDecl)
   | DoElem.eval e => do `(doElem| $(← trExpr e.kind):term)
   | DoElem.«←» lhs ty rhs els => do
     let rhs ← trExpr rhs.kind
@@ -492,8 +493,10 @@ def trExpr' : Expr → M Syntax
         mkNode ``Parser.Term.calcRest #[← trExpr lhs.kind, mkAtom ":", ← trExpr rhs.kind]]
   | Expr.«@» _ e => do `(@$(← trExpr e.kind))
   | Expr.pattern e => trExpr e.kind
-  | Expr.«`()» lazy expr e => throw! "unsupported (TODO)"
-  | Expr.«%%» e => throw! "unsupported (TODO)"
+  | Expr.«`()» _ true e => do `(quote $(← trExpr e.kind))
+  | Expr.«`()» false false e => do `(pquote $(← trExpr e.kind))
+  | Expr.«`()» true false e => do `(ppquote $(← trExpr e.kind))
+  | Expr.«%%» e => do `(%%$(← trExpr e.kind))
   | Expr.«`[]» tacs => throw! "unsupported (TODO)"
   | Expr.«`» false n => `($(Syntax.mkNameLit s!"`{n}"):nameLit)
   | Expr.«`» true n => do `(``$(← mkIdentI n):ident)
@@ -541,7 +544,10 @@ def trExpr' : Expr → M Syntax
       `({ $[$src with]? })
   | Expr.atPat lhs rhs => do `($(mkIdent lhs.kind)@ $(← trExpr rhs.kind))
   | Expr.notation n args => trNotation n args
-  | Expr.userNotation n args => throw! "unsupported user notation {n}"
+  | Expr.userNotation n args => do
+    match (← get).userNota.find? n with
+    | some f => try f args catch e => throw! "in {n}: {← e.toMessageData.toString}"
+    | none => throw! "unsupported user notation {n}"
 
 inductive TrAttr
   | del : Syntax → TrAttr
@@ -966,7 +972,6 @@ def trNotationCmd (loc : LocalReserve) (attrs : Attributes) (nota : Notation) : 
     try elabCommand $ cmd (some nn) (← `(sorry))
     catch e => dbg_trace "failed to add syntax {repr n4}: {← e.toMessageData.toString}"
     pure $ (← getCurrNamespace) ++ n4
-  dbg_trace "added notation {n} -> {n4}"
   push $ cmd none $ ← trExpr e.kind
   registerNotationEntry ⟨n, n4, desc⟩
 

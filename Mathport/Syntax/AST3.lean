@@ -406,7 +406,7 @@ mutual
     | block : Block → VMCall
     | «inductive» : CommandId → VMCall
     | command : Option CommandId → VMCall
-    | withInput : Array #VMCall → VMCall
+    | withInput : Array #VMCall → (bytesParsed : Nat) → VMCall
     deriving Inhabited
 
 end
@@ -855,16 +855,16 @@ mutual
     | Param.block e => Block_repr e
 
   partial def VMCall_repr : VMCall → Format
-    | VMCall.ident n => n.toString
+    | VMCall.ident n => "ident " ++ (n.toString:Format)
     | VMCall.nat n => repr n
     | VMCall.token tk => repr tk
-    | VMCall.pat e => Expr_repr e
-    | VMCall.expr e => Expr_repr e
+    | VMCall.pat e => "pat " ++ Expr_repr e
+    | VMCall.expr e => "expr " ++ Expr_repr e
     | VMCall.binders bis => "binders" ++ Binders_repr bis
     | VMCall.block bl => Block_repr bl
     | VMCall.inductive c => s!"inductive <{show Nat from c}>"
     | VMCall.command c => s!"command <{repr $ show Option Nat from c}>"
-    | VMCall.withInput calls => Format.sbracket $
+    | VMCall.withInput calls _ => Format.sbracket $
       (", ":Format).joinSep $ calls.toList.map fun c => VMCall_repr c.kind
 
   partial def optPrec_repr : Option #Precedence → Format

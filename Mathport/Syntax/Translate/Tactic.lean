@@ -624,7 +624,15 @@ def trRIntro : TacM Syntax := do
   | Sum.inl (pats, ty) => show M _ from do
     `(tactic| rintro $[$(← pats.mapM trRIntroPat):rintroPat]* $[: $(← ty.mapM trExpr)]?)
 
-def builtinTactics : List (Name × TacM Syntax) := [
+open Lean.Elab.Command
+def mkTacMap (l : List (Name × TacM Syntax)) :
+  M (NameMap (Array (Spanned AST3.Param) → CommandElabM Syntax)) := do
+  let mut tacs := {}
+  for (n, tac) in l do
+    tacs := tacs.insert n $ ← fun c s => pure fun a => tac.run a c s
+  pure tacs
+
+def builtinTactics : M (NameMap (Array (Spanned AST3.Param) → CommandElabM Syntax)) := mkTacMap [
   (`propagate_tags,      trPropagateTags),
   (`intro,               trIntro),
   (`intros,              trIntros),
@@ -732,3 +740,46 @@ def builtinTactics : List (Name × TacM Syntax) := [
   (`rintro,              trRIntro),
   (`rintros,             trRIntro),
   (`obtain,              trObtain)]
+
+section
+
+variable (input : String) (p : ParserM α)
+
+private partial def getChunk (acc : String) (i : String.Pos) : Bool × String.Pos × String :=
+  if input.atEnd i then (false, i, acc) else
+  let c := input.get i
+  let i := input.next i
+  if c == '{' then
+    if input.get i == '{' then
+      getChunk (acc ++ "\\{") (input.next i)
+    else
+      (true, i, acc)
+  else
+    getChunk (acc.push c) i
+
+private partial def parseChunks [Repr α] (acc : String) (i : String.Pos)
+  (out : Array (Sum String α)) : ParserM (Array (Sum String α)) := do
+  let (next, i, chunk) := getChunk input acc i
+  if next then
+    let (a, sz) ← withInput p
+    parseChunks "}" (i + sz) (out.push (Sum.inl (acc.push '{')) |>.push (Sum.inr a))
+  else
+    out.push (Sum.inl (acc.push '\"'))
+
+def trInterpolatedStr : TacM Syntax := do
+  match ← expr! with
+  | Expr.string s => do
+    let chunks ← parse $ parseChunks s pExpr "\"" 0 #[]
+    mkNode interpolatedStrKind $ ← chunks.mapM fun
+      | Sum.inl s => pure $ Syntax.mkLit interpolatedStrLitKind s
+      | Sum.inr e => trExpr e
+  | _ => throw! "unsupported"
+
+end
+
+def trFormatMacro : TacM Syntax := do `(f! $(← trInterpolatedStr))
+def trSFormatMacro : TacM Syntax := do `(s! $(← trInterpolatedStr))
+
+def builtinUserNotation : M (NameMap (Array (Spanned AST3.Param) → CommandElabM Syntax)) := mkTacMap [
+  (`format_macro, trFormatMacro),
+  (`sformat_macro, trSFormatMacro)]

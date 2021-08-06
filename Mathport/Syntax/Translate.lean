@@ -32,10 +32,9 @@ partial def M.run' (m : M α) (notations : Array Notation) (commands : Array Com
 def M.run (m : M α) : (notations : Array Notation) → (commands : Array Command) →
   (pcfg : Path.Config) → (binportEnv : Environment) → CommandElabM α :=
   M.run' $ do
-    let mut tacs := {}
-    for (n, tac) in Tactic.builtinTactics do
-      tacs := tacs.insert n $ ← fun c s => pure fun a => tac.run a c s
-    modify fun s => { s with tactics := tacs }
+    let tactics ← Tactic.builtinTactics
+    let userNota ← Tactic.builtinUserNotation
+    modify fun s => { s with tactics, userNota }
     m
 
 end Translate

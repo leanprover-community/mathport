@@ -40,6 +40,10 @@ def itactic : ParserM AST3.Block := do let VMCall.block bl ← next | failure; b
 def commandLike : ParserM AST3.Command := do
   let VMCall.command (some i) ← next | failure; (← read).cmds[i]
 
+def withInput (p : ParserM α) : ParserM (α × Nat) := do
+  let VMCall.withInput arr n ← next | failure
+  fun c i => do ((← p { c with arr } |>.run' 0, n), i)
+
 def tk (tk : String) : ParserM Unit := do
   let VMCall.token t ← next | failure
   guard (tk = t)
