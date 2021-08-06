@@ -21,16 +21,16 @@ open Std (HashMap)
 open AST3
 
 partial def M.run' (m : M α) (notations : Array Notation) (commands : Array Command)
-  (pcfg : Path.Config) (binportEnv : Environment) : CommandElabM α := do
+  (pcfg : Path.Config) : CommandElabM α := do
   let s ← ST.mkRef {}
   let rec ctx := {
-    pcfg, binportEnv, notations, commands
+    pcfg, notations, commands
     trExpr := fun e => trExpr' e ctx s
     trCommand := fun c => trCommand' c ctx s }
   m ctx s
 
 def M.run (m : M α) : (notations : Array Notation) → (commands : Array Command) →
-  (pcfg : Path.Config) → (binportEnv : Environment) → CommandElabM α :=
+  (pcfg : Path.Config) → CommandElabM α :=
   M.run' $ do
     let tactics ← Tactic.builtinTactics
     let userNota ← Tactic.builtinUserNotation
@@ -39,6 +39,5 @@ def M.run (m : M α) : (notations : Array Notation) → (commands : Array Comman
 
 end Translate
 
-def AST3toData4 (ast : AST3) :
-  (pcfg : Path.Config) → (binportEnv : Environment) → CommandElabM Data4 :=
+def AST3toData4 (ast : AST3) : (pcfg : Path.Config) → CommandElabM Data4 :=
   (Translate.AST3toData4 ast).run ast.indexed_nota ast.indexed_cmds

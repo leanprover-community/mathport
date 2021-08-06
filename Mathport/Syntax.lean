@@ -49,7 +49,7 @@ def genLeanFor (pcfg : Path.Config) (path : Path) : IO Unit := do
       let ast3 ← parseAST3 $ path.toLean3 pcfg ".ast.json"
 
       let (⟨fmt, _⟩, env) ← Elab.Command.CommandElabM.toIO' (ctx := cmdCtx) (env := synportEnv) do
-        (← Mathport.AST3toData4 ast3 pcfg binportEnv, ← getEnv)
+        (← Mathport.AST3toData4 ast3 pcfg, ← getEnv)
 
       writeModule env $ path.toLean4 pcfg "Aux.olean"
       IO.FS.writeFile fileName (toString fmt)
@@ -125,7 +125,7 @@ end Syntax
 --     -- println! (repr (← Parse.getCommand c |>.run ast expr).kind).group ++ "\n"
 --     let res ← Parse.getCommand c |>.run ast expr
 --     Elab.Command.CommandElabM.toIO (ctx := cmdCtx) (s := s) do
---       let ⟨fmt, _⟩ ← Mathport.AST3toData4 ⟨none, #[], #[res], inot, icmd⟩ pcfg env
+--       let ⟨fmt, _⟩ ← Mathport.AST3toData4 ⟨none, #[], #[res], inot, icmd⟩ pcfg
 --       println! "{fmt}"
 --       printTraces
 

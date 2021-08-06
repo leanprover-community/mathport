@@ -65,7 +65,6 @@ def registerNotationEntry (d : NotationData) : CommandElabM Unit := do
 
 structure Context where
   pcfg : Path.Config
-  binportEnv : Environment
   notations : Array Notation
   commands : Array Command
   trExpr : Expr → CommandElabM Syntax
@@ -77,12 +76,11 @@ abbrev M := ReaderT Context $ StateRefT State CommandElabM
 def trExpr (e : Expr) : M Syntax := do (← read).trExpr e
 def trCommand (e : Command) : M Unit := do (← read).trCommand e
 
-def getBinportEnv : M Environment := do (← read).binportEnv
-def renameIdent (n : Name) : M Name := do Rename.resolveIdent! (← getBinportEnv) n
-def renameNamespace (n : Name) : M Name := do Rename.renameNamespace (← getBinportEnv) n
+def renameIdent (n : Name) : M Name := do Rename.resolveIdent! (← getEnv) n
+def renameNamespace (n : Name) : M Name := do Rename.renameNamespace (← getEnv) n
 def renameAttr (n : Name) : M Name := do Rename.renameAttr n
 def renameModule (n : Name) : M Name := do Rename.renameModule (← read).pcfg n
-def renameField (n : Name) : M Name := do Rename.renameField? (← getBinportEnv) n |>.getD n
+def renameField (n : Name) : M Name := do Rename.renameField? (← getEnv) n |>.getD n
 def renameOption : Name → M Name
   | n => do dbg_trace "unsupported option {n}"; n
 
@@ -966,13 +964,14 @@ def trNotationCmd (loc : LocalReserve) (attrs : Attributes) (nota : Notation) : 
     | false => trNotation3 kind prio p lits
     (e, desc, cmd)
   | _ => throw! "unsupported (impossible)"
+  let e ← trExpr e.kind
   let n4 ← Elab.Command.withWeakNamespace (← getEnv).mainModule $ do
     let n4 ← mkUnusedName nota.name4
     let nn ← `(Parser.Command.namedName| (name := $(mkIdent n4)))
-    try elabCommand $ cmd (some nn) (← `(sorry))
+    try elabCommand $ cmd (some nn) e
     catch e => dbg_trace "failed to add syntax {repr n4}: {← e.toMessageData.toString}"
     pure $ (← getCurrNamespace) ++ n4
-  push $ cmd none $ ← trExpr e.kind
+  push $ cmd none e
   registerNotationEntry ⟨n, n4, desc⟩
 
 end
