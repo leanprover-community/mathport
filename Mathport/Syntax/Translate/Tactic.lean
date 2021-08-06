@@ -768,14 +768,18 @@ private partial def parseChunks [Repr α] (acc : String) (i : String.Pos)
   else
     out.push (Sum.inl (acc.push '\"'))
 
-def trInterpolatedStr : TacM Syntax := do
-  match ← expr! with
-  | Expr.string s => do
-    let chunks ← parse $ parseChunks s pExpr "\"" 0 #[]
-    mkNode interpolatedStrKind $ ← chunks.mapM fun
-      | Sum.inl s => pure $ Syntax.mkLit interpolatedStrLitKind s
-      | Sum.inr e => trExpr e
+private partial def getStr : AST3.Expr → M String
+  | Expr.string s => s
+  | Expr.notation (Choice.one `«expr ++ ») #[⟨_, _, Arg.expr s1⟩, ⟨_, _, Arg.expr s2⟩] => do
+    pure $ (← getStr s1) ++ (← getStr s2)
   | _ => throw! "unsupported"
+
+def trInterpolatedStr : TacM Syntax := do
+  let s ← getStr (← expr!)
+  let chunks ← parse $ parseChunks s pExpr "\"" 0 #[]
+  mkNode interpolatedStrKind $ ← chunks.mapM fun
+    | Sum.inl s => pure $ Syntax.mkLit interpolatedStrLitKind s
+    | Sum.inr e => trExpr e
 
 end
 
