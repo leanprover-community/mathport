@@ -223,7 +223,7 @@ def getLevelDecl : AstId → M LevelDecl := opt (arr getName)
 def wrapperNotations : Lean.NameHashSet :=
   List.foldl (·.insert ·) {} [
     `by, `have, `assume, `show, `suffices, `if, `«(», `«⟨», `«{», `«{!», `«.(», `«._»,
-    `«```(», `«``(», `«`(», `«`[», `«`», `«%%», `«#[», `«(:», `«(::)», `fun, `Type,
+    `«```(», `«``(», `«`(», `«`[», `«`», `«%%», `«#[», `«(:», `«()», `«(::)», `fun, `Type,
     `«Type*», `Sort, `«Sort*», `let, `calc, `«@», `«@@», `begin, `sorry, `match, `do, `«^.»]
 
 mutual

@@ -104,8 +104,9 @@ def AST3toData4 : AST3 → M Data4
     commands.forM fun c => do
       try trCommand c.kind
       catch e =>
-        let e := s!"error: {← e.toMessageData.toString}"
+        let e := s!"error in {(← getEnv).mainModule}: {← e.toMessageData.toString}"
         println! e
+        -- println! (repr c.kind)
         modify fun s => { s with
           output := s.output ++ "-- " ++ e ++ "\n" ++ (repr c.kind).group ++ "\n\n" }
     let s ← get
@@ -965,6 +966,7 @@ def trNotationCmd (loc : LocalReserve) (attrs : Attributes) (nota : Notation) : 
     try elabCommand $ cmd (some nn) (← `(sorry))
     catch e => dbg_trace "failed to add syntax {repr n4}: {← e.toMessageData.toString}"
     pure $ (← getCurrNamespace) ++ n4
+  dbg_trace "added notation {n} -> {n4}"
   push $ cmd none $ ← trExpr e.kind
   registerNotationEntry ⟨n, n4, desc⟩
 

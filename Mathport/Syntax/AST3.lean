@@ -808,8 +808,8 @@ mutual
   partial def DoElem_repr : DoElem → Format
     | DoElem.let bi => "let " ++ LetDecl_repr bi.kind
     | DoElem.«←» lhs ty rhs els =>
-      Expr_repr lhs.kind ++ " " ++ optTy ty ++ Expr_repr rhs.kind ++
-      match els with | none => "" | some e => Expr_repr e.kind
+      Expr_repr lhs.kind ++ optTy ty ++ " ← " ++ Expr_repr rhs.kind ++
+      match els with | none => "" | some e => " | " ++ Expr_repr e.kind
     | DoElem.eval e => Expr_repr e.kind
 
   partial def Arms_repr (arms : Array Arm) : Format :=
@@ -1107,7 +1107,7 @@ def Notation.name (sp : Char) (f : PrecSymbol → String) (withTerm : Bool) (sta
   | MixfixKind.postfix => start.push sp ++ f tk
   | MixfixKind.prefix => start ++ (f tk).push sp
 
-def Notation.name3 := Notation.name ' ' (·.1.kind.toString) true "expr"
+def Notation.name3 := Notation.name ' ' (·.1.kind.trim) true "expr"
 def Notation.name4 := Name.mkSimple ∘ Notation.name '_' (·.1.kind.trim) false "term"
 
 end AST3
@@ -1121,7 +1121,7 @@ structure AST3 where
 
 instance : Repr AST3 where reprPrec
   | ⟨prel, imps, cmds, _, _⟩, _ =>
-    (match prel with | none => "" | some _ => "prelude¬") ++
+    (match prel with | none => "" | some _ => "prelude\n") ++
     Format.join (imps.toList.map fun ns =>
       "import " ++ Format.joinSep (ns.toList.map fun a => a.kind.toString) " " ++ "\n") ++
     "\n" ++ Format.join (cmds.toList.map fun c => repr c ++ "\n\n")
