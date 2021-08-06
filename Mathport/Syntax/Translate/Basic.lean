@@ -559,7 +559,6 @@ inductive TrAttr
   | add : Syntax → TrAttr
   | prio : Expr → TrAttr
   | parsingOnly : TrAttr
-  | unify : TrAttr
 
 def trAttr (prio : Option Expr) : Attribute → M (Option TrAttr)
   | Attribute.priority n => TrAttr.prio n.kind
@@ -575,7 +574,6 @@ def trAttr (prio : Option Expr) : Attribute → M (Option TrAttr)
       return none
     TrAttr.del (← `(Parser.Command.eraseAttr| -$(← mkIdentI n)))
   | AST3.Attribute.add `parsing_only none => TrAttr.parsingOnly
-  | AST3.Attribute.add `unify none => TrAttr.unify
   | AST3.Attribute.add n arg => do
     let mkSimpleAttr n (args := #[]) := do
       mkNode ``Parser.Attr.simple #[← mkIdentI n, mkNullNode args]
@@ -613,7 +611,6 @@ def trAttrKind : AttributeKind → M Syntax
 structure SpecialAttrs where
   prio : Option AST3.Expr := none
   parsingOnly := false
-  unify := false
 
 def AttrState := SpecialAttrs × Array Syntax
 
@@ -628,7 +625,6 @@ def trAttrInstance (attr : Attribute) (allowDel := false)
     modify fun s => { s with 2 := s.2.push stx }
   | some (TrAttr.prio prio) => modify fun s => { s with 1.prio := prio }
   | some TrAttr.parsingOnly => modify fun s => { s with 1.parsingOnly := true }
-  | some TrAttr.unify => modify fun s => { s with 1.unify := true }
   | none => pure ()
 
 def trAttributes (attrs : Attributes) (allowDel := false)
@@ -753,9 +749,8 @@ def trAxiom (mods : Modifiers) (n : Name)
   pushM `(command| $mods:declModifiers axiom $(← trDeclId n us) $(← trDeclSig true bis ty))
 
 def trDecl (dk : DeclKind) (mods : Modifiers) (n : Option (Spanned Name)) (us : LevelDecl)
-  (bis : Binders) (ty : Option (Spanned Expr)) (val : DeclVal) : M (Option Syntax) := do
+  (bis : Binders) (ty : Option (Spanned Expr)) (val : DeclVal) : M Syntax := do
   let (s, mods) ← trModifiers mods
-  if s.unify then return none
   let id ← n.mapM fun n => trDeclId n.kind us
   let sig req := trDeclSig req bis ty
   let val ← match val with
@@ -1016,13 +1011,10 @@ def trCommand' : Command → M Unit
       | _ => throw! "unsupported (impossible)"
     | _ => throw! "unsupported (impossible)"
   | Command.decl dk mods n us bis ty val => do
-    if let some decl ← trDecl dk mods n us bis ty val.kind then
-      push decl
+    pushM $ trDecl dk mods n us bis ty val.kind
   | Command.mutualDecl dk mods us bis arms =>
-    trMutual arms fun ⟨attrs, n, ty, vals⟩ => do
-      match ← trDecl dk mods n us bis ty (DeclVal.eqns vals) with
-      | none => throw! "unsupported: mutual @[unify]"
-      | some decl => decl
+    trMutual arms fun ⟨attrs, n, ty, vals⟩ =>
+      trDecl dk mods n us bis ty (DeclVal.eqns vals)
   | Command.inductive ind => trInductiveCmd ind
   | Command.structure cl mods n us bis exts ty m flds =>
     trStructure cl mods n us bis exts ty m flds

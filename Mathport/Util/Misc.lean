@@ -75,6 +75,18 @@ def Option.mapM {α : Type u} {β : Type v} {m : Type v → Type w} [Monad m] (f
   | none => pure none
   | some a => some <$> f a
 
+/-- Run action with `stdin` emptied and `stdout+stderr` captured into a `String`. -/
+def IO.FS.withIsolatedStreams' [Monad m] [MonadFinally m] [MonadLiftT IO m] (x : m α) : m (String × α) := do
+  let bIn ← mkRef { : Stream.Buffer }
+  let bOut ← mkRef { : Stream.Buffer }
+  let r ← withStdin (Stream.ofBuffer bIn) <|
+    withStdout (Stream.ofBuffer bOut) <|
+      withStderr (Stream.ofBuffer bOut) <|
+        x
+  let bOut ← liftM (m := IO) bOut.get
+  let out := String.fromUTF8Unchecked bOut.data
+  pure (out, r)
+
 def Lean.Syntax.mkCharLit (val : Char) (info := SourceInfo.none) : Syntax :=
   mkLit charLitKind (Char.quote val) info
 

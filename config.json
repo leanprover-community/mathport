@@ -1,38 +1,43 @@
 {
-    "pathConfig" : {
-        "outRoot" : "/home/dselsam/projects/mathport/Lib4",
-        "packages" : {
-	    "Mathlib"  : "/home/dselsam/projects/mathlib3/src",
-	    "Lean3"    : "/home/dselsam/projects/lean3/library",
-	    "Lean3Pkg" : "/home/dselsam/projects/lean3/leanpkg"
-        }
-    },
-
-    "stringsToKeep" : ["_sunfold", "equations", "private"],
-
-    "defEqConstructions" : ["casesOn", "noConfusion", "ibelow", "brecOn", "bInductionOn"],
-
-    "disabledInstances" : [
-	"bool.decidable_eq",
-	"nat.decidable_eq",
-	"and.decidable",
-	"or.decidable",
-	"iff.decidable",
-	"not.decidable",
-	"implies.decidable",
-	"decidable.true",
-	"decidable.false",
-	"exists_prop_decidable",
-	"forall_prop_decidable",
-	"int.decidable_eq",
-	"nat.decidable_lt",
-	"nat.decidable_le"
-    ],
-
-    "neverSorries" : ["of_as_true"],
-
-    "sorries" : [],
-
-    "skipProofs" : false
-
+  "pathConfig": {
+    "outRoot": "Lib4",
+    "packages": {
+      "Mathlib": "PreData/mathlib3",
+      "Lean3": "PreData/lean3",
+      "Lean3Pkg": "PreData/leanpkg"
+    }
+  },
+  "stringsToKeep": [
+    "_sunfold",
+    "equations",
+    "private"
+  ],
+  "defEqConstructions": [
+    "casesOn",
+    "noConfusion",
+    "ibelow",
+    "brecOn",
+    "bInductionOn"
+  ],
+  "disabledInstances": [
+    "bool.decidable_eq",
+    "nat.decidable_eq",
+    "and.decidable",
+    "or.decidable",
+    "iff.decidable",
+    "not.decidable",
+    "implies.decidable",
+    "decidable.true",
+    "decidable.false",
+    "exists_prop_decidable",
+    "forall_prop_decidable",
+    "int.decidable_eq",
+    "nat.decidable_lt",
+    "nat.decidable_le"
+  ],
+  "neverSorries": [
+    "of_as_true"
+  ],
+  "sorries": [],
+  "skipProofs": false
 }

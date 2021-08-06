@@ -33,6 +33,7 @@ def mathport1 (config : Config) (path : Path) : IO Unit := do
     let cmdState : Elab.Command.State := Lean.Elab.Command.mkState env
 
     CommandElabM.toIO (ctx := cmdCtx) (s := cmdState) do
+      -- let _ ← IO.FS.withIsolatedStreams' $ binport1 config path
       binport1 config path
       synport1 config path
       writeModule (← getEnv) $ path.toLean4 pcfg ".olean"

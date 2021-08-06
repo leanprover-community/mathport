@@ -161,10 +161,6 @@ notation "ℤ" => Int
 
 end Parser
 
-def ExistsUnique {α : Sort u} (p : α → Prop) := ∃ x, p x ∧ ∀ y, p y → y = x
-
-notation3 "∃! " (...) ", " x:(scoped f => ExistsUnique f) => x
-
 namespace Parser.Tactic
 
 syntax "propagateTags " tacticSeq : tactic
