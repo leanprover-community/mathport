@@ -27,7 +27,7 @@ structure Path.Config where
 structure Path where
   package : String
   mod3    : Name
-  deriving Inhabited, FromJson, BEq, Hashable
+  deriving Inhabited, FromJson, BEq, Hashable, Repr
 
 def Path.toLean3 (cfg : Path.Config) (p : Path) (suffix : String) : FilePath := do
   let l3root := cfg.packages.find! p.package

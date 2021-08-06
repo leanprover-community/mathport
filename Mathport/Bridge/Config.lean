@@ -11,7 +11,7 @@ import Mathport.Util.Misc
 import Mathport.Util.Json
 import Mathport.Bridge.Path
 
-namespace Mathport.Binary
+namespace Mathport
 
 open Lean Lean.Json
 open Std (HashMap HashSet)
@@ -26,4 +26,4 @@ structure Config where
   skipProofs         : Bool := false
   deriving FromJson
 
-end Mathport.Binary
+end Mathport

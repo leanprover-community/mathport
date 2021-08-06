@@ -6,7 +6,7 @@ Authors: Daniel Selsam
 import Lean
 import Mathport.Util.Misc
 import Mathport.Util.While
-import Mathport.Binary.Config
+import Mathport.Bridge.Config
 import Mathport.Binary.Basic
 import Mathport.Binary.NDRec
 import Mathport.Binary.EnvModification
@@ -283,7 +283,7 @@ def applyModification (mod : EnvModification) : BinportM Unit := withReader (fun
   println! "[apply] {mod}"
   match mod with
   | EnvModification.export d               => applyExport d
-  | EnvModification.mixfix kind n prec tok => applyMixfix kind n prec tok
+  | EnvModification.mixfix kind n prec tok => pure () -- synport handles notation
   | EnvModification.simp n prio            => applySimpLemma n prio
   | EnvModification.reducibility n kind    => applyReducibility n kind
   | EnvModification.projection proj        => applyProjection proj

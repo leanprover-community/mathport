@@ -6,7 +6,7 @@ Authors: Daniel Selsam
 import Lean
 import Mathport.Util.Misc
 import Mathport.Bridge.RenameExt
-import Mathport.Binary.Config
+import Mathport.Bridge.Config
 
 namespace Mathport.Binary
 
