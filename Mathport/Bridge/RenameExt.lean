@@ -17,7 +17,8 @@ open Lean
 open System (FilePath)
 open Std (HashMap)
 
-def INITIAL_NAME_ALIGNMENTS_PATH : FilePath := ⟨"Config/initial_name_alignments.json"⟩
+-- TODO: store in a Prelude .lean file?
+def INITIAL_NAME_ALIGNMENTS_PATH : FilePath := ⟨"initial_name_alignments.json"⟩
 
 -- During synport, we need to guess how to capitalize a field name without knowing
 -- the complete name. As a heuristic, we store a map from last-component-of-lean3-name
