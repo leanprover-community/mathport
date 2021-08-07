@@ -27,23 +27,28 @@ def Expr.replaceConstNames (e : Expr) (f : Name → Option Name) : Expr :=
 def InductiveType.selfPlaceholder : Name := `_indSelf
 
 def InductiveType.replaceSelfWithPlaceholder (indType : InductiveType) : InductiveType := { indType with
-  ctors := indType.ctors.map fun ctor => { ctor with type := renameSelf ctor.type }
-}
+  ctors := indType.ctors.map fun ctor => { ctor with
+    name := ctor.name.replacePrefix indType.name selfPlaceholder
+    type := renameSelf ctor.type }
+  }
 where
   renameSelf (ctorType : Expr) := ctorType.replaceConstNames fun n => if n == indType.name then selfPlaceholder else none
 
-def InductiveType.replacePlaceholderWithSelf (indType : InductiveType) : InductiveType := { indType with
-  ctors := indType.ctors.map fun ctor => { ctor with type := renameSelf ctor.type }
-}
+def InductiveType.replacePlaceholder (indType : InductiveType) (newName : Name) : InductiveType := { indType with
+  name := newName,
+  ctors := indType.ctors.map fun ctor => { ctor with
+    name := ctor.name.replacePrefix selfPlaceholder newName,
+    type := renameSelf ctor.type }
+  }
 where
-  renameSelf (ctorType : Expr) := ctorType.replaceConstNames fun n => if n == selfPlaceholder then indType.name else none
+  renameSelf (ctorType : Expr) := ctorType.replaceConstNames fun n => if n == selfPlaceholder then newName else none
 
-def InductiveType.updateNames (indType : InductiveType) (newIndName : Name) : InductiveType := do
-  let map : HashMap Name Name := ({} : HashMap Name Name).insert indType.name newIndName
+def InductiveType.updateNames (indType : InductiveType) (oldIndName newIndName : Name) : InductiveType := do
+  let map : HashMap Name Name := ({} : HashMap Name Name).insert oldIndName newIndName
   { indType with
     name  := newIndName,
     ctors := indType.ctors.map fun ctor => { ctor with
-      name := ctor.name.replacePrefix indType.name newIndName
+      name := ctor.name.replacePrefix oldIndName newIndName
       type := ctor.type.replaceConstNames fun n => map.find? n }
   }
 

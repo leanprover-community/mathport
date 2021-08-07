@@ -88,10 +88,14 @@ partial def refineLean4Names (decl : Declaration) : BinportM (Declaration × Cla
       return (Declaration.defnDecl { defn with name := name }, clashKind, [])
     refineDef { defn with name := name }
   | Declaration.inductDecl lps nps [indType] iu =>
-    let candidateName ← mkCandidateLean4Name indType.name indType.type
-    let indType := indType.replacePlaceholderWithSelf
-    refineInd lps nps (indType.updateNames (← mkCandidateLean4Name indType.name indType.type)) iu
-  | _                                       => throwError "unexpected declaration type"
+    let mut candidateName ← mkCandidateLean4Name indType.name indType.type
+    if indType.ctors.any (fun ctor => (ctor.type.find? fun e => e.isConstOf candidateName).isSome) then
+      println! "[preempt-cat-clash] {indType.name} --> {candidateName}"
+      candidateName := extendName candidateName "Cat"
+    let indType := indType.replacePlaceholder (newName := candidateName)
+    let indType := indType.updateNames InductiveType.selfPlaceholder candidateName
+    refineInd lps nps indType iu
+  | _ => throwError "unexpected declaration type"
 
 where
   refineAx (ax3 : AxiomVal) := do
@@ -129,7 +133,7 @@ where
 
   refineInd (lps : List Name) (numParams : Nat) (indType3 : InductiveType) (isUnsafe : Bool) := do
     println! "[refineInd] {indType3.name}"
-    let recurse := refineInd lps numParams (indType3.updateNames (extendName indType3.name)) isUnsafe
+    let recurse := refineInd lps numParams (indType3.updateNames indType3.name (extendName indType3.name)) isUnsafe
     match (← getEnv).find? indType3.name with
     | some (ConstantInfo.inductInfo indVal) =>
       if indVal.numParams ≠ numParams then recurse
@@ -149,9 +153,10 @@ where
   isDefEqUpto (lvls₁ : List Name) (t₁ : Expr) (lvls₂ : List Name) (t₂ : Expr) : BinportM Bool := do
     Kernel.isDefEq (← getEnv) {} t₁ (t₂.instantiateLevelParams lvls₂ $ lvls₁.map mkLevelParam)
 
-  extendName : Name → Name
-    | Name.str p s _ => Name.mkStr p (s ++ "'")
-    | n              => Name.mkStr n "'"
+  extendName (n : Name) (suffix : String := "'") : Name :=
+    match n with
+    | Name.str p s _ => Name.mkStr p (s ++ suffix)
+    | n              => Name.mkStr n suffix
 
 def refineLean4NamesAndUpdateMap (decl : Declaration) : BinportM (Declaration × ClashKind) := do
   let (decl', clashKind, ctors) ← refineLean4Names decl
@@ -165,7 +170,8 @@ def refineLean4NamesAndUpdateMap (decl : Declaration) : BinportM (Declaration ×
   match decl, decl' with
   | Declaration.inductDecl _ _ [indType3] _, Declaration.inductDecl _ _ [indType4] _ =>
     tr (indType3.name ++ `rec) (indType4.name ++ `rec)
-    for (ctor3, ctor4) in List.zip indType3.ctors (if ctors.isEmpty then indType4.ctors.map Constructor.name else ctors) do
+    let ctors3 := indType3.ctors.map fun ctor => { ctor with name := ctor.name.replacePrefix InductiveType.selfPlaceholder indType3.name }
+    for (ctor3, ctor4) in List.zip ctors3 (if ctors.isEmpty then indType4.ctors.map Constructor.name else ctors) do
       tr ctor3.name ctor4
   | _, _ => pure ()
 

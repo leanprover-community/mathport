@@ -46,7 +46,8 @@ partial def visit (config : Config) (path : Path) : StateRefT (HashMap Path Task
   match (← get).find? path with
   | some task => pure task
   | none     => do
-    if ← path.toLean4 pcfg "olean" |>.pathExists then
+    if ← path.toLean4 pcfg ".olean" |>.pathExists then
+      println! "[visit] {repr path} already exists"
       IO.asTask (pure ())
     else
       let mut importTasks := #[]

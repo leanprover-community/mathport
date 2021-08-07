@@ -33,12 +33,11 @@ def refineAddDecl (decl : Declaration) : BinportM (Declaration × ClashKind) := 
   | ClashKind.freshDecl =>
     println! "[addDecl] START CHECK  {path.mod3} {decl.toName}"
 
-/-
     match decl with
     | Declaration.defnDecl defn => println! "[defn] {defn.name} : {defn.type} := {defn.value}"
     | Declaration.inductDecl lps _ [indType] _ => printIndType lps indType
     | _ => pure ()
--/
+
     Lean.addDecl decl
     println! "[addDecl] END CHECK    {path.mod3} {decl.toName}"
     if shouldGenCodeFor decl then
@@ -253,7 +252,6 @@ def applyInductiveDecl (lps : List Name) (nParams : Nat) (indType : InductiveTyp
   -- In the past, we worked around this by changing `module` -> `ModuleS`, but this is highly undesirable.
   -- Now, we simple first change all the `Module` names to `_indSelf`, then change `_indSelf` later.
   let indType := indType.replaceSelfWithPlaceholder
-
   let decl := Declaration.inductDecl lps nParams [{ indType with
     type  := (← trExpr indType.type),
     ctors := (← indType.ctors.mapM fun ctor => do pure { ctor with type := (← trExpr ctor.type) })
