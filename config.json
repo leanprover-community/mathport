@@ -2,9 +2,9 @@
   "pathConfig": {
     "outRoot": "Lib4",
     "packages": {
-      "Mathlib": "PreData/mathlib3",
-      "Lean3": "PreData/lean3",
-      "Lean3Pkg": "PreData/leanpkg"
+      "Mathlib": "PreData/Mathlib",
+      "Lean3": "PreData/Lean3",
+      "Lean3Pkg": "PreData/Lean3Pkg"
     }
   },
   "stringsToKeep": [
