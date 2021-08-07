@@ -63,6 +63,41 @@ def getNotationEntry? (s : String) : CommandElabM (Option NotationEntry) := do
 def registerNotationEntry (d : NotationData) : CommandElabM Unit := do
   modifyEnv fun env => synportNotationExtension.addEntry env d
 
+-- Note: the PrecedenceExtension may be unnecessary once
+-- https://github.com/leanprover-community/lean/pull/599/commits/435495862050a1e3ca42e51f5fc47b461190b97c
+-- is propagated through mathlib.
+
+inductive PrecedenceKind
+  | «prefix»
+  | rest
+  deriving Inhabited, BEq, Hashable, Repr
+
+def PrecedenceKind.ofMixfixKind : MixfixKind → PrecedenceKind
+  | MixfixKind.prefix => PrecedenceKind.prefix
+  | _ => PrecedenceKind.rest
+
+abbrev PrecedenceEntries := HashMap (String × PrecedenceKind) Nat
+
+def PrecedenceEntries.insert (m : PrecedenceEntries) : String × PrecedenceKind × Nat → PrecedenceEntries
+  | ⟨tk, kind, prec⟩ => HashMap.insert m (tk, kind) prec
+
+initialize synportPrecedenceExtension : SimplePersistentEnvExtension (String × PrecedenceKind × Nat) PrecedenceEntries ←
+  registerSimplePersistentEnvExtension {
+    name          := `Mathport.Translate.synportPrecedenceExtension
+    addEntryFn    := PrecedenceEntries.insert
+    addImportedFn := fun es => mkStateFromImportedEntries PrecedenceEntries.insert {} es
+  }
+
+def registerPrecedenceEntry (tk : String) (kind : MixfixKind) (prec : Nat) : CommandElabM Unit := do
+  let tk := tk.trim
+  let kind := PrecedenceKind.ofMixfixKind kind
+  modifyEnv fun env => synportPrecedenceExtension.addEntry env ⟨tk, kind, prec⟩
+
+def getPrecedence? (tk : String) (kind : MixfixKind) : CommandElabM (Option Nat) := do
+  let tk := tk.trim
+  let kind := PrecedenceKind.ofMixfixKind kind
+  synportPrecedenceExtension.getState (← getEnv) |>.find? (tk, kind)
+
 structure Context where
   pcfg : Path.Config
   notations : Array Notation
@@ -873,7 +908,13 @@ private def isIdentPrec : AST3.Literal → Bool
 private def trMixfix (kind : Syntax) (prio : Option Syntax)
   (m : AST3.MixfixKind) (tk : String) (prec : Option (Spanned AST3.Precedence)) :
   M (NotationDesc × (Option Syntax → Syntax → Id Syntax)) := do
-  let p ← match prec with | some p => trPrec p.kind | none => `(prec| 0)
+  let p ← match prec with
+    | some p => trPrec p.kind
+    | none   => match ← getPrecedence? tk m with
+                | some prec => println! "[trMixfix] reserved precedence '{tk}:{m}' |-> {prec}"
+                               `(prec| $(Syntax.mkNumLit (toString prec)))
+                | none      => println! "[trMixfix] warn: no precedence info for '{tk}:{m}'"
+                               `(prec| 0)
   let s := Syntax.mkStrLit tk
   match m with
   | MixfixKind.infix =>
@@ -934,10 +975,28 @@ private def trNotation3 (kind : Syntax) (prio p : Option Syntax)
   pure fun n e => `(command|
     $kind:attrKind notation3$[:$p]? $[$n:namedName]? $[$prio:namedPrio]? $[$lits]* => $e)
 
+def processReserved (sym : Spanned AST3.Symbol) (kind : MixfixKind) (prec : Spanned AST3.Precedence) : M Unit := do
+  let tk := sym.kind.toString
+  match prec.kind with
+  | Precedence.nat prec =>
+    println! "[reserve] {tk} {kind} {prec}"
+    registerPrecedenceEntry tk kind prec
+  | Precedence.expr e =>
+    println! "[reserve] warn: precedence for {tk} is an expr {repr e.kind}"
+    -- TODO: can this happen?
+    pure ()
+
 def trNotationCmd (loc : LocalReserve) (attrs : Attributes) (nota : Notation) : M Unit := do
   let (s, attrs) := (← trAttributes attrs false AttributeKind.global |>.run ({}, #[])).2
   unless attrs.isEmpty do throw! "unsupported (impossible)"
-  if loc.2 then return
+  if loc.2 then
+    println! "[trNotationCmd] found reserved: {repr nota}"
+    match nota with
+    | Notation.mixfix m (tk, some prec) _ => processReserved tk m prec
+    | _ => println! "[trNotationCmd] warning: reserved but not mixfix"
+           pure ()
+    return ()
+
   let kind ← if loc.1 then `(Parser.Term.attrKind| local) else `(Parser.Term.attrKind|)
   let n := nota.name3
   let skip : Bool := match ← getNotationEntry? n with
@@ -1024,7 +1083,7 @@ def trCommand' : Command → M Unit
     if attrs.isEmpty || ns.isEmpty then return ()
     let ns ← ns.mapM fun n => mkIdentI n.kind
     pushM `(command| attribute [$[$attrs],*] $[$ns]*)
-  | Command.precedence sym prec => pure ()
+  | Command.precedence sym prec => println! "[Command.precedence] warn: unexpected {repr sym}:{repr prec}"
   | Command.notation loc attrs n => trNotationCmd loc attrs n
   | Command.open true ops => ops.forM trExportCmd
   | Command.open false ops => trOpenCmd ops

@@ -176,7 +176,7 @@ instance : Repr LocalReserve := ⟨fun ⟨loc, res⟩ _ =>
   ((if loc then "local " else "") ++ (if res then "reserve " else "") : String)⟩
 
 inductive MixfixKind | «infix» | «infixl» | «infixr» | «postfix» | «prefix»
-  deriving Inhabited
+  deriving Inhabited, BEq, Hashable
 
 instance : Repr MixfixKind where
   reprPrec
@@ -185,6 +185,9 @@ instance : Repr MixfixKind where
   | MixfixKind.infixr, _ => "infixr"
   | MixfixKind.postfix, _ => "postfix"
   | MixfixKind.prefix, _ => "prefix"
+
+instance : ToString MixfixKind where
+  toString m := toString (repr m)
 
 inductive InferKind | implicit | relaxedImplicit | none
 
