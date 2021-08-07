@@ -256,7 +256,7 @@ def applyInductiveDecl (lps : List Name) (nParams : Nat) (indType : InductiveTyp
 
   let decl := Declaration.inductDecl lps nParams [{ indType with
     type  := (← trExpr indType.type),
-    ctors := (← ctors.mapM fun ctor => do pure { ctor with type := (← trExpr ctor.type (indName := indType.name) })
+    ctors := (← indType.ctors.mapM fun ctor => do pure { ctor with type := (← trExpr ctor.type) })
   }] isUnsafe
 
   let (decl, clashKind) ← refineAddDecl decl
