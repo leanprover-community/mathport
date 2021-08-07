@@ -38,5 +38,7 @@
     "has_seq_left"  : "SeqLeft",
     "has_seq_right" : "SeqRight",
 
+    "category_theory.Kleisli" : "CategoryTheory.KleisliCat",
+
     "Int.negSuccOfNat" : "Int.negSucc"
 }
