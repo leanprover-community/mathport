@@ -32,12 +32,6 @@ def refineAddDecl (decl : Declaration) : BinportM (Declaration × ClashKind) := 
     println! "[addDecl] FOUND DEF-EQ {path.mod3} {decl.toName}"
   | ClashKind.freshDecl =>
     println! "[addDecl] START CHECK  {path.mod3} {decl.toName}"
-
-    match decl with
-    | Declaration.defnDecl defn => println! "[defn] {defn.name} : {defn.type} := {defn.value}"
-    | Declaration.inductDecl lps _ [indType] _ => printIndType lps indType
-    | _ => pure ()
-
     Lean.addDecl decl
     println! "[addDecl] END CHECK    {path.mod3} {decl.toName}"
     if shouldGenCodeFor decl then
