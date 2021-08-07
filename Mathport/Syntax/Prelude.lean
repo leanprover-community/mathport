@@ -8,14 +8,14 @@ namespace Lean
 
 namespace Parser.Term
 
-syntax (name := cmdQuot) "`(command|" incQuotDepth(command) ")" : term
+@[termParser default+1] def Command.quot : Parser := leading_parser "`(command|" >> incQuotDepth commandParser >> ")"
 
 end Parser.Term
 
 namespace Elab.Term
 
 open Lean Elab Term Quotation in
-@[termElab cmdQuot] def elabCmdQuot : TermElab := adaptExpander stxQuot.expand
+@[termElab Command.quot] def elabCommandQuot : TermElab := adaptExpander stxQuot.expand
 
 end Elab.Term
 
