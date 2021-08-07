@@ -54,12 +54,7 @@ partial def visit (config : Config) (path : Path) : StateRefT (HashMap Path Task
       for mod3 in ← parseTLeanImports (path.toLean3 pcfg ".tlean") do
         let importPath ← resolveMod3 pcfg mod3
         importTasks := importTasks.push (← visit config importPath)
-      -- TODO: we wait rather than bind since there was a memory leak at some point
-      for importTask in importTasks do
-        match ← IO.wait importTask with
-        | Except.ok _ => pure ()
-        | Except.error err => throw err
-      let task ← IO.asTask $ mathport1 config path
+      let task ← IO.mapTasks (tasks := importTasks.toList) fun _ => mathport1 config path
       modify λ path2task => path2task.insert path task
       pure task
 
