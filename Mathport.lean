@@ -40,6 +40,18 @@ def mathport1 (config : Config) (path : Path) : IO Unit := do
 
     println! "\n[mathport] END   {path.mod3}\n"
 
+def bindTasks (deps : Array Task) (k : Unit → IO Task) : IO Task := do
+  if deps.isEmpty then k () else
+  let mut task := deps[0]
+  for i in [1:deps.size] do
+    task ← bindTaskThrowing task fun () => pure deps[i]
+  bindTaskThrowing task fun () => k ()
+where
+  bindTaskThrowing (task : Task) (k : Unit → IO Task) : IO Task :=
+    IO.bindTask task fun result => match result with
+      | Except.ok () => k ()
+      | Except.error err => throw err
+
 partial def visit (config : Config) (path : Path) : StateRefT (HashMap Path Task) IO Task := do
   println! "[visit] {repr path}"
   let pcfg := config.pathConfig
@@ -50,24 +62,20 @@ partial def visit (config : Config) (path : Path) : StateRefT (HashMap Path Task
       println! "[visit] {repr path} already exists"
       IO.asTask (pure ())
     else
-      let mut importTasks := #[]
+      let mut deps := #[]
       for mod3 in ← parseTLeanImports (path.toLean3 pcfg ".tlean") do
         let importPath ← resolveMod3 pcfg mod3
-        importTasks := importTasks.push (← visit config importPath)
-      let task ← IO.mapTasks (tasks := importTasks.toList) fun _ => mathport1 config path
+        deps := deps.push (← visit config importPath)
+      let task ← bindTasks deps fun () => IO.asTask (mathport1 config path)
       modify λ path2task => path2task.insert path task
       pure task
 
-def mathport (config : Config) (paths : Array Path) : IO Unit := core.run' {} where
-  core : StateRefT (HashMap Path Task) IO Unit := do
-    let mut tasks := #[]
-    for path in paths do
-      tasks := tasks.push (← visit config path)
-    for task in tasks do
-      let result ← IO.wait task
-      match result with
-      | Except.ok _ => pure ()
-      | Except.error err => throw err
+def mathport (config : Config) (paths : Array Path) : IO Unit := do
+  let tasks ← (paths.mapM fun path => visit config path).run' {}
+  let task ← bindTasks tasks fun () => IO.asTask (pure ())
+  match ← IO.wait task with
+  | Except.ok () => println! "[mathport] DONE"
+  | Except.error err => throw err
 
 end Mathport
 
