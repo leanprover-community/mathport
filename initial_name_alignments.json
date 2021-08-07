@@ -38,24 +38,5 @@
     "has_seq_left"  : "SeqLeft",
     "has_seq_right" : "SeqRight",
 
-    "module"        : "ModuleS",
-    "algebra"       : "AlgebraS",
-    "comm_ring"     : "CommRingS",
-    "comm_semiring" : "CommSemiRingS",
-    "group"         : "GroupS",
-    "ring"          : "RingS",
-    "monoid"        : "MonoidS",
-
-    "Module"        : "ModuleCat",
-    "Algebra"       : "AlgebraCat",
-    "CommRing"      : "CommRingCat",
-    "CommSemiRing"  : "CommSemiRingCat",
-    "Group"         : "GroupCat",
-    "Ring"          : "RingCat",
-    "Mon"           : "MonCat",
-
-    "category_theory.kleisli" : "CategoryTheory.KleisliS",
-    "category_theory.Kleisli" : "CategoryTheory.KleisliCat",
-
     "Int.negSuccOfNat" : "Int.negSucc"
 }

@@ -24,6 +24,20 @@ def Expr.replaceConstNames (e : Expr) (f : Name → Option Name) : Expr :=
     | proj n idx t .. => f n |>.map fun n' => mkProj n' idx t
     | _ => none
 
+def InductiveType.selfPlaceholder : Name := `_indSelf
+
+def InductiveType.replaceSelfWithPlaceholder (indType : InductiveType) : InductiveType := { indType with
+  ctors := indType.ctors.map fun ctor => { ctor with type := renameSelf ctor.type }
+}
+where
+  renameSelf (ctorType : Expr) := ctorType.replaceConstNames fun n => if n == indType.name then selfPlaceholder else none
+
+def InductiveType.replacePlaceholderWithSelf (indType : InductiveType) : InductiveType := { indType with
+  ctors := indType.ctors.map fun ctor => { ctor with type := renameSelf ctor.type }
+}
+where
+  renameSelf (ctorType : Expr) := ctorType.replaceConstNames fun n => if n == selfPlaceholder then indType.name else none
+
 def InductiveType.updateNames (indType : InductiveType) (newIndName : Name) : InductiveType := do
   let map : HashMap Name Name := ({} : HashMap Name Name).insert indType.name newIndName
   { indType with

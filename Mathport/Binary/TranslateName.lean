@@ -88,6 +88,8 @@ partial def refineLean4Names (decl : Declaration) : BinportM (Declaration × Cla
       return (Declaration.defnDecl { defn with name := name }, clashKind, [])
     refineDef { defn with name := name }
   | Declaration.inductDecl lps nps [indType] iu =>
+    let candidateName ← mkCandidateLean4Name indType.name indType.type
+    let indType := indType.replacePlaceholderWithSelf
     refineInd lps nps (indType.updateNames (← mkCandidateLean4Name indType.name indType.type)) iu
   | _                                       => throwError "unexpected declaration type"
 

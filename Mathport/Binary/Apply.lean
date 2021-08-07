@@ -249,10 +249,17 @@ where
     | _ => return false /- this can happen when e.g. `nat.add._main -> Nat.add` (which may be needed due to eqn lemmas) -/
 
 def applyInductiveDecl (lps : List Name) (nParams : Nat) (indType : InductiveType) (isUnsafe : Bool) : BinportM Unit := do
-  let (decl, clashKind) ← refineAddDecl $ Declaration.inductDecl lps nParams [{ indType with
+  -- The `Module` inductive type includes `module` in its constructor types, which gets mapped to `Module`, causing confusion.
+  -- In the past, we worked around this by changing `module` -> `ModuleS`, but this is highly undesirable.
+  -- Now, we simple first change all the `Module` names to `_indSelf`, then change `_indSelf` later.
+  let indType := indType.replaceSelfWithPlaceholder
+
+  let decl := Declaration.inductDecl lps nParams [{ indType with
     type  := (← trExpr indType.type),
-    ctors := (← indType.ctors.mapM fun ctor => do pure { ctor with type := (← trExpr ctor.type) })
+    ctors := (← ctors.mapM fun ctor => do pure { ctor with type := (← trExpr ctor.type (indName := indType.name) })
   }] isUnsafe
+
+  let (decl, clashKind) ← refineAddDecl decl
   if clashKind == ClashKind.freshDecl then mkAuxDecls decl.toName
 
   match ← liftMetaM $ mkNDRec decl.toName (indType.name ++ `ndrec /- old name -/) with
