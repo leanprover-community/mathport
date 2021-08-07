@@ -40,12 +40,14 @@ def mathport1 (config : Config) (path : Path) : IO Unit := do
 
     println! "\n[mathport] END   {path.mod3}\n"
 
-def bindTasks (deps : Array Task) (k : Unit → IO Task) : IO Task := do
-  if deps.isEmpty then k () else
+def bindTasks (deps : Array Task) (k? : Option (Unit → IO Task)) : IO Task := do
+  if deps.isEmpty then k?.get! () else
   let mut task := deps[0]
   for i in [1:deps.size] do
     task ← bindTaskThrowing task fun () => pure deps[i]
-  bindTaskThrowing task fun () => k ()
+  match k? with
+  | none => task
+  | some k => bindTaskThrowing task fun () => k ()
 where
   bindTaskThrowing (task : Task) (k : Unit → IO Task) : IO Task :=
     IO.bindTask task fun result => match result with
@@ -72,8 +74,7 @@ partial def visit (config : Config) (path : Path) : StateRefT (HashMap Path Task
 
 def mathport (config : Config) (paths : Array Path) : IO Unit := do
   let tasks ← (paths.mapM fun path => visit config path).run' {}
-  let task ← bindTasks tasks fun () => IO.asTask (pure ())
-  match ← IO.wait task with
+  match ← IO.wait (← bindTasks tasks none) with
   | Except.ok () => println! "[mathport] DONE"
   | Except.error err => throw err
 
