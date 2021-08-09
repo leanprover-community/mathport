@@ -11,6 +11,7 @@
     "nat.div._main"  : ["div", "Nat"],
     "nat.pred._main" : ["pred", "Nat"],
 
+    "out_param"     : "outParam",
     "opt_param"     : "optParam",
 
     "heq"           : "HEq",
