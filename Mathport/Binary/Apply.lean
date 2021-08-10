@@ -160,7 +160,10 @@ where
       pure {
         fieldName := fieldName,
         projFn := projName,
-        subobject? := getSubobject? numParams ctorType fieldName3
+        subobject? := getSubobject? numParams ctorType fieldName3,
+        -- TODO: what to put here?
+        binderInfo := BinderInfo.default,
+        inferMod   := false
       }
     | _, _ => throwError "unexpected projName with num field: {projName}"
 
@@ -305,7 +308,7 @@ where
     for (structName, structDescr) in (← get).structures.toList do
       modifyEnv fun env => registerStructure env structDescr
       println! "[registerStructure] {structName}"
-      for ⟨fieldName, projName, subobject?⟩ in structDescr.fields do
+      for ⟨fieldName, projName, subobject?, _, _⟩ in structDescr.fields do
         println! "[registerStructure.field] {structName} {fieldName} {projName} {subobject?}"
 
 end Mathport.Binary
