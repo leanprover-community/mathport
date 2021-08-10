@@ -26,7 +26,7 @@ syntax (name := include) "include " ident+ : command
 syntax (name := omit) "omit " ident+ : command
 syntax (name := parameter) "parameter " bracketedBinder+ : command
 syntax (name := noncomputableTheory) (docComment)? "noncomputable " "theory" : command
-syntax (name := runCmd) "run_cmd " term : command
+syntax (name := runCmd) "run_cmd " doSeq : command
 
 syntax bindersItem := "(" "..." ")"
 
@@ -67,35 +67,35 @@ def elabOmitCmd : CommandElab := fun _ => pure ()
 def Elab.Command.elabModDocComment : CommandElab := fun _ => pure ()
 
 open Meta in
-unsafe def elabRunCmdUnsafe : CommandElab
-  | `(run_cmd $term) =>
-    let n := `_runCmd
-    runTermElabM (some n) fun _ => do
-      let e ← Term.elabTerm term none
-      Term.synthesizeSyntheticMVarsNoPostponing
-      let e ← withLocalDeclD `env (mkConst ``Lean.Environment) fun env =>
-          withLocalDeclD `opts (mkConst ``Lean.Options) fun opts => do
-            let e ← mkAppM ``Lean.runMetaEval #[env, opts, e]
-            mkLambdaFVars #[env, opts] e
-      let env ← getEnv
-      let opts ← getOptions
-      let act ← try
-        let type ← inferType e
-        let decl := Declaration.defnDecl {
-          name        := n
-          levelParams := []
-          type        := type
-          value       := e
-          hints       := ReducibilityHints.opaque
-          safety      := DefinitionSafety.unsafe }
-        Term.ensureNoUnassignedMVars decl
-        addAndCompile decl
-        evalConst (Environment → Options → IO (String × Except IO.Error Environment)) n
-      finally setEnv env
-      match (← act env opts).2 with
-      | Except.error e => throwError e.toString
-      | Except.ok env  => do setEnv env; pure ()
-  | _ => throwUnsupportedSyntax
+unsafe def elabRunCmdUnsafe : CommandElab := fun stx => do
+  let name := stx[1].getOptional?
+  let e ← `((do $(stx[1]) : CoreM Unit))
+  let n := `_runCmd
+  runTermElabM (some n) fun _ => do
+    let e ← Term.elabTerm e (← Term.elabTerm (← `(CoreM Unit)) none)
+    Term.synthesizeSyntheticMVarsNoPostponing
+    let e ← withLocalDeclD `env (mkConst ``Lean.Environment) fun env =>
+      withLocalDeclD `opts (mkConst ``Lean.Options) fun opts => do
+        let e ← mkAppM ``Lean.runMetaEval #[env, opts, e]
+        mkLambdaFVars #[env, opts] e
+    let env ← getEnv
+    let opts ← getOptions
+    let act ← try
+      let type ← inferType e
+      let decl := Declaration.defnDecl {
+        name        := n
+        levelParams := []
+        type        := type
+        value       := e
+        hints       := ReducibilityHints.opaque
+        safety      := DefinitionSafety.unsafe }
+      Term.ensureNoUnassignedMVars decl
+      addAndCompile decl
+      evalConst (Environment → Options → IO (String × Except IO.Error Environment)) n
+    finally setEnv env
+    match (← act env opts).2 with
+    | Except.error e => throwError e.toString
+    | Except.ok env  => do setEnv env; pure ()
 
 -- TODO(Mario): Why is the extra indirection needed?
 @[implementedBy elabRunCmdUnsafe] constant elabRunCmd' : CommandElab
@@ -125,8 +125,7 @@ def calcLHS : Parser where
     trailingLoop tables c s
   info := (calcDots >> termParser).info
 
-run_cmd show CoreM _ from
-  modifyEnv fun env => addSyntaxNodeKind env ``calcDots
+run_cmd modifyEnv fun env => addSyntaxNodeKind env ``calcDots
 
 open Lean.PrettyPrinter Lean.Elab.Term
 
