@@ -217,20 +217,20 @@ def applyTheoremVal (thm : TheoremVal) : BinportM Unit := do
 def applyDefinitionVal (defn : DefinitionVal) : BinportM Unit := do
   if ← isBadSUnfold3 defn.name then return ()
 
-  -- TODO: MetaM does not have a def-eq cache, and so whereas Lean3 was robust to some
-  -- manually written `to_*` definitions not disable self_opt, a single bad definition
-  -- can (currently) cause exponential blowup in Lean4.
-  -- As a workaround, we mark anything of the form `to_*` as abbrevs.
-  let hints :=
-    if defn.name.isStr && defn.name.getString!.startsWith "to_" then
-      ReducibilityHints.abbrev
-    else defn.hints
+  let mut hints := defn.hints
+  let mut forceAbbrev := false
+
+  if (← read).config.forceAbbrevs.contains defn.name then
+    hints := ReducibilityHints.abbrev
+    forceAbbrev := true
 
   discard <| refineAddDecl $ Declaration.defnDecl { defn with
     type  := (← trExpr defn.type)
     value := (← trExpr defn.value)
     hints := hints
   }
+
+  if forceAbbrev then applyReducibility defn.name ReducibilityStatus.reducible
 where
   isBadSUnfold3 (n3 : Name) : BinportM Bool := do
     if !n3.isStr then return false
@@ -249,9 +249,10 @@ def applyInductiveDecl (lps : List Name) (nParams : Nat) (indType : InductiveTyp
   -- In the past, we worked around this by changing `module` -> `ModuleS`, but this is highly undesirable.
   -- Now, we simple first change all the `Module` names to `_indSelf`, then change `_indSelf` later.
   let indType := indType.replaceSelfWithPlaceholder
+  let ind? := some (indType.name, indType.type, lps)
   let decl := Declaration.inductDecl lps nParams [{ indType with
     type  := (← trExpr indType.type),
-    ctors := (← indType.ctors.mapM fun ctor => do pure { ctor with type := (← trExpr ctor.type) })
+    ctors := (← indType.ctors.mapM fun ctor => do pure { ctor with type := (← trExpr ctor.type (ind? := ind?)) })
   }] isUnsafe
 
   let (decl, clashKind) ← refineAddDecl decl

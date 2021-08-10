@@ -19,6 +19,7 @@ open Std (HashMap HashSet)
 structure Config where
   pathConfig         : Path.Config
   defEqConstructions : HashSet String := {}
+  forceAbbrevs       : HashSet Name := {}
   stringsToKeep      : HashSet Name := {}
   disabledInstances  : HashSet Name := {}
   neverSorries       : HashSet Name := {}

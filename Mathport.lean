@@ -23,7 +23,9 @@ def mathport1 (config : Config) (path : Path) : IO Unit := do
     let ipath : Path ← resolveMod3 pcfg mod3
     { module := ipath.package ++ ipath.mod4 : Import }
 
-  let opts := ({} : Options).setBool `pp.all true
+  let mut opts := ({} : Options)
+  opts := opts.setBool `pp.analyze false
+  opts := opts.setBool `pp.all true
 
   withImportModulesConst (coreImports ++ extraImports.toList) (opts := opts) (trustLevel := 0) $ λ env => do
     let env := env.setMainModule path.mod4

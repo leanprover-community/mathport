@@ -12,6 +12,8 @@
     "equations",
     "private"
   ],
+  "forceAbbrevs": [
+  ],
   "defEqConstructions": [
     "casesOn",
     "noConfusion",

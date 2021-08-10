@@ -16,22 +16,35 @@ import Mathport.Util.String
 import Mathport.Binary.Basic
 import Mathport.Binary.Number
 import Mathport.Binary.Decode
+import Mathport.Binary.Coe
 import Mathport.Binary.TranslateName
 
 namespace Mathport.Binary
 
 open Lean Lean.Meta
 
-def trExprCore (ctx : Context) (st : State) (cmdCtx : Elab.Command.Context) (cmdState : Elab.Command.State) (e : Expr) : MetaM Expr := do
-  let mut e ← replaceConstNames e
-  e ← Meta.transform e (pre := translateNumbers)
-  match (getRenameMap cmdState.env).find? `auto_param with
-  | none => pure ()
-  | some ap4 =>
-    e ← Meta.transform e (pre := translateAutoParams ap4)
-  e
-
+def trExprCore (ctx : Context) (st : State) (cmdCtx : Elab.Command.Context) (cmdState : Elab.Command.State) (e : Expr) (ind? : Option (Name × Expr × List Name)) : MetaM Expr := do
+  match ind? with
+  | none => core e
+  | some ⟨indName, indType, lps⟩ =>
+    withLocalDeclD indName indType fun x => do
+      let e := e.replace fun e => if e.isConstOf indName then some x else none
+      let e ← core e
+      let e := e.replace fun e =>
+        if e == x then some (mkConst indName $ lps.map mkLevelParam)
+        else if !e.hasFVar then (some e)
+        else none
+      e
 where
+  core e := do
+    let mut e ← replaceConstNames e
+    e ← expandCoe e
+    e ← Meta.transform e (pre := translateNumbers)
+    match (getRenameMap cmdState.env).find? `auto_param with
+    | none     => pure ()
+    | some ap4 => e ← Meta.transform e (pre := translateAutoParams ap4)
+    e
+
   replaceConstNames (e : Expr) : MetaM Expr := do
     e.replaceConstNames fun n => (getRenameMap cmdState.env).find? n
 
@@ -73,11 +86,11 @@ where
   mkCandidateLean4NameForKindIO (n3 : Name) (eKind : ExprKind) : IO Name := do
     (mkCandidateLean4NameForKind n3 eKind).toIO ctx st cmdCtx cmdState
 
-def trExpr (e : Expr) : BinportM Expr := do
+def trExpr (e : Expr) (ind? : Option (Name × Expr × List Name) := none) : BinportM Expr := do
   let ctx ← read
   let st ← get
   let cmdCtx ← readThe Elab.Command.Context
   let cmdState ← getThe Elab.Command.State
-  liftMetaM $ trExprCore ctx st cmdCtx cmdState e
+  liftMetaM $ trExprCore ctx st cmdCtx cmdState e ind?
 
 end Mathport.Binary
