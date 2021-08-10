@@ -756,7 +756,7 @@ instance : FromJson BinderInfo where
     | 8 => BinderInfo.auxDecl
     | _ => throw "unknown binder type"
 
-inductive Annotation1
+inductive Annotation
   | no_univ
   | do_failure_eq
   | infix_fn
@@ -766,9 +766,6 @@ inductive Annotation1
   | «calc»
   | no_info
   | frozen_name
-  deriving FromJson
-
-inductive Annotation2
   | «have»
   | «show»
   | «suffices»
@@ -777,9 +774,6 @@ inductive Annotation2
   | «@@»
   | as_atomic
   | as_is
-  deriving FromJson
-
-inductive Annotation3
   | antiquote
   | expr_quote_pre
   | comp_irrel
@@ -789,19 +783,14 @@ inductive Annotation3
   | th_proof
   deriving FromJson
 
-abbrev Annotation := Sum Annotation1 $ Sum Annotation2 Annotation3
-
-inductive RawExpr1 where
-  | var : Nat → RawExpr1
-  | sort : LevelId → RawExpr1
-  | const : Name → Array LevelId → RawExpr1
-  | app : ExprId → ExprId → RawExpr1
+inductive RawExpr where
+  | var : Nat → RawExpr
+  | sort : LevelId → RawExpr
+  | const : Name → Array LevelId → RawExpr
+  | app : ExprId → ExprId → RawExpr
   | lam (name : Name) (bi : BinderInfo) (dom body : ExprId)
   | Pi (name : Name) (bi : BinderInfo) (dom body : ExprId)
   | «let» (name : Name) (type value body : ExprId)
-  deriving FromJson
-
-inductive RawExpr2 where
   | «local» (name pp : Name) (bi : BinderInfo) (type : ExprId)
   | mvar (name pp : Name) (type : ExprId)
   | annotation (name : Annotation) (args : Array ExprId)
@@ -810,9 +799,6 @@ inductive RawExpr2 where
   | «structure instance» (struct : Name) (catchall : Bool) (fields : Array Name) (args : Array ExprId)
   | projection_macro (I constr proj : Name) (idx : Nat) (params : Array Name)
     (type val : ExprId) (args : Array ExprId)
-  deriving FromJson
-
-inductive RawExpr3 where
   | «sorry» (synthetic : Bool) (args : Array ExprId)
   | prenum (value : String)
   | nat_value (value : String)
@@ -822,10 +808,7 @@ inductive RawExpr3 where
   | as_pattern (args : Array ExprId)
   | rec_fn (name : Name) (args : Array ExprId)
   | delayed_abstraction (value : Array Name) (args : Array ExprId)
-  deriving FromJson
-
-inductive RawExpr4 where
-  | no_equation : Unit → RawExpr4
+  | no_equation : Unit → RawExpr
   | equation (ignore_if_unused : Bool) (args : Array ExprId)
   | equations (num_fns : Nat) (fn_names fn_actual_names : Array Name)
     (prev_errors is_private is_noncomputable is_meta is_lemma gen_code aux_lemmas : Bool)
@@ -835,8 +818,6 @@ inductive RawExpr4 where
   | perm_ac (args : Array ExprId)
   | cc_proof (args : Array ExprId)
   deriving FromJson
-
-abbrev RawExpr := Sum (Sum RawExpr1 RawExpr2) (Sum RawExpr3 RawExpr4)
 
 instance : FromJson RawExpr :=
   ⟨fun x => do
@@ -872,7 +853,7 @@ def buildLevels (ls : Array RawLevel) : Array Level := do
     out := out.push l'
   out
 
-def Annotation1.build : Annotation1 → Lean3.Annotation
+def Annotation.build : Annotation → Lean3.Annotation
   | no_univ => Lean3.Annotation.no_univ
   | do_failure_eq => Lean3.Annotation.do_failure_eq
   | infix_fn => Lean3.Annotation.infix_fn
@@ -882,8 +863,6 @@ def Annotation1.build : Annotation1 → Lean3.Annotation
   | «calc» => Lean3.Annotation.«calc»
   | no_info => Lean3.Annotation.no_info
   | frozen_name => Lean3.Annotation.frozen_name
-
-def Annotation2.build : Annotation2 → Lean3.Annotation
   | «have» => Lean3.Annotation.«have»
   | «show» => Lean3.Annotation.«show»
   | «suffices» => Lean3.Annotation.«suffices»
@@ -892,8 +871,6 @@ def Annotation2.build : Annotation2 → Lean3.Annotation
   | «@@» => Lean3.Annotation.«@@»
   | as_atomic => Lean3.Annotation.as_atomic
   | as_is => Lean3.Annotation.as_is
-
-def Annotation3.build : Annotation3 → Lean3.Annotation
   | antiquote => Lean3.Annotation.antiquote
   | expr_quote_pre => Lean3.Annotation.expr_quote_pre
   | comp_irrel => Lean3.Annotation.comp_irrel
@@ -902,12 +879,7 @@ def Annotation3.build : Annotation3 → Lean3.Annotation
   | pattern_hint => Lean3.Annotation.pattern_hint
   | th_proof => Lean3.Annotation.th_proof
 
-def Annotation.build : Annotation → Lean3.Annotation
-  | Sum.inl a => a.build
-  | Sum.inr $ Sum.inl a => a.build
-  | Sum.inr $ Sum.inr a => a.build
-
-def RawExpr1.build : RawExpr1 → Expr
+def RawExpr.build : RawExpr → Expr
   | var i => Expr.var i
   | sort l => Expr.sort lvls[l]
   | const c ls => Expr.const c $ ls.map fun l => lvls[l]
@@ -915,8 +887,6 @@ def RawExpr1.build : RawExpr1 → Expr
   | lam n bi d b => Expr.lam n bi exprs[d] exprs[b]
   | Pi n bi d b => Expr.Pi n bi exprs[d] exprs[b]
   | «let» n t v b => Expr.let n exprs[t] exprs[v] exprs[b]
-
-def RawExpr2.build : RawExpr2 → Expr
   | mvar n pp t => Expr.mvar n pp exprs[t]
   | «local» n pp bi t => Expr.local n pp bi exprs[t]
   | annotation n args => Expr.annotation n.build exprs[args[0]]
@@ -928,8 +898,6 @@ def RawExpr2.build : RawExpr2 → Expr
     (args[flds.size:].toArray.map fun a => exprs[a])
   | projection_macro I c p i ps ty val args =>
     Expr.proj I c p i ps exprs[ty] exprs[val] exprs[args[0]]
-
-def RawExpr3.build : RawExpr3 → Expr
   | «sorry» s args => Expr.sorry s exprs[args[0]]
   | prenum n => Expr.prenum (Lean.Syntax.decodeNatLitVal? n).get!
   | nat_value n => Expr.nat (Lean.Syntax.decodeNatLitVal? n).get!
@@ -941,8 +909,6 @@ def RawExpr3.build : RawExpr3 → Expr
   | delayed_abstraction ns args =>
     let args := args.map fun a => exprs[a]
     Expr.delayed_abstraction args.back (ns.zip args.pop)
-
-def RawExpr4.build : RawExpr4 → Expr
   | no_equation _ => Expr.no_equation
   | equation iu args => Expr.equation exprs[args[0]] exprs[args[1]] iu
   | equations n ns as _ p nc m l gc al args =>
@@ -963,10 +929,7 @@ def buildExprs (es : Array (Option RawExpr)) : Array Expr := do
   let mut out := #[]
   for e in es do
     let e' : Expr := match e with
-    | some $ Sum.inl $ Sum.inl e => e.build lvls out
-    | some $ Sum.inl $ Sum.inr e => e.build out
-    | some $ Sum.inr $ Sum.inl e => e.build out
-    | some $ Sum.inr $ Sum.inr e => e.build out
+    | some e => e.build lvls out
     | none => arbitrary
     out := out.push e'
   out
