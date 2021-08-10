@@ -42,7 +42,9 @@ structure State where
   scopes : Array Scope := #[]
   simpSets : NameSet := predefinedSimpSets
   tactics : NameMap (Array (Spanned AST3.Param) → CommandElabM Syntax) := {}
-  userNota : NameMap (Array (Spanned AST3.Param) → CommandElabM Syntax) := {}
+  userNotas : NameMap (Array (Spanned AST3.Param) → CommandElabM Syntax) := {}
+  userAttrs : NameMap (Array (Spanned AST3.Param) → CommandElabM Syntax) := {}
+  userCmds : NameMap (AST3.Modifiers → Array (Spanned AST3.Param) → CommandElabM Syntax) := {}
   deriving Inhabited
 
 def NotationEntries.insert (m : NotationEntries) : NotationData → NotationEntries
@@ -600,7 +602,7 @@ def trExpr' : Expr → M Syntax
   | Expr.atPat lhs rhs => do `($(mkIdent lhs.kind)@ $(← trExpr rhs.kind))
   | Expr.notation n args => trNotation n args
   | Expr.userNotation n args => do
-    match (← get).userNota.find? n with
+    match (← get).userNotas.find? n with
     | some f => try f args catch e => throw! "in {n}: {← e.toMessageData.toString}"
     | none => throw! "unsupported user notation {n}"
 
@@ -1124,4 +1126,7 @@ def trCommand' : Command → M Unit
   | Command.print (PrintCmd.ident n) => do pushM `(#print $(← mkIdentI n.kind))
   | Command.print (PrintCmd.axioms (some n)) => do pushM `(#print axioms $(← mkIdentI n.kind))
   | Command.print _ => throw! "unsupported: advanced #print"
-  | Command.userCommand n mods args => throw! "unsupported (TODO): user command {n}"
+  | Command.userCommand n mods args => do
+    match (← get).userCmds.find? n with
+    | some f => try pushM (f mods args) catch e => throw! "in {n}: {← e.toMessageData.toString}"
+    | none => throw! "unsupported user command {n}"

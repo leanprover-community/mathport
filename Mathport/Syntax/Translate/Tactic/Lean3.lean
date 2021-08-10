@@ -573,12 +573,12 @@ private partial def getStr : AST3.Expr → M String
     pure $ (← getStr s1) ++ (← getStr s2)
   | _ => throw! "unsupported"
 
-def trInterpolatedStr : TacM Syntax := do
+def trInterpolatedStr (f : Syntax → TacM Syntax := pure) : TacM Syntax := do
   let s ← getStr (← expr!)
   let chunks ← parse $ parseChunks s pExpr "\"" 0 #[]
   mkNode interpolatedStrKind $ ← chunks.mapM fun
     | Sum.inl s => pure $ Syntax.mkLit interpolatedStrLitKind s
-    | Sum.inr e => trExpr e
+    | Sum.inr e => trExpr e >>= f
 
 end
 

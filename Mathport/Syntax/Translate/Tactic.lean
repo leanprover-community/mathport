@@ -15,7 +15,7 @@ namespace Tactic
 
 open AST3 Parser Lean.Elab.Command
 
-open Lean.Elab.Command in
+open Lean.Elab.Command
 def mkTacMap (l : Array (Name × TacM Syntax)) :
   M (NameMap (Array (Spanned AST3.Param) → CommandElabM Syntax)) := do
   let mut tacs := {}
@@ -23,5 +23,14 @@ def mkTacMap (l : Array (Name × TacM Syntax)) :
     tacs := tacs.insert n $ ← fun c s => pure fun a => tac.run a c s
   pure tacs
 
+def mkCmdMap (l : Array (Name × (Modifiers → TacM Syntax))) :
+  M (NameMap (Modifiers → Array (Spanned AST3.Param) → CommandElabM Syntax)) := do
+  let mut tacs := {}
+  for (n, tac) in l do
+    tacs := tacs.insert n $ ← fun c s => pure fun mod a => (tac mod).run a c s
+  pure tacs
+
 def builtinTactics := mkTacMap trTactics!
 def builtinUserNotation := mkTacMap trUserNotas!
+def builtinUserAttrs := mkTacMap trUserAttrs!
+def builtinUserCmds := mkCmdMap trUserCmds!

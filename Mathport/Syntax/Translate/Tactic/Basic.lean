@@ -59,11 +59,22 @@ def itactic : TacM AST3.Block := do
   let Param.block bl ← next! | throw! "expecting tactic arg"
   bl
 
-syntax (name := trTactic) "trTactic " ident+ : attr
-syntax (name := trUserNota) "trUserNota " ident+ : attr
-syntax (name := trUserAttr) "trUserAttr " ident+ : attr
+def withNoMods (tac : TacM Syntax) : Modifiers → TacM Syntax
+  | #[] => tac
+  | _ => throw! "expecting no modifiers"
 
-private def mkExt (name attr : Name) (descr : String) : IO (SimplePersistentEnvExtension (Name × Name) (Array (Name × Name))) := do
+scoped instance : Coe (TacM Syntax) (Modifiers → TacM Syntax) := ⟨withNoMods⟩
+
+def withDocString (tac : Option String → TacM Syntax) : Modifiers → TacM Syntax
+  | #[] => tac none
+  | #[⟨_, _, Modifier.doc s⟩] => tac (some s)
+  | _ => throw! "unsupported modifiers in user command"
+
+scoped instance : Coe (Option String → TacM Syntax) (Modifiers → TacM Syntax) := ⟨withDocString⟩
+
+abbrev NameExt := SimplePersistentEnvExtension (Name × Name) (Array (Name × Name))
+
+private def mkExt (name attr : Name) (descr : String) : IO NameExt := do
   let ext ← registerSimplePersistentEnvExtension {
     name
     addEntryFn := Array.push
@@ -78,29 +89,30 @@ private def mkExt (name attr : Name) (descr : String) : IO (SimplePersistentEnvE
   }
   ext
 
-initialize trTacExtension : SimplePersistentEnvExtension (Name × Name) (Array (Name × Name)) ←
+private def mkElab (ext : NameExt) (ty : Lean.Expr) : Elab.Term.TermElabM Lean.Expr := do
+  let stx ← (ext.getState (← getEnv)).mapM fun (n3, n4) =>
+    `(($(Syntax.mkNameLit s!"`{n3}"):nameLit, $(mkIdent n4):ident))
+  Elab.Term.elabTerm (← `(#[$stx,*])) (some ty)
+
+syntax (name := trTactic) "trTactic " ident+ : attr
+syntax (name := trUserNota) "trUserNota " ident+ : attr
+syntax (name := trUserAttr) "trUserAttr " ident+ : attr
+syntax (name := trUserCmd) "trUserCmd " ident+ : attr
+
+initialize trTacExtension : NameExt ←
   mkExt `Mathport.Translate.Tactic.trTacExtension `trTactic
     (descr := "lean 3 → 4 tactic translation")
-
-initialize trUserNotaExtension : SimplePersistentEnvExtension (Name × Name) (Array (Name × Name)) ←
+initialize trUserNotaExtension : NameExt ←
   mkExt `Mathport.Translate.Tactic.trUserNotaExtension `trUserNota
     (descr := "lean 3 → 4 user notation translation")
-
-initialize trUserAttrExtension : SimplePersistentEnvExtension (Name × Name) (Array (Name × Name)) ←
+initialize trUserAttrExtension : NameExt ←
   mkExt `Mathport.Translate.Tactic.trUserAttrExtension `trUserAttr
     (descr := "lean 3 → 4 user attribute translation")
+initialize trUserCmdExtension : NameExt ←
+  mkExt `Mathport.Translate.Tactic.trUserCmdExtension `trUserCmd
+    (descr := "lean 3 → 4 user attribute translation")
 
-elab "trTactics!" : term => do
-  let stx ← (trTacExtension.getState (← getEnv)).mapM fun (n3, n4) =>
-    `(($(Syntax.mkNameLit s!"`{n3}"):nameLit, $(mkIdent n4):ident))
-  Elab.Term.elabTerm (← `(#[$stx,*])) none
-
-elab "trUserNotas!" : term => do
-  let stx ← (trUserNotaExtension.getState (← getEnv)).mapM fun (n3, n4) =>
-    `(($(Syntax.mkNameLit s!"`{n3}"):nameLit, $(mkIdent n4):ident))
-  Elab.Term.elabTerm (← `(#[$stx,*])) none
-
-elab "trUserAttrs!" : term => do
-  let stx ← (trUserAttrExtension.getState (← getEnv)).mapM fun (n3, n4) =>
-    `(($(Syntax.mkNameLit s!"`{n3}"):nameLit, $(mkIdent n4):ident))
-  Elab.Term.elabTerm (← `(#[$stx,*])) none
+elab "trTactics!" : term <= ty => mkElab trTacExtension ty
+elab "trUserNotas!" : term <= ty => mkElab trUserNotaExtension ty
+elab "trUserAttrs!" : term <= ty => mkElab trUserAttrExtension ty
+elab "trUserCmds!" : term <= ty => mkElab trUserCmdExtension ty
