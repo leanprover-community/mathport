@@ -107,10 +107,10 @@ def rwRule : ParserM RwRule := do
 def rwRules : ParserM (Array RwRule) := maybeListOf rwRule
 
 def generalizeArg : ParserM (Expr × Name) := do
-  let AST3.Expr.app e rhs ← (← pExpr).unparen | failure
-  let AST3.Expr.app _ lhs ← e.kind.unparen | failure
-  let AST3.Expr.ident x ← rhs.kind.unparen | failure
-  (lhs.kind, x)
+  let AST3.Expr.notation (Choice.one `«expr = ») #[⟨_, _, Arg.expr lhs⟩, ⟨_, _, Arg.expr rhs⟩]
+    ← (← pExpr).unparen | failure
+  let AST3.Expr.ident x ← rhs.unparen | failure
+  (lhs, x)
 
 def casesArg : ParserM (Option Name × Expr) := do
   let t ← pExpr

@@ -8,7 +8,8 @@ namespace Lean
 
 namespace Parser.Term
 
-@[termParser default+1] def Command.quot : Parser := leading_parser "`(command|" >> incQuotDepth commandParser >> ")"
+@[termParser default+1] def Command.quot : Parser :=
+  leading_parser "`(command|" >> incQuotDepth commandParser >> ")"
 
 end Parser.Term
 
@@ -228,7 +229,6 @@ syntax (name := guardTarget) "guardTarget " term : tactic
 syntax (name := guardHyp) "guardHyp " ident (" : " term)? (" := " term)? : tactic
 syntax (name := matchTarget) "matchTarget " term : tactic
 syntax (name := byCases) "byCases " (ident " : ")? term : tactic
-syntax (name := funext) "funext " (colGt (ident <|> "_"))* : tactic
 syntax (name := byContra) "byContra " (colGt ident)? : tactic
 syntax (name := typeCheck) "typeCheck " term : tactic
 syntax (name := specialize) "specialize " ident (colGt term:arg)+ : tactic

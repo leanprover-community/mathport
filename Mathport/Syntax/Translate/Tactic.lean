@@ -173,6 +173,10 @@ def mkIdent_ : Name → Syntax
   | `_ => mkAtom "_"
   | x => mkIdent x
 
+def mkIdent_Term : Name → Syntax
+  | `_ => do `(_)
+  | x => mkIdent x
+
 def trCase : TacM Syntax := do
   let args ← parse case
   let tac ← trBlock (← itactic)
@@ -534,7 +538,7 @@ def trByCases : TacM Syntax := do
   let q ← trExpr q
   `(tactic| byCases $[$(n.map mkIdent) :]? $q)
 
-def trFunext : TacM Syntax := do `(tactic| funext $[$((← parse ident_*).map mkIdent_)]*)
+def trFunext : TacM Syntax := do `(tactic| funext $[$((← parse ident_*).map mkIdent_Term)]*)
 
 def trByContra : TacM Syntax := do `(tactic| byContra $[$((← parse (ident)?).map mkIdent)]?)
 

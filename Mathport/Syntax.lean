@@ -3,15 +3,7 @@ Copyright (c) 2021 Microsoft Corporation. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Mario Carneiro, Daniel Selsam
 -/
-import Lean
-import Mathport.Util.System
-import Mathport.Util.Import
-import Mathport.Util.Parse
-import Mathport.Bridge.Path
-import Mathport.Bridge.RenameExt
 import Mathport.Bridge.Config
-import Mathport.Syntax.AST3
-import Mathport.Syntax.Data4
 import Mathport.Syntax.Parse
 import Mathport.Syntax.Translate
 
@@ -31,9 +23,9 @@ open Lean.Parser Lean.PrettyPrinter
 
 -- #eval show CoreM Unit from do
 --   let pcfg : Path.Config := { outRoot := "", packages := {} }
---   let s ← IO.FS.readFile "/home/mario/Documents/lean/lean/library/test.ast.json"
---   -- let s ← IO.FS.readFile "/home/mario/Documents/lean/mathport/PreData/lean3/init/meta/case_tag.ast.json"
---   -- let s ← IO.FS.readFile "/home/mario/Documents/lean/mathport/PreData/mathlib3/ring_theory/nullstellensatz.ast.json"
+--   -- let s ← IO.FS.readFile "/home/mario/Documents/lean/lean/library/test.ast.json"
+--   let s ← IO.FS.readFile "/home/mario/Documents/lean/mathport/PreData/Lean3/init/data/nat/bitwise.ast.json"
+--   -- let s ← IO.FS.readFile "/home/mario/Documents/lean/mathport/PreData/Mathlib3/ring_theory/nullstellensatz.ast.json"
 --   let json ← Json.parse s
 --   let raw@⟨ast, file, level, expr⟩ ← fromJson? json (α := Parse.RawAST3)
 --   let ⟨prel, imp, commands, inot, icmd⟩ ← raw.toAST3
@@ -41,9 +33,8 @@ open Lean.Parser Lean.PrettyPrinter
 --   let expr := Parse.buildExprs level expr
 --   let commands := ast[ast[file].get!.children'[2]].get!.children'
 --   let cmdCtx := { fileName := "<input>", fileMap := dummyFileMap }
---   let env ← getEnv
 --   let mut opts : Options := {}
---   opts := opts.setBool `trace.PrettyPrinter.parenthesize true
+--   -- opts := opts.setBool `trace.PrettyPrinter.parenthesize true
 --   -- opts := opts.setBool `trace.PrettyPrinter.format true
 --   let s := Elab.Command.mkState (← getEnv) {} opts
 --   let mut i := 0
@@ -56,6 +47,16 @@ open Lean.Parser Lean.PrettyPrinter
 --       let ⟨fmt, _⟩ ← Mathport.AST3toData4 ⟨none, #[], #[res], inot, icmd⟩ pcfg
 --       println! "{fmt}"
 --       printTraces
+
+-- #eval show CoreM Unit from do
+--   let pcfg : Path.Config := { outRoot := "", packages := {} }
+--   let mut opts : Options := {}
+--   let s := Elab.Command.mkState (← getEnv) {} opts
+--   let stx ← Translate.Tactic.trFunext
+--     |>.run #[Spanned.dummy (AST3.Param.parse arbitrary #[Spanned.dummy (AST3.VMCall.ident `x), Spanned.dummy (AST3.VMCall.ident `y)])]
+--     |>.run #[] #[] { outRoot := "", packages := {} }
+--     |>.toIO { fileName := "<input>", fileMap := dummyFileMap } s
+--   println! "{stx}"
 
 -- #eval show CoreM Unit from do
 --   let ⟨ast⟩ ← parseAST3 "/home/mario/Documents/lean/lean/library/init/logic.ast.json"

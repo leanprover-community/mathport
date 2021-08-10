@@ -64,7 +64,7 @@ def registerNotationEntry (d : NotationData) : CommandElabM Unit := do
   modifyEnv fun env => synportNotationExtension.addEntry env d
 
 -- Note: the PrecedenceExtension may be unnecessary once
--- https://github.com/leanprover-community/lean/pull/599/commits/435495862050a1e3ca42e51f5fc47b461190b97c
+-- https://github.com/leanprover-community/lean/pull/599/commits/4354958
 -- is propagated through mathlib.
 
 inductive PrecedenceKind
@@ -72,31 +72,45 @@ inductive PrecedenceKind
   | rest
   deriving Inhabited, BEq, Hashable, Repr
 
+inductive Precedence
+  | nat (n : Nat)
+  | max
+  | maxPlus
+  deriving Inhabited, BEq, Hashable, Repr
+
 def PrecedenceKind.ofMixfixKind : MixfixKind → PrecedenceKind
   | MixfixKind.prefix => PrecedenceKind.prefix
   | _ => PrecedenceKind.rest
 
-abbrev PrecedenceEntries := HashMap (String × PrecedenceKind) Nat
+abbrev PrecedenceEntries := HashMap (String × PrecedenceKind) Precedence
 
-def PrecedenceEntries.insert (m : PrecedenceEntries) : String × PrecedenceKind × Nat → PrecedenceEntries
+def PrecedenceEntries.insert (m : PrecedenceEntries) :
+    String × PrecedenceKind × Precedence → PrecedenceEntries
   | ⟨tk, kind, prec⟩ => HashMap.insert m (tk, kind) prec
 
-initialize synportPrecedenceExtension : SimplePersistentEnvExtension (String × PrecedenceKind × Nat) PrecedenceEntries ←
+initialize synportPrecedenceExtension :
+  SimplePersistentEnvExtension (String × PrecedenceKind × Precedence) PrecedenceEntries ←
   registerSimplePersistentEnvExtension {
     name          := `Mathport.Translate.synportPrecedenceExtension
     addEntryFn    := PrecedenceEntries.insert
     addImportedFn := fun es => mkStateFromImportedEntries PrecedenceEntries.insert {} es
   }
 
-def registerPrecedenceEntry (tk : String) (kind : MixfixKind) (prec : Nat) : CommandElabM Unit := do
+def registerPrecedenceEntry (tk : String) (kind : MixfixKind) (prec : Precedence) :
+  CommandElabM Unit := do
   let tk := tk.trim
   let kind := PrecedenceKind.ofMixfixKind kind
   modifyEnv fun env => synportPrecedenceExtension.addEntry env ⟨tk, kind, prec⟩
 
-def getPrecedence? (tk : String) (kind : MixfixKind) : CommandElabM (Option Nat) := do
+def getPrecedence? (tk : String) (kind : MixfixKind) : CommandElabM (Option Precedence) := do
   let tk := tk.trim
   let kind := PrecedenceKind.ofMixfixKind kind
   synportPrecedenceExtension.getState (← getEnv) |>.find? (tk, kind)
+
+def Precedence.toSyntax : Precedence → Syntax
+  | Precedence.nat n => Syntax.mkNumLit (toString n)
+  | Precedence.max => do `(prec| arg)
+  | Precedence.maxPlus => do `(prec| max)
 
 structure Context where
   pcfg : Path.Config
@@ -219,15 +233,16 @@ partial def trPrio : Expr → M Syntax
   | Expr.paren e => trPrio e.kind -- do `(prio| ($(← trPrio e.kind)))
   | _ => throw! "unsupported: advanced prio syntax"
 
-partial def trPrecExpr : Expr → M Syntax
-  | Expr.nat n => Syntax.mkNumLit (toString n)
+partial def trPrecExpr : Expr → M Precedence
+  | Expr.nat n => Precedence.nat n
   | Expr.paren e => trPrecExpr e.kind -- do `(prec| ($(← trPrecExpr e.kind)))
-  | Expr.ident `max => do `(prec| max)
+  | Expr.ident `max => Precedence.max
+  | Expr.ident `std.prec.max_plus => Precedence.maxPlus
   | _ => throw! "unsupported: advanced prec syntax"
 
-def trPrec : Precedence → M Syntax
-  | Precedence.nat n => Syntax.mkNumLit (toString n)
-  | Precedence.expr e => trPrecExpr e.kind
+def trPrec : AST3.Precedence → M Precedence
+  | AST3.Precedence.nat n => Precedence.nat n
+  | AST3.Precedence.expr e => trPrecExpr e.kind
 
 def trBinderName : BinderName → Syntax
   | BinderName.ident n => mkIdent n
@@ -909,12 +924,9 @@ private def trMixfix (kind : Syntax) (prio : Option Syntax)
   (m : AST3.MixfixKind) (tk : String) (prec : Option (Spanned AST3.Precedence)) :
   M (NotationDesc × (Option Syntax → Syntax → Id Syntax)) := do
   let p ← match prec with
-    | some p => trPrec p.kind
-    | none   => match ← getPrecedence? tk m with
-                | some prec => println! "[trMixfix] reserved precedence '{tk}:{m}' |-> {prec}"
-                               `(prec| $(Syntax.mkNumLit (toString prec)))
-                | none      => println! "[trMixfix] warn: no precedence info for '{tk}:{m}'"
-                               `(prec| 0)
+  | some p => trPrec p.kind
+  | none => (← getPrecedence? tk m).getD (Precedence.nat 0)
+  let p := p.toSyntax
   let s := Syntax.mkStrLit tk
   match m with
   | MixfixKind.infix =>
@@ -940,7 +952,7 @@ private def trNotation4 (kind : Syntax) (prio p : Option Syntax)
   | ⟨_, _, AST3.Literal.var x none⟩ =>
     `(Parser.Command.identPrec| $(mkIdent x.kind):ident)
   | ⟨_, _, AST3.Literal.var x (some ⟨_, _, Action.prec p⟩)⟩ => do
-    `(Parser.Command.identPrec| $(mkIdent x.kind):ident : $(← trPrec p))
+    `(Parser.Command.identPrec| $(mkIdent x.kind):ident : $((← trPrec p).toSyntax))
   | _ => throw! "unsupported (impossible)"
   pure fun n e => `(command|
     $kind:attrKind notation$[:$p]? $[$n:namedName]? $[$prio:namedPrio]? $[$lits]* => $e)
@@ -975,28 +987,15 @@ private def trNotation3 (kind : Syntax) (prio p : Option Syntax)
   pure fun n e => `(command|
     $kind:attrKind notation3$[:$p]? $[$n:namedName]? $[$prio:namedPrio]? $[$lits]* => $e)
 
-def processReserved (sym : Spanned AST3.Symbol) (kind : MixfixKind) (prec : Spanned AST3.Precedence) : M Unit := do
-  let tk := sym.kind.toString
-  match prec.kind with
-  | Precedence.nat prec =>
-    println! "[reserve] {tk} {kind} {prec}"
-    registerPrecedenceEntry tk kind prec
-  | Precedence.expr e =>
-    println! "[reserve] warn: precedence for {tk} is an expr {repr e.kind}"
-    -- TODO: can this happen?
-    pure ()
-
 def trNotationCmd (loc : LocalReserve) (attrs : Attributes) (nota : Notation) : M Unit := do
   let (s, attrs) := (← trAttributes attrs false AttributeKind.global |>.run ({}, #[])).2
   unless attrs.isEmpty do throw! "unsupported (impossible)"
   if loc.2 then
-    println! "[trNotationCmd] found reserved: {repr nota}"
     match nota with
-    | Notation.mixfix m (tk, some prec) _ => processReserved tk m prec
-    | _ => println! "[trNotationCmd] warning: reserved but not mixfix"
-           pure ()
-    return ()
-
+    | Notation.mixfix m (tk, some prec) _ =>
+      registerPrecedenceEntry tk.kind.toString m (← trPrec prec.kind)
+    | _ => dbg_trace "suppressing unsupported reserve notation"
+    return
   let kind ← if loc.1 then `(Parser.Term.attrKind| local) else `(Parser.Term.attrKind|)
   let n := nota.name3
   let skip : Bool := match ← getNotationEntry? n with
@@ -1010,11 +1009,12 @@ def trNotationCmd (loc : LocalReserve) (attrs : Attributes) (nota : Notation) : 
     (e, ← trMixfix kind prio m tk.kind.toString prec)
   | Notation.notation lits (some e) =>
     let p ← match lits.get? 0 with
-    | some ⟨_, _, AST3.Literal.sym tk⟩ => tk.2.mapM fun p => trPrec p.kind
+    | some ⟨_, _, AST3.Literal.sym tk⟩ => tk.2
     | some ⟨_, _, AST3.Literal.var _ _⟩ => match lits.get? 1 with
-      | some ⟨_, _, AST3.Literal.sym tk⟩ => tk.2.mapM fun p => trPrec p.kind
+      | some ⟨_, _, AST3.Literal.sym tk⟩ => tk.2
       | _ => none
     | _ => none
+    let p ← p.mapM fun p => do (← trPrec p.kind).toSyntax
     let desc := match lits with
     | #[⟨_, _, AST3.Literal.sym tk⟩] => NotationDesc.const tk.1.kind.toString
     | _ => match mkNAry lits with
@@ -1083,7 +1083,7 @@ def trCommand' : Command → M Unit
     if attrs.isEmpty || ns.isEmpty then return ()
     let ns ← ns.mapM fun n => mkIdentI n.kind
     pushM `(command| attribute [$[$attrs],*] $[$ns]*)
-  | Command.precedence sym prec => println! "[Command.precedence] warn: unexpected {repr sym}:{repr prec}"
+  | Command.precedence sym prec => do dbg_trace "unsupported: precedence command"
   | Command.notation loc attrs n => trNotationCmd loc attrs n
   | Command.open true ops => ops.forM trExportCmd
   | Command.open false ops => trOpenCmd ops
