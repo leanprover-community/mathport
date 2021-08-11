@@ -554,6 +554,10 @@ partial def trRIntroPat : RIntroPat → M Syntax
   throw! "unsupported tactic filter_upwards"
 @[trTactic continuity] def trContinuity : TacM Syntax := do
   throw! "unsupported tactic continuity"
+@[trTactic measurability] def trMeasurability : TacM Syntax := do
+  throw! "unsupported tactic measurability"
+@[trTactic measurability'] def trMeasurability' : TacM Syntax := do
+  throw! "unsupported tactic measurability'"
 @[trTactic unit_interval] def trUnitInterval : TacM Syntax := do
   throw! "unsupported tactic unit_interval"
 @[trTactic op_induction] def trOpInduction : TacM Syntax := do
