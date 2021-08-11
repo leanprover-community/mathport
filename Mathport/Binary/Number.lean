@@ -57,4 +57,17 @@ partial def isNumber? (e : Expr) : OptionM NumInfo := do
              hasAdd? := info.hasAdd? <|> e.getArg! 2 }
   else none
 
+def translateNumbers (e : Expr) : MetaM Expr := Meta.transform e (pre := core) where
+  core e : MetaM TransformStep := do
+    match isConcreteNat? e with
+    | some n => TransformStep.done $ mkNatLit n
+    | none   =>
+      match isNumber? e with
+      | none => TransformStep.visit e
+      | some info@⟨n, level, type, hasZero?, hasOne?, hasAdd?⟩ =>
+        -- TODO: we will want to avoid wrapping "normal" Nat numbers
+        -- (current workaround is for the OfNat instances to `no_index` the numbers)
+        let inst := mkAppN (mkConst `OfNat.mk [level]) #[type, mkRawNatLit n, e]
+        TransformStep.done $ mkAppN (mkConst `OfNat.ofNat [level]) #[type, mkRawNatLit n, inst]
+
 end Mathport.Binary

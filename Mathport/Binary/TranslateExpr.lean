@@ -40,7 +40,7 @@ where
     let mut e ← replaceConstNames e
     e ← try withCurrHeartbeats <| withTheReader Core.Context (fun ctx => { ctx with maxHeartbeats := 5000000 }) (expandCoe e)
         catch _ => println! "[expand.coe] {ctx.currDecl} failed"; pure e
-    e ← Meta.transform e (pre := translateNumbers)
+    e ← translateNumbers e
     match (getRenameMap cmdState.env).find? `auto_param with
     | none     => pure ()
     | some ap4 => e ← Meta.transform e (pre := translateAutoParams ap4)
@@ -48,18 +48,6 @@ where
 
   replaceConstNames (e : Expr) : MetaM Expr := do
     e.replaceConstNames fun n => (getRenameMap cmdState.env).find? n
-
-  translateNumbers e : MetaM TransformStep :=  do
-    match isConcreteNat? e with
-    | some n => TransformStep.done $ mkNatLit n
-    | none   =>
-      match isNumber? e with
-      | none => TransformStep.visit e
-      | some info@⟨n, level, type, hasZero?, hasOne?, hasAdd?⟩ =>
-        -- TODO: we will want to avoid wrapping "normal" Nat numbers
-        -- (current workaround is for the OfNat instances to `no_index` the numbers)
-        let inst := mkAppN (mkConst `OfNat.mk [level]) #[type, mkNatLit n, e]
-        TransformStep.done $ mkAppN (mkConst `OfNat.ofNat [level]) #[type, mkNatLit n, inst]
 
   translateAutoParams (ap4 : Name) (e : Expr) : MetaM TransformStep :=
     -- def auto_param : Sort u → name → Sort u :=
