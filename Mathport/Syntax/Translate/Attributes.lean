@@ -21,8 +21,9 @@ def builtinAttributes : Lean.NameSet := [
 
 def predefinedSimpSets : Lean.NameSet :=
   [ /- from lean3 -/ `norm, `pre_smt,
-    /- from mathlib -/ `equiv_rw_simp, `field_simps, `ghost_simps, `integral_simps,
-    `mfld_simps, `monad_norm, `nontriviality, `parity_simps, `push_cast, `transport_simps
+    /- from mathlib -/ `equiv_rw_simp, `field_simps, `functor_norm, `ghost_simps, `integral_simps,
+    `mfld_simps, `monad_norm, `nontriviality, `parity_simps, `push_cast, `split_if_reduction,
+    `transport_simps, `typevec, `sugar, `sugar_nat
   ].foldl (·.insert) ∅
 
 end Translate

@@ -32,6 +32,30 @@ open AST3 Parser
 @[trTactic exactI] def trExactI : TacM Syntax := do
   `(tactic| exactI $(← trExpr (← parse pExpr)))
 
+-- # tactic.lint
+@[trUserAttr nolint] def trNolintAttr : TacM Syntax := do
+  throw! "unsupported user attr nolint"
+@[trUserAttr linter] def trLinterAttr : TacM Syntax := do
+  throw! "unsupported user attr linter"
+@[trUserCmd «#lint»] def trLintCmd : TacM Syntax := do
+  throw! "unsupported user cmd #lint" -- unattested
+@[trUserCmd «#lint_mathlib»] def trLintMathlibCmd : TacM Syntax := do
+  throw! "unsupported user cmd #lint_mathlib" -- unattested
+@[trUserCmd «#lint_all»] def trLintAllCmd : TacM Syntax := do
+  throw! "unsupported user cmd #lint_all" -- unattested
+@[trUserCmd «#list_linters»] def trListLintersCmd : TacM Syntax := do
+  throw! "unsupported user cmd #list_linters" -- unattested
+
+-- # tactic.doc_commands
+@[trUserCmd copy_doc_string] def trCopyDocString (doc : Option String) : TacM Syntax := do
+  throw! "unsupported user command copy_doc_string"
+@[trUserCmd library_note] def trLibraryNote : TacM Syntax := do
+  throw! "unsupported user command library_note"
+@[trUserCmd add_tactic_doc] def trAddTacticDoc (doc : Option String) : TacM Syntax := do
+  throw! "unsupported user command add_tactic_doc"
+@[trUserCmd add_decl_doc] def trAddDeclDoc (doc : Option String) : TacM Syntax := do
+  throw! "unsupported user command add_decl_doc"
+
 -- # tactic.rcases
 
 mutual
@@ -94,6 +118,8 @@ partial def trRIntroPat : RIntroPat → M Syntax
     `(tactic| rintro $[$(← pats.mapM trRIntroPat):rintroPat]* $[: $(← ty.mapM trExpr)]?)
 
 -- # tactic.ext
+@[trUserAttr ext] def trExtAttr : TacM Syntax := do
+  throw! "unsupported user attr ext"
 @[trTactic ext1] def trExt1 : TacM Syntax := do
   throw! "unsupported tactic ext1"
 @[trTactic ext] def trExt : TacM Syntax := do
@@ -122,6 +148,27 @@ partial def trRIntroPat : RIntroPat → M Syntax
   throw! "unsupported tactic fsplit"
 @[trTactic injections_and_clear] def trInjectionsAndClear : TacM Syntax := do
   throw! "unsupported tactic injections_and_clear" -- unattested
+@[trUserCmd run_parser] def trRunParser : TacM Syntax := do
+  throw! "unsupported user attr run_parser" -- unattested
+@[trUserAttr higher_order] def trHigherOrderAttr : TacM Syntax := do
+  throw! "unsupported user attr higher_order"
+@[trUserAttr interactive] def trInteractiveAttr : TacM Syntax := do
+  throw! "unsupported user attr interactive" -- unattested
+@[trUserCmd setup_tactic_parser] def trSetupTacticParser : TacM Syntax := do
+  throw! "unsupported user command setup_tactic_parser"
+
+def trInterpolatedStr' := trInterpolatedStr fun stx => `(← $stx)
+@[trUserNota tactic.pformat_macro] def trPFormatMacro : TacM Syntax := do
+  `(f! $(← trInterpolatedStr'))
+@[trUserNota tactic.fail_macro] def trFailMacro : TacM Syntax := do
+  `(throwError $(← trInterpolatedStr'))
+@[trUserNota tactic.trace_macro] def trTraceMacro : TacM Syntax := do
+  let stx ← trInterpolatedStr'; `(← do dbg_trace $stx)
+
+@[trUserCmd import_private] def trImportPrivate : TacM Syntax := do
+  throw! "unsupported user command import_private" -- unattested
+@[trUserCmd mk_simp_attribute] def trMkSimpAttribute : TacM Syntax := do
+  throw! "unsupported user command mk_simp_attribute"
 
 -- # tactic.interactive
 @[trTactic fconstructor] def trFConstructor : TacM Syntax := do
@@ -228,8 +275,16 @@ partial def trRIntroPat : RIntroPat → M Syntax
   throw! "unsupported tactic solve_by_elim"
 
 -- # tactic.hint
+@[trUserAttr hint_tactic] def trHintAttr : TacM Syntax := do
+  throw! "unsupported user attr hint_tactic"
+@[trUserCmd add_hint_tactic] def trAddHintTactic : TacM Syntax := do
+  throw! "unsupported user command add_hint_tactic"
+@[trTactic hint] def trHint : TacM Syntax := do
+  throw! "unsupported tactic hint" -- unattested
 
 -- # tactic.alias
+@[trUserCmd alias] def trAlias (doc : Option String) : TacM Syntax := do
+  throw! "unsupported user command alias"
 
 -- # tactic.clear
 @[trTactic clear'] def trClear' : TacM Syntax := do
@@ -272,8 +327,18 @@ partial def trRIntroPat : RIntroPat → M Syntax
   throw! "unsupported tactic unelide" -- unattested
 
 -- # tactic.explode
+@[trUserCmd «#explode»] def trExplode : TacM Syntax := do
+  throw! "unsupported user cmd #explode" -- unattested
 
 -- # tactic.find
+@[trUserCmd «#find»] def trFindCmd : TacM Syntax := do
+  throw! "unsupported user cmd #find" -- unattested
+
+-- # tactic.find_unused
+@[trUserAttr main_declaration] def trMainDeclaration : TacM Syntax := do
+  throw! "unsupported user attr main_declaration" -- unattested
+@[trUserCmd «#list_unused_decls»] def trListUnusedDecls : TacM Syntax := do
+  throw! "unsupported user cmd #list_unused_decls" -- unattested
 
 -- # tactic.finish
 @[trTactic clarify] def trClarify : TacM Syntax := do
@@ -302,13 +367,21 @@ partial def trRIntroPat : RIntroPat → M Syntax
 -- # tactic.lift
 
 -- # tactic.localized
+@[trUserCmd open_locale] def trOpenLocale : TacM Syntax := do
+  throw! "unsupported user command open_locale"
+@[trUserCmd localized] def trLocalized : TacM Syntax := do
+  throw! "unsupported user command localized"
 
 -- # tactic.mk_iff_of_inductive_prop
+@[trUserCmd mk_iff_of_inductive_prop] def trMkIffOfInductiveProp : TacM Syntax := do
+  throw! "unsupported user command mk_iff_of_inductive_prop"
+@[trUserAttr mk_iff] def trMkIffAttr : TacM Syntax := do
+  throw! "unsupported user attr mk_iff"
 
 -- # tactic.converter.interactive
 @[trTactic old_conv] def trOldConv : TacM Syntax := do
   throw! "unsupported tactic old_conv" -- unattested
-@[trTactic find] def trFind : TacM Syntax := do
+@[trTactic find] def trFindTac : TacM Syntax := do
   throw! "unsupported tactic find" -- unattested
 @[trTactic conv_rhs] def trConvRhs : TacM Syntax := do
   throw! "unsupported tactic conv_rhs"
@@ -316,6 +389,8 @@ partial def trRIntroPat : RIntroPat → M Syntax
   throw! "unsupported tactic conv_lhs"
 
 -- # tactic.norm_cast
+@[trUserAttr norm_cast] def trNormCastAttr : TacM Syntax := do
+  throw! "unsupported user attr norm_cast"
 @[trTactic push_cast] def trPushCast : TacM Syntax := do
   throw! "unsupported tactic push_cast"
 @[trTactic norm_cast] def trNormCast : TacM Syntax := do
@@ -330,12 +405,18 @@ partial def trRIntroPat : RIntroPat → M Syntax
   throw! "unsupported tactic assumption_mod_cast"
 
 -- # tactic.obviously
+@[trUserAttr obviously] def trObviouslyAttr : TacM Syntax := do
+  throw! "unsupported user attr obviously"
 
 -- # tactic.pretty_cases
 @[trTactic pretty_cases] def trPrettyCases : TacM Syntax := do
   throw! "unsupported tactic pretty_cases" -- unattested
 
 -- # tactic.protected
+@[trUserAttr «protected»] def trProtectedAttr : TacM Syntax := do
+  throw! "unsupported user attr protected"
+@[trUserAttr protect_proj] def trProtectProjAttr : TacM Syntax := do
+  throw! "unsupported user attr protect_proj"
 
 -- # tactic.push_neg
 @[trTactic push_neg] def trPushNeg : TacM Syntax := do
@@ -344,12 +425,18 @@ partial def trRIntroPat : RIntroPat → M Syntax
   throw! "unsupported tactic contrapose"
 
 -- # tactic.replacer
+@[trUserCmd def_replacer] def trDefReplacer : TacM Syntax := do
+  throw! "unsupported user command def_replacer"
+@[trUserAttr replaceable] def trReplaceableAttr : TacM Syntax := do
+  throw! "unsupported tactic replaceable" -- unattested
 
 -- # tactic.rename_var
 @[trTactic rename_var] def trRenameVar : TacM Syntax := do
   throw! "unsupported tactic rename_var" -- unattested
 
 -- # tactic.restate_axiom
+@[trUserCmd restate_axiom] def trRestateAxiom : TacM Syntax := do
+  throw! "unsupported user command restate_axiom"
 
 -- # tactic.rewrite
 @[trTactic assoc_rewrite assoc_rw] def trAssocRw : TacM Syntax := do
@@ -364,6 +451,8 @@ partial def trRIntroPat : RIntroPat → M Syntax
   throw! "unsupported tactic simp_rw"
 
 -- # tactic.simp_command
+@[trUserCmd «#simp»] def trSimpCmd : TacM Syntax := do
+  throw! "unsupported user command #simp" -- unattested
 
 -- # tactic.simp_result
 @[trTactic dsimp_result] def trDSimpResult : TacM Syntax := do
@@ -376,6 +465,12 @@ partial def trRIntroPat : RIntroPat → M Syntax
   throw! "unsupported tactic simpa"
 
 -- # tactic.simps
+@[trUserAttr notation_class] def trNotationClassAttr : TacM Syntax := do
+  throw! "unsupported user attr notation_class"
+@[trUserCmd initialize_simps_projections] def trInitializeSimpsProjections : TacM Syntax := do
+  throw! "unsupported user command initialize_simps_projections"
+@[trUserAttr simps] def trSimpsAttr : TacM Syntax := do
+  throw! "unsupported user attr simps"
 
 -- # tactic.split_ifs
 @[trTactic split_ifs] def trSplitIfs : TacM Syntax := do
@@ -410,8 +505,12 @@ partial def trRIntroPat : RIntroPat → M Syntax
   throw! "unsupported tactic unify_equations" -- unattested
 
 -- # tactic.where
+@[trUserCmd «#where»] def trWhereCmd : TacM Syntax := do
+  throw! "unsupported user command #where" -- unattested
 
 -- # tactic.norm_num
+@[trUserAttr norm_num] def trNormNumAttr : TacM Syntax := do
+  throw! "unsupported user attr norm_num"
 @[trTactic norm_num1] def trNormNum1 : TacM Syntax := do
   throw! "unsupported tactic norm_num1"
 @[trTactic norm_num] def trNormNum : TacM Syntax := do
@@ -460,6 +559,8 @@ partial def trRIntroPat : RIntroPat → M Syntax
   throw! "unsupported tactic tfae_finish"
 
 -- # tactic.monotonicity
+@[trUserAttr mono] def trMonoAttr : TacM Syntax := do
+  throw! "unsupported user attr mono"
 @[trTactic mono] def trMono : TacM Syntax := do
   throw! "unsupported tactic mono"
 @[trTactic ac_mono] def trAcMono : TacM Syntax := do
@@ -478,8 +579,12 @@ partial def trRIntroPat : RIntroPat → M Syntax
   throw! "unsupported tactic interval_cases"
 
 -- # tactic.reassoc_axiom
+@[trUserAttr reassoc] def trReassocAttr : TacM Syntax := do
+  throw! "unsupported user attr reassoc"
 @[trTactic reassoc] def trReassoc : TacM Syntax := do
   throw! "unsupported tactic reassoc" -- unattested
+@[trUserCmd reassoc_axiom] def trReassocAxiom : TacM Syntax := do
+  throw! "unsupported user cmd reassoc_axiom" -- unattested
 
 -- # tactic.slice
 @[trTactic slice_lhs] def trSliceLhs : TacM Syntax := do
@@ -502,6 +607,8 @@ partial def trRIntroPat : RIntroPat → M Syntax
   throw! "unsupported tactic cancel_denoms"
 
 -- # tactic.zify
+@[trUserAttr zify] def trZifyAttr : TacM Syntax := do
+  throw! "unsupported user attr zify"
 
 -- # tactic.transport
 @[trTactic transport] def trTransport : TacM Syntax := do
@@ -530,6 +637,8 @@ partial def trRIntroPat : RIntroPat → M Syntax
   throw! "unsupported tactic nth_rewrite_rhs"
 
 -- # tactic.rewrite_search
+@[trUserAttr rewrite] def trRewriteAttr : TacM Syntax := do
+  throw! "unsupported user attr rewrite" -- unattested
 @[trTactic rewrite_search] def trRewriteSearch : TacM Syntax := do
   throw! "unsupported tactic rewrite_search" -- unattested
 
@@ -540,6 +649,8 @@ partial def trRIntroPat : RIntroPat → M Syntax
   throw! "unsupported tactic pi_instance"
 
 -- # tactic.tidy
+@[trUserAttr tidy] def trTidyAttr : TacM Syntax := do
+  throw! "unsupported user attr tidy"
 @[trTactic tidy] def trTidy : TacM Syntax := do
   throw! "unsupported tactic tidy"
 
@@ -547,27 +658,76 @@ partial def trRIntroPat : RIntroPat → M Syntax
 @[trTactic wlog] def trWlog : TacM Syntax := do
   throw! "unsupported tactic wlog"
 
--- # domain specific tactics
+-- # tactic.algebra
+@[trUserAttr ancestor] def trAncestorAttr : TacM Syntax := do
+  throw! "unsupported user attr ancestor"
+
+-- # tactic.elementwise
+@[trUserAttr elementwise] def trElementwiseAttr : TacM Syntax := do
+  throw! "unsupported user attr elementwise"
+
+-- # algebra.group.to_additive
+@[trUserAttr to_additive_ignore_args] def trToAdditiveIgnoreArgsAttr : TacM Syntax := do
+  throw! "unsupported user attr to_additive_ignore_args"
+@[trUserAttr to_additive_reorder] def trToAdditiveReorderAttr : TacM Syntax := do
+  throw! "unsupported user attr to_additive_reorder"
+@[trUserAttr to_additive] def trToAdditiveAttr : TacM Syntax := do
+  throw! "unsupported user attr to_additive"
+
+-- # meta.coinductive_predicates
+@[trUserAttr monotonicity] def trMonotonicityAttr : TacM Syntax := do
+  throw! "unsupported user attr monotonicity"
+@[trUserCmd coinductive_predicate] def trCoinductivePredicate
+  (mods : Modifiers) : TacM Syntax := do
+  throw! "unsupported user cmd coinductive_predicate" -- unattested
+
+-- # testing.slim_check.sampleable
+@[trUserCmd «#sample»] def trSampleCmd : TacM Syntax := do
+  throw! "unsupported user cmd #sample" -- unattested
+
+-- # logic.nontrivial
 @[trTactic nontriviality] def trNontriviality : TacM Syntax := do
   throw! "unsupported tactic nontriviality"
+
+-- # order.filter.basic
 @[trTactic filter_upwards] def trFilterUpwards : TacM Syntax := do
   throw! "unsupported tactic filter_upwards"
+
+-- # data.opposite
+@[trTactic op_induction] def trOpInduction : TacM Syntax := do
+  throw! "unsupported tactic op_induction"
+
+-- # data.qpf.multivariate.constructions.cofix
+@[trTactic mv_bisim] def trMvBisim : TacM Syntax := do
+  throw! "unsupported tactic mv_bisim"
+
+-- # topology.tactic
+@[trUserAttr continuity] def trContinuityAttr : TacM Syntax := do
+  throw! "unsupported user attr continuity"
 @[trTactic continuity] def trContinuity : TacM Syntax := do
   throw! "unsupported tactic continuity"
+
+-- # topology.unit_interval
+@[trTactic unit_interval] def trUnitInterval : TacM Syntax := do
+  throw! "unsupported tactic unit_interval"
+
+-- # data.equiv.local_equiv
+@[trTactic mfld_set_tac] def trMfldSetTac : TacM Syntax := do
+  throw! "unsupported tactic mfld_set_tac"
+
+-- # measure_theory.tactic
+@[trUserAttr measurability] def trMeasurabilityAttr : TacM Syntax := do
+  throw! "unsupported user attr measurability"
 @[trTactic measurability] def trMeasurability : TacM Syntax := do
   throw! "unsupported tactic measurability"
 @[trTactic measurability'] def trMeasurability' : TacM Syntax := do
   throw! "unsupported tactic measurability'"
-@[trTactic unit_interval] def trUnitInterval : TacM Syntax := do
-  throw! "unsupported tactic unit_interval"
-@[trTactic op_induction] def trOpInduction : TacM Syntax := do
-  throw! "unsupported tactic op_induction"
-@[trTactic mfld_set_tac] def trMfldSetTac : TacM Syntax := do
-  throw! "unsupported tactic mfld_set_tac"
-@[trTactic mv_bisim] def trMvBisim : TacM Syntax := do
-  throw! "unsupported tactic mv_bisim"
+
+-- # number_theory.padics.padic_numbers
 @[trTactic padic_index_simp] def trPadicIndexSimp : TacM Syntax := do
   throw! "unsupported tactic padic_index_simp"
+
+-- # ring_theory.witt_vector
 @[trTactic ghost_fun_tac] def trGhostFunTac : TacM Syntax := do
   throw! "unsupported tactic ghost_fun_tac"
 @[trTactic ghost_calc] def trGhostCalc : TacM Syntax := do
@@ -578,103 +738,5 @@ partial def trRIntroPat : RIntroPat → M Syntax
   throw! "unsupported tactic ghost_simp"
 @[trTactic witt_truncate_fun_tac] def trWittTruncateFunTac : TacM Syntax := do
   throw! "unsupported tactic witt_truncate_fun_tac"
-
-@[trUserAttr functor_norm] def trFunctorNorm : TacM Syntax := do
-  throw! "unsupported user attr functor_norm"
-@[trUserAttr higher_order] def trHigherOrder : TacM Syntax := do
-  throw! "unsupported user attr higher_order"
-@[trUserAttr monotonicity] def trMonotonicity : TacM Syntax := do
-  throw! "unsupported user attr monotonicity"
-@[trUserAttr linter] def trLinter : TacM Syntax := do
-  throw! "unsupported user attr linter"
-@[trUserAttr nolint] def trNolint : TacM Syntax := do
-  throw! "unsupported user attr nolint"
-@[trUserAttr protect_proj] def trProtectProj : TacM Syntax := do
-  throw! "unsupported user attr protect_proj"
-@[trUserAttr to_additive] def trToAdditive : TacM Syntax := do
-  throw! "unsupported user attr to_additive"
-@[trUserAttr to_additive_ignore_args] def trToAdditiveIgnoreArgs : TacM Syntax := do
-  throw! "unsupported user attr to_additive_ignore_args"
-@[trUserAttr ext] def trExtAttr : TacM Syntax := do
-  throw! "unsupported user attr ext"
-@[trUserAttr notation_class] def trNotationClass : TacM Syntax := do
-  throw! "unsupported user attr notation_class"
-@[trUserAttr simps] def trSimps : TacM Syntax := do
-  throw! "unsupported user attr simps"
-@[trUserAttr hint_tactic] def trHintTactic : TacM Syntax := do
-  throw! "unsupported user attr hint_tactic"
-@[trUserAttr split_if_reduction] def trSplitIfReduction : TacM Syntax := do
-  throw! "unsupported user attr split_if_reduction"
-@[trUserAttr norm_cast] def trNormCastAttr : TacM Syntax := do
-  throw! "unsupported user attr norm_cast"
-@[trUserAttr obviously] def trObviously : TacM Syntax := do
-  throw! "unsupported user attr obviously"
-@[trUserAttr mk_iff] def trMkIff : TacM Syntax := do
-  throw! "unsupported user attr mk_iff"
-@[trUserAttr typevec] def trTypevec : TacM Syntax := do
-  throw! "unsupported user attr typevec"
-@[trUserAttr ancestor] def trAncestor : TacM Syntax := do
-  throw! "unsupported user attr ancestor"
-@[trUserAttr mono] def trMonoAttr : TacM Syntax := do
-  throw! "unsupported user attr mono"
-@[trUserAttr to_additive_reorder] def trToAdditiveReorder : TacM Syntax := do
-  throw! "unsupported user attr to_additive_reorder"
-@[trUserAttr zify] def trZify : TacM Syntax := do
-  throw! "unsupported user attr zify"
-@[trUserAttr reassoc] def trReassocAttr : TacM Syntax := do
-  throw! "unsupported user attr reassoc"
-@[trUserAttr norm_num] def trNormNumAttr : TacM Syntax := do
-  throw! "unsupported user attr norm_num"
-@[trUserAttr sugar] def trSugar : TacM Syntax := do
-  throw! "unsupported user attr sugar"
-@[trUserAttr sugar_nat] def trSugarNat : TacM Syntax := do
-  throw! "unsupported user attr sugar_nat"
-@[trUserAttr «protected»] def trProtected : TacM Syntax := do
-  throw! "unsupported user attr protected"
-@[trUserAttr continuity] def trContinuityAttr : TacM Syntax := do
-  throw! "unsupported user attr continuity"
-@[trUserAttr tidy] def trTidyAttr : TacM Syntax := do
-  throw! "unsupported user attr tidy"
-@[trUserAttr elementwise] def trElementwise : TacM Syntax := do
-  throw! "unsupported user attr elementwise"
-@[trUserAttr measurability] def trMeasurabilityAttr : TacM Syntax := do
-  throw! "unsupported user attr measurability"
-@[trUserAttr is_poly] def trIsPoly : TacM Syntax := do
+@[trUserAttr is_poly] def trIsPolyAttr : TacM Syntax := do
   throw! "unsupported user attr is_poly"
-
-@[trUserCmd add_tactic_doc] def trAddTacticDoc (doc : Option String) : TacM Syntax := do
-  throw! "unsupported user command add_tactic_doc"
-@[trUserCmd library_note] def trLibraryNote (doc : Option String) : TacM Syntax := do
-  throw! "unsupported user command library_note"
-@[trUserCmd add_decl_doc] def trAddDeclDoc (doc : Option String) : TacM Syntax := do
-  throw! "unsupported user command add_decl_doc"
-@[trUserCmd setup_tactic_parser] def trSetupTacticParser : TacM Syntax := do
-  throw! "unsupported user command setup_tactic_parser"
-@[trUserCmd localized] def trLocalized : TacM Syntax := do
-  throw! "unsupported user command localized"
-@[trUserCmd copy_doc_string] def trCopyDocString (doc : Option String) : TacM Syntax := do
-  throw! "unsupported user command copy_doc_string"
-@[trUserCmd alias] def trAlias (doc : Option String) : TacM Syntax := do
-  throw! "unsupported user command alias"
-@[trUserCmd initialize_simps_projections] def trInitializeSimpsProjections : TacM Syntax := do
-  throw! "unsupported user command initialize_simps_projections"
-@[trUserCmd add_hint_tactic] def trAddHintTactic : TacM Syntax := do
-  throw! "unsupported user command add_hint_tactic"
-@[trUserCmd mk_simp_attribute] def trMkSimpAttribute : TacM Syntax := do
-  throw! "unsupported user command mk_simp_attribute"
-@[trUserCmd def_replacer] def trDefReplacer : TacM Syntax := do
-  throw! "unsupported user command def_replacer"
-@[trUserCmd open_locale] def trOpenLocale : TacM Syntax := do
-  throw! "unsupported user command open_locale"
-@[trUserCmd restate_axiom] def trRestateAxiom : TacM Syntax := do
-  throw! "unsupported user command restate_axiom"
-@[trUserCmd mk_iff_of_inductive_prop] def trMkIffOfInductiveProp : TacM Syntax := do
-  throw! "unsupported user command mk_iff_of_inductive_prop"
-
-def trInterpolatedStr' := trInterpolatedStr fun stx => `(← $stx)
-@[trUserNota tactic.pformat_macro] def trPFormatMacro : TacM Syntax := do
-  `(f! $(← trInterpolatedStr'))
-@[trUserNota tactic.fail_macro] def trFailMacro : TacM Syntax := do
-  `(throwError $(← trInterpolatedStr'))
-@[trUserNota tactic.trace_macro] def trTraceMacro : TacM Syntax := do
-  let stx ← trInterpolatedStr'; `(← do dbg_trace $stx)
