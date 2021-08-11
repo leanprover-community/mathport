@@ -72,26 +72,32 @@ def withDocString (tac : Option String → TacM Syntax) : Modifiers → TacM Syn
 
 scoped instance : Coe (Option String → TacM Syntax) (Modifiers → TacM Syntax) := ⟨withDocString⟩
 
-abbrev NameExt := SimplePersistentEnvExtension (Name × Name) (Array (Name × Name))
+abbrev NameExt := SimplePersistentEnvExtension (Name × Name) (NameMap Name)
 
 private def mkExt (name attr : Name) (descr : String) : IO NameExt := do
+  let addEntryFn | m, (n3, n4) => m.insert n3 n4
   let ext ← registerSimplePersistentEnvExtension {
-    name
-    addEntryFn := Array.push
-    addImportedFn := fun es => es.foldl (·++·) #[]
+    name, addEntryFn
+    addImportedFn := mkStateFromImportedEntries addEntryFn {}
   }
   registerBuiltinAttribute {
     name := attr
     descr
-    add := fun declName stx attrKind => modifyEnv fun env =>
-      stx[1].getArgs.foldl (init := env) fun env stx =>
-        ext.addEntry env (stx.getId, declName)
+    add := fun declName stx attrKind => do
+      let s := ext.getState (← getEnv)
+      let ns ← stx[1].getArgs.mapM fun stx => do
+        let n := stx.getId
+        if s.contains n then throwErrorAt stx "translation for {n} already declared"
+        pure n
+      modifyEnv $ ns.foldl fun env n =>
+        ext.addEntry env (n, declName)
   }
   ext
 
 private def mkElab (ext : NameExt) (ty : Lean.Expr) : Elab.Term.TermElabM Lean.Expr := do
-  let stx ← (ext.getState (← getEnv)).mapM fun (n3, n4) =>
-    `(($(Syntax.mkNameLit s!"`{n3}"):nameLit, $(mkIdent n4):ident))
+  let mut stx := #[]
+  for (n3, n4) in ext.getState (← getEnv) do
+    stx := stx.push $ ← `(($(Syntax.mkNameLit s!"`{n3}"):nameLit, $(mkIdent n4):ident))
   Elab.Term.elabTerm (← `(#[$stx,*])) (some ty)
 
 syntax (name := trTactic) "trTactic " ident+ : attr

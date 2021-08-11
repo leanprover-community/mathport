@@ -136,7 +136,16 @@ def Std.HashMap.insertWith [Hashable α] [BEq α] (m : HashMap α β) (merge : �
   | none => m.insert a b
   | some c => m.insert a (merge c b)
 
-namespace Lean.Elab.Command
+namespace Lean
+
+namespace NameMap
+
+instance : ForIn m (NameMap α) (Name × α) where
+  forIn := Std.RBMap.forIn
+
+end NameMap
+
+namespace Elab.Command
 
 def CommandElabM.toIO (x : CommandElabM α) (ctx : Context) (s : State) : IO α := do
   match ← x ctx |>.run' s |>.toIO' with

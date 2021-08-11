@@ -236,6 +236,9 @@ syntax (name := rsimp) "rsimp" : tactic
 syntax (name := compVal) "compVal" : tactic
 syntax (name := async) "async " tacticSeq : tactic
 
+syntax (name := exactI) "exactI " term : tactic
+syntax (name := resetI) "resetI" : tactic
+
 declare_syntax_cat rcasesPat
 syntax rcasesPatMed := rcasesPat (" | " rcasesPat)*
 syntax rcasesPatLo := rcasesPatMed (" : " term)?
