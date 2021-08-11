@@ -637,7 +637,7 @@ partial def trRIntroPat : RIntroPat → M Syntax
   throw! "unsupported user attr tidy"
 @[trUserAttr elementwise] def trElementwise : TacM Syntax := do
   throw! "unsupported user attr elementwise"
-@[trUserAttr measurability] def trMeasurability : TacM Syntax := do
+@[trUserAttr measurability] def trMeasurabilityAttr : TacM Syntax := do
   throw! "unsupported user attr measurability"
 @[trUserAttr is_poly] def trIsPoly : TacM Syntax := do
   throw! "unsupported user attr is_poly"
