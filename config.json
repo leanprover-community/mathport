@@ -13,6 +13,11 @@
     "private"
   ],
   "forceAbbrevs": [
+      "lift",
+      "lift_t",
+      "coe_b",
+      "coe_t",
+      "coe_fn_b"
   ],
   "defEqConstructions": [
     "casesOn",

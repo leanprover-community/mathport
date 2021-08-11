@@ -38,7 +38,8 @@ def trExprCore (ctx : Context) (st : State) (cmdCtx : Elab.Command.Context) (cmd
 where
   core e := do
     let mut e ← replaceConstNames e
-    e ← expandCoe e
+    e ← try withCurrHeartbeats <| withTheReader Core.Context (fun ctx => { ctx with maxHeartbeats := 5000000 }) (expandCoe e)
+        catch _ => println! "[expand.coe] {ctx.currDecl} failed"; pure e
     e ← Meta.transform e (pre := translateNumbers)
     match (getRenameMap cmdState.env).find? `auto_param with
     | none     => pure ()

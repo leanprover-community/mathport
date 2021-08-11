@@ -27,7 +27,9 @@ def isCoeApp? (e : Expr) : Option CoeInfo :=
   else none
 
 partial def expandCoe (e : Expr) : MetaM Expr :=
-  transform e (pre := step)
+  -- TODO: default?
+  withReducibleAndInstances do
+    transform e (pre := step)
 where
   step (e : Expr) : MetaM TransformStep := do
     match isCoeApp? e with
@@ -36,8 +38,11 @@ where
       let args := e.getAppArgs
       -- TODO: do we really need to try/catch here? Or increase # heartbeats?
       let fn := mkProj indName projPos args[instPos]
-      let newFn ← withCurrHeartbeats $ withTransparency TransparencyMode.all $
-        reduce fn (explicitOnly := false) (skipTypes := false) (skipProofs := false)
+      -- TODO: flags? (explicitOnly := false) (skipProofs := false) (skipTypes := false)
+      -- TODO: different transparency mode Could we get away with TransparencyMode.instances?
+      -- TODO: reset heartbeats here?
+      -- Note: if we only WHNF, we still end up with instances, e.g. `SetLike.toHasCoeToFun`
+      let newFn ← reduce fn --
       let mut newArgs := #[args[instPos+1]]
       for i in [instPos+2:args.size] do newArgs := newArgs.push args[i]
       -- TODO: confirm that we need only apply this once in the `coeFn` case
