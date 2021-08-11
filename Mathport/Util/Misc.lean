@@ -12,6 +12,9 @@ def uncurry (f : α → β → γ) : α × β → γ
 
 namespace Lean
 
+def Expr.isAppOfArityGE (e : Expr) (n : Name) (k : Nat) : Bool :=
+  e.withApp fun f args => f.isConstOf n && args.size ≥ k
+
 open Std (HashMap)
 
 deriving instance Hashable for Position

@@ -1,0 +1,58 @@
+/-
+Copyright (c) 2021 Microsoft Corporation. All rights reserved.
+Released under Apache 2.0 license as described in the file LICENSE.
+Authors: Daniel Selsam
+-/
+import Lean
+import Mathport.Util.Misc
+import Mathport.Util.String
+import Mathport.Binary.Basic
+import Mathport.Binary.Number
+import Mathport.Binary.Decode
+import Mathport.Binary.Coe
+import Mathport.Binary.TranslateName
+
+namespace Mathport.Binary
+
+open Lean Lean.Meta
+
+structure HBinInfo where
+  hName    : Name
+  instName : Name
+
+def hBinMap : HashMap Name HBinInfo := do
+  let mut m : HashMap Name HBinInfo := {}
+  m := m.insert `Add.add ⟨`HAdd.hAdd, `instHAdd⟩
+  m := m.insert `Sub.sub ⟨`HSub.hSub, `instHSub⟩
+  m := m.insert `Mul.mul ⟨`HMul.hMul, `instHMul⟩
+  m := m.insert `Div.div ⟨`HDiv.hDiv, `instHDiv⟩
+  m := m.insert `Mod.mod ⟨`HMod.hMod, `instHMod⟩
+  pure m
+
+def heterogenize (e : Expr) : MetaM Expr := Meta.transform e (post := core)
+/-
+@instHAdd.{u_1} : {α : Type u_1} → [inst : Add.{u_1} α] → HAdd.{u_1, u_1, u_1} α α α
+@Add.add.{0} Nat Nat.hasAdd Nat.zero Nat.zero : Nat
+@HAdd.hAdd.{0, 0, 0} Nat Nat Nat
+  (@instHAdd_2.{0, 0} Nat Nat <Add.{u_1} α>)
+  Nat.zero Nat.zero : Nat
+-/
+where
+  core (e : Expr) : MetaM TransformStep := do
+    e.withApp fun f args => do
+      if !f.isConst then return TransformStep.done e
+      match hBinMap.find? f.constName! with
+      | some ⟨hName, instName⟩ =>
+        if args.size < 4 then return TransformStep.done e
+        let lvl := f.constLevels!.head!
+        let type := args[0]
+        let inst := args[1]
+        let inst' := mkAppN (mkConst instName [lvl]) #[type, inst]
+        let rest := args.extract 2 args.size
+        let e' := mkAppN (mkConst hName [lvl, lvl, lvl]) (#[type, type, type, inst'] ++ rest)
+        return TransformStep.done e'
+
+      | none => return TransformStep.done e
+
+
+end Mathport.Binary

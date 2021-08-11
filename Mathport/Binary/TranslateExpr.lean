@@ -18,6 +18,7 @@ import Mathport.Binary.Number
 import Mathport.Binary.Decode
 import Mathport.Binary.Coe
 import Mathport.Binary.TranslateName
+import Mathport.Binary.Heterogenize
 
 namespace Mathport.Binary
 
@@ -44,6 +45,7 @@ where
     match (getRenameMap cmdState.env).find? `auto_param with
     | none     => pure ()
     | some ap4 => e ← Meta.transform e (pre := translateAutoParams ap4)
+    e ← heterogenize e
     e
 
   replaceConstNames (e : Expr) : MetaM Expr := do

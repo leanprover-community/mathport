@@ -29,6 +29,9 @@
     "has_le"        : "LE",
     "has_lt"        : "LT",
 
+    "has_le.le"     : ["le", "LE"],
+    "has_lt.lt"     : ["lt", "LT"],
+
     "has_beq"       : "BEq",
 
     "has_append"    : "Append",
