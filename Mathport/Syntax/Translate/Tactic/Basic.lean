@@ -97,7 +97,7 @@ private def mkExt (name attr : Name) (descr : String) : IO NameExt := do
 private def mkElab (ext : NameExt) (ty : Lean.Expr) : Elab.Term.TermElabM Lean.Expr := do
   let mut stx := #[]
   for (n3, n4) in ext.getState (← getEnv) do
-    stx := stx.push $ ← `(($(Syntax.mkNameLit s!"`{n3}"):nameLit, $(mkIdent n4):ident))
+    stx := stx.push $ ← `(($(Quote.quote n3), $(mkIdent n4):ident))
   Elab.Term.elabTerm (← `(#[$stx,*])) (some ty)
 
 syntax (name := trTactic) "trTactic " ident+ : attr

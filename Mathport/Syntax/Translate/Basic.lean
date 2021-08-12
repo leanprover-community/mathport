@@ -555,7 +555,7 @@ def trExpr' : Expr → M Syntax
   | Expr.«`()» true false e => do `(ppquote $(← trExpr e.kind))
   | Expr.«%%» e => do `(%%$(← trExpr e.kind))
   | Expr.«`[]» tacs => throw! "unsupported (TODO): `[tacs]"
-  | Expr.«`» false n => `($(Syntax.mkNameLit s!"`{n}"):nameLit)
+  | Expr.«`» false n => Quote.quote n
   | Expr.«`» true n => do `(``$(← mkIdentI n):ident)
   | Expr.«⟨⟩» es => do `(⟨$(← es.mapM fun e => trExpr e.kind),*⟩)
   | Expr.infix_fn n e => trInfixFn n e
