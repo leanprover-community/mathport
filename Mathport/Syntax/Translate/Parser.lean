@@ -240,4 +240,28 @@ def obtainArg :
     (guard tp.isNone *> brackets "⟨" "⟩" (sepBy (tk ",") pExpr)) <|>
     (do #[← pExpr]))?)
 
+inductive LintVerbosity | low | medium | high
+
+def lintVerbosity : ParserM LintVerbosity :=
+  (tk "-" *> LintVerbosity.low) <|> (tk "+" *> LintVerbosity.high) <|> pure LintVerbosity.medium
+
+def lintOpts : ParserM (Bool × LintVerbosity) := do
+  match ← lintVerbosity, (← (tk "*")?).isSome with
+  | LintVerbosity.medium, fast => (fast, ← lintVerbosity)
+  | v, fast => (fast, v)
+
+def lintArgs : ParserM ((Bool × LintVerbosity) × Bool × Array Name) := do
+  (← lintOpts, ← onlyFlag, ← ident*)
+
+inductive ExtParam | arrow | all | ident (n : Name)
+
+def extParam : ParserM (Bool × ExtParam) := do
+  ((← (tk "-")?).isSome,
+    ← (brackets "(" ")" (tk "→") *> pure ExtParam.arrow) <|>
+      (tk "*" *> pure ExtParam.all) <|>
+      (ExtParam.ident <$> ident))
+
+def extParams : ParserM (Array (Bool × ExtParam)) :=
+  (do #[← extParam]) <|> listOf extParam <|> pure #[]
+
 end Parser

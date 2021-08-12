@@ -163,25 +163,25 @@ end Parser
 
 namespace Parser.Tactic
 
-syntax "propagateTags " tacticSeq : tactic
-syntax "introv " ident* : tactic
+syntax (name := propagateTags) "propagateTags " tacticSeq : tactic
+syntax (name := introv) "introv " ident* : tactic
 syntax renameArg := ident " => " ident
-syntax "rename' " renameArg,* : tactic
-syntax "fapply " term : tactic
-syntax "eapply " term : tactic
-syntax "apply " term " with " term : tactic
-syntax "mapply " term : tactic
-syntax "exacts" "[" term,* "]" : tactic
-syntax "toExpr' " term : tactic
-syntax (name := _root_.Lean.Parser.Tactic.rwSeq)
-  "rwa " Parser.Tactic.rwRuleSeq (Parser.Tactic.location)? : tactic
-syntax "withCases " tacticSeq : tactic
-syntax (name := induction') "induction' " Parser.Tactic.casesTarget,+ (" using " ident)?
+syntax (name := rename') "rename' " renameArg,* : tactic
+syntax (name := fapply) "fapply " term : tactic
+syntax (name := eapply) "eapply " term : tactic
+syntax (name := applyWith) "apply " term " with " term : tactic
+syntax (name := mapply) "mapply " term : tactic
+syntax (name := exacts) "exacts" "[" term,* "]" : tactic
+syntax (name := toExpr') "toExpr' " term : tactic
+
+syntax (name := rwa) "rwa " rwRuleSeq (location)? : tactic
+syntax (name := withCases) "withCases " tacticSeq : tactic
+syntax (name := induction') "induction' " casesTarget,+ (" using " ident)?
   (" with " ident+)? (" generalizing " ident+)? : tactic
 syntax caseArg := ident,+ " : " (ident <|> "_")*
 syntax (name := case') "case' " (("[" caseArg,* "]") <|> caseArg) " => " tacticSeq : tactic
 syntax "destruct " term : tactic
-syntax (name := cases') "cases' " Parser.Tactic.casesTarget,+ (" using " ident)?
+syntax (name := cases') "cases' " casesTarget,+ (" using " ident)?
   (" with " ident+)? : tactic
 syntax (name := casesM) "casesM" "*"? ppSpace term,* : tactic
 syntax (name := casesType) "casesType" "!"? "*"? ppSpace ident* : tactic
@@ -190,9 +190,9 @@ syntax (name := iterate) "iterate " (num)? tacticSeq : tactic
 syntax (name := repeat') "repeat' " tacticSeq : tactic
 syntax (name := abstract) "abstract " (ident)? tacticSeq : tactic
 syntax (name := anyGoals) "anyGoals " tacticSeq : tactic
-syntax (name := have'') "have " Parser.Term.haveIdLhs : tactic
-syntax (name := let'') "let " Parser.Term.haveIdLhs : tactic
-syntax (name := suffices') "suffices " Parser.Term.haveIdLhs : tactic
+syntax (name := have'') "have " Term.haveIdLhs : tactic
+syntax (name := let'') "let " Term.haveIdLhs : tactic
+syntax (name := suffices') "suffices " Term.haveIdLhs : tactic
 syntax (name := trace) "trace " term : tactic
 syntax (name := existsi) "exists " term,* : tactic
 syntax (name := eConstructor) "econstructor" : tactic
@@ -203,24 +203,19 @@ syntax (name := constructorM) "constructorM" "*"? ppSpace term,* : tactic
 syntax (name := exFalso) "exFalso" : tactic
 syntax (name := injections) "injections " (" with " (colGt (ident <|> "_"))+)? : tactic
 syntax (name := simpIntro) "simpIntro " ("(" &"config" " := " term ")")? ident* (&"only ")?
-  ("[" (Parser.Tactic.simpErase <|> Parser.Tactic.simpLemma),* "]")? : tactic
+  ("[" (simpErase <|> simpLemma),* "]")? : tactic
 syntax (name := dSimp) "dsimp " ("(" &"config" " := " term ")")? (&"only ")?
-  ("[" (Parser.Tactic.simpErase <|> Parser.Tactic.simpLemma),* "]")?
-  (Parser.Tactic.location)? : tactic
+  ("[" (simpErase <|> simpLemma),* "]")? (location)? : tactic
 syntax (name := symm) "symm" : tactic
 syntax (name := trans) "trans" (term)? : tactic
 syntax (name := acRfl) "acRfl" : tactic
 syntax (name := cc) "cc" : tactic
 syntax (name := substVars) "substVars" : tactic
-syntax (name := dUnfold) "dunfold" ("(" &"config" " := " term ")")?
-  ident* (Parser.Tactic.location)? : tactic
-syntax (name := delta) "delta" ident* (Parser.Tactic.location)? : tactic
-syntax (name := unfoldProjs) "unfoldProjs" ("(" &"config" " := " term ")")?
-  (Parser.Tactic.location)? : tactic
-syntax (name := unfold) "unfold" ("(" &"config" " := " term ")")?
-  ident* (Parser.Tactic.location)? : tactic
-syntax (name := unfold1) "unfold1" ("(" &"config" " := " term ")")?
-  ident* (Parser.Tactic.location)? : tactic
+syntax (name := dUnfold) "dunfold" ("(" &"config" " := " term ")")? ident* (location)? : tactic
+syntax (name := delta) "delta" ident* (location)? : tactic
+syntax (name := unfoldProjs) "unfoldProjs" ("(" &"config" " := " term ")")? (location)? : tactic
+syntax (name := unfold) "unfold" ("(" &"config" " := " term ")")? ident* (location)? : tactic
+syntax (name := unfold1) "unfold1" ("(" &"config" " := " term ")")? ident* (location)? : tactic
 syntax (name := inferOptParam) "inferOptParam" : tactic
 syntax (name := inferAutoParam) "inferAutoParam" : tactic
 syntax (name := guardExprEq) "guardExprEq " term " := " term : tactic
@@ -236,8 +231,18 @@ syntax (name := rsimp) "rsimp" : tactic
 syntax (name := compVal) "compVal" : tactic
 syntax (name := async) "async " tacticSeq : tactic
 
-syntax (name := exactI) "exactI " term : tactic
+syntax (name := unfreezingI) "unfreezingI " tacticSeq : tactic
 syntax (name := resetI) "resetI" : tactic
+syntax (name := substI) "substI " term : tactic
+syntax (name := casesI) "casesI " casesTarget,+ (" using " ident)?
+  (" with " ident+)? : tactic
+syntax (name := introI) "introI " ident* : tactic
+syntax (name := introsI) "introsI " ident* : tactic
+syntax (name := haveI) "haveI " Term.haveDecl : tactic
+syntax (name := haveI') "haveI " Term.haveIdLhs : tactic
+syntax (name := letI) "letI " Term.letDecl : tactic
+syntax (name := letI') "letI " Term.haveIdLhs : tactic
+syntax (name := exactI) "exactI " term : tactic
 
 declare_syntax_cat rcasesPat
 syntax rcasesPatMed := rcasesPat (" | " rcasesPat)*
@@ -247,8 +252,8 @@ syntax (name := rcasesPat.ignore) "_" : rcasesPat
 syntax (name := rcasesPat.clear) "-" : rcasesPat
 syntax (name := rcasesPat.tuple) "⟨" rcasesPatLo,* "⟩" : rcasesPat
 syntax (name := rcasesPat.paren) "(" rcasesPatLo ")" : rcasesPat
-syntax (name := rcasesHint) "rcases?" Parser.Tactic.casesTarget,* (" : " num)? : tactic
-syntax (name := rcases) "rcases" Parser.Tactic.casesTarget,* (" with " rcasesPat)? : tactic
+syntax (name := rcasesHint) "rcases?" casesTarget,* (" : " num)? : tactic
+syntax (name := rcases) "rcases" casesTarget,* (" with " rcasesPat)? : tactic
 syntax (name := obtain) "obtain" (ppSpace rcasesPat)? (" : " term)? (" := " term,+)? : tactic
 
 declare_syntax_cat rintroPat
@@ -256,3 +261,52 @@ syntax (name := rintroPat.one) rcasesPat : rintroPat
 syntax (name := rintroPat.binder) "(" (rintroPat+ <|> rcasesPatMed) (" : " term)? ")" : rintroPat
 syntax (name := rintroHint) "rintro?" (" : " num)? : tactic
 syntax (name := rintro) "rintro" (ppSpace rintroPat)* (" : " term)? : tactic
+
+syntax (name := ext1) "ext1 " rcasesPat* : tactic
+syntax (name := ext1Hint) "ext1? " rcasesPat* : tactic
+syntax (name := ext) "ext " rcasesPat* (":" num)? : tactic
+syntax (name := extHint) "ext? " rcasesPat* (":" num)? : tactic
+
+syntax (name := apply') "apply' " term : tactic
+syntax (name := fapply') "fapply' " term : tactic
+syntax (name := eapply') "eapply' " term : tactic
+syntax (name := applyWith') "applyWith' " ("(" &"config" " := " term ")")? term : tactic
+syntax (name := mapply') "mapply' " term : tactic
+syntax (name := rfl') "rfl'" : tactic
+syntax (name := symm') "symm'" (location)? : tactic
+syntax (name := trans') "trans'" (term)? : tactic
+
+end Tactic
+
+namespace Attr
+
+syntax (name := nolint) "nolint " ident* : attr
+syntax (name := linter) "linter" : attr
+
+syntax extParam.arrow := "(" "·" " → " "·" ")"
+syntax extParam := "-"? (extParam.arrow <|> "*" <|> ident)
+syntax (name := ext) "ext " (extParam <|> "[" extParam,* "]")? : tactic
+
+end Attr
+
+namespace Command
+
+namespace Lint
+
+syntax verbosity := "-" <|> "+"
+syntax opts := (verbosity "*"?) <|> ("*"? (verbosity)?)
+syntax args := opts " only"? ident*
+
+end Lint
+
+syntax (name := lint) "#lint" Lint.args : command
+syntax (name := lintMathlib) "#lint_mathlib" Lint.args : command
+syntax (name := lintAll) "#lint_all" Lint.args : command
+syntax (name := listLinters) "#list_linters" : command
+
+syntax (name := copyDocString) "copy_doc_string " ident " → " ident* : command
+syntax (name := libraryNote) docComment "library_note " str : command
+syntax (name := addTacticDoc) (docComment)? "add_tactic_doc " term : command
+syntax (name := addDeclDoc) docComment "add_decl_doc " ident : command
+
+end Command
