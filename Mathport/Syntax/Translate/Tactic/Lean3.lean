@@ -27,17 +27,17 @@ def trLoc (loc : Location) : M (Option Syntax) := do
   `(tactic| propagateTags $(← trBlock (← itactic)):tacticSeq)
 
 @[trTactic intro] def trIntro : TacM Syntax := do
-  match ← parse ident_ ? with
-  | none => `(tactic| intro)
-  | some h => `(tactic| intro $(mkIdent h):ident)
+  match ← parse (ident_)? with
+  | some (BinderName.ident h) => `(tactic| intro $(mkIdent h):ident)
+  | _ => `(tactic| intro)
 
 @[trTactic intros] def trIntros : TacM Syntax := do
   match ← parse ident_* with
   | #[] => `(tactic| intros)
-  | hs => `(tactic| intro $[$(hs.map mkIdent)]*)
+  | hs => `(tactic| intro $[$(hs.map trBinderName)]*)
 
 @[trTactic introv] def trIntrov : TacM Syntax := do
-  `(tactic| introv $((← parse ident_*).map mkIdent)*)
+  `(tactic| introv $((← parse ident_*).map trBinderIdent)*)
 
 def trRenameArg : Name × Name → M Syntax
   | (x, y) => mkNode ``renameArg #[mkIdent x, mkAtom "=>", mkIdent y]
@@ -73,6 +73,7 @@ macro "assumption'" : tactic => `(allGoals assumption)
   match h with
   | none => `(tactic| change $q $[$loc]?)
   | some h => `(tactic| change $q with $(← trExpr h) $[$loc]?)
+
 @[trTactic exact «from»] def trExact : TacM Syntax := do
   `(tactic| exact $(← trExpr (← parse pExpr)))
 
@@ -80,7 +81,7 @@ macro "assumption'" : tactic => `(allGoals assumption)
   `(tactic| exacts [$(← liftM $ (← parse pExprListOrTExpr).mapM trExpr),*])
 
 @[trTactic revert] def trRevert : TacM Syntax := do
-  `(tactic| revert $((← parse ident_*).map mkIdent)*)
+  `(tactic| revert $((← parse ident*).map mkIdent)*)
 
 @[trTactic to_expr'] def trToExpr' : TacM Syntax := do
   `(tactic| toExpr' $(← trExpr (← parse pExpr)))
@@ -110,8 +111,7 @@ def trRwArgs : TacM (Array Syntax × Option Syntax) := do
   `(tactic| withCases $(← trBlock (← itactic)):tacticSeq)
 
 @[trTactic generalize] def trGeneralize : TacM Syntax := do
-  let h ← parse ident ?
-  parse (tk ":")
+  let h ← parse (ident)? <* parse (tk ":")
   let (e, x) ← parse generalizeArg
   `(tactic| generalize $[$(h.map mkIdent) :]? $(← trExpr e) = $(mkIdent x))
 
@@ -127,24 +127,19 @@ def trRwArgs : TacM (Array Syntax × Option Syntax) := do
   | none, #[] => `(tactic| induction $e $[using $rec_name]? $[generalizing $revert*]?)
   | _, _ =>
     `(tactic| induction' $[$(hp.map mkIdent) :]? $e $[using $rec_name]?
-        with $(ids.map mkIdent)* $[generalizing $revert*]?)
-
-def mkIdent_ : Name → Syntax
-  | `_ => mkAtom "_"
-  | x => mkIdent x
-
-def mkIdent_Term : Name → Syntax
-  | `_ => do `(_)
-  | x => mkIdent x
+        with $(ids.map trBinderIdent)* $[generalizing $revert*]?)
 
 @[trTactic case] def trCase : TacM Syntax := do
   let args ← parse case
   let tac ← trBlock (← itactic)
   let trCaseArg
-  | (tags, xs) => do mkNode ``caseArg #[
-    (mkAtom ",").mkSep (← liftM $ tags.mapM mkIdentI), mkAtom ":", mkNullNode $ xs.map mkIdent_]
+  | (tags, xs) => do
+    mkNode ``caseArg #[
+      (mkAtom ",").mkSep (← liftM $ tags.mapM trBinderIdentI),
+      mkAtom ":", mkNullNode $ xs.map trIdent_]
   match args with
-  | #[(#[tag], xs)] => `(tactic| case $(mkIdent tag) $(xs.map mkIdent_)* => $tac:tacticSeq)
+  | #[(#[BinderName.ident tag], xs)] =>
+    `(tactic| case $(mkIdent tag) $(xs.map trIdent_)* => $tac:tacticSeq)
   | #[arg] => `(tactic| case' $(← trCaseArg arg):caseArg => $tac:tacticSeq)
   | _ => `(tactic| case' [$(← args.mapM trCaseArg),*] => $tac:tacticSeq)
 
@@ -157,7 +152,7 @@ def mkIdent_Term : Name → Syntax
   let ids ← parse withIdentList
   match ids with
   | #[] => `(tactic| cases $[$(hp.map mkIdent) :]? $e)
-  | _ => `(tactic| cases' $[$(hp.map mkIdent) :]? $e with $(ids.map mkIdent)*)
+  | _ => `(tactic| cases' $[$(hp.map mkIdent) :]? $e with $(ids.map trBinderIdent)*)
 
 @[trTactic cases_matching casesm] def trCasesM : TacM Syntax := do
   let _rec ← parse (tk "*")?
@@ -283,13 +278,13 @@ where
   let e ← trExpr (← parse pExpr)
   let hs := match ← parse withIdentList with
   | #[] => none
-  | hs => some $ hs.map mkIdent_
+  | hs => some $ hs.map trIdent_
   `(tactic| injection $e $[with $hs*]?)
 
 @[trTactic injections] def trInjections : TacM Syntax := do
   let hs := match ← parse withIdentList with
   | #[] => none
-  | hs => some $ hs.map mkIdent_
+  | hs => some $ hs.map trIdent_
   `(tactic| injections $[with $hs*]?)
 
 def parseSimpConfig : Option AST3.Expr → Option Meta.Simp.Config
@@ -389,7 +384,7 @@ def trSimpArgs (hs : Array Parser.SimpArg) : M (Array Syntax × Bool) :=
   let cfg := match (parseSimpConfig (← expr?)).bind quoteSimpConfig with
   | none => mkNullNode
   | some stx => mkNullNode #[mkAtom "(", mkAtom "config", mkAtom ":=", stx, mkAtom ")"]
-  let ids := mkNullNode $ ids.map mkIdent
+  let ids := mkNullNode $ ids.map trIdent_
   let o := if o then mkNullNode #[mkAtom "only"] else mkNullNode
   let hs := match hs with
   | #[] => mkNullNode
@@ -481,17 +476,15 @@ def trSimpArgs (hs : Array Parser.SimpArg) : M (Array Syntax × Bool) :=
   `(tactic| failIfSuccess $(← trBlock (← itactic)):tacticSeq)
 
 @[trTactic guard_expr_eq] def trGuardExprEq : TacM Syntax := do
-  let t ← expr!
-  let p ← parse (tk ":=" *> pExpr)
-  `(tactic| guardExprEq $(← trExpr t) := $(← trExpr p))
+  `(tactic| guardExpr $(← trExpr (← expr!)) =ₐ $(← trExpr (← parse (tk ":=" *> pExpr))))
 
 @[trTactic guard_target] def trGuardTarget : TacM Syntax := do
-  `(tactic| guardTarget $(← trExpr (← parse pExpr)))
+  `(tactic| guardTarget =ₐ $(← trExpr (← parse pExpr)))
 
 @[trTactic guard_hyp] def trGuardHyp : TacM Syntax := do
   `(tactic| guardHyp $(mkIdent (← parse ident))
-    $[: $(← liftM $ (← parse (tk ":" *> pExpr)?).mapM trExpr)]?
-    $[:= $(← liftM $ (← parse (tk ":=" *> pExpr)?).mapM trExpr)]?)
+    $[:ₐ $(← liftM $ (← parse (tk ":" *> pExpr)?).mapM trExpr)]?
+    $[:=ₐ $(← liftM $ (← parse (tk ":=" *> pExpr)?).mapM trExpr)]?)
 
 @[trTactic match_target] def trMatchTarget : TacM Syntax := do
   let t ← trExpr (← parse pExpr)
@@ -505,7 +498,7 @@ def trSimpArgs (hs : Array Parser.SimpArg) : M (Array Syntax × Bool) :=
   `(tactic| byCases $[$(n.map mkIdent) :]? $q)
 
 @[trTactic funext] def trFunext : TacM Syntax := do
-  `(tactic| funext $[$((← parse ident_*).map mkIdent_Term)]*)
+  `(tactic| funext $[$((← parse ident_*).map trBinderName)]*)
 
 @[trTactic by_contradiction by_contra] def trByContra : TacM Syntax := do
   `(tactic| byContra $((← parse (ident)?).map mkIdent)?)

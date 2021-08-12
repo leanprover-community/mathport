@@ -64,7 +64,7 @@ def sepBy (s : ParserM Unit) (p : ParserM α) : ParserM (Array α) := List.toArr
 def brackets (l r) (p : ParserM α) := tk l *> p <* tk r
 def listOf (p : ParserM α) := brackets "[" "]" $ sepBy (tk ",") p
 def maybeListOf (p : ParserM α) := listOf p <|> do #[← p]
-def ident_ := ident <|> tk "_" *> `_
+def ident_ := BinderName.ident <$> ident <|> tk "_" *> BinderName._
 def usingIdent := (tk "using" *> ident)?
 def withIdentList := (tk "with" *> ident_*) <|> pure #[]
 def withoutIdentList := (tk "without" *> ident*) <|> pure #[]
@@ -112,16 +112,22 @@ def generalizeArg : ParserM (Expr × Name) := do
   let AST3.Expr.ident x ← rhs.unparen | failure
   (lhs, x)
 
+def hGeneralizeArg : ParserM (Expr × Name) := do
+  let AST3.Expr.notation (Choice.one `«expr == ») #[⟨_, _, Arg.expr lhs⟩, ⟨_, _, Arg.expr rhs⟩]
+    ← (← pExpr).unparen | failure
+  let AST3.Expr.ident x ← rhs.unparen | failure
+  (lhs, x)
+
 def casesArg : ParserM (Option Name × Expr) := do
   let t ← pExpr
   match t.unparen with
   | AST3.Expr.ident x => (do (some x, ← tk ":" *> pExpr)) <|> do (none, t)
   | _ => (none, t)
 
-def caseArg : ParserM (Array Name × Array Name) := do
+def caseArg : ParserM (Array BinderName × Array BinderName) := do
   (← ident_*, (← (tk ":" *> ident_*)?).getD #[])
 
-def case : ParserM (Array (Array Name × Array Name)) := maybeListOf caseArg
+def case : ParserM (Array (Array BinderName × Array BinderName)) := maybeListOf caseArg
 
 inductive SimpArg
 | allHyps
@@ -139,7 +145,7 @@ def simpArgList : ParserM (Array SimpArg) :=
   (tk "*" *> #[SimpArg.allHyps]) <|> listOf simpArg <|> pure #[]
 
 inductive RCasesPat : Type
-  | one : Name → RCasesPat
+  | one : BinderName → RCasesPat
   | clear : RCasesPat
   | typed : RCasesPat → AST3.Expr → RCasesPat
   | tuple : Array RCasesPat → RCasesPat

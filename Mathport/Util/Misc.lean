@@ -168,3 +168,34 @@ def withWeakNamespace (ns : Name) (m : CommandElabM α) : CommandElabM α := do
   a
 
 end Lean.Elab.Command
+
+section -- for debugging
+
+open Lean Lean.Elab Lean.Elab.Term Lean.Elab.Tactic
+open Lean Lean.Elab Lean.Elab.Command Lean.Parser
+open Lean.Parser Lean.PrettyPrinter
+
+syntax (name := termStx) "#term "   term    : command
+syntax (name := tacStx)  "#tactic " tactic  : command
+syntax (name := cmdStx)  "#cmd "    command : command
+syntax (name := attrStx)  "#attr "   attr : command
+
+deriving instance Repr for Syntax
+
+@[commandElab termStx] def elabTermStx : CommandElab
+  | `(#term $stx:term) => println! "{ stx}"
+  | _ => throwUnsupportedSyntax
+
+@[commandElab cmdStx] def elabCmdStx : CommandElab
+  | `(#cmd $stx:command) => do
+    -- let stx ← liftTermElabM `none do formatCommand stx
+    println! "{stx}\n"
+    let stx ← liftCoreM <| parenthesizeCommand stx
+    println! "{stx}\n"
+  | _ => throwUnsupportedSyntax
+
+@[commandElab attrStx] def elabAttrStx : CommandElab
+  | `(#attr $stx:attr) => println! "{ stx}"
+  | _ => throwUnsupportedSyntax
+
+end

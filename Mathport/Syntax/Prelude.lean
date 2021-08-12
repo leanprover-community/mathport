@@ -164,7 +164,7 @@ end Parser
 namespace Parser.Tactic
 
 syntax (name := propagateTags) "propagateTags " tacticSeq : tactic
-syntax (name := introv) "introv " ident* : tactic
+syntax (name := introv) "introv " binderIdent* : tactic
 syntax renameArg := ident " => " ident
 syntax (name := rename') "rename' " renameArg,* : tactic
 syntax (name := fapply) "fapply " term : tactic
@@ -177,12 +177,12 @@ syntax (name := toExpr') "toExpr' " term : tactic
 syntax (name := rwa) "rwa " rwRuleSeq (location)? : tactic
 syntax (name := withCases) "withCases " tacticSeq : tactic
 syntax (name := induction') "induction' " casesTarget,+ (" using " ident)?
-  (" with " ident+)? (" generalizing " ident+)? : tactic
+  (" with " binderIdent+)? (" generalizing " ident+)? : tactic
 syntax caseArg := ident,+ " : " (ident <|> "_")*
 syntax (name := case') "case' " (("[" caseArg,* "]") <|> caseArg) " => " tacticSeq : tactic
 syntax "destruct " term : tactic
 syntax (name := cases') "cases' " casesTarget,+ (" using " ident)?
-  (" with " ident+)? : tactic
+  (" with " binderIdent+)? : tactic
 syntax (name := casesM) "casesM" "*"? ppSpace term,* : tactic
 syntax (name := casesType) "casesType" "!"? "*"? ppSpace ident* : tactic
 syntax (name := «sorry») "sorry" : tactic
@@ -202,8 +202,8 @@ syntax (name := split) "split" : tactic
 syntax (name := constructorM) "constructorM" "*"? ppSpace term,* : tactic
 syntax (name := exFalso) "exFalso" : tactic
 syntax (name := injections) "injections " (" with " (colGt (ident <|> "_"))+)? : tactic
-syntax (name := simpIntro) "simpIntro " ("(" &"config" " := " term ")")? ident* (&"only ")?
-  ("[" (simpErase <|> simpLemma),* "]")? : tactic
+syntax (name := simpIntro) "simpIntro " ("(" &"config" " := " term ")")?
+  (colGt (ident <|> "_"))* (&"only ")? ("[" (simpErase <|> simpLemma),* "]")? : tactic
 syntax (name := dSimp) "dsimp " ("(" &"config" " := " term ")")? (&"only ")?
   ("[" (simpErase <|> simpLemma),* "]")? (location)? : tactic
 syntax (name := symm) "symm" : tactic
@@ -218,9 +218,9 @@ syntax (name := unfold) "unfold" ("(" &"config" " := " term ")")? ident* (locati
 syntax (name := unfold1) "unfold1" ("(" &"config" " := " term ")")? ident* (location)? : tactic
 syntax (name := inferOptParam) "inferOptParam" : tactic
 syntax (name := inferAutoParam) "inferAutoParam" : tactic
-syntax (name := guardExprEq) "guardExprEq " term " := " term : tactic
-syntax (name := guardTarget) "guardTarget " term : tactic
-syntax (name := guardHyp) "guardHyp " ident (" : " term)? (" := " term)? : tactic
+syntax (name := guardExprEq) "guardExpr " term:51 " =ₐ " term : tactic
+syntax (name := guardTarget) "guardTarget" " =ₐ " term : tactic
+syntax (name := guardHyp) "guardHyp " ident ((" : " <|> " :ₐ ") term)? ((" := " <|> " :=ₐ ") term)? : tactic
 syntax (name := matchTarget) "matchTarget " term : tactic
 syntax (name := byCases) "byCases " (ident " : ")? term : tactic
 syntax (name := byContra) "byContra " (colGt ident)? : tactic
@@ -235,9 +235,9 @@ syntax (name := unfreezingI) "unfreezingI " tacticSeq : tactic
 syntax (name := resetI) "resetI" : tactic
 syntax (name := substI) "substI " term : tactic
 syntax (name := casesI) "casesI " casesTarget,+ (" using " ident)?
-  (" with " ident+)? : tactic
-syntax (name := introI) "introI " ident* : tactic
-syntax (name := introsI) "introsI " ident* : tactic
+  (" with " binderIdent+)? : tactic
+syntax (name := introI) "introI " (colGt (ident <|> "_"))* : tactic
+syntax (name := introsI) "introsI " (colGt (ident <|> "_"))* : tactic
 syntax (name := haveI) "haveI " Term.haveDecl : tactic
 syntax (name := haveI') "haveI " Term.haveIdLhs : tactic
 syntax (name := letI) "letI " Term.letDecl : tactic
@@ -252,20 +252,20 @@ syntax (name := rcasesPat.ignore) "_" : rcasesPat
 syntax (name := rcasesPat.clear) "-" : rcasesPat
 syntax (name := rcasesPat.tuple) "⟨" rcasesPatLo,* "⟩" : rcasesPat
 syntax (name := rcasesPat.paren) "(" rcasesPatLo ")" : rcasesPat
-syntax (name := rcasesHint) "rcases?" casesTarget,* (" : " num)? : tactic
+syntax (name := rcases?) "rcases?" casesTarget,* (" : " num)? : tactic
 syntax (name := rcases) "rcases" casesTarget,* (" with " rcasesPat)? : tactic
 syntax (name := obtain) "obtain" (ppSpace rcasesPat)? (" : " term)? (" := " term,+)? : tactic
 
 declare_syntax_cat rintroPat
 syntax (name := rintroPat.one) rcasesPat : rintroPat
 syntax (name := rintroPat.binder) "(" (rintroPat+ <|> rcasesPatMed) (" : " term)? ")" : rintroPat
-syntax (name := rintroHint) "rintro?" (" : " num)? : tactic
+syntax (name := rintro?) "rintro?" (" : " num)? : tactic
 syntax (name := rintro) "rintro" (ppSpace rintroPat)* (" : " term)? : tactic
 
 syntax (name := ext1) "ext1 " rcasesPat* : tactic
-syntax (name := ext1Hint) "ext1? " rcasesPat* : tactic
+syntax (name := ext1?) "ext1? " rcasesPat* : tactic
 syntax (name := ext) "ext " rcasesPat* (":" num)? : tactic
-syntax (name := extHint) "ext? " rcasesPat* (":" num)? : tactic
+syntax (name := ext?) "ext? " rcasesPat* (":" num)? : tactic
 
 syntax (name := apply') "apply' " term : tactic
 syntax (name := fapply') "fapply' " term : tactic
@@ -275,6 +275,60 @@ syntax (name := mapply') "mapply' " term : tactic
 syntax (name := rfl') "rfl'" : tactic
 syntax (name := symm') "symm'" (location)? : tactic
 syntax (name := trans') "trans'" (term)? : tactic
+
+syntax (name := fsplit) "fsplit" : tactic
+syntax (name := injectionsAndClear) "injectionsAndClear" : tactic
+
+syntax (name := fconstructor) "fconstructor" : tactic
+syntax (name := tryFor) "tryFor " term:max tacticSeq : tactic
+syntax (name := substs) "substs " ident* : tactic
+syntax (name := unfoldCoes) "unfoldCoes " (location)? : tactic
+syntax (name := unfoldWf) "unfoldWf" : tactic
+syntax (name := unfoldAux) "unfoldAux" : tactic
+syntax (name := recover) "recover" : tactic
+syntax (name := «continue») "continue " tacticSeq : tactic
+syntax (name := workOnGoal) "workOnGoal " num tacticSeq : tactic
+syntax (name := swap) "swap " (num)? : tactic
+syntax (name := rotate) "rotate " (num)? : tactic
+syntax (name := clear_) "clear_" : tactic
+syntax (name := replace) "replace " Term.haveDecl : tactic
+syntax (name := replace') "replace " Term.haveIdLhs : tactic
+syntax (name := classical) "classical" : tactic
+syntax (name := generalizeHyp) "generalize " atomic(ident " : ")? term:51 " = " ident
+  location : tactic
+syntax (name := clean) "clean " term : tactic
+syntax (name := refineStruct) "refineStruct " term : tactic
+syntax (name := matchHyp) "matchHyp " ("(" &"m" " := " term ")")? ident " : " term : tactic
+syntax (name := guardExprStrict) "guardExpr " term:51 " == " term : tactic
+syntax (name := guardTargetStrict) "guardTarget" " == " term : tactic
+syntax (name := guardHypNums) "guardHypNums " num : tactic
+syntax (name := guardTags) "guardTags " ident* : tactic
+syntax (name := guardProofTerm) "guardProofTerm " tactic:51 " => " term : tactic
+syntax (name := failIfSuccess?) "failIfSuccess? " str tacticSeq : tactic
+syntax (name := field) "field " ident " => " tacticSeq : tactic
+syntax (name := haveField) "haveField" : tactic
+syntax (name := applyField) "applyField" : tactic
+syntax (name := applyRules) "applyRules" ("(" &"config" " := " term ")")?
+  "[" term,* "]" (num)? : tactic
+syntax (name := hGeneralize) "hGeneralize " atomic(binderIdent " : ")? term:51 " = " ident
+  (" with " binderIdent)? : tactic
+syntax (name := hGeneralize!) "hGeneralize! " atomic(binderIdent " : ")? term:51 " = " ident
+  (" with " binderIdent)? : tactic
+syntax (name := guardExprEq') "guardExpr " term:51 " = " term : tactic
+syntax (name := guardTarget') "guardTarget" " = " term : tactic
+syntax (name := triv) "triv" : tactic
+syntax (name := use) "use " term,+ : tactic
+syntax (name := clearAuxDecl) "clearAuxDecl" : tactic
+syntax (name := set) "set " ident (" : " term)? " := " term (" with " "←"? ident)? : tactic
+syntax (name := set!) "set! " ident (" : " term)? " := " term (" with " "←"? ident)? : tactic
+syntax (name := clearExcept) "clear" "*" " - " ident* : tactic
+syntax (name := extractGoal) "extractGoal " (ident)? (" with " ident*)? : tactic
+syntax (name := extractGoal!) "extractGoal! " (ident)? (" with " ident*)? : tactic
+syntax (name := inhabit) "inhabit " atomic(ident " : ")? term : tactic
+syntax (name := revertDeps) "revertDeps " ident* : tactic
+syntax (name := revertAfter) "revertAfter " ident : tactic
+syntax (name := revertTargetDeps) "revertTargetDeps" : tactic
+syntax (name := clearValue) "clearValue " ident* : tactic
 
 end Tactic
 
@@ -286,6 +340,9 @@ syntax (name := linter) "linter" : attr
 syntax extParam.arrow := "(" "·" " → " "·" ")"
 syntax extParam := "-"? (extParam.arrow <|> "*" <|> ident)
 syntax (name := ext) "ext " (extParam <|> "[" extParam,* "]")? : tactic
+
+syntax (name := higherOrder) "higherOrder " (ident)? : attr
+syntax (name := interactive) "interactive" : attr
 
 end Attr
 
@@ -308,5 +365,10 @@ syntax (name := copyDocString) "copy_doc_string " ident " → " ident* : command
 syntax (name := libraryNote) docComment "library_note " str : command
 syntax (name := addTacticDoc) (docComment)? "add_tactic_doc " term : command
 syntax (name := addDeclDoc) docComment "add_decl_doc " ident : command
+
+syntax (name := setupTacticParser) "setup_tactic_parser" : command
+syntax (name := importPrivate) "import_private " ident ("from " ident)? : command
+syntax (name := mkSimpAttribute) "mk_simp_attribute " ident
+  ("from " ident+)? (" := " str)? : command
 
 end Command

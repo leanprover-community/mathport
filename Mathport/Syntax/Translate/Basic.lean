@@ -250,8 +250,14 @@ def trBinderName : BinderName → Syntax
   | BinderName.ident n => mkIdent n
   | BinderName.«_» => mkHole arbitrary
 
-def trBinderIdent : BinderName → Syntax
-  | BinderName.ident n => mkNode ``binderIdent #[mkIdent n]
+def trIdent_ : BinderName → Syntax
+  | BinderName.ident n => mkIdent n
+  | BinderName.«_» => mkAtom "_"
+
+def trBinderIdent (n : BinderName) : Syntax := mkNode ``binderIdent #[trIdent_ n]
+
+def trBinderIdentI : BinderName → M Syntax
+  | BinderName.ident n => do mkNode ``binderIdent #[← mkIdentI n]
   | BinderName.«_» => mkNode ``binderIdent #[mkAtom "_"]
 
 inductive TacticContext | seq | one
@@ -300,6 +306,12 @@ mutual
     | tac => Sum.inl <$> trTactic tac
 
 end
+
+def trIdTactic : Block → (c :_:= TacticContext.one) → M Syntax
+  | bl, TacticContext.seq => trBlock bl
+  | ⟨_, none, none, #[]⟩, _ => do `(tactic| skip)
+  | ⟨_, none, none, #[tac]⟩, _ => trTactic tac.kind
+  | bl, _ => do `(tactic| ($(← trBlock bl):tacticSeq))
 
 def trBinderDefault : Default → M Syntax
   | Default.«:=» e => do `(Parser.Term.binderDefault| := $(← trExpr e.kind))
