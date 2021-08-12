@@ -26,6 +26,12 @@ structure State where
 open Lean.Elab.Command in
 abbrev BinportM := ReaderT Context $ StateRefT State CommandElabM
 
+def sorryPlaceholderName : Name :=
+  `_sorry_placeholder_
+
+def mkSorryPlaceholder (type : Expr) : Expr :=
+  mkApp (mkConst sorryPlaceholderName) type
+
 def warnStr (msg : String) : BinportM Unit := do
   println! "[warning] while processing {(← read).path.mod3}::{(← read).currDecl}:\n{msg}"
 

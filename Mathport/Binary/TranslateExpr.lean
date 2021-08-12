@@ -38,7 +38,9 @@ def trExprCore (ctx : Context) (st : State) (cmdCtx : Elab.Command.Context) (cmd
       e
 where
   core e := do
-    let mut e ← replaceConstNames e
+    let mut e := e
+    e ← Meta.transform e (post := replaceSorryPlaceholders)
+    e ← replaceConstNames e
     e ← try withCurrHeartbeats <| withTheReader Core.Context (fun ctx => { ctx with maxHeartbeats := 5000000 }) (expandCoe e)
         catch _ => println! "[expand.coe] {ctx.currDecl} failed"; pure e
     e ← translateNumbers e
@@ -47,6 +49,14 @@ where
     | some ap4 => e ← Meta.transform e (pre := translateAutoParams ap4)
     e ← heterogenize e
     e
+
+  replaceSorryPlaceholders (e : Expr) : MetaM TransformStep := do
+    if e.isAppOfArity sorryPlaceholderName 1 then
+      let type := e.getAppArg
+      let e ← mkSorry type (synthetic := false)
+      return Transform.done e
+    else
+      return Transform.done e
 
   replaceConstNames (e : Expr) : MetaM Expr := do
     e.replaceConstNames fun n => (getRenameMap cmdState.env).find? n
