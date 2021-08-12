@@ -52,11 +52,11 @@ where
 
   replaceSorryPlaceholders (e : Expr) : MetaM TransformStep := do
     if e.isAppOfArity sorryPlaceholderName 1 then
-      let type := e.getAppArg
+      let type := e.appArg!
       let e ← mkSorry type (synthetic := false)
-      return Transform.done e
+      return TransformStep.done e
     else
-      return Transform.done e
+      return TransformStep.done e
 
   replaceConstNames (e : Expr) : MetaM Expr := do
     e.replaceConstNames fun n => (getRenameMap cmdState.env).find? n
