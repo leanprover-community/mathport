@@ -110,7 +110,7 @@ def getPrecedence? (tk : String) (kind : MixfixKind) : CommandElabM (Option Prec
   synportPrecedenceExtension.getState (← getEnv) |>.find? (tk, kind)
 
 def Precedence.toSyntax : Precedence → Syntax
-  | Precedence.nat n => Syntax.mkNumLit (toString n)
+  | Precedence.nat n => Quote.quote n
   | Precedence.max => do `(prec| arg)
   | Precedence.maxPlus => do `(prec| max)
 
@@ -192,6 +192,16 @@ def popScope : M Unit :=
   | none => s
   | some c => { s with current := c, scopes := s.scopes.pop }
 
+def mkOptionalNode' (x : Option α) (f : α → Array Syntax) : Syntax :=
+  mkNullNode $ match x with
+  | none => #[]
+  | some a => f a
+
+def mkOptionalNodeM [Monad m] (x : Option α) (f : α → m (Array Syntax)) : m Syntax := do
+  mkNullNode $ ← match x with
+  | none => #[]
+  | some a => f a
+
 def trDocComment (doc : String) : Syntax :=
   mkNode ``Parser.Command.docComment #[mkAtom "/--", mkAtom (doc ++ "-/")]
 
@@ -223,15 +233,15 @@ structure BinderContext where
 
 partial def trLevel : Level → M Syntax
   | Level.«_» => `(level| _)
-  | Level.nat n => Syntax.mkNumLit (toString n)
-  | Level.add l n => do `(level| $(← trLevel l.kind) + $(Syntax.mkNumLit (toString n.kind)))
+  | Level.nat n => Quote.quote n
+  | Level.add l n => do `(level| $(← trLevel l.kind) + $(Quote.quote n.kind))
   | Level.imax ls => do `(level| imax $(← ls.mapM fun l => trLevel l.kind)*)
   | Level.max ls => do `(level| max $(← ls.mapM fun l => trLevel l.kind)*)
   | Level.param u => mkIdent u
   | Level.paren l => trLevel l.kind -- do `(level| ($(← trLevel l.kind)))
 
 partial def trPrio : Expr → M Syntax
-  | Expr.nat n => Syntax.mkNumLit (toString n)
+  | Expr.nat n => Quote.quote n
   | Expr.paren e => trPrio e.kind -- do `(prio| ($(← trPrio e.kind)))
   | _ => throw! "unsupported: advanced prio syntax"
 
@@ -365,7 +375,7 @@ mutual
       let ty ← ty.mapM (trDArrow bis)
       let vars := mkNullNode $ vars.map fun v => trBinderName v.kind
       if let some stx ← trSimple allowSimp bi vars ty dflt then return out.push stx
-      let ty := @mkNullNode $ match ty with | none => #[] | some ty => #[mkAtom ":", ty]
+      let ty := mkOptionalNode' ty fun ty => #[mkAtom ":", ty]
       if bi == BinderInfo.implicit then
         out.push $ mkNode ``Parser.Term.implicitBinder #[mkAtom "{", vars, ty, mkAtom "}"]
       else
@@ -506,7 +516,7 @@ def trExpr' : Expr → M Syntax
   | Expr.const _ n (some l) => do
     mkNode ``Parser.Term.explicitUniv #[← mkIdentI n.kind,
       mkAtom ".{", (mkAtom ",").mkSep $ ← l.mapM fun e => trLevel e.kind, mkAtom "}"]
-  | Expr.nat n => Syntax.mkNumLit (toString n)
+  | Expr.nat n => Quote.quote n
   | Expr.decimal n d => (scientificLitOfDecimal n d).get!
   | Expr.string s => Syntax.mkStrLit s
   | Expr.char c => Syntax.mkCharLit c
@@ -540,7 +550,7 @@ def trExpr' : Expr → M Syntax
   | Expr.have false h t pr e => do
     let t := match t.kind with | Expr._ => none | t => some t
     let haveId := mkNode ``Parser.Term.haveIdDecl #[
-      mkNullNode $ match h with | none => #[] | some h => #[mkIdent h.kind, mkNullNode],
+      mkOptionalNode' h fun h => #[mkIdent h.kind, mkNullNode],
       mkOptionalNode $ ← trOptType t, mkAtom ":=", ← trProof pr.kind false]
     mkNode ``Parser.Term.have #[mkAtom "have",
       mkNode ``Parser.Term.haveDecl #[haveId], mkNullNode, ← trExpr e.kind]
@@ -647,7 +657,7 @@ def trAttr (prio : Option Expr) : Attribute → M (Option TrAttr)
     | `simp,          none => `(attr| simp)
     | `recursor,      some ⟨_, _, AttrArg.indices #[]⟩ => throw! "unsupported: @[recursor]"
     | `recursor,      some ⟨_, _, AttrArg.indices #[⟨_, _, n⟩]⟩ =>
-      `(attr| recursor $(Syntax.mkNumLit (toString n)):numLit)
+      `(attr| recursor $(Quote.quote n):numLit)
     | `congr,         none => mkSimpleAttr `congr
     | `inline,        none => mkSimpleAttr `inline
     | `pattern,       none => mkSimpleAttr `matchPattern
@@ -1123,7 +1133,7 @@ def trCommand' : Command → M Unit
     | o, OptionVal.str s => do
       pushM `(command| set_option $(← mkIdentO o) $(Syntax.mkStrLit s):strLit)
     | o, OptionVal.nat n => do
-      pushM `(command| set_option $(← mkIdentO o) $(Syntax.mkNumLit (toString n)):numLit)
+      pushM `(command| set_option $(← mkIdentO o) $(Quote.quote n):numLit)
     | o, OptionVal.decimal _ _ => throw! "unsupported: float-valued option"
   | Command.declareTrace n => throw! "unsupported (TODO): declare_trace"
   | Command.addKeyEquivalence a b => throw! "unsupported: add_key_equivalence"

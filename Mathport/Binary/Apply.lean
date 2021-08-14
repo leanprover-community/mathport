@@ -90,7 +90,7 @@ try
   -- lower priority than the Lean4 ones.
   let prio : Nat := (← liftMacroM <| evalOptPrio none).pred
 
-  let stxPrec  : Syntax := Syntax.mkNumLit (toString prec)
+  let stxPrec  : Syntax := Quote.quote prec
   let stxName  : Option Syntax := none
   let stxPrio  : Option Syntax := quote prio
   let stxOp    : Syntax := Syntax.mkStrLit tok
@@ -107,7 +107,7 @@ try
     | MixfixKind.postfix =>
       `(postfix:$stxPrec $[(name := $stxName)]? $[(priority := $stxPrio)]? $stxOp => $stxFun)
     | MixfixKind.singleton =>
-      let correctPrec : Option Syntax := Syntax.mkNumLit (toString Parser.maxPrec)
+      let correctPrec : Option Syntax := Quote.quote Parser.maxPrec
       `(notation $[: $correctPrec]? $[(name := $stxName)]? $[(priority := $stxPrio)]? $stxOp => $stxFun)
 
   let nextIdx : Nat ← (← get).nNotations

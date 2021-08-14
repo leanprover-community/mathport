@@ -184,7 +184,8 @@ syntax "destruct " term : tactic
 syntax (name := cases') "cases' " casesTarget,+ (" using " ident)?
   (" with " binderIdent+)? : tactic
 syntax (name := casesM) "casesM" "*"? ppSpace term,* : tactic
-syntax (name := casesType) "casesType" "!"? "*"? ppSpace ident* : tactic
+syntax (name := casesType) "casesType" "*"? ppSpace ident* : tactic
+syntax (name := casesType!) "casesType!" "*"? ppSpace ident* : tactic
 syntax (name := «sorry») "sorry" : tactic
 syntax (name := iterate) "iterate " (num)? tacticSeq : tactic
 syntax (name := repeat') "repeat' " tacticSeq : tactic
@@ -202,10 +203,13 @@ syntax (name := split) "split" : tactic
 syntax (name := constructorM) "constructorM" "*"? ppSpace term,* : tactic
 syntax (name := exFalso) "exFalso" : tactic
 syntax (name := injections) "injections " (" with " (colGt (ident <|> "_"))+)? : tactic
+syntax simpArg := simpErase <|> ("← "? simpLemma) <|> "*"
+syntax (name := simp') "simp'" "*"? ppSpace ("(" &"config" " := " term ")")? (&"only ")?
+  ("[" simpArg,* "]")? (" with " ident+)? (location)? : tactic
 syntax (name := simpIntro) "simpIntro " ("(" &"config" " := " term ")")?
-  (colGt (ident <|> "_"))* (&"only ")? ("[" (simpErase <|> simpLemma),* "]")? : tactic
+  (colGt (ident <|> "_"))* (&"only ")? ("[" simpArg,* "]")? (" with " ident+)? : tactic
 syntax (name := dSimp) "dsimp " ("(" &"config" " := " term ")")? (&"only ")?
-  ("[" (simpErase <|> simpLemma),* "]")? (location)? : tactic
+  ("[" simpArg,* "]")? (" with " ident+)? (location)? : tactic
 syntax (name := symm) "symm" : tactic
 syntax (name := trans) "trans" (term)? : tactic
 syntax (name := acRfl) "acRfl" : tactic
@@ -226,7 +230,6 @@ syntax (name := byCases) "byCases " (ident " : ")? term : tactic
 syntax (name := byContra) "byContra " (colGt ident)? : tactic
 syntax (name := typeCheck) "typeCheck " term : tactic
 syntax (name := specialize) "specialize " ident (colGt term:arg)+ : tactic
-syntax (name := congr) "congr " (colGt num)? : tactic
 syntax (name := rsimp) "rsimp" : tactic
 syntax (name := compVal) "compVal" : tactic
 syntax (name := async) "async " tacticSeq : tactic
@@ -330,12 +333,30 @@ syntax (name := revertAfter) "revertAfter " ident : tactic
 syntax (name := revertTargetDeps) "revertTargetDeps" : tactic
 syntax (name := clearValue) "clearValue " ident* : tactic
 
+syntax (name := applyAssumption) "applyAssumption" : tactic
+syntax (name := solveByElim) "solveByElim" "*"? ppSpace ("(" &"config" " := " term ")")?
+  (&"only ")? ("[" simpArg,* "]")? (" with " ident+)? : tactic
+
+syntax (name := hint) "hint" : tactic
+
+syntax (name := clear!) "clear! " ident* : tactic
+
+syntax (name := choose) "choose " ident+ (" using " term)? : tactic
+syntax (name := choose!) "choose! " ident+ (" using " term)? : tactic
+
+syntax (name := congr) "congr " (colGt num)? (" with " (colGt rcasesPat)* (" : " num)?)? : tactic
+syntax (name := rcongr) "rcongr " (colGt rcasesPat)* : tactic
+syntax (name := convert) "convert " "← "? term (" using " num)? : tactic
+syntax (name := convertTo) "convertTo " term (" using " num)? : tactic
+syntax (name := acChange) "acChange " term (" using " num)? : tactic
+
 end Tactic
 
 namespace Attr
 
 syntax (name := nolint) "nolint " ident* : attr
-syntax (name := linter) "linter" : attr
+initialize linterAttr : TagAttribute ←
+  registerTagAttribute `linter "Use this declaration as a linting test in #lint"
 
 syntax extParam.arrow := "(" "·" " → " "·" ")"
 syntax extParam := "-"? (extParam.arrow <|> "*" <|> ident)
@@ -343,6 +364,9 @@ syntax (name := ext) "ext " (extParam <|> "[" extParam,* "]")? : tactic
 
 syntax (name := higherOrder) "higherOrder " (ident)? : attr
 syntax (name := interactive) "interactive" : attr
+
+initialize hintTacticAttr : TagAttribute ←
+  registerTagAttribute `hintTactic "A tactic that should be tried by `hint`."
 
 end Attr
 
@@ -370,5 +394,9 @@ syntax (name := setupTacticParser) "setup_tactic_parser" : command
 syntax (name := importPrivate) "import_private " ident ("from " ident)? : command
 syntax (name := mkSimpAttribute) "mk_simp_attribute " ident
   ("from " ident+)? (" := " str)? : command
+
+syntax (name := addHintTactic) "add_hint_tactic " tactic : command
+syntax (name := alias) "alias " ident " ← " ident* : command
+syntax (name := aliasLR) "alias " ident " ↔ " (".." <|> (binderIdent binderIdent)) : command
 
 end Command
