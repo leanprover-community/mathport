@@ -26,6 +26,8 @@
     "has_neg"       : "Neg",
     "has_mod"       : "Mod",
 
+    "has_pow"       : "Pow",
+
     "has_le"        : "LE",
     "has_lt"        : "LT",
 

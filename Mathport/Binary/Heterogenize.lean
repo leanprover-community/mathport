@@ -52,7 +52,18 @@ where
         let e' := mkAppN (mkConst hName [lvl, lvl, lvl]) (#[type, type, type, inst'] ++ rest)
         return TransformStep.done e'
 
-      | none => return TransformStep.done e
+      | none =>
+        if f.isConstOf `Pow.pow && args.size ≥ 5 then
+          let [lvl1, lvl2] ← pure f.constLevels! | throwError "Pow.pow should have 2 levels"
+          -- (@instHPow.{0, 0} Nat Nat instPowNatNat)
+          let instName := `instHPow
+          let (type1, type2) := (args[0], args[1])
+          let inst  := args[2]
+          let inst' := mkAppN (mkConst instName [lvl1, lvl2]) #[type1, type2, inst]
+          let rest := args.extract 3 args.size
+          let e' := mkAppN (mkConst `HPow.hPow [lvl1, lvl2, lvl1]) (#[type1, type2, type1, inst'] ++ rest)
+          return TransformStep.done e'
+        else return TransformStep.done e
 
 
 end Mathport.Binary
