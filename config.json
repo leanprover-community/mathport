@@ -1,50 +1,51 @@
 {
-  "pathConfig": {
-    "outRoot": "Lib4",
-    "packages": {
-      "Mathlib": "PreData/Mathlib",
-      "Lean3": "PreData/Lean3",
-      "Lean3Pkg": "PreData/Lean3Pkg"
-    }
-  },
-  "stringsToKeep": [
-    "_sunfold",
-    "equations",
-    "private"
-  ],
-  "forceAbbrevs": [
-      "lift",
-      "lift_t",
-      "coe_b",
-      "coe_t",
-      "coe_fn_b"
-  ],
-  "defEqConstructions": [
-    "casesOn",
-    "noConfusion",
-    "ibelow",
-    "brecOn",
-    "bInductionOn"
-  ],
-  "disabledInstances": [
-    "bool.decidable_eq",
-    "nat.decidable_eq",
-    "and.decidable",
-    "or.decidable",
-    "iff.decidable",
-    "not.decidable",
-    "implies.decidable",
-    "decidable.true",
-    "decidable.false",
-    "exists_prop_decidable",
-    "forall_prop_decidable",
-    "int.decidable_eq",
-    "nat.decidable_lt",
-    "nat.decidable_le"
-  ],
-  "neverSorries": [
-    "of_as_true"
-  ],
-  "sorries": [],
-  "skipProofs": false
+    "pathConfig": {
+        "outRoot": "Lib4",
+        "packages": {
+            "Lean3": "PreData/Lean3",
+            "Lean3Pkg": "PreData/Lean3Pkg",
+            "Mathlib": "PreData/Mathlib",
+            "Liquid": "PreData/Liquid"
+        }
+    },
+    "stringsToKeep": [
+        "_sunfold",
+        "equations",
+        "private"
+    ],
+    "forceAbbrevs": [
+        "lift",
+        "lift_t",
+        "coe_b",
+        "coe_t",
+        "coe_fn_b"
+    ],
+    "defEqConstructions": [
+        "casesOn",
+        "noConfusion",
+        "ibelow",
+        "brecOn",
+        "bInductionOn"
+    ],
+    "disabledInstances": [
+        "bool.decidable_eq",
+        "nat.decidable_eq",
+        "and.decidable",
+        "or.decidable",
+        "iff.decidable",
+        "not.decidable",
+        "implies.decidable",
+        "decidable.true",
+        "decidable.false",
+        "exists_prop_decidable",
+        "forall_prop_decidable",
+        "int.decidable_eq",
+        "nat.decidable_lt",
+        "nat.decidable_le"
+    ],
+    "neverSorries": [
+        "of_as_true"
+    ],
+    "sorries": [],
+    "skipProofs": false
 }

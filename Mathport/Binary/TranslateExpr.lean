@@ -39,8 +39,8 @@ def trExprCore (ctx : Context) (st : State) (cmdCtx : Elab.Command.Context) (cmd
 where
   core e := do
     let mut e := e
-    e ← Meta.transform e (post := replaceSorryPlaceholders)
     e ← replaceConstNames e
+    e ← Meta.transform e (post := replaceSorryPlaceholders)
     e ← try withCurrHeartbeats <| withTheReader Core.Context (fun ctx => { ctx with maxHeartbeats := 5000000 }) (expandCoe e)
         catch _ => println! "[expand.coe] {ctx.currDecl} failed"; pure e
     e ← translateNumbers e

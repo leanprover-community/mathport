@@ -46,5 +46,7 @@
 
     "category_theory.Kleisli" : "CategoryTheory.KleisliCat",
 
-    "Int.negSuccOfNat" : "Int.negSucc"
+    "Int.negSuccOfNat" : "Int.negSucc",
+
+    "_sorry_placeholder_" : "_sorry_placeholder_"
 }
