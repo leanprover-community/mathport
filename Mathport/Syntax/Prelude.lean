@@ -355,8 +355,10 @@ end Tactic
 namespace Attr
 
 syntax (name := nolint) "nolint " ident* : attr
-initialize linterAttr : TagAttribute ←
-  registerTagAttribute `linter "Use this declaration as a linting test in #lint"
+-- FIXME: tag attrs don't work
+-- initialize linterAttr : TagAttribute ←
+--   registerTagAttribute `linter "Use this declaration as a linting test in #lint"
+syntax (name := linter) "linter" : attr
 
 syntax extParam.arrow := "(" "·" " → " "·" ")"
 syntax extParam := "-"? (extParam.arrow <|> "*" <|> ident)
@@ -365,8 +367,10 @@ syntax (name := ext) "ext " (extParam <|> "[" extParam,* "]")? : tactic
 syntax (name := higherOrder) "higherOrder " (ident)? : attr
 syntax (name := interactive) "interactive" : attr
 
-initialize hintTacticAttr : TagAttribute ←
-  registerTagAttribute `hintTactic "A tactic that should be tried by `hint`."
+-- FIXME: tag attrs don't work
+-- initialize hintTacticAttr : TagAttribute ←
+--   registerTagAttribute `hintTactic "A tactic that should be tried by `hint`."
+syntax (name := hintTactic) "hintTactic" : attr
 
 end Attr
 
