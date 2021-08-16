@@ -6,7 +6,7 @@ Authors: Mario Carneiro
 import Std.Data.HashMap
 import Mathport.Util.Json
 import Mathport.Util.Misc
-import Mathport.Syntax.Prelude
+import Mathport.Syntax.Prelude.Basic
 
 open Std (HashMap)
 open Lean
