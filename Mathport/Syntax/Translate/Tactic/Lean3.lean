@@ -95,7 +95,7 @@ def trRwArgs : TacM (Array Syntax × Option Syntax) := do
   let q ← liftM $ (← parse rwRules).mapM trRwRule
   let loc ← trLoc (← parse location)
   if let some cfg ← expr? then
-    dbg_trace "unsupported: rw with cfg"
+    dbg_trace "warning: unsupported: rw with cfg"
   (q, loc)
 
 @[trTactic rewrite rw] def trRw : TacM Syntax := do
@@ -304,9 +304,9 @@ def parseSimpConfig : Option AST3.Expr → Option Meta.Simp.Config
       | `proj, e => cfg := asBool e cfg fun cfg b => {cfg with proj := b}
       | `single_pass, e => cfg := asBool e cfg fun cfg b => {cfg with singlePass := b}
       | `memoize, e => cfg := asBool e cfg fun cfg b => {cfg with memoize := b}
-      | _, _ => dbg_trace "unsupported simp config option: {n}"
+      | _, _ => dbg_trace "warning: unsupported simp config option: {n}"
     cfg
-  | some _ => dbg_trace "unsupported simp config syntax"; none
+  | some _ => dbg_trace "warning: unsupported simp config syntax"; none
 where
   asBool {α} : AST3.Expr → α → (α → Bool → α) → α
   | AST3.Expr.const _ ⟨_, _, `tt⟩ _, a, f => f a true
@@ -392,9 +392,9 @@ def trSimpAttrs (attrs : Array Name) : Syntax :=
 
 @[trTactic simp] def trSimp : TacM Syntax := do
   let iota ← parse (tk "!")?
-  if iota.isSome then dbg_trace "unsupported simp config option: iota_eqn"
+  if iota.isSome then dbg_trace "warning: unsupported simp config option: iota_eqn"
   let trace ← parse (tk "?")?
-  if trace.isSome then dbg_trace "unsupported simp config option: trace_lemmas"
+  if trace.isSome then dbg_trace "warning: unsupported simp config option: trace_lemmas"
   let o ← parse onlyFlag
   let (hs, all) ← trSimpArgs (← parse simpArgList)
   let attrs := (← parse (tk "with" *> ident*)?).getD #[]
@@ -515,7 +515,7 @@ def trSimpAttrs (attrs : Array Name) : Syntax :=
 @[trTactic match_target] def trMatchTarget : TacM Syntax := do
   let t ← trExpr (← parse pExpr)
   let m ← expr?
-  if m.isSome then dbg_trace "unsupported: match_target reducibility"
+  if m.isSome then dbg_trace "warning: unsupported: match_target reducibility"
   `(tactic| matchTarget $t)
 
 @[trTactic by_cases] def trByCases : TacM Syntax := do
@@ -547,9 +547,9 @@ def trSimpAttrs (attrs : Array Name) : Syntax :=
 
 @[trTactic rsimp] def trRSimp : TacM Syntax := do `(tactic| rsimp)
 
-@[trTactic async] def trCompVal : TacM Syntax := do `(tactic| compVal)
+@[trTactic comp_val] def trCompVal : TacM Syntax := do `(tactic| compVal)
 
-@[trTactic comp_val] def trAsync : TacM Syntax := do
+@[trTactic async] def trAsync : TacM Syntax := do
   `(tactic| async $(← trBlock (← itactic)):tacticSeq)
 
 @[trTactic conv] def trConv : TacM Syntax := throw! "unsupported: conv"

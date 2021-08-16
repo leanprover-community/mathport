@@ -133,7 +133,7 @@ def renameAttr (n : Name) : M Name := do Rename.renameAttr n
 def renameModule (n : Name) : M Name := do Rename.renameModule (← read).pcfg n
 def renameField (n : Name) : M Name := do Rename.renameField? (← getEnv) n |>.getD n
 def renameOption : Name → M Name
-  | n => do dbg_trace "unsupported option {n}"; n
+  | n => do dbg_trace "warning: unsupported option {n}"; n
 
 def mkIdentI (n : Name) : M Syntax := do mkIdent (← renameIdent n)
 def mkIdentA (n : Name) : M Syntax := do mkIdent (← renameAttr n)
@@ -174,9 +174,9 @@ def push (stx : Syntax) : M Unit := do
 def pushM (stx : M Syntax) : M Unit := stx >>= push
 
 def elabCommand (stx : Syntax) : CommandElabM Unit := do
-  -- try dbg_trace "elaborating:\n{← liftCoreM $
+  -- try dbg_trace "warning: elaborating:\n{← liftCoreM $
   --   Lean.PrettyPrinter.parenthesizeCommand stx >>= Lean.PrettyPrinter.formatCommand}"
-  -- catch e => dbg_trace "failed to format: {← e.toMessageData.toString}\nin: {stx}"
+  -- catch e => dbg_trace "warning: failed to format: {← e.toMessageData.toString}\nin: {stx}"
   Elab.Command.elabCommand stx
 
 def pushElab (stx : Syntax) : M Unit := elabCommand stx *> push stx
@@ -335,14 +335,14 @@ def trBinary (n : Name) (lhs rhs : Syntax) : M Syntax := do
   | some ⟨_, _, NotationKind.binary f, _⟩ => f lhs rhs
   | some ⟨_, _, NotationKind.nary f, _⟩ => f #[lhs, rhs]
   | _ =>
-    dbg_trace "unsupported binary notation {repr n}"
+    dbg_trace "warning: unsupported binary notation {repr n}"
     mkNode ``Parser.Term.app #[mkIdent n, mkNullNode #[lhs, rhs]]
 
 def expandBinderCollection
   (trBinder : AST3.Binder → Array Syntax → M (Array Syntax)) :
   AST3.Binder → Array Syntax → M (Array Syntax)
 | bic@(Binder.collection bi vars n e), out => do
-  dbg_trace "expanding binder collection {repr bic}"
+  dbg_trace "warning: expanding binder collection {repr bic}"
   let vars := vars.map $ Spanned.map fun | BinderName.ident v => v | _ => `_x
   let vars1 := vars.map $ Spanned.map BinderName.ident
   let mut out ← trBinder (Binder.binder bi (some vars1) #[] none none) out
@@ -482,11 +482,11 @@ def trNotation (n : Choice) (args : Array (Spanned Arg)) : M Syntax := do
     if bis.isEmpty then trExpr e else f (← trExplicitBinders bis) (← trExpr e)
   | some ⟨_, _, NotationKind.binder f, _⟩, _ => throw! "unsupported (impossible)"
   | some ⟨_, _, NotationKind.fail, _⟩, args =>
-    dbg_trace "unsupported notation {repr n}"
+    dbg_trace "warning: unsupported notation {repr n}"
     let args ← args.mapM fun | Arg.expr e => trExpr e | _ => throw! "unsupported notation {repr n}"
     mkNode ``Parser.Term.app #[mkIdent n, mkNullNode args]
   | none, args =>
-    dbg_trace "unsupported notation {repr n}"
+    dbg_trace "warning: unsupported notation {repr n}"
     let args ← args.mapM fun | Arg.expr e => trExpr e | _ => throw! "unsupported notation {repr n}"
     mkNode ``Parser.Term.app #[mkIdent n, mkNullNode args]
 
@@ -628,6 +628,9 @@ def trExpr' : Expr → M Syntax
     | some f => try f args catch e => throw! "in {n}: {← e.toMessageData.toString}"
     | none => throw! "unsupported user notation {n}"
 
+def mkSimpleAttr (n : Name) (args : Array Syntax := #[]) :=
+  mkNode ``Parser.Attr.simple #[mkIdent n, mkNullNode args]
+
 inductive TrAttr
   | del : Syntax → TrAttr
   | add : Syntax → TrAttr
@@ -644,13 +647,11 @@ def trAttr (prio : Option Expr) : Attribute → M (Option TrAttr)
     | `inline => `inline
     | `pattern => `matchPattern
     | _ =>
-      dbg_trace "unsupported attr -{n}"
+      dbg_trace "warning: unsupported attr -{n}"
       return none
     TrAttr.del (← `(Parser.Command.eraseAttr| -$(← mkIdentI n)))
   | AST3.Attribute.add `parsing_only none => TrAttr.parsingOnly
   | AST3.Attribute.add n arg => do
-    let mkSimpleAttr n (args := #[]) := do
-      mkNode ``Parser.Attr.simple #[← mkIdentI n, mkNullNode args]
     let attr ← match n, arg with
     | `class,         none => `(attr| class)
     | `instance,      none => `(attr| instance)
@@ -658,6 +659,12 @@ def trAttr (prio : Option Expr) : Attribute → M (Option TrAttr)
     | `recursor,      some ⟨_, _, AttrArg.indices #[]⟩ => throw! "unsupported: @[recursor]"
     | `recursor,      some ⟨_, _, AttrArg.indices #[⟨_, _, n⟩]⟩ =>
       `(attr| recursor $(Quote.quote n):numLit)
+    | `intro,         none => `(attr| intro)
+    | `intro,         some ⟨_, _, AttrArg.eager⟩ => `(attr| intro!)
+    | `refl,          none => mkSimpleAttr `refl
+    | `symm,          none => mkSimpleAttr `symm
+    | `trans,         none => mkSimpleAttr `trans
+    | `subst,         none => mkSimpleAttr `subst
     | `congr,         none => mkSimpleAttr `congr
     | `inline,        none => mkSimpleAttr `inline
     | `pattern,       none => mkSimpleAttr `matchPattern
@@ -667,13 +674,15 @@ def trAttr (prio : Option Expr) : Attribute → M (Option TrAttr)
     | `elab_simple,   none => mkSimpleAttr `elabWithoutExpectedType
     | `vm_override,   some ⟨_, _, AttrArg.vmOverride n none⟩ =>
       mkSimpleAttr `implementedBy #[← mkIdentI n.kind]
+    | _, none => mkSimpleAttr (← renameAttr n)
+    | _, some ⟨_, _, AttrArg.user e args⟩ =>
+      match (← get).userAttrs.find? n with
+      | some f =>
+        try f #[Spanned.dummy (AST3.Param.parse e args)]
+        catch e => throw! "in {n}: {← e.toMessageData.toString}"
+      | none => throw! "unsupported user notation {n}"
     | _, _ =>
-      if builtinAttributes.contains n then
-        dbg_trace "suppressing unsupported attr {n}"
-      else if (← get).simpSets.contains n then
-        dbg_trace "suppressing simp set attr {n}"
-      else
-        dbg_trace "suppressing unknown attr {n}"
+      dbg_trace "warning: suppressing unknown attr {n}"
       return none
     TrAttr.add attr
 
@@ -1018,7 +1027,7 @@ def trNotationCmd (loc : LocalReserve) (attrs : Attributes) (nota : Notation) : 
     match nota with
     | Notation.mixfix m (tk, some prec) _ =>
       registerPrecedenceEntry tk.kind.toString m (← trPrec prec.kind)
-    | _ => dbg_trace "suppressing unsupported reserve notation"
+    | _ => dbg_trace "warning: suppressing unsupported reserve notation"
     return
   let kind ← if loc.1 then `(Parser.Term.attrKind| local) else `(Parser.Term.attrKind|)
   let n := nota.name3
@@ -1054,7 +1063,7 @@ def trNotationCmd (loc : LocalReserve) (attrs : Attributes) (nota : Notation) : 
     let n4 ← mkUnusedName nota.name4
     let nn ← `(Parser.Command.namedName| (name := $(mkIdent n4)))
     try elabCommand $ cmd (some nn) e
-    catch e => dbg_trace "failed to add syntax {repr n4}: {← e.toMessageData.toString}"
+    catch e => dbg_trace "warning: failed to add syntax {repr n4}: {← e.toMessageData.toString}"
     pure $ (← getCurrNamespace) ++ n4
   push $ cmd none e
   registerNotationEntry ⟨n, n4, desc⟩
@@ -1107,7 +1116,7 @@ def trCommand' : Command → M Unit
     if attrs.isEmpty || ns.isEmpty then return ()
     let ns ← ns.mapM fun n => mkIdentI n.kind
     pushM `(command| attribute [$attrs,*] $ns*)
-  | Command.precedence sym prec => do dbg_trace "unsupported: precedence command"
+  | Command.precedence sym prec => do dbg_trace "warning: unsupported: precedence command"
   | Command.notation loc attrs n => trNotationCmd loc attrs n
   | Command.open true ops => ops.forM trExportCmd
   | Command.open false ops => trOpenCmd ops
@@ -1137,7 +1146,7 @@ def trCommand' : Command → M Unit
     | o, OptionVal.decimal _ _ => throw! "unsupported: float-valued option"
   | Command.declareTrace n => throw! "unsupported (TODO): declare_trace"
   | Command.addKeyEquivalence a b => throw! "unsupported: add_key_equivalence"
-  | Command.runCmd e => do pushM `(run_cmd $(← trExpr e.kind))
+  | Command.runCmd e => do let e ← trExpr e.kind; pushM `(run_cmd $e:term)
   | Command.check e => do pushM `(#check $(← trExpr e.kind))
   | Command.reduce _ e => do pushM `(#reduce $(← trExpr e.kind))
   | Command.eval e => do pushM `(#eval $(← trExpr e.kind))

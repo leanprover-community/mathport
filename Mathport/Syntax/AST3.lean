@@ -244,14 +244,6 @@ instance : Repr OptionVal where
   | OptionVal.str n, _ => repr n
   | OptionVal.decimal n d, _ => repr n ++ "/" ++ repr d
 
-inductive AttrArg
-  | eager : AttrArg
-  | indices : Array #Nat → AttrArg
-  | keyValue : #String → #String → AttrArg
-  | vmOverride : #Name → Option #Name → AttrArg
-  | user : Lean3.Expr → AttrArg
-  deriving Inhabited
-
 inductive Level
   | «_» : Level
   | nat : Nat → Level
@@ -421,6 +413,14 @@ instance : Inhabited Binders := ⟨#[]⟩
 partial def Expr.unparen : Expr → Expr
   | Expr.paren e => e.kind.unparen
   | e => e
+
+inductive AttrArg
+  | eager : AttrArg
+  | indices : Array #Nat → AttrArg
+  | keyValue : #String → #String → AttrArg
+  | vmOverride : #Name → Option #Name → AttrArg
+  | user : Lean3.Expr → Array #VMCall → AttrArg
+  deriving Inhabited
 
 inductive Attribute
   | priority : #Expr → Attribute
@@ -603,15 +603,6 @@ def spacedAfter (f : α → Format) (mods : Array α) : Format :=
 
 def suffix (pl : Bool) := if pl then "s " else " "
 
-instance : Repr AttrArg where
-  reprPrec
-  | AttrArg.eager, _ => " !"
-  | AttrArg.indices ns, _ => spacedBefore repr ns
-  | AttrArg.keyValue a b, _ => " " ++ repr a ++ " " ++ repr b
-  | AttrArg.vmOverride a b, _ => " " ++ repr a ++
-    (match b with | none => "" | some b => " " ++ repr b : Format)
-  | AttrArg.user e, _ => repr e
-
 partial def Level_repr : Level → (prec : _ := 0) → Format
   | Level.«_», _ => "_"
   | Level.nat n, _ => repr n
@@ -637,15 +628,6 @@ instance : Repr LevelDecl where
   | some us, _ => (Format.joinSep (us.toList.map fun u => u.kind.toString) ", ").bracket ".{" "}"
 
 mutual
-
-  partial def Attribute_repr : Attribute → Format
-    | Attribute.priority e => "priority " ++ Expr_repr e.kind
-    | Attribute.del n => ("-":Format) ++ n.toString
-    | Attribute.add n arg => n.toString ++
-      (match arg with | none => "" | some arg => repr arg : Format)
-
-  partial def Attributes_repr (attrs : Attributes) : Format :=
-    (Format.joinSep (attrs.toList.map fun a => Attribute_repr a.kind) ", ").sbracket
 
   partial def Precedence_repr : Precedence → Format
     | Precedence.nat n => repr n
@@ -898,19 +880,8 @@ mutual
     | Literal.var v a => (v.kind.toString : Format) ++
       match a with | none => "" | some a => ":" ++ Action_repr a.kind
 
-  partial def Notation_repr : Notation → (attrs : Attributes := #[]) → Format
-    | Notation.mixfix mk sym val, attrs => repr mk ++ " " ++
-      (if attrs.isEmpty then "" else Attributes_repr attrs ++ " " : Format) ++
-      PrecSymbol_repr sym ++
-      (match val with | none => "" | some e => " := " ++ Expr_repr e.kind)
-    | Notation.notation lits val, attrs => "notation" ++
-      spacedBefore (fun n => Literal_repr n.kind) lits ++
-      (match val with | none => "" | some e => " := " ++ Expr_repr e.kind)
-
 end
 
-instance : Repr Attribute := ⟨fun n _ => Attribute_repr n⟩
-instance : Repr Attributes := ⟨fun n _ => Attributes_repr n⟩
 instance : Repr Precedence := ⟨fun n _ => Precedence_repr n⟩
 instance : Repr Binder := ⟨fun n _ => Binder_repr n⟩
 instance : Repr Binders := ⟨fun n _ => Binders_repr n⟩
@@ -926,6 +897,33 @@ instance : Repr VMCall := ⟨fun n _ => VMCall_repr n⟩
 instance : Repr PrecSymbol := ⟨fun n _ => PrecSymbol_repr n⟩
 instance : Repr Action := ⟨fun n _ => Action_repr n⟩
 instance : Repr Literal := ⟨fun n _ => Literal_repr n⟩
+
+instance : Repr AttrArg where reprPrec
+  | AttrArg.eager, _ => "!"
+  | AttrArg.indices ns, _ => spacedBefore repr ns
+  | AttrArg.keyValue a b, _ => " " ++ repr a ++ " " ++ repr b
+  | AttrArg.vmOverride a b, _ => " " ++ repr a ++
+    (match b with | none => "" | some b => " " ++ repr b : Format)
+  | AttrArg.user _ e, _ => repr e
+
+instance : Repr Attribute where reprPrec
+  | Attribute.priority e, _ => "priority " ++ Expr_repr e.kind
+  | Attribute.del n, _ => ("-":Format) ++ n.toString
+  | Attribute.add n arg, _ => n.toString ++
+    (match arg with | none => "" | some arg => repr arg : Format)
+
+instance : Repr Attributes :=
+  ⟨fun attrs _ =>  (Format.joinSep (attrs.toList.map repr) ", ").sbracket⟩
+
+def Notation_repr : Notation → (attrs : Attributes := #[]) → Format
+  | Notation.mixfix mk sym val, attrs => repr mk ++ " " ++
+    (if attrs.isEmpty then "" else repr attrs ++ " " : Format) ++
+    PrecSymbol_repr sym ++
+    (match val with | none => "" | some e => " := " ++ Expr_repr e.kind)
+  | Notation.notation lits val, attrs => "notation" ++
+    spacedBefore (fun n => Literal_repr n.kind) lits ++
+    (match val with | none => "" | some e => " := " ++ Expr_repr e.kind)
+
 instance : Repr Notation := ⟨fun n _ => Notation_repr n⟩
 
 instance : Repr DeclVal where reprPrec

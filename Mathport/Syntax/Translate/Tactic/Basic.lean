@@ -63,8 +63,7 @@ def withNoMods (tac : TacM Syntax) : Modifiers → TacM Syntax
   | #[] => tac
   | _ => throw! "expecting no modifiers"
 
-def tagAttr (n : Name) : TacM Syntax :=
-  parse () *> mkNode ``Parser.Attr.simple #[mkIdent n, mkNullNode]
+def tagAttr (n : Name) : TacM Syntax := parse () *> mkSimpleAttr n
 
 scoped instance : Coe (TacM Syntax) (Modifiers → TacM Syntax) := ⟨withNoMods⟩
 

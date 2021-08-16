@@ -496,7 +496,7 @@ def getAttrArg : AstId → M (Spanned AttrArg) := withNodeR fun r =>
   | "indices" => AttrArg.indices <$> r.children'.mapM getNat
   | "key_value" => do AttrArg.keyValue (← getStr r.children'[0]) (← getStr r.children'[1])
   | "vm_override" => do AttrArg.vmOverride (← getName r.children'[0]) (← opt getName r.children'[1])
-  | "parse" => AttrArg.user <$> r.pexpr'
+  | "parse" => do AttrArg.user (← r.pexpr') (← r.children'.mapM getVMCall)
   | k => throw s!"getAttrArg parse error, unknown kind {k}"
 
 def getAttr : AstId → M (Spanned Attribute) := withNode fun

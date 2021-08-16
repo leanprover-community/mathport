@@ -70,8 +70,7 @@ open AST3 Parser
 @[trUserAttr nolint] def trNolintAttr : TacM Syntax := do
   `(attr| nolint $((← parse ident*).map mkIdent)*)
 
--- @[trUserAttr linter] def trLinterAttr := tagAttr `linter
-@[trUserAttr linter] def trLinterAttr : TacM Syntax := `(attr| linter)
+@[trUserAttr linter] def trLinterAttr := tagAttr `linter
 
 def trLintFast (fast : Bool) : Syntax := mkNullNode (if fast then #[mkAtom "*"] else #[])
 
@@ -492,8 +491,7 @@ attribute [trTactic subst'] trSubst
 
 -- # tactic.hint
 
--- @[trUserAttr hint_tactic] def trHintAttr : TacM Syntax := tagAttr `hintTactic
-@[trUserAttr hint_tactic] def trHintAttr : TacM Syntax := `(attr| hintTactic)
+@[trUserAttr hint_tactic] def trHintAttr : TacM Syntax := tagAttr `hintTactic
 
 @[trUserCmd «add_hint_tactic»] def trAddHintTactic : TacM Syntax := do
   let tac ← match (← parse $ pExpr *> withInput pExpr).1 with
