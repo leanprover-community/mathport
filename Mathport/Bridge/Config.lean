@@ -25,6 +25,8 @@ structure Config where
   neverSorries       : HashSet Name := {}
   sorries            : HashSet Name := {}
   skipProofs         : Bool := false
+  parallel           : Bool := true
+  error2warning      : Bool := false
   deriving FromJson
 
 end Mathport

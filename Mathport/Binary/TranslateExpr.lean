@@ -41,14 +41,16 @@ where
     let mut e := e
     e ← replaceConstNames e
     e ← Meta.transform e (post := replaceSorryPlaceholders)
-    e ← try withCurrHeartbeats <| withTheReader Core.Context (fun ctx => { ctx with maxHeartbeats := 5000000 }) (expandCoe e)
-        catch _ => println! "[expand.coe] {ctx.currDecl} failed"; pure e
+    e ← expandCoes e (declName := ctx.currDecl)
     e ← translateNumbers e
     match (getRenameMap cmdState.env).find? `auto_param with
     | none     => pure ()
     | some ap4 => e ← Meta.transform e (pre := translateAutoParams ap4)
     e ← heterogenize e
     e
+
+  replaceConstNames (e : Expr) : MetaM Expr := do
+    e.replaceConstNames fun n => (getRenameMap cmdState.env).find? n
 
   replaceSorryPlaceholders (e : Expr) : MetaM TransformStep := do
     if e.isAppOfArity sorryPlaceholderName 1 then
@@ -57,9 +59,6 @@ where
       return TransformStep.done e
     else
       return TransformStep.done e
-
-  replaceConstNames (e : Expr) : MetaM Expr := do
-    e.replaceConstNames fun n => (getRenameMap cmdState.env).find? n
 
   translateAutoParams (ap4 : Name) (e : Expr) : MetaM TransformStep :=
     -- def auto_param : Sort u → name → Sort u :=

@@ -10,6 +10,7 @@ import Mathport.Bridge.Config
 import Mathport.Binary.Basic
 import Mathport.Binary.NDRec
 import Mathport.Binary.EnvModification
+import Mathport.Binary.Coe
 import Mathport.Binary.TranslateName
 import Mathport.Binary.TranslateExpr
 
@@ -23,6 +24,14 @@ def printIndType (lps : List Name) (indType : InductiveType) : BinportM Unit := 
   for ctor in indType.ctors do
     println! "  {ctor.name} : {ctor.type}"
 
+def printDeclDebug (decl : Declaration) : BinportM Unit := do
+  match decl with
+  | Declaration.thmDecl thm =>
+    println! "--- {thm.name} ---"
+    println! "[type]  {thm.type}"
+    println! "[value] {thm.value}"
+  | _ => pure ()
+
 def refineAddDecl (decl : Declaration) : BinportM (Declaration × ClashKind) := do
   let path := (← read).path
   println! "[addDecl] START REFINE {path.mod3} {decl.toName}"
@@ -32,7 +41,13 @@ def refineAddDecl (decl : Declaration) : BinportM (Declaration × ClashKind) := 
     println! "[addDecl] FOUND DEF-EQ {path.mod3} {decl.toName}"
   | ClashKind.freshDecl =>
     println! "[addDecl] START CHECK  {path.mod3} {decl.toName}"
-    Lean.addDecl decl
+    try
+      Lean.addDecl decl
+    catch ex =>
+      println! "[kernel] {← ex.toMessageData.toString}"
+      if (← read).config.error2warning then printDeclDebug decl
+      else throw ex
+
     println! "[addDecl] END CHECK    {path.mod3} {decl.toName}"
     if shouldGenCodeFor decl then
       println! "[compile] {decl.toName} START"
@@ -58,11 +73,16 @@ def setAttr (attr : Attribute) (declName : Name) : BinportM Unit := do
   | Except.error errMsg => throwError errMsg
   | Except.ok attrImpl  => liftMetaM $ attrImpl.add declName attr.stx attr.kind
 
-def maybeRegisterEquation (n : Name) : BinportM Unit := do
-  -- example: list.nth.equations._eqn_1
+def equationFor? (n : Name) : Option Name :=
   let n₁ : Name := n.getPrefix
-  if n₁.isStr && n₁.getString! == "equations" then
-    modify λ s => { s with name2equations := s.name2equations.insertWith (· ++ ·) n₁.getPrefix [n] }
+  if n₁.isStr && n₁.getString! == "equations" then some n₁.getPrefix
+  else none
+
+def maybeRegisterEquation (eqn : Name) : BinportM Unit := do
+  -- example: list.nth.equations._eqn_1
+  match equationFor? eqn with
+  | some defn => modify λ s => { s with name2equations := s.name2equations.insertWith (· ++ ·) defn [eqn] }
+  | none => pure ()
 
 def applyExport (d : ExportDecl) : BinportM Unit := do
   -- we use the variable names of elabExport
@@ -124,7 +144,7 @@ def applySimpLemma (n : Name) (prio : Nat) : BinportM Unit := do
 where
   tryAddSimpLemma (n : Name) (prio : Nat) : BinportM Unit :=
     try
-      liftMetaM $ addSimpLemma (declName := n) (post := True) (inv := False) (attrKind := AttributeKind.global) (prio := prio)
+      liftMetaM $ addSimpLemma (ext := simpExtension) (declName := n) (post := True) (inv := False) (attrKind := AttributeKind.global) (prio := prio)
       println! "[simp] {n} {prio}"
     catch ex => warn ex
 
@@ -195,11 +215,14 @@ def applyClass (n : Name) : BinportM Unit := do
 def applyInstance (nc ni : Name) (prio : Nat) : BinportM Unit := do
   -- (for meta instances, Lean4 won't know about the decl)
   -- TODO: `prio.pred`?
-  if not $ (← read).config.disabledInstances.contains ni then
-    try
-      liftMetaM $ addInstance (← lookupNameExt! ni) AttributeKind.global prio
-      setAttr { name := `inferTCGoalsRL } (← lookupNameExt! ni)
-    catch ex => warn ex
+  if (← read).config.disabledInstances.contains ni then return ()
+  let ni ← match (← get).coeAltNames.find? ni with
+            | some ni => println! "[coeInst] {ni}" *> pure ni
+            | _ => pure ni
+  try
+    liftMetaM $ addInstance (← lookupNameExt! ni) AttributeKind.global prio
+    setAttr { name := `inferTCGoalsRL } (← lookupNameExt! ni)
+  catch ex => warn ex
 
 def applyAxiomVal (ax : AxiomVal) : BinportM Unit := do
   let (decl, clashKind) ← refineAddDecl $ Declaration.axiomDecl { ax with
@@ -224,11 +247,27 @@ def applyDefinitionVal (defn : DefinitionVal) : BinportM Unit := do
     hints := ReducibilityHints.abbrev
     forceAbbrev := true
 
+  -- Only for definitions (really, instances) do we try to translate the coes
+  let type  ← trExpr defn.type
+  let value ← trExpr defn.value
+
   discard <| refineAddDecl $ Declaration.defnDecl { defn with
-    type  := (← trExpr defn.type)
-    value := (← trExpr defn.value)
+    type  := type
+    value := value
     hints := hints
   }
+
+  match ← liftMetaM $ translateCoes defn.name type value with
+  | none => pure ()
+  | some (type', value') =>
+    let altName3 := defn.name ++ `v4
+    discard <| refineAddDecl $ Declaration.defnDecl { defn with
+      name  := altName3
+      type  := type'
+      value := value'
+      hints := hints
+    }
+    modify fun s => { s with coeAltNames := s.coeAltNames.insert defn.name altName3 }
 
   if forceAbbrev then applyReducibility defn.name ReducibilityStatus.reducible
 where

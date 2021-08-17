@@ -47,5 +47,7 @@
         "of_as_true"
     ],
     "sorries": [],
-    "skipProofs": false
+    "skipProofs": false,
+    "parallel" : true,
+    "error2warning" : false
 }

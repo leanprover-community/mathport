@@ -22,6 +22,7 @@ structure State where
   nNotations     : Nat                         := 0
   name2equations : HashMap Name (List Name)    := {}
   structures     : HashMap Name StructureDescr := {}
+  coeAltNames    : HashMap Name Name           := {}
 
 open Lean.Elab.Command in
 abbrev BinportM := ReaderT Context $ StateRefT State CommandElabM

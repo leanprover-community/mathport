@@ -69,7 +69,12 @@ partial def visit (config : Config) (path : Path) : StateRefT (HashMap Path Task
       let mut deps := #[]
       for mod3 in ← parseTLeanImports (path.toLean3 pcfg ".tlean") do
         let importPath ← resolveMod3 pcfg mod3
-        deps := deps.push (← visit config importPath)
+        if config.parallel then
+          deps := deps.push (← visit config importPath)
+        else
+          match ← IO.wait (← visit config importPath) with
+          | Except.error err => throw err
+          | Except.ok result => deps := deps.push (← IO.asTask $ pure result)
       let task ← bindTasks deps fun () => IO.asTask (mathport1 config path)
       modify λ path2task => path2task.insert path task
       pure task
