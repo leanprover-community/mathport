@@ -39,16 +39,20 @@ partial def translatePrefix (pfix3 : Name) : BinportM Name := do
 def translateSuffix (s : String) (eKind : ExprKind) : BinportM String := do
   if (← read).config.stringsToKeep.contains s then s else
     match eKind with
-    | ExprKind.eSort  => s.snake2pascal
+    | ExprKind.eSort  =>
+      -- TODO: consider re-enabling this, but be warned you will need to propagate elsewhere
+      -- let s := if s.startsWith "has_" then s.drop 4 else s
+      s.snake2pascal
     | ExprKind.eDef   => s.snake2camel
     | ExprKind.eProof => s
 
-def mkCandidateLean4NameForKind (n3 : Name) (eKind : ExprKind) : BinportM Name := do
-  let pfix4 ← translatePrefix n3.getPrefix
-  match n3 with
-  | Name.num _ k ..  => Name.mkNum pfix4 k
-  | Name.str _ s ..  => Name.mkStr pfix4 (← translateSuffix s eKind)
-  | _                => Name.anonymous
+partial def mkCandidateLean4NameForKind (n3 : Name) (eKind : ExprKind) : BinportM Name := do
+  if n3.isStr && n3.getString! == `_main then mkCandidateLean4NameForKind n3.getPrefix eKind else
+    let pfix4 ← translatePrefix n3.getPrefix
+    match n3 with
+    | Name.num _ k ..  => Name.mkNum pfix4 k
+    | Name.str _ s ..  => Name.mkStr pfix4 (← translateSuffix s eKind)
+    | _                => Name.anonymous
 
 def getExprKind (type : Expr) : MetaM ExprKind := do
   if ← isProp type then ExprKind.eProof

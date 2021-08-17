@@ -5,7 +5,7 @@ Authors: Daniel Selsam
 -/
 import Lean
 import Mathport.Util.Misc
-import Mathport.Bridge.RenameExt
+import Mathport.Bridge.Rename
 import Mathport.Bridge.Config
 
 namespace Mathport.Binary
@@ -46,7 +46,7 @@ def liftMetaM (x : MetaM α) : BinportM α := do
   liftTermElabM (declName? := some (← read).currDecl) (liftM x)
 
 def addNameAlignment (n3 n4 : Name) : BinportM Unit := do
-  liftCoreM $ Mathport.addNameAlignment n3 n4
+  liftCoreM $ Mathlib.Prelude.Rename.addNameAlignment n3 n4
 
 def addPossibleFieldName (n3 n4 : Name) : BinportM Unit := do
   liftCoreM $ Mathport.addPossibleFieldName n3 n4

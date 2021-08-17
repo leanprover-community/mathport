@@ -6,7 +6,7 @@ Authors: Daniel Selsam
 Based off <lean4>/src/Lean/Meta/Coe.lean
 -/
 import Lean
-import Mathport.Bridge.RenameExt
+import Mathport.Bridge.Rename
 
 namespace Mathport.Binary
 

@@ -3,6 +3,7 @@ Copyright (c) 2021 Microsoft Corporation. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Mario Carneiro, Daniel Selsam
 -/
+import Mathport.Prelude
 import Mathport.Binary
 import Mathport.Syntax
 
@@ -18,7 +19,7 @@ def mathport1 (config : Config) (path : Path) : IO Unit := do
   println! s!"\n[mathport] START {path.mod3}\n"
   createDirectoriesIfNotExists (path.toLean4 pcfg ".olean").toString
 
-  let coreImports  : List Import  := [{ module := `Mathport.Syntax.Prelude : Import }]
+  let coreImports  : List Import  := [{ module := `Mathport.Prelude : Import }]
   let extraImports : Array Import ← (← parseTLeanImports (path.toLean3 pcfg ".tlean")).mapM fun mod3 => do
     let ipath : Path ← resolveMod3 pcfg mod3
     { module := ipath.package ++ ipath.mod4 : Import }
@@ -29,8 +30,6 @@ def mathport1 (config : Config) (path : Path) : IO Unit := do
 
   withImportModulesConst (coreImports ++ extraImports.toList) (opts := opts) (trustLevel := 0) $ λ env => do
     let env := env.setMainModule path.mod4
-    let env ← addInitialNameAlignments env -- TODO: store in a prelude .lean file?
-
     let cmdCtx : Elab.Command.Context := { fileName := path.toLean3 pcfg ".lean" |>.toString, fileMap := dummyFileMap }
     let cmdState : Elab.Command.State := Lean.Elab.Command.mkState env
 

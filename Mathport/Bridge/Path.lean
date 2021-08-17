@@ -7,7 +7,7 @@ Utilities for managing paths.
 -/
 import Mathport.Util.Json
 import Mathport.Util.Name
-import Mathport.Bridge.RenameExt
+import Mathport.Bridge.Rename
 import Std.Data.HashMap
 
 namespace Mathport

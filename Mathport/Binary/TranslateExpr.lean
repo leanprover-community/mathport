@@ -43,14 +43,14 @@ where
     e ← Meta.transform e (post := replaceSorryPlaceholders)
     e ← expandCoes e (declName := ctx.currDecl)
     e ← translateNumbers e
-    match (getRenameMap cmdState.env).find? `auto_param with
+    match (Mathlib.Prelude.Rename.getRenameMap cmdState.env).find? `auto_param with
     | none     => pure ()
     | some ap4 => e ← Meta.transform e (pre := translateAutoParams ap4)
     e ← heterogenize e
     e
 
   replaceConstNames (e : Expr) : MetaM Expr := do
-    e.replaceConstNames fun n => (getRenameMap cmdState.env).find? n
+    e.replaceConstNames fun n => (Mathlib.Prelude.Rename.getRenameMap cmdState.env).find? n
 
   replaceSorryPlaceholders (e : Expr) : MetaM TransformStep := do
     if e.isAppOfArity sorryPlaceholderName 1 then

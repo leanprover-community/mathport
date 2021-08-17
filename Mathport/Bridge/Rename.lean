@@ -4,6 +4,7 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Daniel Selsam
 -/
 import Lean
+import Mathport.Prelude.Rename
 import Mathport.Util.Misc
 import Mathport.Util.Name
 import Mathport.Util.String
@@ -16,9 +17,7 @@ namespace Mathport
 open Lean
 open System (FilePath)
 open Std (HashMap)
-
--- TODO: store in a Prelude .lean file?
-def INITIAL_NAME_ALIGNMENTS_PATH : FilePath := ⟨"initial_name_alignments.json"⟩
+open Mathlib.Prelude.Rename
 
 -- During synport, we need to guess how to capitalize a field name without knowing
 -- the complete name. As a heuristic, we store a map from last-component-of-lean3-name
@@ -41,33 +40,6 @@ def getFieldNameMap (env : Environment) : FieldNameMap := do
 
 def addPossibleFieldName (n3 n4 : Name) : CoreM Unit := do
   modifyEnv fun env => mathportFieldNameExtension.addEntry env (n3, n4)
-
-
-abbrev RenameMap := HashMap Name Name
-
-def RenameMap.insertPair (m : RenameMap) : Name × Name → RenameMap
-  | (n3, n4) => m.insert n3 n4
-
-initialize mathportRenameExtension : SimplePersistentEnvExtension (Name × Name) RenameMap ←
-  registerSimplePersistentEnvExtension {
-    name          := `Mathport.renameMapExtension
-    addEntryFn    := RenameMap.insertPair
-    addImportedFn := fun es => mkStateFromImportedEntries (RenameMap.insertPair) {} es
-  }
-
-def getRenameMap (env : Environment) : RenameMap := do
-  mathportRenameExtension.getState env
-
-def addNameAlignment (n3 n4 : Name) : CoreM Unit := do
-  modifyEnv fun env => mathportRenameExtension.addEntry env (n3, n4)
-
-def addInitialNameAlignments (env : Environment) : IO Environment := do
-  let alignments ← parseJsonFile (HashMap Name Name) INITIAL_NAME_ALIGNMENTS_PATH
-  let x : StateM Environment Environment := do
-    for (n3, n4) in alignments.toList do
-      modify fun env => mathportRenameExtension.addEntry env (n3, n4)
-    get
-  pure $ x.run' env
 
 namespace Rename
 
@@ -106,21 +78,5 @@ def renameField? (n : Name) : Option Name :=
   | _ => none
 
 end Rename
-
-namespace Translate
-
-open Lean.Elab Lean.Elab.Command
-
-syntax (name := translate) "#translate " ident : command
-
-@[commandElab translate] def elabTranslate : CommandElab
-  | `(#translate%$tk $id:ident) => do
-    let name := id.getId
-    match getRenameMap (← getEnv) |>.find? name with
-    | none => logInfoAt tk "name `{name} not found"
-    | some name4 => logInfoAt tk "`{name} ==> `{name4}"
-  | _ => throwUnsupportedSyntax
-
-end Translate
 
 end Mathport
