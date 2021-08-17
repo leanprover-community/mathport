@@ -680,7 +680,7 @@ def trAttr (prio : Option Expr) : Attribute → M (Option TrAttr)
       | some f =>
         try f #[Spanned.dummy (AST3.Param.parse e args)]
         catch e => throw! "in {n}: {← e.toMessageData.toString}"
-      | none => throw! "unsupported user notation {n}"
+      | none => throw! "unsupported user attr {n}"
     | _, _ =>
       dbg_trace "warning: suppressing unknown attr {n}"
       return none

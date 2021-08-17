@@ -208,7 +208,7 @@ syntax (name := simp') "simp'" "*"? ppSpace ("(" &"config" " := " term ")")? (&"
   ("[" simpArg,* "]")? (" with " ident+)? (location)? : tactic
 syntax (name := simpIntro) "simpIntro " ("(" &"config" " := " term ")")?
   (colGt (ident <|> "_"))* (&"only ")? ("[" simpArg,* "]")? (" with " ident+)? : tactic
-syntax (name := dSimp) "dsimp " ("(" &"config" " := " term ")")? (&"only ")?
+syntax (name := dsimp) "dsimp " ("(" &"config" " := " term ")")? (&"only ")?
   ("[" simpArg,* "]")? (" with " ident+)? (location)? : tactic
 syntax (name := symm) "symm" : tactic
 syntax (name := trans) "trans" (term)? : tactic
@@ -350,6 +350,141 @@ syntax (name := convert) "convert " "← "? term (" using " num)? : tactic
 syntax (name := convertTo) "convertTo " term (" using " num)? : tactic
 syntax (name := acChange) "acChange " term (" using " num)? : tactic
 
+syntax (name := decide!) "decide!" : tactic
+
+syntax (name := deltaInstance) "deltaInstance " ident* : tactic
+
+syntax (name := elide) "elide " num (location)? : tactic
+syntax (name := unelide) "unelide " (location)? : tactic
+
+syntax (name := clarify) "clarify " ("(" &"config" " := " term ")")?
+  ("[" Parser.Tactic.simpArg,* "]")? (" using " term,+)? : tactic
+syntax (name := safe) "safe " ("(" &"config" " := " term ")")?
+  ("[" Parser.Tactic.simpArg,* "]")? (" using " term,+)? : tactic
+syntax (name := finish) "finish " ("(" &"config" " := " term ")")?
+  ("[" Parser.Tactic.simpArg,* "]")? (" using " term,+)? : tactic
+
+syntax generalizesArg := (ident " : ")? term:51 " = " ident
+syntax (name := generalizes) "generalizes " "[" generalizesArg,* "]" : tactic
+
+syntax (name := generalizeProofs) "generalizeProofs " (colGt binderIdent)* (location)? : tactic
+
+syntax (name := itauto) "itauto" : tactic
+
+syntax (name := lift) "lift " term " to " term
+  (" using " term)? (" with " binderIdent+)? : tactic
+
+syntax (name := pushCast) "pushCast "
+  ("[" Parser.Tactic.simpArg,* "]")? (location)? : tactic
+syntax (name := normCast) "normCast " (location)? : tactic
+syntax (name := rwModCast) "rwModCast " rwRuleSeq (location)? : tactic
+syntax (name := exactModCast) "exactModCast " term : tactic
+syntax (name := applyModCast) "applyModCast " term : tactic
+syntax (name := assumptionModCast) "assumptionModCast" : tactic
+
+syntax (name := prettyCases) "prettyCases" : tactic
+
+syntax (name := pushNeg) "pushNeg " (location)? : tactic
+
+syntax (name := contrapose) "contrapose " (ident (" with " ident)?)? : tactic
+syntax (name := contrapose!) "contrapose! " (ident (" with " ident)?)? : tactic
+
+syntax (name := renameVar) "renameVar " ident " → " ident (location)? : tactic
+
+syntax (name := assocRw) "assocRw " rwRuleSeq (location)? : tactic
+
+syntax (name := showTerm) "showTerm " tacticSeq : tactic
+
+syntax (name := simpRw) "simpRw " rwRuleSeq (location)? : tactic
+
+syntax (name := dsimpResult) "dsimpResult " (&"only ")? ("[" Tactic.simpArg,* "]")?
+  (" with " ident+)? " => " tacticSeq : tactic
+syntax (name := simpResult) "simpResult " (&"only ")? ("[" Tactic.simpArg,* "]")?
+  (" with " ident+)? " => " tacticSeq : tactic
+
+syntax (name := simpa) "simpa " ("(" &"config" " := " term ")")? (&"only ")?
+  ("[" Tactic.simpArg,* "]")? (" with " (colGt ident)+)? (" using " term)? : tactic
+syntax (name := simpa!) "simpa! " ("(" &"config" " := " term ")")? (&"only ")?
+  ("[" Tactic.simpArg,* "]")? (" with " (colGt ident)+)? (" using " term)? : tactic
+syntax (name := simpa?) "simpa? " ("(" &"config" " := " term ")")? (&"only ")?
+  ("[" Tactic.simpArg,* "]")? (" with " (colGt ident)+)? (" using " term)? : tactic
+syntax (name := simpa!?) "simpa!? " ("(" &"config" " := " term ")")? (&"only ")?
+  ("[" Tactic.simpArg,* "]")? (" with " (colGt ident)+)? (" using " term)? : tactic
+
+syntax (name := splitIfs) "splitIfs " (location)? (" with " binderIdent+)? : tactic
+
+syntax (name := squeezeScope) "squeezeScope " tacticSeq : tactic
+syntax (name := squeezeSimp) "squeezeSimp " ("(" &"config" " := " term ")")? (&"only ")?
+  ("[" simpArg,* "]")? (" with " (colGt ident)+)? (location)? : tactic
+syntax (name := squeezeSimp?) "squeezeSimp? " ("(" &"config" " := " term ")")? (&"only ")?
+  ("[" simpArg,* "]")? (" with " (colGt ident)+)? (location)? : tactic
+syntax (name := squeezeSimp!) "squeezeSimp! " ("(" &"config" " := " term ")")? (&"only ")?
+  ("[" simpArg,* "]")? (" with " (colGt ident)+)? (location)? : tactic
+syntax (name := squeezeSimp?!) "squeezeSimp?! " ("(" &"config" " := " term ")")? (&"only ")?
+  ("[" simpArg,* "]")? (" with " (colGt ident)+)? (location)? : tactic
+syntax (name := squeezeSimpa) "squeezeSimpa " ("(" &"config" " := " term ")")? (&"only ")?
+  ("[" simpArg,* "]")? (" with " (colGt ident)+)? (" using " term)? : tactic
+syntax (name := squeezeSimpa?) "squeezeSimpa? " ("(" &"config" " := " term ")")? (&"only ")?
+  ("[" simpArg,* "]")? (" with " (colGt ident)+)? (" using " term)? : tactic
+syntax (name := squeezeSimpa!) "squeezeSimpa! " ("(" &"config" " := " term ")")? (&"only ")?
+  ("[" simpArg,* "]")? (" with " (colGt ident)+)? (" using " term)? : tactic
+syntax (name := squeezeSimpa?!) "squeezeSimpa?! " ("(" &"config" " := " term ")")? (&"only ")?
+  ("[" simpArg,* "]")? (" with " (colGt ident)+)? (" using " term)? : tactic
+syntax (name := squeezeDSimp) "squeezeDSimp " ("(" &"config" " := " term ")")? (&"only ")?
+  ("[" simpArg,* "]")? (" with " (colGt ident)+)? (location)? : tactic
+syntax (name := squeezeDSimp?) "squeezeDSimp? " ("(" &"config" " := " term ")")? (&"only ")?
+  ("[" simpArg,* "]")? (" with " (colGt ident)+)? (location)? : tactic
+syntax (name := squeezeDSimp!) "squeezeDSimp! " ("(" &"config" " := " term ")")? (&"only ")?
+  ("[" simpArg,* "]")? (" with " (colGt ident)+)? (location)? : tactic
+syntax (name := squeezeDSimp?!) "squeezeDSimp?! " ("(" &"config" " := " term ")")? (&"only ")?
+  ("[" simpArg,* "]")? (" with " (colGt ident)+)? (location)? : tactic
+
+syntax (name := suggest) "suggest " ("(" &"config" " := " term ")")? (num)?
+  ("[" simpArg,* "]")? (" with " (colGt ident)+)? : tactic
+syntax (name := librarySearch) "librarySearch " ("(" &"config" " := " term ")")?
+  ("[" simpArg,* "]")? (" with " (colGt ident)+)? : tactic
+syntax (name := librarySearch!) "librarySearch! " ("(" &"config" " := " term ")")?
+  ("[" simpArg,* "]")? (" with " (colGt ident)+)? : tactic
+
+syntax (name := tauto) "tauto " ("(" &"config" " := " term ")")? : tactic
+syntax (name := tauto!) "tauto! " ("(" &"config" " := " term ")")? : tactic
+
+syntax (name := truncCases) "truncCases " term (" with " (colGt ident)+)? : tactic
+
+syntax (name := normNum1) "normNum1 " (location)? : tactic
+syntax (name := normNum) "normNum " ("[" simpArg,* "]")? (location)? : tactic
+syntax (name := applyNormed) "applyNormed " term : tactic
+
+syntax (name := abel1) "abel1" : tactic
+syntax (name := abel) "abel " (&"raw" <|> &"term")? (location)? : tactic
+
+syntax (name := ring1) "ring1" : tactic
+syntax (name := ring1!) "ring1!" : tactic
+
+syntax ringMode := &"SOP" <|> &"raw" <|> &"horner"
+syntax (name := ringNF) "ringNF" (ringMode)? (location)? : tactic
+syntax (name := ringNF!) "ringNF!" (ringMode)? (location)? : tactic
+syntax (name := ring) "ring" : tactic
+syntax (name := ring!) "ring!" : tactic
+
+syntax (name := ringExpEq) "ringExpEq" : tactic
+syntax (name := ringExpEq!) "ringExpEq!" : tactic
+syntax (name := ringExp) "ringExp" (location)? : tactic
+syntax (name := ringExp!) "ringExp!" (location)? : tactic
+
+syntax (name := noncommRing) "noncommRing" : tactic
+
+syntax (name := linarith) "linarith " ("(" &"config" " := " term ")")?
+  (&"only ")? ("[" term,* "]")? : tactic
+syntax (name := linarith!) "linarith! " ("(" &"config" " := " term ")")?
+  (&"only ")? ("[" term,* "]")? : tactic
+syntax (name := nlinarith) "nlinarith " ("(" &"config" " := " term ")")?
+  (&"only ")? ("[" term,* "]")? : tactic
+syntax (name := nlinarith!) "nlinarith! " ("(" &"config" " := " term ")")?
+  (&"only ")? ("[" term,* "]")? : tactic
+
+syntax (name := omega) "omega" (&" manual")? (&" nat" <|> &" int")? : tactic
+
 end Tactic
 
 namespace Attr
@@ -365,6 +500,17 @@ syntax (name := ext) "ext " (extParam <|> "[" extParam,* "]")? : tactic
 
 syntax (name := higherOrder) "higherOrder " (ident)? : attr
 syntax (name := interactive) "interactive" : attr
+
+syntax (name := mkIff) "mkIff " (ident)? : attr
+
+syntax (name := normCast) "normCast " (&"elim" <|> &"move" <|> &"squash")? : attr
+
+syntax (name := protectProj) "protectProj " (&"without" ident+)? : attr
+
+syntax (name := notationClass) "notationClass " "*"? (ident)? : attr
+
+syntax (name := simps) "simps " ("(" &"config" " := " term ")")? ident* : attr
+syntax (name := simps?) "simps? " ("(" &"config" " := " term ")")? ident* : attr
 
 end Attr
 
@@ -396,5 +542,29 @@ syntax (name := mkSimpAttribute) "mk_simp_attribute " ident
 syntax (name := addHintTactic) "add_hint_tactic " tactic : command
 syntax (name := alias) "alias " ident " ← " ident* : command
 syntax (name := aliasLR) "alias " ident " ↔ " (".." <|> (binderIdent binderIdent)) : command
+
+syntax (name := explode) "#explode " ident : command
+
+syntax (name := find) "#find " term : command
+
+syntax (name := listUnusedDecls) "#list_unused_decls" : command
+syntax (name := mkIffOfInductiveProp) "mk_iff_of_inductive_prop" ident ident : command
+
+syntax (name := defReplacer) "def_replacer " ident Term.optType : command
+
+syntax (name := restateAxiom) "restate_axiom " ident (ident)? : command
+
+syntax (name := simp) "#simp " (&"only ")? ("[" Tactic.simpArg,* "]")?
+  (" with " ident+)? " : "? term : tactic
+
+syntax simpsRule.rename := ident " → " ident
+syntax simpsRule.erase := "-" ident
+syntax simpsRule := (simpsRule.rename <|> simpsRule.erase) " as_prefix"
+syntax (name := initializeSimpsProjections) "initialize_simps_projections "
+  (ident ("(" simpsRule,+ ")")?)* : tactic
+syntax (name := initializeSimpsProjections?) "initialize_simps_projections? "
+  (ident ("(" simpsRule,+ ")")?)* : tactic
+
+syntax (name := «where») "#where" : command
 
 end Command

@@ -22,13 +22,14 @@ open AST3 Parser
 @[trTactic substI] def trSubstI : TacM Syntax := do
   `(tactic| substI $(← trExpr (← parse pExpr)))
 
+def trWithIdentList : Array BinderName → Option (Array Syntax)
+  | #[] => none
+  | ids => some (ids.map trBinderIdent)
+
 @[trTactic casesI] def trCasesI : TacM Syntax := do
   let (hp, e) ← parse casesArg
-  let e ← trExpr e
-  let ids ← parse withIdentList
-  match ids with
-  | #[] => `(tactic| casesI $[$(hp.map mkIdent) :]? $e)
-  | _ => `(tactic| casesI $[$(hp.map mkIdent) :]? $e with $[$(ids.map trBinderIdent)]*)
+  `(tactic| casesI $[$(hp.map mkIdent) :]?
+    $(← trExpr e) $[with $(trWithIdentList (← parse withIdentList))*]?)
 
 @[trTactic introI] def trIntroI : TacM Syntax := do
   match ← parse ident_ ? with
@@ -106,8 +107,8 @@ def trLintArgs : (Bool × LintVerbosity) × Bool × Array Name → Syntax
 -- # tactic.doc_commands
 
 @[trUserCmd «copy_doc_string»] def trCopyDocString : TacM Syntax := do
-  let (fr, to) ← parse $ do (← ident, ← tk "→" *> ident*)
-  `(command| copy_doc_string $(← mkIdentI fr) → $(← liftM $ to.mapM mkIdentI)*)
+  let (fr, to_) ← parse $ do (← ident, ← tk "→" *> ident*)
+  `(command| copy_doc_string $(← mkIdentI fr) → $(← liftM $ to_.mapM mkIdentI)*)
 
 @[trUserCmd «library_note»] def trLibraryNote (doc : Option String) : TacM Syntax := do
   let Expr.string s ← parse pExpr | throw! "unsupported: weird string"
@@ -481,11 +482,10 @@ attribute [trTactic subst'] trSubst
 
 @[trTactic solve_by_elim] def trSolveByElim : TacM Syntax := do
   let star := mkOptionalNode $ (← parse (tk "*")?).map fun _ => mkAtom "*"
-  let o ← parse onlyFlag
+  let o := if ← parse onlyFlag then mkNullNode #[mkAtom "only"] else mkNullNode
   let (hs, all) ← trSimpArgs (← parse simpArgList)
   let attrs := (← parse (tk "with" *> ident*)?).getD #[]
   let cfg ← liftM $ (← expr?).mapM trExpr
-  let o := if o then mkNullNode #[mkAtom "only"] else mkNullNode
   mkNode ``Parser.Tactic.solveByElim #[mkAtom "solveByElim",
     star, mkConfigStx cfg, o, trSimpStxList hs all, trSimpAttrs attrs]
 
@@ -567,55 +567,88 @@ attribute [trTactic clear'] trClear
 
 -- # tactic.dec_trivial
 @[trTactic dec_trivial] def trDecTrivial : TacM Syntax := do
-  throw! "unsupported tactic dec_trivial"
+  match ← parse (tk "!")? with
+  | none => `(tactic| decide)
+  | some _ => `(tactic| decide!)
 
 -- # tactic.delta_instance
 @[trTactic delta_instance] def trDeltaInstance : TacM Syntax := do
-  throw! "unsupported tactic delta_instance" -- unattested
+  `(tactic| deltaInstance $((← parse ident*).map mkIdent)*)
 
 -- # tactic.elide
 @[trTactic elide] def trElide : TacM Syntax := do
-  throw! "unsupported tactic elide" -- unattested
+  `(tactic| elide $(Quote.quote (← parse smallNat)) $(← trLoc (← parse location))?)
+
 @[trTactic unelide] def trUnelide : TacM Syntax := do
-  throw! "unsupported tactic unelide" -- unattested
+  `(tactic| unelide $(← trLoc (← parse location))?)
 
 -- # tactic.explode
 @[trUserCmd «#explode»] def trExplode : TacM Syntax := do
-  parse () *> throw! "unsupported user cmd #explode" -- unattested
+  `(command| #explode $(← mkIdentI (← parse ident)))
 
 -- # tactic.find
 @[trUserCmd «#find»] def trFindCmd : TacM Syntax := do
-  parse () *> throw! "unsupported user cmd #find" -- unattested
+  `(command| #find $(← trExpr (← parse pExpr)))
 
 -- # tactic.find_unused
-@[trUserAttr main_declaration] def trMainDeclaration : TacM Syntax := do
-  parse () *> throw! "unsupported user attr main_declaration" -- unattested
-@[trUserCmd «#list_unused_decls»] def trListUnusedDecls : TacM Syntax := do
-  parse () *> throw! "unsupported user cmd #list_unused_decls" -- unattested
+
+@[trUserAttr main_declaration] def trMainDeclaration := tagAttr `mainDeclaration
+
+@[trUserCmd «#list_unused_decls»] def trListUnusedDecls : TacM Syntax :=
+  parse () *> `(command| #list_unused_decls)
 
 -- # tactic.finish
+
+def trUsingList (args : Array AST3.Expr) : M Syntax :=
+  @mkNullNode <$> match args with
+  | #[] => #[]
+  | args => do #[mkAtom "using", (mkAtom ",").mkSep $ ← args.mapM trExpr]
+
 @[trTactic clarify] def trClarify : TacM Syntax := do
-  throw! "unsupported tactic clarify" -- unattested
+  let (hs, all) ← trSimpArgs (← parse simpArgList)
+  let ps ← trUsingList $ (← parse (tk "using" *> pExprListOrTExpr)?).getD #[]
+  let cfg ← liftM $ (← expr?).mapM trExpr
+  mkNode ``Parser.Tactic.clarify #[mkAtom "clarify",
+    mkConfigStx cfg, trSimpStxList hs all, ps]
+
 @[trTactic safe] def trSafe : TacM Syntax := do
-  throw! "unsupported tactic safe"
+  let (hs, all) ← trSimpArgs (← parse simpArgList)
+  let ps ← trUsingList $ (← parse (tk "using" *> pExprListOrTExpr)?).getD #[]
+  let cfg ← liftM $ (← expr?).mapM trExpr
+  mkNode ``Parser.Tactic.safe #[mkAtom "safe",
+    mkConfigStx cfg, trSimpStxList hs all, ps]
+
 @[trTactic finish] def trFinish : TacM Syntax := do
-  throw! "unsupported tactic finish"
+  let (hs, all) ← trSimpArgs (← parse simpArgList)
+  let ps ← trUsingList $ (← parse (tk "using" *> pExprListOrTExpr)?).getD #[]
+  let cfg ← liftM $ (← expr?).mapM trExpr
+  mkNode ``Parser.Tactic.finish #[mkAtom "finish",
+    mkConfigStx cfg, trSimpStxList hs all, ps]
 
 -- # tactic.generalizes
+
 @[trTactic generalizes] def trGeneralizes : TacM Syntax := do
-  throw! "unsupported tactic generalizes" -- unattested
+  let args ← (← parse (listOf generalizesArg)).mapM fun (h, t, x) => do
+    mkNode ``Parser.Tactic.generalizesArg #[
+      mkOptionalNode' h fun h => #[mkIdent h, mkAtom ":"],
+      ← trExpr t, mkAtom "=", mkIdent x]
+  `(tactic| generalizes [$args,*])
 
 -- # tactic.generalize_proofs
 @[trTactic generalize_proofs] def trGeneralizeProofs : TacM Syntax := do
-  throw! "unsupported tactic generalize_proofs"
+  `(tactic| generalizeProofs
+    $((← parse (ident_)*).map trBinderIdent)*
+    $[$(← trLoc (← parse location))]?)
 
 -- # tactic.itauto
-@[trTactic itauto] def trITauto : TacM Syntax := do
-  throw! "unsupported tactic itauto" -- unattested
+@[trTactic itauto] def trITauto : TacM Syntax := `(tactic| itauto)
 
 -- # tactic.lift
 @[trTactic lift] def trLift : TacM Syntax := do
-  throw! "unsupported tactic lift"
+  `(tactic| lift $(← trExpr (← parse pExpr))
+    to $(← trExpr (← parse (tk "to" *> pExpr)))
+    $[using $(← liftM $ (← parse (tk "using" *> pExpr)?).mapM trExpr)]?
+    $[with $(trWithIdentList (← parse withIdentList))*]?)
 
 -- # tactic.lift
 
@@ -627,9 +660,12 @@ attribute [trTactic clear'] trClear
 
 -- # tactic.mk_iff_of_inductive_prop
 @[trUserCmd «mk_iff_of_inductive_prop»] def trMkIffOfInductiveProp : TacM Syntax := do
-  parse () *> throw! "unsupported user command mk_iff_of_inductive_prop"
+  let (i, r) ← parse (do (← ident, ← ident))
+  `(command| mk_iff_of_inductive_prop $(← mkIdentI i) $(← mkIdentI r))
+
 @[trUserAttr mk_iff] def trMkIffAttr : TacM Syntax := do
-  parse () *> throw! "unsupported user attr mk_iff"
+  let i ← parse (ident)?
+  `(attr| mkIff $(← liftM $ (← parse (ident)?).mapM mkIdentI)?)
 
 -- # tactic.converter.interactive
 @[trTactic old_conv] def trOldConv : TacM Syntax := do
@@ -643,167 +679,354 @@ attribute [trTactic clear'] trClear
 
 -- # tactic.norm_cast
 @[trUserAttr norm_cast] def trNormCastAttr : TacM Syntax := do
-  parse () *> throw! "unsupported user attr norm_cast"
+  match ← parse (ident)? with
+  | some `elim => `(attr| normCast elim)
+  | some `move => `(attr| normCast move)
+  | some `squash => `(attr| normCast squash)
+  | none => `(attr| normCast)
+  | _ => throw! "unsupported (impossible)"
+
 @[trTactic push_cast] def trPushCast : TacM Syntax := do
-  throw! "unsupported tactic push_cast"
+  let (hs, all) ← trSimpArgs (← parse simpArgList)
+  mkNode ``Parser.Tactic.pushCast #[mkAtom "pushCast",
+    trSimpStxList hs all, mkOptionalNode $ ← trLoc (← parse location)]
+
 @[trTactic norm_cast] def trNormCast : TacM Syntax := do
-  throw! "unsupported tactic norm_cast"
+  `(tactic| normCast $(← trLoc (← parse location))?)
+
 @[trTactic rw_mod_cast] def trRwModCast : TacM Syntax := do
-  throw! "unsupported tactic rw_mod_cast"
+  let (q, loc) ← trRwArgs; `(tactic| rwModCast [$q,*] $(loc)?)
+
 @[trTactic exact_mod_cast] def trExactModCast : TacM Syntax := do
-  throw! "unsupported tactic exact_mod_cast"
+  `(tactic| exactModCast $(← trExpr (← parse pExpr)))
+
 @[trTactic apply_mod_cast] def trApplyModCast : TacM Syntax := do
-  throw! "unsupported tactic apply_mod_cast"
+  `(tactic| applyModCast $(← trExpr (← parse pExpr)))
+
 @[trTactic assumption_mod_cast] def trAssumptionModCast : TacM Syntax := do
-  throw! "unsupported tactic assumption_mod_cast"
-
--- # tactic.obviously
-@[trUserAttr obviously] def trObviouslyAttr : TacM Syntax := do
-  parse () *> throw! "unsupported user attr obviously"
-
--- # tactic.pretty_cases
-@[trTactic pretty_cases] def trPrettyCases : TacM Syntax := do
-  throw! "unsupported tactic pretty_cases" -- unattested
-
--- # tactic.protected
-@[trUserAttr «protected»] def trProtectedAttr : TacM Syntax := do
-  parse () *> throw! "unsupported user attr protected"
-@[trUserAttr protect_proj] def trProtectProjAttr : TacM Syntax := do
-  parse () *> throw! "unsupported user attr protect_proj"
-
--- # tactic.push_neg
-@[trTactic push_neg] def trPushNeg : TacM Syntax := do
-  throw! "unsupported tactic push_neg"
-@[trTactic contrapose] def trContrapose : TacM Syntax := do
-  throw! "unsupported tactic contrapose"
+  `(tactic| assumptionModCast)
 
 -- # tactic.replacer
 @[trUserCmd «def_replacer»] def trDefReplacer : TacM Syntax := do
-  parse () *> throw! "unsupported user command def_replacer"
-@[trUserAttr replaceable] def trReplaceableAttr : TacM Syntax := do
-  parse () *> throw! "unsupported tactic replaceable" -- unattested
+  let (n, ty) ← parse $ do (← ident, ← (tk ":" *> pExpr)?)
+  `(command| def_replacer $(← mkIdentI n) $[$(← trOptType ty):typeSpec]?)
+
+@[trUserAttr replaceable] def trReplaceableAttr := tagAttr `replaceable
+
+-- # tactic.obviously
+@[trUserAttr obviously] def trObviouslyAttr := tagAttr `obviously
+
+-- # tactic.pretty_cases
+@[trTactic pretty_cases] def trPrettyCases : TacM Syntax := do
+  `(tactic| prettyCases)
+
+-- # tactic.protected
+
+@[trUserAttr «protected»] def trProtectedAttr := tagAttr `protected
+
+@[trUserAttr protect_proj] def trProtectProjAttr : TacM Syntax := do
+  let ids ← match ← parse withoutIdentList with
+  | #[] => none
+  | ids => some <$> liftM (ids.mapM mkIdentF)
+  `(attr| protectProj $[without $ids*]?)
+
+-- # tactic.push_neg
+
+@[trTactic push_neg] def trPushNeg : TacM Syntax := do
+  `(tactic| pushNeg $(← trLoc (← parse location))?)
+
+@[trTactic contrapose] def trContrapose : TacM Syntax := do
+  let (tac, s) := match ← parse (tk "!")? with
+  | none => (``Parser.Tactic.contrapose, "contrapose")
+  | some _ => (``Parser.Tactic.contrapose!, "contrapose!")
+  let n ← parse (do (← ident, ← (tk "with" *> ident)?))?
+  mkNode tac #[mkAtom s, mkOptionalNode' n fun (a, b) =>
+    #[mkIdent a, mkOptionalNode' b fun b => #[mkAtom "with", mkIdent b]]]
 
 -- # tactic.rename_var
 @[trTactic rename_var] def trRenameVar : TacM Syntax := do
-  throw! "unsupported tactic rename_var" -- unattested
+  `(tactic| renameVar $(mkIdent (← parse ident)) → $(mkIdent (← parse ident))
+    $(← trLoc (← parse location))?)
 
 -- # tactic.restate_axiom
 @[trUserCmd «restate_axiom»] def trRestateAxiom : TacM Syntax := do
-  parse () *> throw! "unsupported user command restate_axiom"
+  let (a, b) ← parse $ do (← ident, ← (ident)?)
+  `(command| restate_axiom $(← mkIdentI a) $(← liftM $ b.mapM mkIdentI)?)
 
 -- # tactic.rewrite
 @[trTactic assoc_rewrite assoc_rw] def trAssocRw : TacM Syntax := do
-  throw! "unsupported tactic assoc_rw"
+  let (q, loc) ← trRwArgs; `(tactic| assocRw [$q,*] $(loc)?)
 
 -- # tactic.show_term
 @[trTactic show_term] def trShowTerm : TacM Syntax := do
-  throw! "unsupported tactic show_term" -- unattested
+  `(tactic| showTerm $(← trBlock (← itactic)):tacticSeq)
 
 -- # tactic.simp_rw
 @[trTactic simp_rw] def trSimpRw : TacM Syntax := do
-  throw! "unsupported tactic simp_rw"
+  let (q, loc) ← trRwArgs; `(tactic| simpRw [$q,*] $(loc)?)
 
 -- # tactic.simp_command
 @[trUserCmd «#simp»] def trSimpCmd : TacM Syntax := do
-  parse () *> throw! "unsupported user command #simp" -- unattested
+  let (o, args, attrs, e) ← parse $ do
+    (← onlyFlag, ← simpArgList, (← (tk "with" *> ident*)?).getD #[], ← (tk ":")? *> pExpr)
+  let (hs, all) ← trSimpArgs args
+  let o := if o then mkNullNode #[mkAtom "only"] else mkNullNode
+  let colon := if attrs.isEmpty then mkNullNode else mkNullNode #[mkAtom ":"]
+  mkNode ``Parser.Command.simp #[mkAtom "#simp",
+    o, trSimpStxList hs all, trSimpAttrs attrs, colon, ← trExpr e]
 
 -- # tactic.simp_result
 @[trTactic dsimp_result] def trDSimpResult : TacM Syntax := do
-  throw! "unsupported tactic dsimp_result" -- unattested
+  let o := if ← parse onlyFlag then mkNullNode #[mkAtom "only"] else mkNullNode
+  let (hs, all) ← trSimpArgs (← parse simpArgList)
+  mkNode ``Parser.Tactic.dsimpResult #[mkAtom "dsimpResult",
+    o, trSimpStxList hs all,
+    trSimpAttrs $ (← parse (tk "with" *> ident*)?).getD #[],
+    mkAtom "=>", ← trBlock (← itactic)]
+
 @[trTactic simp_result] def trSimpResult : TacM Syntax := do
-  throw! "unsupported tactic simp_result" -- unattested
+  let o := if ← parse onlyFlag then mkNullNode #[mkAtom "only"] else mkNullNode
+  let (hs, all) ← trSimpArgs (← parse simpArgList)
+  mkNode ``Parser.Tactic.simpResult #[mkAtom "simpResult",
+    o, trSimpStxList hs all,
+    trSimpAttrs $ (← parse (tk "with" *> ident*)?).getD #[],
+    mkAtom "=>", ← trBlock (← itactic)]
 
 -- # tactic.simpa
 @[trTactic simpa] def trSimpa : TacM Syntax := do
-  throw! "unsupported tactic simpa"
+  let (tac, s) := match ← parse (tk "!")?, ← parse (tk "?")? with
+  | none, none => (``Parser.Tactic.simpa, "simpa")
+  | some _, none => (``Parser.Tactic.simpa!, "simpa!")
+  | none, some _ => (``Parser.Tactic.simpa?, "simpa?")
+  | some _, some _ => (``Parser.Tactic.simpa!?, "simpa!?")
+  let o := if ← parse onlyFlag then mkNullNode #[mkAtom "only"] else mkNullNode
+  let (hs, all) ← trSimpArgs (← parse simpArgList)
+  let attrs := (← parse (tk "with" *> ident*)?).getD #[]
+  let e ← liftM $ (← parse (tk "using" *> pExpr)?).mapM trExpr
+  let cfg := mkConfigStx $ parseSimpConfig (← expr?) |>.bind quoteSimpConfig
+  mkNode tac #[mkAtom s, cfg, o, trSimpStxList hs all, trSimpAttrs attrs,
+    mkOptionalNode' e fun e => do #[mkAtom "using", e]]
 
 -- # tactic.simps
 @[trUserAttr notation_class] def trNotationClassAttr : TacM Syntax := do
-  parse () *> throw! "unsupported user attr notation_class"
+  let (star, n) ← parse $ do (← (tk "*")?, ← (ident)?)
+  mkNode ``Parser.Attr.notationClass #[mkAtom "notationClass",
+    mkOptionalNode' star fun _ => #[mkAtom "*"],
+    ← mkOpt n mkIdentF]
+
+def trSimpsRule : Sum (Name × Name) Name × Bool → M Syntax
+  | (arg, pfx) => do
+    let stx ← match arg with
+    | Sum.inl (a, b) => do
+      mkNode ``Parser.Command.simpsRule.rename #[← mkIdentF a, mkAtom "→", ← mkIdentF b]
+    | Sum.inr a => do
+      mkNode ``Parser.Command.simpsRule.erase #[mkAtom "-", ← mkIdentF a]
+    mkNode ``Parser.Command.simpsRule #[stx,
+      @mkNullNode $ if pfx then #[mkAtom "as_prefix"] else #[]]
+
 @[trUserCmd «initialize_simps_projections»] def trInitializeSimpsProjections : TacM Syntax := do
-  parse () *> throw! "unsupported user command initialize_simps_projections"
+  let (trc, args) ← parse $ do (← (tk "?")?, ← (do (← ident, ← simpsRules))*)
+  let (tac, s) := match trc with
+  | none => (``Parser.Command.initializeSimpsProjections, "initialize_simps_projections")
+  | some _ => (``Parser.Command.initializeSimpsProjections?, "initialize_simps_projections?")
+  mkNode tac #[mkAtom s, mkNullNode $ ← liftM (m := M) $ args.mapM fun (n, rules) => do
+    mkNullNode #[← mkIdentF n,
+      mkNullNode $ ← match rules with
+      | #[] => #[]
+      | _ => do #[mkAtom "(", (mkAtom ",").mkSep $ ← rules.mapM trSimpsRule, mkAtom ")"]]]
+
 @[trUserAttr simps] def trSimpsAttr : TacM Syntax := do
-  parse () *> throw! "unsupported user attr simps"
+  let (trc, ns, cfg) ← parse $ do (← (tk "?")?, ← ident*, ← (pExpr)?)
+  let ns ← liftM $ ns.mapM mkIdentF
+  let cfg ← liftM $ cfg.mapM trExpr
+  match trc with
+  | none => `(attr| simps $[(config := $cfg)]? $ns*)
+  | some _ => `(attr| simps? $[(config := $cfg)]? $ns*)
 
 -- # tactic.split_ifs
 @[trTactic split_ifs] def trSplitIfs : TacM Syntax := do
-  throw! "unsupported tactic split_ifs"
+  `(tactic| splitIfs $(← trLoc (← parse location))?
+    $[with $(trWithIdentList (← parse withIdentList))*]?)
 
 -- # tactic.squeeze
+
 @[trTactic squeeze_scope] def trSqueezeScope : TacM Syntax := do
-  throw! "unsupported tactic squeeze_scope" -- unattested
+  `(tactic| showTerm $(← trBlock (← itactic)):tacticSeq)
+
 @[trTactic squeeze_simp] def trSqueezeSimp : TacM Syntax := do
-  throw! "unsupported tactic squeeze_simp" -- unattested
+  let (tac, s) := match ← parse () *> parse (tk "?")?, ← parse (tk "!")? with
+  | none, none => (``Parser.Tactic.squeezeSimp, "squeezeSimp")
+  | none, some _ => (``Parser.Tactic.squeezeSimp?, "squeezeSimp?")
+  | some _, none => (``Parser.Tactic.squeezeSimp!, "squeezeSimp!")
+  | some _, some _ => (``Parser.Tactic.squeezeSimp?!, "squeezeSimp?!")
+  let o := if ← parse onlyFlag then mkNullNode #[mkAtom "only"] else mkNullNode
+  let (hs, all) ← trSimpArgs (← parse simpArgList)
+  let attrs := (← parse (tk "with" *> ident*)?).getD #[]
+  let loc := mkOptionalNode $ ← trLoc (← parse location)
+  let cfg := mkConfigStx $ parseSimpConfig (← parse (structInst)?) |>.bind quoteSimpConfig
+  mkNode tac #[mkAtom s, cfg, o, trSimpStxList hs all, trSimpAttrs attrs, loc]
+
 @[trTactic squeeze_simpa] def trSqueezeSimpa : TacM Syntax := do
-  throw! "unsupported tactic squeeze_simpa" -- unattested
+  let (tac, s) := match ← parse () *> parse (tk "?")?, ← parse (tk "!")? with
+  | none, none => (``Parser.Tactic.squeezeSimpa, "squeezeSimpa")
+  | none, some _ => (``Parser.Tactic.squeezeSimpa?, "squeezeSimpa?")
+  | some _, none => (``Parser.Tactic.squeezeSimpa!, "squeezeSimpa!")
+  | some _, some _ => (``Parser.Tactic.squeezeSimpa?!, "squeezeSimpa?!")
+  let o := if ← parse onlyFlag then mkNullNode #[mkAtom "only"] else mkNullNode
+  let (hs, all) ← trSimpArgs (← parse simpArgList)
+  let attrs := (← parse (tk "with" *> ident*)?).getD #[]
+  let e ← liftM $ (← parse (tk "using" *> pExpr)?).mapM trExpr
+  let cfg := mkConfigStx $ parseSimpConfig (← parse (structInst)?) |>.bind quoteSimpConfig
+  mkNode tac #[mkAtom s, cfg, o, trSimpStxList hs all, trSimpAttrs attrs,
+    mkOptionalNode' e fun e => do #[mkAtom "using", e]]
+
 @[trTactic squeeze_dsimp] def trSqueezeDSimp : TacM Syntax := do
-  throw! "unsupported tactic squeeze_dsimp" -- unattested
+  let (tac, s) := match ← parse () *> parse (tk "?")?, ← parse (tk "!")? with
+  | none, none => (``Parser.Tactic.squeezeDSimp, "squeezeDSimp")
+  | none, some _ => (``Parser.Tactic.squeezeDSimp?, "squeezeDSimp?")
+  | some _, none => (``Parser.Tactic.squeezeDSimp!, "squeezeDSimp!")
+  | some _, some _ => (``Parser.Tactic.squeezeDSimp?!, "squeezeDSimp?!")
+  let o := if ← parse onlyFlag then mkNullNode #[mkAtom "only"] else mkNullNode
+  let (hs, all) ← trSimpArgs (← parse simpArgList)
+  let attrs := (← parse (tk "with" *> ident*)?).getD #[]
+  let loc := mkOptionalNode $ ← trLoc (← parse location)
+  let cfg := mkConfigStx $ parseSimpConfig (← parse (structInst)?) |>.bind quoteSimpConfig
+  mkNode tac #[mkAtom s, cfg, o, trSimpStxList hs all, trSimpAttrs attrs, loc]
 
 -- # tactic.suggest
 @[trTactic suggest] def trSuggest : TacM Syntax := do
-  throw! "unsupported tactic suggest" -- unattested
+  let n := (← parse (smallNat)?).map Quote.quote
+  let (hs, all) ← trSimpArgs (← parse simpArgList)
+  let attrs := (← parse (tk "with" *> ident*)?).getD #[]
+  let loc := mkOptionalNode $ ← trLoc (← parse location)
+  let cfg := mkConfigStx $ ← liftM $ (← expr?).mapM trExpr
+  mkNode ``Parser.Tactic.suggest #[mkAtom "suggest", cfg,
+    trSimpStxList hs all, trSimpAttrs attrs]
+
 @[trTactic library_search] def trLibrarySearch : TacM Syntax := do
-  throw! "unsupported tactic library_search" -- unattested
+  let (tac, s) := match ← parse (tk "!")? with
+  | none => (``Parser.Tactic.librarySearch, "librarySearch")
+  | some _ => (``Parser.Tactic.librarySearch!, "librarySearch!")
+  let (hs, all) ← trSimpArgs (← parse simpArgList)
+  let attrs := (← parse (tk "with" *> ident*)?).getD #[]
+  let cfg := mkConfigStx $ ← liftM $ (← expr?).mapM trExpr
+  mkNode tac #[mkAtom s, cfg, trSimpStxList hs all, trSimpAttrs attrs]
 
 -- # tactic.tauto
 @[trTactic tauto tautology] def trTauto : TacM Syntax := do
-  throw! "unsupported tactic tauto"
+  let c ← parse (tk "!")?
+  let cfg ← liftM $ (← expr?).mapM trExpr
+  match c with
+  | none => `(tactic| tauto $[(config := $cfg)]?)
+  | some _ => `(tactic| tauto! $[(config := $cfg)]?)
 
 -- # tactic.trunc_cases
 @[trTactic trunc_cases] def trTruncCases : TacM Syntax := do
-  throw! "unsupported tactic trunc_cases"
+  `(tactic| truncCases $(← trExpr (← parse pExpr))
+    $[with $(trWithIdentList (← parse withIdentList))*]?)
 
 -- # tactic.unify_equations
 @[trTactic unify_equations] def trUnifyEquations : TacM Syntax := do
   throw! "unsupported tactic unify_equations" -- unattested
 
 -- # tactic.where
-@[trUserCmd «#where»] def trWhereCmd : TacM Syntax := do
-  parse () *> throw! "unsupported user command #where" -- unattested
+@[trUserCmd «#where»] def trWhereCmd : TacM Syntax := `(command| #where)
 
 -- # tactic.norm_num
-@[trUserAttr norm_num] def trNormNumAttr : TacM Syntax := do
-  parse () *> throw! "unsupported user attr norm_num"
+@[trUserAttr norm_num] def trNormNumAttr := tagAttr `normNum
+
 @[trTactic norm_num1] def trNormNum1 : TacM Syntax := do
-  throw! "unsupported tactic norm_num1"
+  `(tactic| normNum1 $(← trLoc (← parse location))?)
+
 @[trTactic norm_num] def trNormNum : TacM Syntax := do
-  throw! "unsupported tactic norm_num"
+  let (hs, all) ← trSimpArgs (← parse simpArgList)
+  let loc := mkOptionalNode $ ← trLoc (← parse location)
+  mkNode ``Parser.Tactic.normNum #[mkAtom "normNum", trSimpStxList hs all, loc]
+
 @[trTactic apply_normed] def trApplyNormed : TacM Syntax := do
-  throw! "unsupported tactic apply_normed"
+  `(tactic| applyNormed $(← trExpr (← parse pExpr)))
 
 -- # tactic.abel
-@[trTactic abel1] def trAbel1 : TacM Syntax := do
-  throw! "unsupported tactic abel1" -- unattested
+@[trTactic abel1] def trAbel1 : TacM Syntax := `(tactic| abel1)
+
 @[trTactic abel] def trAbel : TacM Syntax := do
-  throw! "unsupported tactic abel"
+  match ← parse (ident)?, ← trLoc (← parse location) with
+  | none, loc => `(tactic| abel $(loc)?)
+  | some `raw, loc => `(tactic| abel raw $(loc)?)
+  | some `term, loc => `(tactic| abel term $(loc)?)
+  | _, _ => throw! "bad abel mode"
 
 -- # tactic.ring
 @[trTactic ring1] def trRing1 : TacM Syntax := do
-  throw! "unsupported tactic ring1" -- unattested
-@[trTactic ring_nf] def trRingNf : TacM Syntax := do
-  throw! "unsupported tactic ring_nf"
+  match ← parse (tk "!")? with
+  | none => `(tactic| ring1)
+  | some _ => `(tactic| ring1!)
+
+def trRingMode (n : Name) : M Syntax :=
+  if [`SOP, `raw, `horner].contains n then
+    mkNode ``Parser.Tactic.ringMode #[mkIdent n]
+  else throw! "bad ring mode"
+
+@[trTactic ring_nf] def trRingNF : TacM Syntax := do
+  let c ← parse (tk "!")?
+  let mode ← liftM $ (← parse (ident)?).mapM trRingMode
+  let loc ← trLoc (← parse location)
+  match c with
+  | none => `(tactic| ringNF $(mode)? $(loc)?)
+  | some _ => `(tactic| ringNF! $(mode)? $(loc)?)
+
 @[trTactic ring] def trRing : TacM Syntax := do
-  throw! "unsupported tactic ring"
+  match ← parse (tk "!")? with
+  | none => `(tactic| ring)
+  | some _ => `(tactic| ring!)
 
 -- # tactic.ring_exp
 @[trTactic ring_exp_eq] def trRingExpEq : TacM Syntax := do
-  throw! "unsupported tactic ring_exp_eq" -- unattested
+  match ← parse (tk "!")? with
+  | none => `(tactic| ringExpEq)
+  | some _ => `(tactic| ringExpEq!)
+
 @[trTactic ring_exp] def trRingExp : TacM Syntax := do
-  throw! "unsupported tactic ring_exp"
+  let c ← parse (tk "!")?
+  let loc ← trLoc (← parse location)
+  match c with
+  | none => `(tactic| ringExp $(loc)?)
+  | some _ => `(tactic| ringExp! $(loc)?)
 
 -- # tactic.noncomm_ring
-@[trTactic noncomm_ring] def trNoncommRing : TacM Syntax := do
-  throw! "unsupported tactic noncomm_ring"
+@[trTactic noncomm_ring] def trNoncommRing : TacM Syntax := `(tactic| noncommRing)
 
 -- # tactic.linarith
 @[trTactic linarith] def trLinarith : TacM Syntax := do
-  throw! "unsupported tactic linarith"
+  let (tac, s) := match ← parse (tk "!")? with
+  | none => (``Parser.Tactic.linarith, "linarith")
+  | some _ => (``Parser.Tactic.linarith!, "linarith!")
+  let o := if ← parse onlyFlag then mkNullNode #[mkAtom "only"] else mkNullNode
+  let args := mkNullNode $ ← match ← parse optPExprList with
+  | #[] => #[]
+  | args => do #[mkAtom "[", (mkAtom ",").mkSep $ ← liftM $ args.mapM trExpr, mkAtom "]"]
+  let cfg := mkConfigStx $ ← liftM $ (← expr?).mapM trExpr
+  mkNode tac #[mkAtom s, cfg, o, args]
+
 @[trTactic nlinarith] def trNLinarith : TacM Syntax := do
-  throw! "unsupported tactic nlinarith"
+  let (tac, s) := match ← parse (tk "!")? with
+  | none => (``Parser.Tactic.nlinarith, "nlinarith")
+  | some _ => (``Parser.Tactic.nlinarith!, "nlinarith!")
+  let o := if ← parse onlyFlag then mkNullNode #[mkAtom "only"] else mkNullNode
+  let args := mkNullNode $ ← match ← parse optPExprList with
+  | #[] => #[]
+  | args => do #[mkAtom "[", (mkAtom ",").mkSep $ ← liftM $ args.mapM trExpr, mkAtom "]"]
+  let cfg := mkConfigStx $ ← liftM $ (← expr?).mapM trExpr
+  mkNode tac #[mkAtom s, cfg, o, args]
 
 -- # tactic.omega
 @[trTactic omega] def trOmega : TacM Syntax := do
-  throw! "unsupported tactic omega" -- unattested
+  let args ← parse ident*
+  mkNode ``Parser.Tactic.omega #[mkAtom "omega",
+    mkNullNode $ if args.contains `manual then #[mkAtom "manual"] else #[],
+    mkNullNode $
+      if args.contains `int then #[mkAtom "int"] else
+      if args.contains `nat then #[mkAtom "nat"] else #[]]
 
 -- # tactic.tfae
 @[trTactic tfae_have] def trTfaeHave : TacM Syntax := do

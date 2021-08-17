@@ -395,12 +395,11 @@ def trSimpAttrs (attrs : Array Name) : Syntax :=
   if iota.isSome then dbg_trace "warning: unsupported simp config option: iota_eqn"
   let trace ← parse (tk "?")?
   if trace.isSome then dbg_trace "warning: unsupported simp config option: trace_lemmas"
-  let o ← parse onlyFlag
+  let o := if ← parse onlyFlag then mkNullNode #[mkAtom "only"] else mkNullNode
   let (hs, all) ← trSimpArgs (← parse simpArgList)
   let attrs := (← parse (tk "with" *> ident*)?).getD #[]
   let loc ← parse location
   let cfg := mkConfigStx $ parseSimpConfig (← expr?) |>.bind quoteSimpConfig
-  let o := if o then mkNullNode #[mkAtom "only"] else mkNullNode
   match (hs.mapM trSimpArgStx).run, attrs, all, loc with
   | some hs, #[], true, Location.wildcard =>
     mkNode ``Parser.Tactic.simpAll #[mkAtom "simp_all", cfg, o, trSimpList hs]
@@ -420,24 +419,22 @@ def trSimpAttrs (attrs : Array Name) : Syntax :=
 
 @[trTactic simp_intros] def trSimpIntros : TacM Syntax := do
   let ids ← parse ident_*
-  let o ← parse onlyFlag
+  let o := if ← parse onlyFlag then mkNullNode #[mkAtom "only"] else mkNullNode
   let (hs, all) ← trSimpArgs (← parse simpArgList)
   let attrs := (← parse (tk "with" *> ident*)?).getD #[]
   let cfg := mkConfigStx $ parseSimpConfig (← expr?) |>.bind quoteSimpConfig
   let ids := mkNullNode $ ids.map trIdent_
-  let o := if o then mkNullNode #[mkAtom "only"] else mkNullNode
   mkNode ``Parser.Tactic.simpIntro #[mkAtom "simpIntro",
     cfg, ids, o, trSimpStxList hs all, trSimpAttrs attrs]
 
 @[trTactic dsimp] def trDSimp : TacM Syntax := do
-  let o ← parse onlyFlag
+  let o := if ← parse onlyFlag then mkNullNode #[mkAtom "only"] else mkNullNode
   let (hs, all) ← trSimpArgs (← parse simpArgList)
   let attrs := (← parse (tk "with" *> ident*)?).getD #[]
-  let loc ← parse location
+  let loc := mkOptionalNode $ ← trLoc (← parse location)
   let cfg := mkConfigStx $ parseSimpConfig (← expr?) |>.bind quoteSimpConfig
-  let o := if o then mkNullNode #[mkAtom "only"] else mkNullNode
-  mkNode ``Parser.Tactic.dSimp #[mkAtom "dsimp",
-    cfg, o, trSimpStxList hs all, trSimpAttrs attrs, mkOptionalNode $ ← trLoc loc]
+  mkNode ``Parser.Tactic.dsimp #[mkAtom "dsimp",
+    cfg, o, trSimpStxList hs all, trSimpAttrs attrs, loc]
 
 @[trTactic reflexivity refl] def trRefl : TacM Syntax := `(tactic| rfl)
 

@@ -118,6 +118,22 @@ def hGeneralizeArg : ParserM (Expr × Name) := do
   let AST3.Expr.ident x ← rhs.unparen | failure
   (lhs, x)
 
+def generalizesArgEq (e : AST3.Expr) : ParserM (Expr × Name) := do
+  let args ← match e.unparen with
+  | AST3.Expr.notation (Choice.one `«expr = ») args => args
+  | AST3.Expr.notation (Choice.one `«expr == ») args => args
+  | _ => failure
+  let #[⟨_, _, Arg.expr lhs⟩, ⟨_, _, Arg.expr rhs⟩] ← args | failure
+  let AST3.Expr.ident x ← rhs.unparen | failure
+  (lhs, x)
+
+def generalizesArg : ParserM (Option Name × Expr × Name) := do
+  let t ← pExpr
+  (tk ":" *> do
+    let AST3.Expr.ident x ← t.unparen | failure
+    (some x, ← generalizesArgEq (← pExpr))) <|>
+  (do (none, ← generalizesArgEq t))
+
 def casesArg : ParserM (Option Name × Expr) := do
   let t ← pExpr
   match t.unparen with
@@ -269,5 +285,27 @@ def extParam : ParserM (Bool × ExtParam) := do
 
 def extParams : ParserM (Array (Bool × ExtParam)) :=
   (do #[← extParam]) <|> listOf extParam <|> pure #[]
+
+def simpsRule : ParserM (Sum (Name × Name) Name × Bool) := do
+  (← (do Sum.inl (← ident, ← tk "→" *> ident)) <|>
+     (do Sum.inr (← tk "-" *> ident)),
+   (← (tk "as_prefix")?).isSome)
+
+def simpsRules : ParserM (Array (Sum (Name × Name) Name × Bool)) :=
+  brackets "(" ")" (sepBy (tk ",") simpsRule)
+
+def structInst : ParserM Expr := do
+  tk "{"
+  let ls ← sepBy (tk ",") $
+    Sum.inl <$> (tk ".." *> pExpr) <|>
+    do Sum.inr (← ident <* tk ":=", ← pExpr)
+  tk "}"
+  let mut srcs := #[]
+  let mut fields := #[]
+  for l in ls do
+    match l with
+    | Sum.inl src => srcs := srcs.push (Spanned.dummy src)
+    | Sum.inr (n, v) => fields := fields.push (Spanned.dummy n, Spanned.dummy v)
+  Expr.structInst none none fields srcs false
 
 end Parser
