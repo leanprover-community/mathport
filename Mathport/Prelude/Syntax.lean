@@ -5,6 +5,7 @@ Authors: Mario Carneiro
 -/
 import Lean.Elab.Command
 import Lean.Elab.Quotation
+import Mathport.Util.Misc
 
 -- To fix upstream:
 -- * bracketedExplicitBinders doesn't support optional types
@@ -490,6 +491,45 @@ syntax (name := nlinarith!) "nlinarith! " ("(" &"config" " := " term ")")?
 
 syntax (name := omega) "omega" (&" manual")? (&" nat" <|> &" int")? : tactic
 
+syntax (name := tfaeHave) "tfaeHave " (ident " : ")? num (" → " <|> " ↔ " <|> " ← ") num : tactic
+syntax (name := tfaeFinish) "tfaeFinish" : tactic
+
+syntax mono.side := &"left" <|> &"right" <|> &"both"
+syntax (name := mono) "mono" "*"? (mono.side)?
+  (" with " (colGt term),+)? (" using " (colGt simpArg),+)? : tactic
+
+syntax (name := acMono) "acMono" ("*" <|> ("^" num))?
+  ("(" &"config" " := " term ")")? ((":" term) <|> (":=" term))? : tactic
+
+syntax (name := applyFun) "applyFun" term (location)? (" using " term)? : tactic
+
+syntax (name := finCases) "finCases " ("*" <|> (term,+)) (" with " term)? : tactic
+
+syntax (name := intervalCases) "intervalCases" (colGt term)?
+  ("using " term ", " term)? (" with " ident)? : tactic
+
+syntax (name := reassoc) "reassoc " (colGt ident)* : tactic
+syntax (name := reassoc!) "reassoc! " (colGt ident)* : tactic
+
+syntax (name := subtypeInstance) "subtypeInstance" : tactic
+
+syntax (name := group) "group" (location)? : tactic
+
+syntax (name := cancelDenoms) "cancelDenoms" (location)? : tactic
+
+syntax (name := zify) "zify " ("[" simpArg,* "]")? (location)? : tactic
+
+syntax (name := transport) "transport" (ppSpace term)? " using " term : tactic
+
+syntax (name := unfoldCases) "unfoldCases " tacticSeq : tactic
+
+syntax (name := fieldSimp) "fieldSimp " ("(" &"config" " := " term ")")? (&"only ")?
+  ("[" Tactic.simpArg,* "]")? (" with " (colGt ident)+)? (location)? (" using " term)? : tactic
+
+syntax (name := equivRw) "equivRw " ("(" &"config" " := " term ")")? term (location)? : tactic
+
+syntax (name := equivRwType) "equivRwType " ("(" &"config" " := " term ")")? term : tactic
+
 end Tactic
 
 namespace Attr
@@ -503,19 +543,23 @@ syntax extParam.arrow := "(" "·" " → " "·" ")"
 syntax extParam := "-"? (extParam.arrow <|> "*" <|> ident)
 syntax (name := ext) "ext " (extParam <|> "[" extParam,* "]")? : tactic
 
-syntax (name := higherOrder) "higherOrder " (ident)? : attr
+syntax (name := higherOrder) "higherOrder" (ppSpace ident)? : attr
 syntax (name := interactive) "interactive" : attr
 
 syntax (name := mkIff) "mkIff " (ident)? : attr
 
-syntax (name := normCast) "normCast " (&"elim" <|> &"move" <|> &"squash")? : attr
+syntax (name := normCast) "normCast" (ppSpace (&"elim" <|> &"move" <|> &"squash"))? : attr
 
-syntax (name := protectProj) "protectProj " (&"without" ident+)? : attr
+syntax (name := protectProj) "protectProj" (&" without " ident+)? : attr
 
-syntax (name := notationClass) "notationClass " "*"? (ident)? : attr
+syntax (name := notationClass) "notationClass" "*"? (ppSpace ident)? : attr
 
 syntax (name := simps) "simps " ("(" &"config" " := " term ")")? ident* : attr
 syntax (name := simps?) "simps? " ("(" &"config" " := " term ")")? ident* : attr
+
+syntax (name := mono) "mono" (ppSpace Tactic.mono.side)? : attr
+
+syntax (name := reassoc) "reassoc" (ppSpace ident)? : attr
 
 end Attr
 
@@ -571,5 +615,7 @@ syntax (name := initializeSimpsProjections?) "initialize_simps_projections? "
   (ident ("(" simpsRule,+ ")")?)* : tactic
 
 syntax (name := «where») "#where" : command
+
+syntax (name := reassoc_axiom) "reassoc_axiom " ident : command
 
 end Command
