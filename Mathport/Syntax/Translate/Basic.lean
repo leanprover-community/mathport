@@ -303,9 +303,17 @@ mutual
     | Tactic.«[]» tacs, _ => throw! "unsupported (impossible)"
     | Tactic.exact_shortcut e, TacticContext.one => do `(tactic| exact $(← trExpr e.kind))
     | Tactic.expr e, TacticContext.one => do
-      match ← trExpr e.kind with
-      | `(do $[$els]*) => `(tactic| do $[$els:doElem]*)
-      | stx => `(tactic| do $stx:term)
+      let rec head
+      | Expr.ident x => x
+      | Expr.paren e => head e.kind
+      | Expr.app e _ => head e.kind
+      | _ => Name.anonymous
+      match head e.kind with
+      | Name.anonymous => throw! "unsupported non-interactive tactic {repr e}"
+        -- match ← trExpr e.kind with
+        -- | `(do $[$els]*) => `(tactic| runTac $[$els:doElem]*)
+        -- | stx => `(tactic| runTac $stx:term)
+      | k => throw! "unsupported non-interactive tactic {k}"
     | Tactic.interactive n args, TacticContext.one => do
       match (← get).tactics.find? n with
       | some f => try f args catch e => throw! "in {n}: {← e.toMessageData.toString}"

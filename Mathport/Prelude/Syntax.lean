@@ -151,7 +151,7 @@ end Term
 namespace Tactic
 
 syntax tactic " <;> " "[" tactic,* "]" : tactic
-syntax "do " doSeq : tactic
+syntax "runTac " doSeq : tactic
 
 end Tactic
 
@@ -521,8 +521,51 @@ syntax (name := fieldSimp) "fieldSimp " ("(" &"config" " := " term ")")? (&"only
   ("[" Tactic.simpArg,* "]")? (" with " (colGt ident)+)? (location)? (" using " term)? : tactic
 
 syntax (name := equivRw) "equivRw " ("(" &"config" " := " term ")")? term (location)? : tactic
-
 syntax (name := equivRwType) "equivRwType " ("(" &"config" " := " term ")")? term : tactic
+
+syntax (name := nthRw) "nthRw " num rwRuleSeq (location)? : tactic
+syntax (name := nthRwLHS) "nthRwLHS " num rwRuleSeq (location)? : tactic
+syntax (name := nthRwRHS) "nthRwRHS " num rwRuleSeq (location)? : tactic
+
+syntax (name := rwSearch) "rwSearch " ("(" &"config" " := " term ")")? rwRuleSeq : tactic
+syntax (name := rwSearch?) "rwSearch? " ("(" &"config" " := " term ")")? rwRuleSeq : tactic
+
+syntax (name := piInstance) "piInstance" : tactic
+
+syntax (name := tidy) "tidy " ("(" &"config" " := " term ")")? : tactic
+syntax (name := tidy?) "tidy? " ("(" &"config" " := " term ")")? : tactic
+
+syntax (name := wlog) "wlog " ("(" &"discharger" " := " term ")")?
+  (colGt ident)? (" : " term)? (" := " term)? (" using " (ident*),+)? : tactic
+
+syntax (name := nontriviality) "nontriviality" (colGt term)? (" using " simpArg,+)? : tactic
+
+syntax (name := filterUpwards) "filterUpwards" "[" term,* "]" (colGt term)? : tactic
+
+syntax (name := opInduction) "opInduction" (colGt term)? : tactic
+
+syntax (name := mvBisim) "mvBisim" (colGt term)? (" with " binderIdent+)? : tactic
+
+syntax (name := continuity) "continuity" ("(" &"config" " := " term ")")? : tactic
+syntax (name := continuity!) "continuity!" ("(" &"config" " := " term ")")? : tactic
+syntax (name := continuity?) "continuity?" ("(" &"config" " := " term ")")? : tactic
+syntax (name := continuity!?) "continuity!?" ("(" &"config" " := " term ")")? : tactic
+
+syntax (name := unitInterval) "unitInterval" : tactic
+syntax (name := mfldSetTac) "mfldSetTac" : tactic
+
+syntax (name := measurability) "measurability" ("(" &"config" " := " term ")")? : tactic
+syntax (name := measurability!) "measurability!" ("(" &"config" " := " term ")")? : tactic
+syntax (name := measurability?) "measurability?" ("(" &"config" " := " term ")")? : tactic
+syntax (name := measurability!?) "measurability!?" ("(" &"config" " := " term ")")? : tactic
+
+syntax (name := padicIndexSimp) "padicIndexSimp" "[" term,* "]" (location)? : tactic
+
+syntax (name := ghostFunTac) "ghostFunTac" term ", " term : tactic
+syntax (name := ghostCalc) "ghostCalc" binderIdent* : tactic
+syntax (name := initRing) "initRing" (" using " term)? : tactic
+syntax (name := ghostSimp) "ghostSimp" ("[" simpArg,* "]")? : tactic
+syntax (name := wittTruncateFunTac) "wittTruncateFunTac" : tactic
 
 end Tactic
 
@@ -554,6 +597,17 @@ syntax (name := simps?) "simps? " ("(" &"config" " := " term ")")? ident* : attr
 syntax (name := mono) "mono" (ppSpace Tactic.mono.side)? : attr
 
 syntax (name := reassoc) "reassoc" (ppSpace ident)? : attr
+
+syntax (name := ancestor) "ancestor" (ppSpace ident)* : attr
+
+syntax (name := elementwise) "elementwise" (ppSpace ident)? : attr
+
+syntax (name := toAdditiveIgnoreArgs) "toAdditiveIgnoreArgs" num* : attr
+syntax (name := toAdditiveReorder) "toAdditiveReorder" num* : attr
+syntax (name := toAdditive) "toAdditive" (ident)? (str)? : attr
+syntax (name := toAdditive!) "toAdditive!" (ident)? (str)? : attr
+syntax (name := toAdditive?) "toAdditive?" (ident)? (str)? : attr
+syntax (name := toAdditive!?) "toAdditive!?" (ident)? (str)? : attr
 
 end Attr
 
@@ -611,5 +665,7 @@ syntax (name := initializeSimpsProjections?) "initialize_simps_projections? "
 syntax (name := «where») "#where" : command
 
 syntax (name := reassoc_axiom) "reassoc_axiom " ident : command
+
+syntax (name := sample) "#sample " term : command
 
 end Command
