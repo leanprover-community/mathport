@@ -55,10 +55,6 @@ macro ak:Term.attrKind "notation3 "
     $(args[0]):macroArg $[$(args[1:].toArray):macroArg]* : term =>
     `(sorry))
 
--- Using /! as a workaround since /-! is not lexed properly
-@[commandParser] def modDocComment := leading_parser
-  ppDedent $ "/!" >> commentBody >> ppLine
-
 end Parser.Command
 
 namespace Elab.Command
@@ -68,9 +64,6 @@ def elabIncludeCmd : CommandElab := fun _ => pure ()
 
 @[commandElab Parser.Command.omit]
 def elabOmitCmd : CommandElab := fun _ => pure ()
-
-@[commandElab Parser.Command.modDocComment]
-def Elab.Command.elabModDocComment : CommandElab := fun _ => pure ()
 
 open Meta in
 unsafe def elabRunCmdUnsafe : CommandElab := fun stx => do
@@ -209,7 +202,8 @@ syntax (name := split) "split" : tactic
 syntax (name := constructorM) "constructorM" "*"? ppSpace term,* : tactic
 syntax (name := exFalso) "exFalso" : tactic
 syntax (name := injections) "injections " (" with " (colGt (ident <|> "_"))+)? : tactic
-syntax simpArg := simpErase <|> ("← "? simpLemma) <|> "*"
+-- syntax simpArg := simpStar <|> simpErase <|> simpLemma
+def simpArg := simpStar.binary `orelse (simpErase.binary `orelse simpLemma)
 syntax (name := simp') "simp'" "*"? ppSpace ("(" &"config" " := " term ")")? (&"only ")?
   ("[" simpArg,* "]")? (" with " ident+)? (location)? : tactic
 syntax (name := simpIntro) "simpIntro " ("(" &"config" " := " term ")")?

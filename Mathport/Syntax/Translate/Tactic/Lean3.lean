@@ -334,56 +334,29 @@ where
     if f a == f b then args else
       args.push do `(Parser.Term.structInstField| $(mkIdent n):ident := $(Quote.quote (f a)))
 
-inductive SimpArgStx
-| erase (stx : Syntax)
-| expr (e : Syntax)
-| symmExpr (e : Syntax)
-
 def trSimpLemma (e : AST3.Expr) : M Syntax := do
   mkNode ``Parser.Tactic.simpLemma #[mkNullNode, ← trExpr e]
 
 def mkConfigStx (stx : Option Syntax) : Syntax :=
   mkOptionalNode' stx fun stx => #[mkAtom "(", mkAtom "config", mkAtom ":=", stx, mkAtom ")"]
 
-def trSimpArgs (hs : Array Parser.SimpArg) : M (Array SimpArgStx × Bool) :=
-  hs.foldlM (init := (#[], false)) fun
-  | (hs, all), SimpArg.allHyps => (hs, true)
-  | (hs, all), SimpArg.symmExpr e => do
-    (hs.push $ SimpArgStx.symmExpr (← trSimpLemma e), all)
-  | (hs, all), SimpArg.expr e => do
-    (hs.push $ SimpArgStx.expr (← trSimpLemma e), all)
-  | (hs, all), SimpArg.except e => do
-    let stx := mkNode ``Parser.Tactic.simpErase #[mkAtom "-", ← mkIdentI e]
-    (hs.push $ SimpArgStx.erase stx, all)
+def trSimpArg : Parser.SimpArg → M Syntax
+  | SimpArg.allHyps => mkNode ``Parser.Tactic.simpStar #[mkAtom "*"]
+  | SimpArg.expr sym e => do
+    mkNode ``Parser.Tactic.simpLemma #[mkNullNode,
+      mkNullNode (if sym then #[mkAtom "←"] else #[]), ← trExpr e]
+  | SimpArg.except e => do
+    mkNode ``Parser.Tactic.simpErase #[mkAtom "-", ← mkIdentI e]
 
-def trSimpArgStx : SimpArgStx → OptionM Syntax
-  | SimpArgStx.symmExpr e => failure
-  | SimpArgStx.expr e => e
-  | SimpArgStx.erase e => e
+def trSimpArgs (hs : Array Parser.SimpArg) : M (Array Syntax) := hs.mapM trSimpArg
 
-def trSimpArgStx' (arg : SimpArgStx) : Syntax :=
-  mkNode ``Parser.Tactic.simpArg $ match arg with
-  | SimpArgStx.symmExpr e => #[mkNullNode #[mkAtom "←"], e]
-  | SimpArgStx.expr e => #[mkNullNode, e]
-  | SimpArgStx.erase e => #[e]
-
-def trSimpArgs' (hs : Array Parser.SimpArg) : OptionT M (Array Syntax × Bool) :=
-  hs.foldlM (init := (#[], false)) fun
-  | (hs, all), SimpArg.allHyps => (hs, true)
-  | (hs, all), SimpArg.symmExpr e => failure
-  | (hs, all), SimpArg.expr e => do
-    (hs.push $ mkNode ``Parser.Tactic.simpLemma #[mkNullNode, ← trExpr e], all)
-  | (hs, all), SimpArg.except e => do
-    (hs.push $ mkNode ``Parser.Tactic.simpErase #[mkAtom "-", ← mkIdentI e], all)
+def filterSimpStar (hs : Array Syntax) : M (Array Syntax × Bool) :=
+  hs.foldlM (init := (#[], false)) fun (out, all) stx =>
+    if stx.isOfKind ``Parser.Tactic.simpStar then (out, true) else (out.push stx, all)
 
 def trSimpList : Array Syntax → Syntax
   | #[] => mkNullNode
   | hs => mkNullNode #[mkAtom "[", (mkAtom ",").mkSep hs, mkAtom "]"]
-
-def trSimpStxList (hs : Array SimpArgStx) (all : Bool) : Syntax := do
-  let mut hs := hs.map trSimpArgStx'
-  if all then hs := hs.push $ mkNode ``Parser.Tactic.simpArg #[mkAtom "*"]
-  trSimpList hs
 
 def trSimpAttrs (attrs : Array Name) : Syntax :=
   mkNullNode $ match attrs with
@@ -396,20 +369,20 @@ def trSimpAttrs (attrs : Array Name) : Syntax :=
   let trace ← parse (tk "?")?
   if trace.isSome then dbg_trace "warning: unsupported simp config option: trace_lemmas"
   let o := if ← parse onlyFlag then mkNullNode #[mkAtom "only"] else mkNullNode
-  let (hs, all) ← trSimpArgs (← parse simpArgList)
+  let (hs, all) ← filterSimpStar (← trSimpArgs (← parse simpArgList))
+  let hs := trSimpList hs
   let attrs := (← parse (tk "with" *> ident*)?).getD #[]
   let loc ← parse location
   let cfg := mkConfigStx $ parseSimpConfig (← expr?) |>.bind quoteSimpConfig
-  match (hs.mapM trSimpArgStx).run, attrs, all, loc with
-  | some hs, #[], true, Location.wildcard =>
-    mkNode ``Parser.Tactic.simpAll #[mkAtom "simp_all", cfg, o, trSimpList hs]
-  | some hs, #[], false, _ =>
-    mkNode ``Parser.Tactic.simp #[mkAtom "simp",
-      cfg, o, trSimpList hs, mkOptionalNode $ ← trLoc loc]
-  | _, _, _, _ =>
+  let simpAll := match all, loc with | true, Location.wildcard => true | _, _ => false
+  match simpAll, attrs with
+  | true, #[] => mkNode ``Parser.Tactic.simpAll #[mkAtom "simp_all", cfg, o, hs]
+  | false, #[] =>
+    mkNode ``Parser.Tactic.simp #[mkAtom "simp", cfg, o, hs, mkOptionalNode $ ← trLoc loc]
+  | _, _ =>
     mkNode ``Parser.Tactic.simp' #[mkAtom "simp'",
-      mkNullNode $ match all, loc with | true, Location.wildcard => #[mkAtom "*"] | _, _ => #[],
-      cfg, o, trSimpStxList hs all, trSimpAttrs attrs, mkOptionalNode $ ← trLoc loc]
+      mkNullNode $ if simpAll then #[mkAtom "*"] else #[],
+      cfg, o, hs, trSimpAttrs attrs, mkOptionalNode $ ← trLoc loc]
 
 @[trTactic trace_simp_set] def trTraceSimpSet : TacM Syntax := do
   let o ← parse onlyFlag
@@ -420,21 +393,21 @@ def trSimpAttrs (attrs : Array Name) : Syntax :=
 @[trTactic simp_intros] def trSimpIntros : TacM Syntax := do
   let ids ← parse ident_*
   let o := if ← parse onlyFlag then mkNullNode #[mkAtom "only"] else mkNullNode
-  let (hs, all) ← trSimpArgs (← parse simpArgList)
+  let hs ← trSimpArgs (← parse simpArgList)
   let attrs := (← parse (tk "with" *> ident*)?).getD #[]
   let cfg := mkConfigStx $ parseSimpConfig (← expr?) |>.bind quoteSimpConfig
   let ids := mkNullNode $ ids.map trIdent_
   mkNode ``Parser.Tactic.simpIntro #[mkAtom "simpIntro",
-    cfg, ids, o, trSimpStxList hs all, trSimpAttrs attrs]
+    cfg, ids, o, trSimpList hs, trSimpAttrs attrs]
 
 @[trTactic dsimp] def trDSimp : TacM Syntax := do
   let o := if ← parse onlyFlag then mkNullNode #[mkAtom "only"] else mkNullNode
-  let (hs, all) ← trSimpArgs (← parse simpArgList)
+  let hs ← trSimpArgs (← parse simpArgList)
   let attrs := (← parse (tk "with" *> ident*)?).getD #[]
   let loc := mkOptionalNode $ ← trLoc (← parse location)
   let cfg := mkConfigStx $ parseSimpConfig (← expr?) |>.bind quoteSimpConfig
   mkNode ``Parser.Tactic.dsimp #[mkAtom "dsimp",
-    cfg, o, trSimpStxList hs all, trSimpAttrs attrs, loc]
+    cfg, o, trSimpList hs, trSimpAttrs attrs, loc]
 
 @[trTactic reflexivity refl] def trRefl : TacM Syntax := `(tactic| rfl)
 

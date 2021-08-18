@@ -607,8 +607,9 @@ def trExpr' : Expr → M Syntax
   | Expr.setReplacement e bis => do
     `({$(← trExpr e.kind) | $[$(← trBinders {} bis):bracketedBinder]*})
   | Expr.structInst _ src flds srcs catchall => do
-    let src ← src.mapM fun s => trExpr s.kind
-    let flds := flds ++ srcs.map fun e => (Spanned.dummy `__, e)
+    let srcs := match src with | none => srcs | some src => #[src] ++ srcs
+    let srcs : Array _ ← srcs.mapM fun s => trExpr s.kind
+    let srcs := if srcs.isEmpty then none else some srcs
     let flds ← flds.mapM fun (⟨_, _, lhs⟩, ⟨_, _, rhs⟩) => do
       if (match rhs with | Expr.ident rhs => rhs == lhs | _ => false : Bool) then
         `(Parser.Term.structInstFieldAbbrev| $(← mkIdentF lhs):ident)
@@ -616,11 +617,11 @@ def trExpr' : Expr → M Syntax
         `(Parser.Term.structInstField| $(← mkIdentF lhs):ident := $(← trExpr rhs))
     -- TODO(Mario): formatter has trouble if you omit the commas
     if catchall then
-      `({ $[$src with]? $[$flds:structInstField, ]* .. })
+      `({ $[$srcs,* with]? $[$flds:structInstField, ]* .. })
     else if let some last := flds.back? then
-      `({ $[$src with]? $[$(flds.pop):structInstField, ]* $last:structInstField })
+      `({ $[$srcs,* with]? $[$(flds.pop):structInstField, ]* $last:structInstField })
     else
-      `({ $[$src with]? })
+      `({ $[$srcs,* with]? })
   | Expr.atPat lhs rhs => do `($(mkIdent lhs.kind)@ $(← trExpr rhs.kind))
   | Expr.notation n args => trNotation n args
   | Expr.userNotation n args => do
@@ -1080,7 +1081,7 @@ def trInductiveCmd : InductiveCmd → M Unit
 def trCommand' : Command → M Unit
   | Command.initQuotient => pushM `(init_quot)
   | Command.mdoc doc =>
-    push $ mkNode ``Parser.Command.modDocComment #[mkAtom "/!", mkAtom (doc ++ "-/")]
+    push $ mkNode ``Parser.Command.moduleDoc #[mkAtom "/-!", mkAtom (doc ++ "-/")]
   | Command.«universe» _ _ ns =>
     pushM `(universe $(ns.map fun n => mkIdent n.kind)*)
   | Command.«namespace» n => do

@@ -148,14 +148,13 @@ def case : ParserM (Array (Array BinderName × Array BinderName)) := maybeListOf
 inductive SimpArg
 | allHyps
 | except (n : Name)
-| expr (e : Expr)
-| symmExpr (e : Expr)
+| expr (sym : Bool) (e : Expr)
 
 def simpArg : ParserM SimpArg :=
   (tk "*" *> SimpArg.allHyps) <|>
   (tk "-" *> do SimpArg.except (← ident)) <|>
-  (tk "<-" *> do SimpArg.symmExpr (← pExpr)) <|>
-  do SimpArg.expr (← pExpr)
+  (tk "<-" *> do SimpArg.expr true (← pExpr)) <|>
+  do SimpArg.expr false (← pExpr)
 
 def simpArgList : ParserM (Array SimpArg) :=
   (tk "*" *> #[SimpArg.allHyps]) <|> listOf simpArg <|> pure #[]
