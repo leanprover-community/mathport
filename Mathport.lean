@@ -86,7 +86,10 @@ def mathport (config : Config) (paths : Array Path) : IO Unit := do
 
 end Mathport
 
-open Mathport
+open Mathport Lean
+
+elab "leanDir!" : term => do
+  Elab.Term.elabTerm (Syntax.mkStrLit (← getLibDir).toString) none
 
 unsafe def main (args : List String) : IO Unit := do
   match args with
@@ -94,8 +97,10 @@ unsafe def main (args : List String) : IO Unit := do
     let config ← parseJsonFile Config pathToConfig
     let paths ← parsePaths pmod3s
     println! "[paths] {repr paths}"
-    let some LEAN_PATH ← IO.getEnv "LEAN_PATH" | throw (IO.userError "LEAN_PATH not set")
-    Lean.initSearchPath LEAN_PATH
+    let path := match ← IO.getEnv "LEAN_PATH" with
+    | none => []
+    | some path => System.SearchPath.parse path
+    searchPathRef.set (leanDir! :: "build" :: path)
     mathport config paths.toArray
 
   | _ => throw $ IO.userError "usage: mathport <path-to-config> [pkg::mod3]+"
