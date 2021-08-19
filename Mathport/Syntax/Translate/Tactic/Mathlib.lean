@@ -258,7 +258,7 @@ def trExtParams : Array (Bool × ExtParam) → M Syntax
   parse () *> `(attr| interactive)
 
 @[trUserCmd «setup_tactic_parser»] def trSetupTacticParser : TacM Syntax :=
-  parse () *> `(command| setup_tactic_parser)
+  parse emittedCodeHere *> `(command| setup_tactic_parser)
 
 def trInterpolatedStr' := trInterpolatedStr fun stx => `(← $stx)
 
@@ -650,14 +650,23 @@ def trUsingList (args : Array AST3.Expr) : M Syntax :=
 -- # tactic.lift
 
 -- # tactic.localized
+
 @[trUserCmd «open_locale»] def trOpenLocale : TacM Syntax := do
-  parse () *> throw! "unsupported user command open_locale"
-@[trUserCmd «localized»] def trLocalized : TacM Syntax := do
-  parse () *> throw! "unsupported user command localized"
+  `(command| open_locale $(← liftM $ (← parse (ident* <* skipAll)).mapM mkIdentN)*)
+
+@[trUserCmd «localized»] def trLocalized : TacM Unit := do
+  let (#[cmd], loc) ← parse $ do (← pExpr *> emittedCodeHere, ← tk "in" *> ident)
+    | throw! "unsupported: multiple localized"
+  let loc ← mkIdentN loc
+  let pushL stx := pushM `(command| localized [$loc] $stx)
+  let cmd ← match cmd with
+  | Command.attribute true mods attrs ns => trAttributeCmd false attrs ns pushL
+  | Command.notation (true, res) attrs n => trNotationCmd (false, res) attrs n pushL
+  | _ => throw! "unsupported: unusual localized"
 
 -- # tactic.mk_iff_of_inductive_prop
 @[trUserCmd «mk_iff_of_inductive_prop»] def trMkIffOfInductiveProp : TacM Syntax := do
-  let (i, r) ← parse (do (← ident, ← ident))
+  let (i, r) ← parse $ do (← ident, ← ident)
   `(command| mk_iff_of_inductive_prop $(← mkIdentI i) $(← mkIdentI r))
 
 @[trUserAttr mk_iff] def trMkIffAttr : TacM Syntax := do
@@ -929,7 +938,7 @@ def trSimpsRule : Sum (Name × Name) Name × Bool → M Syntax
   throw! "unsupported tactic unify_equations" -- unattested
 
 -- # tactic.where
-@[trUserCmd «#where»] def trWhereCmd : TacM Syntax := `(command| #where)
+@[trUserCmd «#where»] def trWhereCmd : TacM Syntax := parse skipAll *> `(command| #where)
 
 -- # tactic.norm_num
 @[trUserAttr norm_num] def trNormNumAttr := tagAttr `normNum

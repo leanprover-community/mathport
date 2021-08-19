@@ -67,7 +67,6 @@ def elabOmitCmd : CommandElab := fun _ => pure ()
 
 open Meta in
 unsafe def elabRunCmdUnsafe : CommandElab := fun stx => do
-  let name := stx[1].getOptional?
   let e ← `((do $(stx[1]) : CoreM Unit))
   let n := `_runCmd
   runTermElabM (some n) fun _ => do
@@ -644,6 +643,9 @@ syntax (name := aliasLR) "alias " ident " ↔ " (".." <|> (binderIdent binderIde
 syntax (name := explode) "#explode " ident : command
 
 syntax (name := find) "#find " term : command
+
+syntax (name := open_locale) "open_locale " ident* : command
+syntax (name := localized) "localized " "[" ident "] " command : command
 
 syntax (name := listUnusedDecls) "#list_unused_decls" : command
 syntax (name := mkIffOfInductiveProp) "mk_iff_of_inductive_prop" ident ident : command

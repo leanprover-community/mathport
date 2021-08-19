@@ -44,7 +44,7 @@ structure State where
   tactics : NameMap (Array (Spanned AST3.Param) → CommandElabM Syntax) := {}
   userNotas : NameMap (Array (Spanned AST3.Param) → CommandElabM Syntax) := {}
   userAttrs : NameMap (Array (Spanned AST3.Param) → CommandElabM Syntax) := {}
-  userCmds : NameMap (AST3.Modifiers → Array (Spanned AST3.Param) → CommandElabM Syntax) := {}
+  userCmds : NameMap (AST3.Modifiers → Array (Spanned AST3.Param) → CommandElabM Unit) := {}
   deriving Inhabited
 
 def NotationEntries.insert (m : NotationEntries) : NotationData → NotationEntries
@@ -1052,7 +1052,8 @@ private def trNotation3 (kind : Syntax) (prio p : Option Syntax)
   pure fun n e => `(command|
     $kind:attrKind notation3$[:$p]? $[$n:namedName]? $[$prio:namedPrio]? $lits* => $e)
 
-def trNotationCmd (loc : LocalReserve) (attrs : Attributes) (nota : Notation) : M Unit := do
+def trNotationCmd (loc : LocalReserve) (attrs : Attributes) (nota : Notation)
+  (f : Syntax → M Unit) : M Unit := do
   let (s, attrs) := (← trAttributes attrs false AttributeKind.global |>.run ({}, #[])).2
   unless s.derive.isEmpty do throw! "unsupported: @[derive] notation"
   unless attrs.isEmpty do throw! "unsupported (impossible)"
@@ -1098,7 +1099,7 @@ def trNotationCmd (loc : LocalReserve) (attrs : Attributes) (nota : Notation) : 
     try elabCommand $ cmd (some nn) e
     catch e => dbg_trace "warning: failed to add syntax {repr n4}: {← e.toMessageData.toString}"
     pure $ (← getCurrNamespace) ++ n4
-  push $ cmd none e
+  f $ cmd none e
   registerNotationEntry ⟨n, n4, desc⟩
 
 end
@@ -1109,6 +1110,17 @@ def trInductiveCmd : InductiveCmd → M Unit
   | InductiveCmd.mutual cl mods us bis nota inds =>
     trMutual inds fun ⟨attrs, n, ty, intros⟩ => do
       trInductive cl mods n us bis ty nota intros
+
+def trAttributeCmd (loc : Bool) (attrs : Attributes) (ns : Array (Spanned Name))
+  (f : Syntax → M Unit) : M Unit := do
+  if ns.isEmpty then return ()
+  let kind := if loc then AttributeKind.local else AttributeKind.global
+  let (s, attrs) := (← trAttributes attrs true kind |>.run ({}, #[])).2
+  let ns ← ns.mapM fun n => mkIdentI n.kind
+  unless s.derive.isEmpty do
+    f $ ← `(command| deriving instance $[$(s.derive.map mkIdent):ident],* for $ns,*)
+  unless attrs.isEmpty do
+    f $ ← `(command| attribute [$attrs,*] $ns*)
 
 def trCommand' : Command → M Unit
   | Command.initQuotient => pushM `(init_quot)
@@ -1143,17 +1155,9 @@ def trCommand' : Command → M Unit
   | Command.inductive ind => trInductiveCmd ind
   | Command.structure cl mods n us bis exts ty m flds =>
     trStructure cl mods n us bis exts ty m flds
-  | Command.attribute loc _ attrs ns => do
-    if ns.isEmpty then return ()
-    let kind := if loc then AttributeKind.local else AttributeKind.global
-    let (s, attrs) := (← trAttributes attrs true kind |>.run ({}, #[])).2
-    let ns ← ns.mapM fun n => mkIdentI n.kind
-    unless s.derive.isEmpty do
-      pushM `(command| deriving instance $[$(s.derive.map mkIdent):ident],* for $ns,*)
-    unless attrs.isEmpty do
-      pushM `(command| attribute [$attrs,*] $ns*)
+  | Command.attribute loc _ attrs ns => trAttributeCmd loc attrs ns push
   | Command.precedence sym prec => do dbg_trace "warning: unsupported: precedence command"
-  | Command.notation loc attrs n => trNotationCmd loc attrs n
+  | Command.notation loc attrs n => trNotationCmd loc attrs n push
   | Command.open true ops => ops.forM trExportCmd
   | Command.open false ops => trOpenCmd ops
   | Command.include true ops => unless ops.isEmpty do
@@ -1195,5 +1199,5 @@ def trCommand' : Command → M Unit
   | Command.print _ => throw! "unsupported: advanced #print"
   | Command.userCommand n mods args => do
     match (← get).userCmds.find? n with
-    | some f => try pushM (f mods args) catch e => throw! "in {n}: {← e.toMessageData.toString}"
+    | some f => try f mods args catch e => throw! "in {n}: {← e.toMessageData.toString}"
     | none => throw! "unsupported user command {n}"

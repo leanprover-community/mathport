@@ -23,8 +23,8 @@ def mkTacMap (l : Array (Name × TacM Syntax)) :
     tacs := tacs.insert n $ ← fun c s => pure fun a => tac.run a c s
   pure tacs
 
-def mkCmdMap (l : Array (Name × (Modifiers → TacM Syntax))) :
-  M (NameMap (Modifiers → Array (Spanned AST3.Param) → CommandElabM Syntax)) := do
+def mkCmdMap (l : Array (Name × (Modifiers → TacM Unit))) :
+  M (NameMap (Modifiers → Array (Spanned AST3.Param) → CommandElabM Unit)) := do
   let mut tacs := {}
   for (n, tac) in l do
     tacs := tacs.insert n $ ← fun c s => pure fun mod a => (tac mod).run a c s

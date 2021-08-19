@@ -21,11 +21,13 @@ def synport1 (config : Config) (path : Path) : CommandElabM Unit := do
 open Lean Lean.Elab Lean.Elab.Term Lean.Elab.Tactic
 open Lean.Parser Lean.PrettyPrinter
 
--- #eval show CoreM Unit from do
+-- #eval show CoreM Unit from do if false then
+--   initSearchPath s!"{← Lean.getLibDir}:./Lib4:build"
 --   let pcfg : Path.Config := { outRoot := "", packages := {} }
+--   let mods := [`Mathlib.Tactic.Localized]
 --   -- let s ← IO.FS.readFile "/home/mario/Documents/lean/lean/library/test.ast.json"
---   let s ← IO.FS.readFile "/home/mario/Documents/lean/mathport/PreData/Lean3/init/data/nat/bitwise.ast.json"
---   -- let s ← IO.FS.readFile "/home/mario/Documents/lean/mathport/PreData/Mathlib3/ring_theory/nullstellensatz.ast.json"
+--   -- let s ← IO.FS.readFile "/home/mario/Documents/lean/mathport/PreData/Lean3/init/data/int/order.ast.json"
+--   let s ← IO.FS.readFile "/home/mario/Documents/lean/mathport/PreData/Mathlib/tactic/localized.ast.json"
 --   let json ← Json.parse s
 --   let raw@⟨ast, file, level, expr⟩ ← fromJson? json (α := Parse.RawAST3)
 --   let ⟨prel, imp, commands, inot, icmd⟩ ← raw.toAST3
@@ -33,10 +35,12 @@ open Lean.Parser Lean.PrettyPrinter
 --   let expr := Parse.buildExprs level expr
 --   let commands := ast[ast[file].get!.children'[2]].get!.children'
 --   let cmdCtx := { fileName := "<input>", fileMap := dummyFileMap }
+--   let env ← getEnv
+--   withImportModulesConst (mods.map fun n => { module := n : Import }) {} 0 $ λ env => do
 --   let mut opts : Options := {}
 --   -- opts := opts.setBool `trace.PrettyPrinter.parenthesize true
 --   -- opts := opts.setBool `trace.PrettyPrinter.format true
---   let s := Elab.Command.mkState (← getEnv) {} opts
+--   let s := Elab.Command.mkState env {} opts
 --   let mut i := 0
 --   for c in commands[i:] do
 --     println! "cmd[{i}]"; i := i + 1

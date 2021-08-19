@@ -42,12 +42,26 @@ def pExpr : (pat :_:= false) → ParserM Expr
 
 def itactic : ParserM AST3.Block := do let VMCall.block bl ← next | failure; bl
 
+def commandLike? : ParserM (Option AST3.Command) := do
+  let VMCall.command i ← next | failure; i.mapM fun i => do (← read).cmds[i]
+
 def commandLike : ParserM AST3.Command := do
-  let VMCall.command (some i) ← next | failure; (← read).cmds[i]
+  let some i ← commandLike? | failure; i
+
+def skipAll : ParserM Unit := do set (← read).arr.size
 
 def withInput (p : ParserM α) : ParserM (α × Nat) := do
   let VMCall.withInput arr n ← next | failure
   fun c i => do ((← p { c with arr } |>.run' 0, n), i)
+
+def emittedCommandHere : ParserM (Option Command) := do (← withInput commandLike?).1
+
+partial def emittedCodeHere : ParserM (Array Command) := aux #[]
+where
+  aux (out : Array Command) : ParserM (Array Command) := do
+    match ← emittedCommandHere <|> pure none with
+    | none => out
+    | some c => aux (out.push c)
 
 def tk (tk : String) : ParserM Unit := do
   let VMCall.token t ← next | failure

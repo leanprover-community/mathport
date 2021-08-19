@@ -57,20 +57,21 @@ def itactic : TacM AST3.Block := do
   let Param.block bl ← next! | throw! "expecting tactic arg"
   bl
 
-def withNoMods (tac : TacM Syntax) : Modifiers → TacM Syntax
+def withNoMods (tac : TacM α) : Modifiers → TacM α
   | #[] => tac
   | _ => throw! "expecting no modifiers"
 
 def tagAttr (n : Name) : TacM Syntax := parse () *> mkSimpleAttr n
 
-scoped instance : Coe (TacM Syntax) (Modifiers → TacM Syntax) := ⟨withNoMods⟩
+scoped instance : Coe (TacM α) (Modifiers → TacM α) := ⟨withNoMods⟩
 
-def withDocString (tac : Option String → TacM Syntax) : Modifiers → TacM Syntax
+def withDocString (tac : Option String → TacM α) : Modifiers → TacM α
   | #[] => tac none
   | #[⟨_, _, Modifier.doc s⟩] => tac (some s)
   | _ => throw! "unsupported modifiers in user command"
 
-scoped instance : Coe (Option String → TacM Syntax) (Modifiers → TacM Syntax) := ⟨withDocString⟩
+scoped instance : Coe (Option String → TacM α) (Modifiers → TacM α) := ⟨withDocString⟩
+scoped instance : Coe (α → TacM Syntax) (α → TacM Unit) := ⟨fun tac mods => do push (← tac mods)⟩
 
 abbrev NameExt := SimplePersistentEnvExtension (Name × Name) (NameMap Name)
 
