@@ -110,6 +110,7 @@ def predefinedNotations : HashMap String NotationEntry := [
     ("expr∃ , ", binder fun bis e => do `(∃ $bis, $e)),
     ("exprℕ", const do `(ℕ)),
     ("exprℤ", const do `(ℤ)),
+    ("expr‹ ›", unary fun x =>  do `(‹$x›)),
     ("exprdec_trivial", const do `(by decide)),
     ("exprformat! ", unary id),
     ("exprsformat! ", unary id)

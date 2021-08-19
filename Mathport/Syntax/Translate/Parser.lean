@@ -24,6 +24,11 @@ structure Context where
 
 abbrev ParserM := ReaderT Context $ StateT Nat OptionM
 
+def ParserM.run (p : ParserM α) (ctx : Context) : Except String α := do
+  match (p ctx).run 0 with
+  | none => Except.error "parse error"
+  | some (a, i) => if i = ctx.arr.size then Except.ok a else Except.error "too many args"
+
 def next : ParserM VMCall := fun s i =>
   if h : i < s.arr.size then pure ((s.arr.get ⟨i, h⟩).kind, i+1) else failure
 

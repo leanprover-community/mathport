@@ -170,6 +170,7 @@ syntax (name := fapply) "fapply " term : tactic
 syntax (name := eapply) "eapply " term : tactic
 syntax (name := applyWith) "apply " term " with " term : tactic
 syntax (name := mapply) "mapply " term : tactic
+macro "assumption'" : tactic => `(allGoals assumption)
 syntax (name := exacts) "exacts" "[" term,* "]" : tactic
 syntax (name := toExpr') "toExpr' " term : tactic
 

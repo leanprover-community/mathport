@@ -141,6 +141,11 @@ def mkIdentN (n : Name) : M Syntax := do mkIdent (← renameNamespace n)
 def mkIdentF (n : Name) : M Syntax := do mkIdent (← renameField n)
 def mkIdentO (n : Name) : M Syntax := do mkIdent (← renameOption n)
 
+def Parser.ParserM.run' (p : ParserM α) (args : Array (Spanned VMCall)) : M α := do
+  match p.run ⟨(← read).commands, args⟩ with
+  | Except.ok a => a
+  | Except.error e => throw! "unsupported: {e}"
+
 def AST3toData4 : AST3 → M Data4
   | ⟨prel, imp, commands, _, _⟩ => do
     let prel := prel.map fun _ => mkNode ``Parser.Module.prelude #[mkAtom "prelude"]
@@ -640,11 +645,17 @@ def trExpr' : Expr → M Syntax
 def mkSimpleAttr (n : Name) (args : Array Syntax := #[]) :=
   mkNode ``Parser.Attr.simple #[mkIdent n, mkNullNode args]
 
+def trDerive (e : AST3.Expr) : M Name :=
+  match e.unparen with
+  | Expr.ident n => renameIdent n
+  | e => throw! "unsupported derive handler {repr e}"
+
 inductive TrAttr
   | del : Syntax → TrAttr
   | add : Syntax → TrAttr
   | prio : Expr → TrAttr
   | parsingOnly : TrAttr
+  | derive : Array Name → TrAttr
 
 def trAttr (prio : Option Expr) : Attribute → M (Option TrAttr)
   | Attribute.priority n => TrAttr.prio n.kind
@@ -683,6 +694,8 @@ def trAttr (prio : Option Expr) : Attribute → M (Option TrAttr)
     | `elab_simple,   none => mkSimpleAttr `elabWithoutExpectedType
     | `vm_override,   some ⟨_, _, AttrArg.vmOverride n none⟩ =>
       mkSimpleAttr `implementedBy #[← mkIdentI n.kind]
+    | `derive,        some ⟨_, _, AttrArg.user _ args⟩ =>
+      return TrAttr.derive $ ← (← Parser.pExprListOrTExpr.run' args).mapM trDerive
     | _, none => mkSimpleAttr (← renameAttr n)
     | _, some ⟨_, _, AttrArg.user e args⟩ =>
       match (← get).userAttrs.find? n with
@@ -703,6 +716,7 @@ def trAttrKind : AttributeKind → M Syntax
 structure SpecialAttrs where
   prio : Option AST3.Expr := none
   parsingOnly := false
+  derive : Array Name := #[]
 
 def AttrState := SpecialAttrs × Array Syntax
 
@@ -717,6 +731,7 @@ def trAttrInstance (attr : Attribute) (allowDel := false)
     modify fun s => { s with 2 := s.2.push stx }
   | some (TrAttr.prio prio) => modify fun s => { s with 1.prio := prio }
   | some TrAttr.parsingOnly => modify fun s => { s with 1.parsingOnly := true }
+  | some (TrAttr.derive ns) => modify fun s => { s with 1.derive := s.1.derive ++ ns }
   | none => pure ()
 
 def trAttributes (attrs : Attributes) (allowDel := false)
@@ -837,12 +852,14 @@ def trDeclSig (req : Bool) (bis : Binders) (ty : Option (Spanned Expr)) : M Synt
 
 def trAxiom (mods : Modifiers) (n : Name)
   (us : LevelDecl) (bis : Binders) (ty : Option (Spanned Expr)) : M Unit := do
-  let (_, mods) ← trModifiers mods
+  let (s, mods) ← trModifiers mods
+  unless s.derive.isEmpty do throw! "unsupported: @[derive] axiom"
   pushM `(command| $mods:declModifiers axiom $(← trDeclId n us) $(← trDeclSig true bis ty))
 
 def trDecl (dk : DeclKind) (mods : Modifiers) (n : Option (Spanned Name)) (us : LevelDecl)
   (bis : Binders) (ty : Option (Spanned Expr)) (val : DeclVal) : M Syntax := do
   let (s, mods) ← trModifiers mods
+  unless s.derive.isEmpty do throw! "unsupported: @[derive] decl"
   let id ← n.mapM fun n => trDeclId n.kind us
   let sig req := trDeclSig req bis ty
   let val ← match val with
@@ -865,10 +882,14 @@ def trInferKind : Option InferKind → M (Option Syntax)
   | some InferKind.none => none
   | none => none
 
+def trOptDeriving : Array Name → M Syntax
+  | #[] => `(Parser.Command.optDeriving|)
+  | ds => `(Parser.Command.optDeriving| deriving $[$(ds.map mkIdent):ident],*)
+
 def trInductive (cl : Bool) (mods : Modifiers) (n : Spanned Name) (us : LevelDecl)
   (bis : Binders) (ty : Option (Spanned Expr))
   (nota : Option Notation) (intros : Array (Spanned Intro)) : M Syntax := do
-  let (prio, mods) ← trModifiers mods
+  let (s, mods) ← trModifiers mods
   let id ← trDeclId n.kind us
   let sig ← trDeclSig false bis ty
   let ctors ← intros.mapM fun ⟨_, _, ⟨doc, name, ik, bis, ty⟩⟩ => do
@@ -877,10 +898,12 @@ def trInductive (cl : Bool) (mods : Modifiers) (n : Spanned Name) (us : LevelDec
       $(← mkIdentI name.kind):ident
       $[$(← trInferKind ik):inferMod]?
       $(← trDeclSig false bis ty):optDeclSig)
-  if cl then
-    `(command| $mods:declModifiers class inductive $id:declId $sig:optDeclSig $[$ctors:ctor]*)
-  else
-    `(command| $mods:declModifiers inductive $id:declId $sig:optDeclSig $[$ctors:ctor]*)
+  let ds ← trOptDeriving s.derive
+  match cl with
+  | true => `(command| $mods:declModifiers class inductive
+    $id:declId $sig:optDeclSig $[$ctors:ctor]* $ds:optDeriving)
+  | false => `(command| $mods:declModifiers inductive
+    $id:declId $sig:optDeclSig $[$ctors:ctor]* $ds:optDeriving)
 
 def trMutual (decls : Array (Mutual α)) (f : Mutual α → M Syntax) : M Unit := do
   pushM `(mutual $(← decls.mapM f)* end)
@@ -911,7 +934,7 @@ def trFields (flds : Array (Spanned Field)) : M Syntax := do
 def trStructure (cl : Bool) (mods : Modifiers) (n : Spanned Name) (us : LevelDecl)
   (bis : Binders) (exts : Array (Spanned Parent)) (ty : Option (Spanned Expr))
   (mk : Option (Spanned Mk)) (flds : Array (Spanned Field)) : M Unit := do
-  let (prio, mods) ← trModifiers mods
+  let (s, mods) ← trModifiers mods
   let id ← trDeclId n.kind us
   let bis := mkNullNode $ ← trBinders {} bis
   let exts ← exts.mapM fun
@@ -928,7 +951,7 @@ def trStructure (cl : Bool) (mods : Modifiers) (n : Spanned Name) (us : LevelDec
     #[mkAtom "where", mkOptionalNode mk, ← trFields flds]
   let decl := mkNode ``Parser.Command.structure #[
     ← if cl then `(Parser.Command.classTk| class) else `(Parser.Command.structureTk| structure),
-    id, bis, exts, ty, flds, ← `(Parser.Command.optDeriving|)]
+    id, bis, exts, ty, flds, ← trOptDeriving s.derive]
   pushM `(command| $mods:declModifiers $decl:structure)
 
 partial def mkUnusedName [Monad m] [MonadResolveName m] [MonadEnv m]
@@ -1031,6 +1054,7 @@ private def trNotation3 (kind : Syntax) (prio p : Option Syntax)
 
 def trNotationCmd (loc : LocalReserve) (attrs : Attributes) (nota : Notation) : M Unit := do
   let (s, attrs) := (← trAttributes attrs false AttributeKind.global |>.run ({}, #[])).2
+  unless s.derive.isEmpty do throw! "unsupported: @[derive] notation"
   unless attrs.isEmpty do throw! "unsupported (impossible)"
   if loc.2 then
     match nota with
@@ -1120,11 +1144,14 @@ def trCommand' : Command → M Unit
   | Command.structure cl mods n us bis exts ty m flds =>
     trStructure cl mods n us bis exts ty m flds
   | Command.attribute loc _ attrs ns => do
+    if ns.isEmpty then return ()
     let kind := if loc then AttributeKind.local else AttributeKind.global
-    let attrs := (← trAttributes attrs true kind |>.run ({}, #[])).2.2
-    if attrs.isEmpty || ns.isEmpty then return ()
+    let (s, attrs) := (← trAttributes attrs true kind |>.run ({}, #[])).2
     let ns ← ns.mapM fun n => mkIdentI n.kind
-    pushM `(command| attribute [$attrs,*] $ns*)
+    unless s.derive.isEmpty do
+      pushM `(command| deriving instance $[$(s.derive.map mkIdent):ident],* for $ns,*)
+    unless attrs.isEmpty do
+      pushM `(command| attribute [$attrs,*] $ns*)
   | Command.precedence sym prec => do dbg_trace "warning: unsupported: precedence command"
   | Command.notation loc attrs n => trNotationCmd loc attrs n
   | Command.open true ops => ops.forM trExportCmd

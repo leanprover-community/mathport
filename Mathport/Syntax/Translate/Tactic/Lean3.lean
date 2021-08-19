@@ -63,7 +63,6 @@ def trRenameArg : Name × Name → M Syntax
 
 @[trTactic assumption] def trAssumption : TacM Syntax := do `(tactic| assumption)
 
-macro "assumption'" : tactic => `(allGoals assumption)
 @[trTactic assumption'] def trAssumption' : TacM Syntax := do `(tactic| assumption')
 
 @[trTactic change] def trChange : TacM Syntax := do

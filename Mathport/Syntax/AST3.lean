@@ -910,7 +910,7 @@ instance : Repr Attribute where reprPrec
   | Attribute.priority e, _ => "priority " ++ Expr_repr e.kind
   | Attribute.del n, _ => ("-":Format) ++ n.toString
   | Attribute.add n arg, _ => n.toString ++
-    (match arg with | none => "" | some arg => repr arg : Format)
+    (match arg with | none => "" | some arg => " " ++ repr arg : Format)
 
 instance : Repr Attributes :=
   ⟨fun attrs _ =>  (Format.joinSep (attrs.toList.map repr) ", ").sbracket⟩

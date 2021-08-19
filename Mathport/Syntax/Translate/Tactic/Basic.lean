@@ -42,9 +42,7 @@ def next! : TacM Param := do
 
 def parse (p : Parser.ParserM α) : TacM α := do
   let Param.parse _ args ← next! | throw! "expecting parse arg"
-  match p ⟨(← readThe Translate.Context).commands, args⟩ |>.run' 0 with
-  | none => throw! "parse error"
-  | some a => a
+  p.run' args
 
 def expr? : TacM (Option AST3.Expr) := do
   match ← next? with
