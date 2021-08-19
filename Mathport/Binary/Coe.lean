@@ -52,10 +52,15 @@ partial def expandCoes (e : Expr) (declName : Name) : MetaM Expr := do
   let e ← betaReduceCoesLifts e declName
   withReducibleAndInstances do
     try
+      withTransparency TransparencyMode.all do
+        withCurrHeartbeats <| withTheReader Core.Context (fun ctx => { ctx with maxHeartbeats := 15000000 }) $
+          Meta.transform e (post := step (shouldReduce := True))
+    catch _ =>
+      println! "[expand.coe] {declName} failed REDUCE-ALL"
       withCurrHeartbeats <| withTheReader Core.Context (fun ctx => { ctx with maxHeartbeats := 15000000 }) $
         Meta.transform e (post := step (shouldReduce := True))
     catch _ =>
-      println! "[expand.coe] {declName} failed REDUCE"
+      println! "[expand.coe] {declName} failed REDUCE-INSTANCES"
       withCurrHeartbeats <| withTheReader Core.Context (fun ctx => { ctx with maxHeartbeats := 15000000 }) $
         Meta.transform e (post := step (shouldReduce := False))
     catch _ =>
@@ -67,29 +72,16 @@ where
     | none => TransformStep.done e
     | some ⟨instPos, indName, projPos⟩ => do
       let args := e.getAppArgs
-      -- TODO: do we really need to try/catch here? Or increase # heartbeats?
       let fn := mkProj indName projPos args[instPos]
-      -- TODO: flags? (explicitOnly := false) (skipProofs := false) (skipTypes := false)
-      -- TODO: different transparency mode Could we get away with TransparencyMode.instances?
       -- TODO: reset heartbeats here?
       -- Note: if we only WHNF, we still end up with instances, e.g. `SetLike.toHasCoeToFun`
       let newFn ← if shouldReduce then reduce fn else whnf fn
 
-      -- TODO: there is a weird idiom in mathlib where `has_coe` becomes inst-implicit arguments
-      -- e.g. fun [inst : has_coe nat int] => ... coe nat int inst ...
-      -- For now we hope it is rare and we replace them based on the concrete types
-      -- TODO: more? many more?
---      if newFn.isFVar && args[0] == mkConst `Nat && args[1] == mkConst `Int then
---        newFn := mkConst `Int.ofNat
-
       let mut newArgs := #[]
       for i in [instPos+1:args.size] do newArgs := newArgs.push args[i]
-      -- TODO: confirm that we need only apply this once in the `coeFn` case
       let e' := (mkAppN newFn newArgs).headBeta
-      -- TODO: pp.maxDepth = <small>?
-      -- println! "[coe.reduce] {← ppExpr fn} ==> {← ppExpr newFn}"
-      -- println! "[coe] {← ppExpr e} ==> {← ppExpr e'}"
-      TransformStep.done e'
+      -- Note: the reduction may have exposed more coeFns!
+      TransformStep.visit e'
 
 -- We need to traverse `type` and `val` simultaneously because we are
 -- moving information from the val to the type.
