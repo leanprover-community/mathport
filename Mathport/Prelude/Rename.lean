@@ -45,7 +45,7 @@ syntax (name := lookup3) "#lookup3 " ident : command
     let n3 := id3.getId
     match getRenameMap (← getEnv) |>.find? n3 with
     | none    => logInfoAt tk s!"name `{n3} not found"
-    | some n4 => logInfoAt tk s!"`{n3} ==> `{n4}"
+    | some n4 => logInfoAt tk s!"{n4}"
   | _ => throwUnsupportedSyntax
 
 end Mathlib.Prelude.Rename
