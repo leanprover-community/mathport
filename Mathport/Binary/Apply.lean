@@ -138,6 +138,10 @@ try
 catch ex => warn ex
 
 def applySimpLemma (n : Name) (prio : Nat) : BinportM Unit := do
+  -- TODO: remove these once https://github.com/leanprover-community/mathlib/pull/8738 (+ friends) are merged
+  let badSimps := #[`set.eq_on_empty, `punit.eq_punit, `list.cons_injective, `list.length_injective, `list.reverse_injective]
+  if badSimps.contains n then return ()
+
   tryAddSimpLemma (← lookupNameExt! n) prio
   for eqn in (← get).name2equations.findD n [] do
     tryAddSimpLemma (← lookupNameExt! eqn) prio
