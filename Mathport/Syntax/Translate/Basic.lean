@@ -303,8 +303,8 @@ mutual
         else lhs
       build 1 (← trTactic tacs[0].kind)
     | Tactic.«<|>» tacs, TacticContext.one => do
-      let tacs ← tacs.mapM fun tac => trTactic tac.kind
-      `(tactic| first $[| $tacs]*)
+      let tacs ← tacs.mapM fun tac => trTactic tac.kind TacticContext.seq
+      `(tactic| first $[| $tacs:tacticSeq]*)
     | Tactic.«[]» tacs, _ => throw! "unsupported (impossible)"
     | Tactic.exact_shortcut e, TacticContext.one => do `(tactic| exact $(← trExpr e.kind))
     | Tactic.expr e, TacticContext.one => do
