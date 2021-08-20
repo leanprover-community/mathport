@@ -102,13 +102,17 @@ private def mkElab (ext : NameExt) (ty : Lean.Expr) : Elab.Term.TermElabM Lean.E
   Elab.Term.elabTerm (← `(#[$stx,*])) (some ty)
 
 syntax (name := trTactic) "trTactic " ident+ : attr
+syntax (name := trNITactic) "trNITactic " ident+ : attr
 syntax (name := trUserNota) "trUserNota " ident+ : attr
 syntax (name := trUserAttr) "trUserAttr " ident+ : attr
 syntax (name := trUserCmd) "trUserCmd " ident+ : attr
 
 initialize trTacExtension : NameExt ←
   mkExt `Mathport.Translate.Tactic.trTacExtension `trTactic
-    (descr := "lean 3 → 4 tactic translation")
+    (descr := "lean 3 → 4 interactive tactic translation")
+initialize trNITacExtension : NameExt ←
+  mkExt `Mathport.Translate.Tactic.trNITacExtension `trNITactic
+    (descr := "lean 3 → 4 noninteractive tactic translation")
 initialize trUserNotaExtension : NameExt ←
   mkExt `Mathport.Translate.Tactic.trUserNotaExtension `trUserNota
     (descr := "lean 3 → 4 user notation translation")
@@ -120,6 +124,7 @@ initialize trUserCmdExtension : NameExt ←
     (descr := "lean 3 → 4 user attribute translation")
 
 elab "trTactics!" : term <= ty => mkElab trTacExtension ty
+elab "trNITactics!" : term <= ty => mkElab trNITacExtension ty
 elab "trUserNotas!" : term <= ty => mkElab trUserNotaExtension ty
 elab "trUserAttrs!" : term <= ty => mkElab trUserAttrExtension ty
 elab "trUserCmds!" : term <= ty => mkElab trUserCmdExtension ty

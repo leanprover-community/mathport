@@ -58,6 +58,8 @@ def trRenameArg : Name × Name → M Syntax
 @[trTactic mapply] def trMApply : TacM Syntax := do `(tactic| mapply $(← trExpr (← parse pExpr)))
 
 @[trTactic apply_instance] def trApplyInstance : TacM Syntax := `(tactic| inferInstance)
+@[trNITactic tactic.apply_instance] def trNIApplyInstance (_ : AST3.Expr) : M Syntax :=
+  `(tactic| inferInstance)
 
 @[trTactic refine] def trRefine : TacM Syntax := do `(tactic| refine' $(← trExpr (← parse pExpr)))
 
@@ -408,7 +410,9 @@ def trSimpAttrs (attrs : Array Name) : Syntax :=
   mkNode ``Parser.Tactic.dsimp #[mkAtom "dsimp",
     cfg, o, trSimpList hs, trSimpAttrs attrs, loc]
 
+
 @[trTactic reflexivity refl] def trRefl : TacM Syntax := `(tactic| rfl)
+@[trNITactic tactic.interactive.refl] def trNIRefl (_ : AST3.Expr) : M Syntax := `(tactic| rfl)
 
 @[trTactic symmetry] def trSymmetry : TacM Syntax := `(tactic| symm)
 
@@ -556,12 +560,14 @@ private partial def parseChunks [Repr α] (acc : String) (i : String.Pos)
 
 private partial def getStr : AST3.Expr → M String
   | Expr.string s => s
-  | Expr.notation (Choice.one `«expr ++ ») #[⟨_, _, Arg.expr s1⟩, ⟨_, _, Arg.expr s2⟩] => do
-    pure $ (← getStr s1) ++ (← getStr s2)
+  | Expr.notation n #[⟨_, _, Arg.expr s1⟩, ⟨_, _, Arg.expr s2⟩] => do
+    if n.name == `«expr ++ » then
+      pure $ (← getStr s1.unparen) ++ (← getStr s2.unparen)
+    else throw! "unsupported"
   | _ => throw! "unsupported"
 
 def trInterpolatedStr (f : Syntax → TacM Syntax := pure) : TacM Syntax := do
-  let s ← getStr (← expr!)
+  let s ← getStr (← expr!).unparen
   let chunks ← parse $ parseChunks s pExpr "\"" 0 #[]
   mkNode interpolatedStrKind $ ← chunks.mapM fun
     | Sum.inl s => pure $ Syntax.mkLit interpolatedStrLitKind s
@@ -571,3 +577,6 @@ end
 
 @[trUserNota format_macro] def trFormatMacro : TacM Syntax := do `(f! $(← trInterpolatedStr))
 @[trUserNota sformat_macro] def trSFormatMacro : TacM Syntax := do `(s! $(← trInterpolatedStr))
+
+@[trNITactic control_laws_tac] def trControlLawsTac (_ : AST3.Expr) : M Syntax :=
+  `(tactic| (intros; rfl))

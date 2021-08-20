@@ -126,22 +126,20 @@ def rwRule : ParserM RwRule := do
 def rwRules : ParserM (Array RwRule) := maybeListOf rwRule
 
 def generalizeArg : ParserM (Expr × Name) := do
-  let AST3.Expr.notation (Choice.one `«expr = ») #[⟨_, _, Arg.expr lhs⟩, ⟨_, _, Arg.expr rhs⟩]
-    ← (← pExpr).unparen | failure
+  let AST3.Expr.notation n args ← (← pExpr).unparen | failure
+  let (`«expr = », #[⟨_, _, Arg.expr lhs⟩, ⟨_, _, Arg.expr rhs⟩]) ← (n.name, args) | failure
   let AST3.Expr.ident x ← rhs.unparen | failure
   (lhs, x)
 
 def hGeneralizeArg : ParserM (Expr × Name) := do
-  let AST3.Expr.notation (Choice.one `«expr == ») #[⟨_, _, Arg.expr lhs⟩, ⟨_, _, Arg.expr rhs⟩]
-    ← (← pExpr).unparen | failure
+  let AST3.Expr.notation n args ← (← pExpr).unparen | failure
+  let (`«expr == », #[⟨_, _, Arg.expr lhs⟩, ⟨_, _, Arg.expr rhs⟩]) ← (n.name, args) | failure
   let AST3.Expr.ident x ← rhs.unparen | failure
   (lhs, x)
 
 def generalizesArgEq (e : AST3.Expr) : ParserM (Expr × Name) := do
-  let args ← match e.unparen with
-  | AST3.Expr.notation (Choice.one `«expr = ») args => args
-  | AST3.Expr.notation (Choice.one `«expr == ») args => args
-  | _ => failure
+  let AST3.Expr.notation n args ← e.unparen | failure
+  match n.name with | `«expr = » => () | `«expr == » => () | _ => failure
   let #[⟨_, _, Arg.expr lhs⟩, ⟨_, _, Arg.expr rhs⟩] ← args | failure
   let AST3.Expr.ident x ← rhs.unparen | failure
   (lhs, x)
@@ -243,7 +241,6 @@ def rcasesArgs : ParserM RCasesArgs := do
 inductive RIntroPat : Type
   | one : RCasesPat → RIntroPat
   | binder : Array RIntroPat → Option AST3.Expr → RIntroPat
-  | pat : RCasesPat → Option AST3.Expr → RIntroPat
   deriving Inhabited
 
 mutual
@@ -252,12 +249,14 @@ partial def rintroPatHi : ParserM RIntroPat :=
   brackets "(" ")" rintroPat <|> RIntroPat.one <$> rcasesPat true
 
 partial def rintroPat : ParserM RIntroPat := do
-  let f ← match ← rintroPatHi* with
+  match ← rintroPatHi* with
   | #[] => failure
   | #[RIntroPat.one pat] => do
-    RIntroPat.pat $ RCasesPat.alts' (← rcasesPatListRest #[pat])
-  | pats => RIntroPat.binder pats
-  f $ ← (tk ":" *> pExpr)?
+    let pat1 := RCasesPat.alts' (← rcasesPatListRest #[pat])
+    match ← (tk ":" *> pExpr)? with
+    | none => RIntroPat.one pat1
+    | some e => RIntroPat.one $ pat1.typed e
+  | pats => RIntroPat.binder pats $ ← (tk ":" *> pExpr)?
 
 end
 
@@ -297,7 +296,7 @@ inductive ExtParam | arrow | all | ident (n : Name)
 
 def extParam : ParserM (Bool × ExtParam) := do
   ((← (tk "-")?).isSome,
-    ← (brackets "(" ")" (tk "→") *> pure ExtParam.arrow) <|>
+    ← (brackets "(" ")" (tk "->") *> pure ExtParam.arrow) <|>
       (tk "*" *> pure ExtParam.all) <|>
       (ExtParam.ident <$> ident))
 
@@ -305,7 +304,7 @@ def extParams : ParserM (Array (Bool × ExtParam)) :=
   (do #[← extParam]) <|> listOf extParam <|> pure #[]
 
 def simpsRule : ParserM (Sum (Name × Name) Name × Bool) := do
-  (← (do Sum.inl (← ident, ← tk "→" *> ident)) <|>
+  (← (do Sum.inl (← ident, ← tk "->" *> ident)) <|>
      (do Sum.inr (← tk "-" *> ident)),
    (← (tk "as_prefix")?).isSome)
 

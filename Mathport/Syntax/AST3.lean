@@ -226,6 +226,11 @@ inductive Choice
   | many : Array Name → Choice
   deriving Inhabited
 
+def Choice.name : Choice → Name
+  | Choice.one n => n
+  | Choice.many #[n] => n
+  | _ => arbitrary
+
 instance : Repr Choice where
   reprPrec
   | Choice.one n, _ => n.toString

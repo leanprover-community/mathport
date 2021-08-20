@@ -41,6 +41,7 @@ structure State where
   current : Scope := {}
   scopes : Array Scope := #[]
   simpSets : NameSet := predefinedSimpSets
+  niTactics : NameMap (AST3.Expr → CommandElabM Syntax) := {}
   tactics : NameMap (Array (Spanned AST3.Param) → CommandElabM Syntax) := {}
   userNotas : NameMap (Array (Spanned AST3.Param) → CommandElabM Syntax) := {}
   userAttrs : NameMap (Array (Spanned AST3.Param) → CommandElabM Syntax) := {}
@@ -255,6 +256,10 @@ partial def trPrecExpr : Expr → M Precedence
   | Expr.paren e => trPrecExpr e.kind -- do `(prec| ($(← trPrecExpr e.kind)))
   | Expr.ident `max => Precedence.max
   | Expr.ident `std.prec.max_plus => Precedence.maxPlus
+  | Expr.notation (Choice.one `«expr + ») #[
+      ⟨_, _, Arg.expr (Expr.ident `max)⟩,
+      ⟨_, _, Arg.expr (Expr.nat 1)⟩
+    ] => Precedence.maxPlus
   | _ => throw! "unsupported: advanced prec syntax"
 
 def trPrec : AST3.Precedence → M Precedence
@@ -313,12 +318,16 @@ mutual
       | Expr.paren e => head e.kind
       | Expr.app e _ => head e.kind
       | _ => Name.anonymous
-      match head e.kind with
-      | Name.anonymous => throw! "unsupported non-interactive tactic {repr e}"
-        -- match ← trExpr e.kind with
-        -- | `(do $[$els]*) => `(tactic| runTac $[$els:doElem]*)
-        -- | stx => `(tactic| runTac $stx:term)
-      | k => throw! "unsupported non-interactive tactic {k}"
+      match Rename.resolveIdent? (← getEnv) (head e.kind) with
+      | none =>
+        -- throw! "unsupported non-interactive tactic {repr e}"
+        match ← trExpr e.kind with
+        | `(do $[$els]*) => `(tactic| runTac $[$els:doSeqItem]*)
+        | stx => `(tactic| runTac $stx:term)
+      | some n =>
+        match (← get).niTactics.find? n with
+        | some f => try f e.kind catch e => throw! "in {n}: {← e.toMessageData.toString}"
+        | none => throw! "unsupported non-interactive tactic {n}"
     | Tactic.interactive n args, TacticContext.one => do
       match (← get).tactics.find? n with
       | some f => try f args catch e => throw! "in {n}: {← e.toMessageData.toString}"
@@ -589,7 +598,9 @@ def trExpr' : Expr → M Syntax
   | Expr.«`()» false false e => do `(pquote $(← trExpr e.kind))
   | Expr.«`()» true false e => do `(ppquote $(← trExpr e.kind))
   | Expr.«%%» e => do `(%%$(← trExpr e.kind))
-  | Expr.«`[]» tacs => throw! "unsupported (TODO): `[tacs]"
+  | Expr.«`[]» tacs => do
+    dbg_trace "warning: unsupported (TODO): `[tacs]"
+    `(sorry)
   | Expr.«`» false n => Quote.quote n
   | Expr.«`» true n => do `(``$(← mkIdentI n):ident)
   | Expr.«⟨⟩» es => do `(⟨$(← es.mapM fun e => trExpr e.kind),*⟩)
@@ -698,11 +709,12 @@ def trAttr (prio : Option Expr) : Attribute → M (Option TrAttr)
       return TrAttr.derive $ ← (← Parser.pExprListOrTExpr.run' args).mapM trDerive
     | _, none => mkSimpleAttr (← renameAttr n)
     | _, some ⟨_, _, AttrArg.user e args⟩ =>
-      match (← get).userAttrs.find? n with
-      | some f =>
+      match (← get).userAttrs.find? n, args with
+      | some f, _ =>
         try f #[Spanned.dummy (AST3.Param.parse e args)]
         catch e => throw! "in {n}: {← e.toMessageData.toString}"
-      | none => throw! "unsupported user attr {n}"
+      | none, #[] => mkSimpleAttr (← renameAttr n)
+      | none, _ => throw! "unsupported user attr {n}"
     | _, _ =>
       dbg_trace "warning: suppressing unknown attr {n}"
       return none
@@ -1184,7 +1196,9 @@ def trCommand' : Command → M Unit
     | o, OptionVal.nat n => do
       pushM `(command| set_option $(← mkIdentO o) $(Quote.quote n):numLit)
     | o, OptionVal.decimal _ _ => throw! "unsupported: float-valued option"
-  | Command.declareTrace n => throw! "unsupported (TODO): declare_trace"
+  | Command.declareTrace n => do
+    let n ← renameIdent n.kind
+    pushM `(command| initialize registerTraceClass $(Quote.quote n))
   | Command.addKeyEquivalence a b => throw! "unsupported: add_key_equivalence"
   | Command.runCmd e => do let e ← trExpr e.kind; pushM `(run_cmd $e:term)
   | Command.check e => do pushM `(#check $(← trExpr e.kind))

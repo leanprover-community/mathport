@@ -107,7 +107,7 @@ def trLintArgs : (Bool × LintVerbosity) × Bool × Array Name → Syntax
 -- # tactic.doc_commands
 
 @[trUserCmd «copy_doc_string»] def trCopyDocString : TacM Syntax := do
-  let (fr, to_) ← parse $ do (← ident, ← tk "→" *> ident*)
+  let (fr, to_) ← parse $ do (← ident, ← tk "->" *> ident*)
   `(command| copy_doc_string $(← mkIdentI fr) → $(← liftM $ to_.mapM mkIdentI)*)
 
 @[trUserCmd «library_note»] def trLibraryNote (doc : Option String) : TacM Syntax := do
@@ -133,12 +133,8 @@ partial def trRCasesPat : RCasesPat → M Syntax
   | pat => do `(rcasesPat| ($(← trRCasesPatLo pat)))
 
 partial def trRCasesPatMed (pat : RCasesPat) : M Syntax := do
-  let (fst, rest) ← match pat with
-  | RCasesPat.alts pats =>
-      (pats[0], ← pats[1:].toArray.mapM fun pat => do
-        mkNullNode #[mkAtom "|", ← trRCasesPat pat])
-  | pat => (pat, #[])
-  mkNode ``Parser.Tactic.rcasesPatMed #[← trRCasesPat fst, mkNullNode rest]
+  let pats := match pat with | RCasesPat.alts pats => pats | pat => #[pat]
+  mkNode ``Parser.Tactic.rcasesPatMed #[(mkAtom "|").mkSep $ ← pats.mapM trRCasesPat]
 
 partial def trRCasesPatLo (pat : RCasesPat) : M Syntax := do
   let (pat, ty) ← match pat with
@@ -161,19 +157,18 @@ end
     `(tactic| rcases $[$(← es.mapM trExpr):term],* with $(← trRCasesPat pat):rcasesPat)
 
 @[trTactic obtain] def trObtain : TacM Syntax := do
-  let ((pat, tp), vals) ← parse obtainArg
+  let ((pat, ty), vals) ← parse obtainArg
   liftM $ show M _ from do
-    `(tactic| obtain $[$(← pat.mapM trRCasesPat)]? $[: $(← tp.mapM trExpr)]?
-      $[:= $[$(← vals.mapM (·.mapM trExpr))],*]?)
+    mkNode ``Parser.Tactic.obtain #[mkAtom "obtain",
+      mkOptionalNode (← pat.mapM trRCasesPatMed),
+      ← mkOptionalNodeM ty fun ty => do #[mkAtom ":", ← trExpr ty],
+      ← mkOptionalNodeM vals fun vals => do
+        #[mkAtom ":=", (mkAtom ",").mkSep $ ← vals.mapM trExpr]]
 
 partial def trRIntroPat : RIntroPat → M Syntax
   | RIntroPat.one pat => do `(rintroPat| $(← trRCasesPat pat):rcasesPat)
   | RIntroPat.binder pats ty => do
     `(rintroPat| ($[$(← pats.mapM trRIntroPat):rintroPat]* $[: $(← ty.mapM trExpr)]?))
-  | RIntroPat.pat pat ty => do
-    mkNode ``Parser.Tactic.rintroPat.binder #[mkAtom "(", ← trRCasesPatMed pat,
-      ← mkOptionalNodeM ty fun ty => do #[mkAtom ":", ← trExpr ty],
-      mkAtom ")"]
 
 @[trTactic rintro rintros] def trRIntro : TacM Syntax := do
   liftM $ match ← parse rintroArg with
@@ -243,6 +238,9 @@ def trExtParams : Array (Bool × ExtParam) → M Syntax
 
 -- # tactic.core
 
+@[trNITactic tactic.exact_dec_trivial] def trExactDecTrivial (_ : AST3.Expr) : M Syntax :=
+  `(tactic| decide)
+
 @[trTactic fsplit] def trFSplit : TacM Syntax := `(tactic| fsplit)
 
 @[trTactic injections_and_clear] def trInjectionsAndClear : TacM Syntax :=
@@ -250,6 +248,9 @@ def trExtParams : Array (Bool × ExtParam) → M Syntax
 
 @[trUserCmd «run_parser»] def trRunParser : TacM Syntax := do
   throw! "unsupported: run_parser" -- unattested
+
+@[trNITactic tactic.classical] def trNIClassical (_ : AST3.Expr) : M Syntax :=
+  `(tactic| classical)
 
 @[trUserAttr higher_order] def trHigherOrderAttr : TacM Syntax := do
   `(attr| higherOrder $(← liftM $ (← parse (ident)?).mapM mkIdentI)?)
@@ -278,7 +279,7 @@ def trInterpolatedStr' := trInterpolatedStr fun stx => `(← $stx)
 @[trUserCmd «mk_simp_attribute»] def trMkSimpAttribute : TacM Syntax := do
   let (n, d, withList) ← parse $ do (← ident, ← pExpr, ← (tk "with" *> ident*)?)
   let d ← match d.unparen with
-  | AST3.Expr.const _ ⟨_, _, `none⟩ _ => pure $ none
+  | AST3.Expr.ident `none => pure $ none
   | AST3.Expr.string s => pure $ some (Syntax.mkStrLit s)
   | _ => throw! "unsupported: weird string"
   `(command| mk_simp_attribute $(mkIdent n) $[from $(withList.map (·.map mkIdent))*]? $[:= $d]?)
@@ -724,6 +725,8 @@ def trUsingList (args : Array AST3.Expr) : M Syntax :=
 -- # tactic.obviously
 @[trUserAttr obviously] def trObviouslyAttr := tagAttr `obviously
 
+@[trNITactic obviously] def trObviously (_ : AST3.Expr) : M Syntax := `(tactic| obviously)
+
 -- # tactic.pretty_cases
 @[trTactic pretty_cases] def trPrettyCases : TacM Syntax := do
   `(tactic| prettyCases)
@@ -839,7 +842,7 @@ def trSimpsRule : Sum (Name × Name) Name × Bool → M Syntax
   | none => (``Parser.Command.initializeSimpsProjections, "initialize_simps_projections")
   | some _ => (``Parser.Command.initializeSimpsProjections?, "initialize_simps_projections?")
   mkNode tac #[mkAtom s, mkNullNode $ ← liftM (m := M) $ args.mapM fun (n, rules) => do
-    mkNullNode #[← mkIdentF n,
+    mkNode ``Parser.Command.simpsProj #[← mkIdentF n,
       mkNullNode $ ← match rules with
       | #[] => #[]
       | _ => do #[mkAtom "(", (mkAtom ",").mkSep $ ← rules.mapM trSimpsRule, mkAtom ")"]]]
@@ -1041,7 +1044,7 @@ def trRingMode (n : Name) : M Syntax :=
   mkNode ``Parser.Tactic.tfaeHave #[mkAtom "tfaeHave",
     mkOptionalNode' (← parse ((ident)? <* tk ":")) fun h => #[mkIdent h, mkAtom ":"],
     Quote.quote (← parse smallNat),
-    mkAtom (← parse ((tk "→" *> pure "→") <|> (tk "↔" *> pure "↔") <|> (tk "←" *> pure "←"))),
+    mkAtom (← parse ((tk "->" *> pure "→") <|> (tk "↔" *> pure "↔") <|> (tk "←" *> pure "←"))),
     Quote.quote (← parse smallNat)]
 
 @[trTactic tfae_finish] def trTfaeFinish : TacM Syntax := `(tactic| tfaeFinish)
@@ -1117,6 +1120,9 @@ def trRingMode (n : Name) : M Syntax :=
   match ← parse (tk "!")?, (← parse ident*).map mkIdent with
   | none, ns => `(tactic| reassoc $ns*)
   | some _, ns => `(tactic| reassoc! $ns*)
+
+@[trNITactic tactic.derive_reassoc_proof] def trDeriveReassocProof
+  (_ : AST3.Expr) : M Syntax := `(deriveReassocProof)
 
 -- # tactic.slice
 @[trTactic slice_lhs] def trSliceLhs : TacM Syntax := do
@@ -1205,6 +1211,10 @@ def trRingMode (n : Name) : M Syntax :=
   | some _ => `(tactic| rwSearch? $[(config := $cfg)]? [$rw,*])
 
 -- # tactic.pi_instances
+
+@[trNITactic tactic.pi_instance_derive_field] def trPiInstanceDeriveField
+  (_ : AST3.Expr) : M Syntax := `(piInstanceDeriveField)
+
 @[trTactic pi_instance] def trPiInstance : TacM Syntax := `(piInstance)
 
 -- # tactic.tidy
@@ -1235,8 +1245,20 @@ def trRingMode (n : Name) : M Syntax :=
   `(attr| ancestor $(← liftM $ (← parse ident*).mapM mkIdentI)*)
 
 -- # tactic.elementwise
+
 @[trUserAttr elementwise] def trElementwiseAttr : TacM Syntax := do
   `(attr| elementwise $(← liftM $ (← parse (ident)?).mapM mkIdentI)?)
+
+@[trTactic elementwise] def trElementwise : TacM Syntax := do
+  match ← parse (tk "!")?, (← parse ident*).map mkIdent with
+  | none, ns => `(tactic| elementwise $ns*)
+  | some _, ns => `(tactic| elementwise! $ns*)
+
+@[trNITactic tactic.derive_elementwise_proof] def trDeriveElementwiseProof
+  (_ : AST3.Expr) : M Syntax := `(deriveElementwiseProof)
+
+-- # algebra.group.defs
+attribute [trNITactic try_refl_tac] trControlLawsTac
 
 -- # algebra.group.to_additive
 @[trUserAttr to_additive_ignore_args] def trToAdditiveIgnoreArgsAttr : TacM Syntax := do
@@ -1267,6 +1289,13 @@ def trRingMode (n : Name) : M Syntax :=
 @[trUserCmd «#sample»] def trSampleCmd : TacM Syntax := do
   `(command| #sample $(← trExpr (← parse pExpr)))
 
+@[trNITactic sampleable.mk_trivial_interp] def trMkTrivialInterp
+  (_ : AST3.Expr) : M Syntax := `(refine id)
+
+-- # testing.slim_check.testable
+@[trNITactic testable.mk_decorations] def trMkDecorations
+  (_ : AST3.Expr) : M Syntax := `(mkDecorations)
+
 -- # logic.nontrivial
 @[trTactic nontriviality] def trNontriviality : TacM Syntax := do
   let t ← liftM $ (← parse (pExpr)?).mapM trExpr
@@ -1279,6 +1308,10 @@ def trRingMode (n : Name) : M Syntax :=
   `(tactic| filterUpwards
     [$(← liftM $ (← parse pExprList).mapM trExpr),*]
     $[$(← liftM $ (← parse (pExpr)?).mapM trExpr)]?)
+
+-- # order.liminf_limsup
+@[trNITactic isBounded_default] def trIsBounded_default (_ : AST3.Expr) : M Syntax := do
+  `(tactic| isBounded_default)
 
 -- # data.opposite
 @[trTactic op_induction] def trOpInduction : TacM Syntax := do
@@ -1305,11 +1338,19 @@ def trRingMode (n : Name) : M Syntax :=
   | none, some _ => `(tactic| continuity? $[(config := $cfg)]?)
   | some _, some _ => `(tactic| continuity!? $[(config := $cfg)]?)
 
+@[trTactic continuity'] def trContinuity' : TacM Syntax := `(tactic| continuity)
+@[trNITactic tactic.interactive.continuity'] def trNIContinuity'
+  (_ : AST3.Expr) : M Syntax := `(tactic| continuity)
+
 -- # topology.unit_interval
 @[trTactic unit_interval] def trUnitInterval : TacM Syntax := `(tactic| unitInterval)
 
 -- # data.equiv.local_equiv
 @[trTactic mfld_set_tac] def trMfldSetTac : TacM Syntax := `(tactic| mfldSetTac)
+
+-- # measure_theory.measure.measure_space_def
+@[trNITactic volume_tac] def trVolumeTac (_ : AST3.Expr) : M Syntax := do
+  `(tactic| exact $(← mkIdentI `measure_theory.measure_space.volume))
 
 -- # measure_theory.tactic
 
@@ -1326,6 +1367,10 @@ def trRingMode (n : Name) : M Syntax :=
   | some _, some _ => `(tactic| measurability!? $[(config := $cfg)]?)
 
 @[trTactic measurability'] def trMeasurability' : TacM Syntax := `(tactic| measurability)
+
+-- # measure_theory.integral.interval_integral
+@[trNITactic unique_diff_within_at_Ici_Iic_univ] def trUniqueDiffWithinAt_Ici_Iic_univ (_ : AST3.Expr) : M Syntax := do
+  `(tactic| uniqueDiffWithinAt_Ici_Iic_univ)
 
 -- # number_theory.padics.padic_numbers
 @[trTactic padic_index_simp] def trPadicIndexSimp : TacM Syntax := do

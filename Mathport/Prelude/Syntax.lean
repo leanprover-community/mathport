@@ -248,7 +248,7 @@ syntax (name := letI') "letI " Term.haveIdLhs : tactic
 syntax (name := exactI) "exactI " term : tactic
 
 declare_syntax_cat rcasesPat
-syntax rcasesPatMed := rcasesPat (" | " rcasesPat)*
+syntax rcasesPatMed := sepBy1(rcasesPat, " | ")
 syntax rcasesPatLo := rcasesPatMed (" : " term)?
 syntax (name := rcasesPat.one) ident : rcasesPat
 syntax (name := rcasesPat.ignore) "_" : rcasesPat
@@ -257,11 +257,11 @@ syntax (name := rcasesPat.tuple) "⟨" rcasesPatLo,* "⟩" : rcasesPat
 syntax (name := rcasesPat.paren) "(" rcasesPatLo ")" : rcasesPat
 syntax (name := rcases?) "rcases?" casesTarget,* (" : " num)? : tactic
 syntax (name := rcases) "rcases" casesTarget,* (" with " rcasesPat)? : tactic
-syntax (name := obtain) "obtain" (ppSpace rcasesPat)? (" : " term)? (" := " term,+)? : tactic
+syntax (name := obtain) "obtain" (ppSpace rcasesPatMed)? (" : " term)? (" := " term,+)? : tactic
 
 declare_syntax_cat rintroPat
 syntax (name := rintroPat.one) rcasesPat : rintroPat
-syntax (name := rintroPat.binder) "(" (rintroPat+ <|> rcasesPatMed) (" : " term)? ")" : rintroPat
+syntax (name := rintroPat.binder) "(" rintroPat+ (" : " term)? ")" : rintroPat
 syntax (name := rintro?) "rintro?" (" : " num)? : tactic
 syntax (name := rintro) "rintro" (ppSpace rintroPat)* (" : " term)? : tactic
 
@@ -381,6 +381,8 @@ syntax (name := rwModCast) "rwModCast " rwRuleSeq (location)? : tactic
 syntax (name := exactModCast) "exactModCast " term : tactic
 syntax (name := applyModCast) "applyModCast " term : tactic
 syntax (name := assumptionModCast) "assumptionModCast" : tactic
+
+syntax (name := obviously) "obviously" : tactic
 
 syntax (name := prettyCases) "prettyCases" : tactic
 
@@ -504,6 +506,7 @@ syntax (name := intervalCases) "intervalCases" (colGt term)?
 
 syntax (name := reassoc) "reassoc " (colGt ident)* : tactic
 syntax (name := reassoc!) "reassoc! " (colGt ident)* : tactic
+syntax (name := deriveReassocProof) "deriveReassocProof" : tactic
 
 syntax (name := subtypeInstance) "subtypeInstance" : tactic
 
@@ -530,6 +533,7 @@ syntax (name := nthRwRHS) "nthRwRHS " num rwRuleSeq (location)? : tactic
 syntax (name := rwSearch) "rwSearch " ("(" &"config" " := " term ")")? rwRuleSeq : tactic
 syntax (name := rwSearch?) "rwSearch? " ("(" &"config" " := " term ")")? rwRuleSeq : tactic
 
+syntax (name := piInstanceDeriveField) "piInstanceDeriveField" : tactic
 syntax (name := piInstance) "piInstance" : tactic
 
 syntax (name := tidy) "tidy " ("(" &"config" " := " term ")")? : tactic
@@ -538,9 +542,17 @@ syntax (name := tidy?) "tidy? " ("(" &"config" " := " term ")")? : tactic
 syntax (name := wlog) "wlog " ("(" &"discharger" " := " term ")")?
   (colGt ident)? (" : " term)? (" := " term)? (" using " (ident*),+)? : tactic
 
+syntax (name := elementwise) "elementwise" (ppSpace (colGt ident))* : tactic
+syntax (name := elementwise!) "elementwise!" (ppSpace (colGt ident))* : tactic
+syntax (name := deriveElementwiseProof) "deriveElementwiseProof" : tactic
+
+syntax (name := mkDecorations) "mkDecorations" : tactic
+
 syntax (name := nontriviality) "nontriviality" (colGt term)? (" using " simpArg,+)? : tactic
 
 syntax (name := filterUpwards) "filterUpwards" "[" term,* "]" (colGt term)? : tactic
+
+syntax (name := isBounded_default) "isBounded_default" : tactic
 
 syntax (name := opInduction) "opInduction" (colGt term)? : tactic
 
@@ -558,8 +570,9 @@ syntax (name := measurability) "measurability" ("(" &"config" " := " term ")")? 
 syntax (name := measurability!) "measurability!" ("(" &"config" " := " term ")")? : tactic
 syntax (name := measurability?) "measurability?" ("(" &"config" " := " term ")")? : tactic
 syntax (name := measurability!?) "measurability!?" ("(" &"config" " := " term ")")? : tactic
-
 syntax (name := padicIndexSimp) "padicIndexSimp" "[" term,* "]" (location)? : tactic
+
+syntax (name := uniqueDiffWithinAt_Ici_Iic_univ) "uniqueDiffWithinAt_Ici_Iic_univ" : tactic
 
 syntax (name := ghostFunTac) "ghostFunTac" term ", " term : tactic
 syntax (name := ghostCalc) "ghostCalc" binderIdent* : tactic
@@ -655,15 +668,16 @@ syntax (name := defReplacer) "def_replacer " ident Term.optType : command
 syntax (name := restateAxiom) "restate_axiom " ident (ident)? : command
 
 syntax (name := simp) "#simp " (&"only ")? ("[" Tactic.simpArg,* "]")?
-  (" with " ident+)? " : "? term : tactic
+  (" with " ident+)? " : "? term : command
 
 syntax simpsRule.rename := ident " → " ident
 syntax simpsRule.erase := "-" ident
-syntax simpsRule := (simpsRule.rename <|> simpsRule.erase) " as_prefix"
-syntax (name := initializeSimpsProjections) "initialize_simps_projections "
-  (ident ("(" simpsRule,+ ")")?)* : tactic
-syntax (name := initializeSimpsProjections?) "initialize_simps_projections? "
-  (ident ("(" simpsRule,+ ")")?)* : tactic
+syntax simpsRule := (simpsRule.rename <|> simpsRule.erase) &" as_prefix"?
+syntax simpsProj := ident (" (" simpsRule,+ ")")?
+syntax (name := initializeSimpsProjections) "initialize_simps_projections"
+  (ppSpace simpsProj)* : command
+syntax (name := initializeSimpsProjections?) "initialize_simps_projections?"
+  (ppSpace simpsProj)* : command
 
 syntax (name := «where») "#where" : command
 
