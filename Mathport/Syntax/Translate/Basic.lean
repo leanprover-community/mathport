@@ -398,11 +398,14 @@ mutual
       let vars := mkNullNode $ vars.map fun v => trBinderName v.kind
       if let some stx ← trSimple allowSimp bi vars ty dflt then return out.push stx
       let ty := mkOptionalNode' ty fun ty => #[mkAtom ":", ty]
-      if bi == BinderInfo.implicit then
-        out.push $ mkNode ``Parser.Term.implicitBinder #[mkAtom "{", vars, ty, mkAtom "}"]
-      else
+      out.push $ ← match bi with
+      | BinderInfo.implicit =>
+        mkNode ``Parser.Term.implicitBinder #[mkAtom "{", vars, ty, mkAtom "}"]
+      | BinderInfo.strictImplicit =>
+        mkNode ``Parser.Term.strictImplicitBinder #[mkAtom "⦃", vars, ty, mkAtom "⦄"]
+      | _ => do
         let dflt ← mkOptionalNode <$> dflt.mapM trBinderDefault
-        out.push $ mkNode ``Parser.Term.explicitBinder #[mkAtom "(", vars, ty, dflt, mkAtom ")"]
+        mkNode ``Parser.Term.explicitBinder #[mkAtom "(", vars, ty, dflt, mkAtom ")"]
     | bc, bic@(Binder.collection _ _ _ _), out => expandBinderCollection (trBinder bc) bic out
     | _, Binder.notation _, _ => throw! "unsupported: (notation) binder"
     | _, _, _ => throw! "unsupported (impossible)"
