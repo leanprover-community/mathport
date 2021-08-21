@@ -109,6 +109,7 @@ where
       if ← isDefEqUpto ax3.levelParams ax3.type ax4.levelParams ax4.type then
         pure (Declaration.axiomDecl ax3, ClashKind.foundDefEq, [])
       else
+        println! "[clash] {ax3.name}"
         refineAx { ax3 with name := extendName ax3.name }
     | none => pure (Declaration.axiomDecl ax3, ClashKind.freshDecl, [])
     | _ => refineAx { ax3 with name := extendName ax3.name }
@@ -120,6 +121,7 @@ where
       if ← isDefEqUpto thm3.levelParams thm3.type thm4.levelParams thm4.type then
         pure (Declaration.thmDecl thm3, ClashKind.foundDefEq, [])
       else
+        println! "[clash] {thm3.name}"
         refineThm { thm3 with name := extendName thm3.name }
     | none => pure (Declaration.thmDecl thm3, ClashKind.freshDecl, [])
     | _ => refineThm { thm3 with name := extendName thm3.name }
@@ -131,13 +133,16 @@ where
       if ← isDefEqUpto defn3.levelParams defn3.value defn4.levelParams defn4.value then
         pure (Declaration.defnDecl defn3, ClashKind.foundDefEq, [])
       else
+        println! "[clash] {defn3.name}"
         refineDef { defn3 with name := extendName defn3.name }
     | none => pure (Declaration.defnDecl defn3, ClashKind.freshDecl, [])
     | _ => refineDef { defn3 with name := extendName defn3.name }
 
   refineInd (lps : List Name) (numParams : Nat) (indType3 : InductiveType) (isUnsafe : Bool) := do
     println! "[refineInd] {indType3.name}"
-    let recurse := refineInd lps numParams (indType3.updateNames indType3.name (extendName indType3.name)) isUnsafe
+    let recurse := do
+      println! "[clash] {indType3.name}"
+      refineInd lps numParams (indType3.updateNames indType3.name (extendName indType3.name)) isUnsafe
     match (← getEnv).find? indType3.name with
     | some (ConstantInfo.inductInfo indVal) =>
       if indVal.numParams ≠ numParams then recurse
