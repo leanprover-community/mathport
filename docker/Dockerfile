@@ -69,7 +69,7 @@ ENV PATH=$LEAN4_S1_BIN:$PATH
 WORKDIR /app
 RUN git clone --branch docker https://github.com/dselsam/mathport mathport
 WORKDIR /app/mathport
-RUN make -j $N_THREADS
+RUN leanpkg build bin LINK_OPTS=-rdynamic -j $N_THREADS
 
 ############ Building ###############
 
@@ -87,7 +87,7 @@ RUN cp -r $MATHLIB3_SRC $LEAN3_EXPORT/Mathlib
 RUN find $LEAN3_EXPORT -name "*.lean" -delete
 RUN find $LEAN3_EXPORT -name "*.olean" -delete
 
-RUN LEAN_PATH=$LEAN4_S1_LIB:$LIB4                 time /app/mathport/mathport /app/mathport/config.json Lean3::all Mathlib::all > mathport.out 2> mathport.err
+RUN LEAN_PATH=$LEAN4_S1_LIB:$LIB4                 time $MATHPORT_BUILD/bin/Mathport /app/mathport/config.json Lean3::all Mathlib::all > mathport.out 2> mathport.err
 RUN LEAN_PATH=$LEAN4_S1_LIB:$LIB4:$MATHPORT_BUILD lean --o=$LIB4/Lean3.olean                      $LIB4/Lean3.lean
 RUN LEAN_PATH=$LEAN4_S1_LIB:$LIB4:$MATHPORT_BUILD lean --o=$LIB4/Mathlib.olean                    $LIB4/Mathlib.lean
 RUN cp -r $MATHPORT_BUILD/Mathport* $LIB4/
