@@ -178,24 +178,8 @@ partial def trRIntroPat : RIntroPat → M Syntax
 
 -- # tactic.ext
 
-def trExtParam' : ExtParam → M Syntax
-  | ExtParam.arrow => mkNode ``Parser.Attr.extParam.arrow #[
-    mkAtom "(", mkAtom "·", mkAtom "→", mkAtom "·", mkAtom ")"]
-  | ExtParam.all => mkAtom "*"
-  | ExtParam.ident n => mkIdentI n
-
-def trExtParam : Bool × ExtParam → M Syntax
-  | (sym, p) => do
-    mkNode ``Parser.Attr.extParam #[
-      mkNullNode (if sym then #[mkAtom "-"] else #[]), ← trExtParam' p]
-
-def trExtParams : Array (Bool × ExtParam) → M Syntax
-  | #[] => mkNullNode
-  | #[p] => do mkNullNode #[← trExtParam p]
-  | ps => do mkNullNode #[mkAtom "[", mkNullNode (← ps.mapM trExtParam), mkAtom "]"]
-
 @[trUserAttr ext] def trExtAttr : TacM Syntax := do
-  mkNode ``Parser.Attr.ext #[mkAtom "ext", ← trExtParams (← parse extParams)]
+  `(attr| ext $(← liftM $ (← parse (ident)?).mapM mkIdentI)?)
 
 @[trTactic ext1] def trExt1 : TacM Syntax := do
   let hint ← parse (tk "?")?
