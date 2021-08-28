@@ -39,6 +39,7 @@ def mkCmdMap (l : Array (Name × (Modifiers → TacM Unit))) :
 
 def builtinTactics := mkTacMap trTactics!
 def builtinNITactics := mkNITacMap trNITactics!
+def builtinConvs := mkTacMap trConvs!
 def builtinUserNotation := mkTacMap trUserNotas!
 def builtinUserAttrs := mkTacMap trUserAttrs!
 def builtinUserCmds := mkCmdMap trUserCmds!

@@ -5,7 +5,6 @@ Authors: Mario Carneiro
 -/
 import Lean.Elab.Command
 import Lean.Elab.Quotation
-import Mathport.Util.Misc
 
 -- To fix upstream:
 -- * bracketedExplicitBinders doesn't support optional types
@@ -55,6 +54,9 @@ macro ak:Term.attrKind "notation3 "
     $(args[0]):macroArg $[$(args[1:].toArray):macroArg]* : term =>
     `(sorry))
 
+syntax (name := syntaxCat') "declare_syntax_cat " ident
+  "(" &"behavior" " := " (&"both" <|> &"symbol") ")" : command
+
 end Parser.Command
 
 namespace Elab.Command
@@ -98,6 +100,37 @@ unsafe def elabRunCmdUnsafe : CommandElab := fun stx => do
 -- TODO(Mario): Why is the extra indirection needed?
 @[implementedBy elabRunCmdUnsafe] constant elabRunCmd' : CommandElab
 @[commandElab runCmd] def elabRunCmd : CommandElab := elabRunCmd'
+
+-- open private declareSyntaxCatQuotParser in elabDeclareSyntaxCat
+private def declareSyntaxCatQuotParser (catName : Name) : CommandElabM Unit := do
+  if let Name.str _ suffix _ := catName then
+    let quotSymbol := "`(" ++ suffix ++ "|"
+    let name := catName ++ `quot
+    -- TODO(Sebastian): this might confuse the pretty printer, but it lets us reuse the elaborator
+    let kind := ``Lean.Parser.Term.quot
+    let cmd ← `(
+      @[termParser] def $(mkIdent name) : Lean.ParserDescr :=
+        Lean.ParserDescr.node $(quote kind) $(quote Lean.Parser.maxPrec)
+          (Lean.ParserDescr.binary `andthen (Lean.ParserDescr.symbol $(quote quotSymbol))
+            (Lean.ParserDescr.binary `andthen
+              (Lean.ParserDescr.unary `incQuotDepth (Lean.ParserDescr.cat $(quote catName) 0))
+              (Lean.ParserDescr.symbol ")"))))
+    elabCommand cmd
+
+open Parser in
+@[commandElab syntaxCat'] def elabDeclareSyntaxCat' : CommandElab
+| `(declare_syntax_cat $cat (behavior := both)) => aux cat LeadingIdentBehavior.both
+| `(declare_syntax_cat $cat (behavior := symbol)) => aux cat LeadingIdentBehavior.symbol
+| `(declare_syntax_cat $cat) => aux cat LeadingIdentBehavior.default
+| _ => throwUnsupportedSyntax
+where
+  aux (cat : Syntax) (behavior : LeadingIdentBehavior) : CommandElabM Unit := do
+    let catName := cat.getId
+    let attrName := catName.appendAfter "Parser"
+    let env ← getEnv
+    let env ← liftIO $ Parser.registerParserCategory env attrName catName behavior
+    setEnv env
+    declareSyntaxCatQuotParser catName
 
 end Elab.Command
 
@@ -157,9 +190,7 @@ end Tactic
 notation "ℕ" => Nat
 notation "ℤ" => Int
 
-end Parser
-
-namespace Parser.Tactic
+namespace Tactic
 
 syntax (name := propagateTags) "propagateTags " tacticSeq : tactic
 syntax (name := introv) "introv" (ppSpace binderIdent)* : tactic
@@ -172,7 +203,6 @@ syntax (name := mapply) "mapply " term : tactic
 macro "assumption'" : tactic => `(allGoals assumption)
 syntax (name := exacts) "exacts" " [" term,* "]" : tactic
 syntax (name := toExpr') "toExpr' " term : tactic
-
 syntax (name := rwa) "rwa " rwRuleSeq (ppSpace location)? : tactic
 syntax (name := withCases) "withCases " tacticSeq : tactic
 syntax (name := induction') "induction' " casesTarget,+ (" using " ident)?
@@ -211,7 +241,7 @@ syntax (name := simpIntro) "simpIntro" (" (" &"config" " := " term ")")?
 syntax (name := dsimp) "dsimp" (" (" &"config" " := " term ")")? (&" only")?
   (" [" simpArg,* "]")? (" with " ident+)? (ppSpace location)? : tactic
 syntax (name := symm) "symm" : tactic
-syntax (name := trans) "trans" (ppSpace term)? : tactic
+syntax (name := trans) "trans" (ppSpace (colGt term))? : tactic
 syntax (name := acRfl) "acRfl" : tactic
 syntax (name := cc) "cc" : tactic
 syntax (name := substVars) "substVars" : tactic
@@ -238,6 +268,58 @@ syntax (name := specialize) "specialize " ident (colGt term:arg)+ : tactic
 syntax (name := rsimp) "rsimp" : tactic
 syntax (name := compVal) "compVal" : tactic
 syntax (name := async) "async " tacticSeq : tactic
+
+end Tactic
+
+builtin_initialize
+  registerBuiltinParserAttribute `builtinConvParser `conv LeadingIdentBehavior.both
+  registerBuiltinDynamicParserAttribute `convParser `conv
+
+declare_syntax_cat conv (behavior := both)
+@[inline] def convParser (rbp : Nat := 0) : Parser :=
+  categoryParser `conv rbp
+
+namespace Conv
+
+def convSeq1Indented : Parser :=
+  leading_parser many1Indent (group (ppLine >> convParser >> optional ";"))
+def convSeqBracketed : Parser :=
+  leading_parser "{" >> many (group (ppLine >> convParser >> optional ";")) >> ppDedent (ppLine >> "}")
+def convSeq :=
+  nodeWithAntiquot "convSeq" `Lean.Parser.Conv.convSeq (convSeqBracketed <|> convSeq1Indented)
+
+syntax (name := nestedConv) convSeqBracketed : conv
+
+syntax (name := paren) "(" convSeq ")" : conv
+syntax (name := skip) "skip" : conv
+syntax (name := done) "done" : conv
+syntax (name := first) "first " withPosition((group(colGe "|" convSeq))+) : conv
+macro "try " t:convSeq : conv => `(first | $t | skip)
+macro dot:("·" <|> ".") ts:convSeq : conv => `({%$dot ($ts:convSeq) })
+syntax "runConv " doSeq : conv
+
+open Tactic (simpArg rwRuleSeq)
+syntax (name := whnf) "whnf" : conv
+syntax (name := traceLHS) "traceLHS" : conv
+syntax (name := change) "change " term : conv
+syntax (name := congr) "congr" : conv
+syntax (name := funext) "funext" : conv
+syntax (name := toLHS) "toLHS" : conv
+syntax (name := toRHS) "toRHS" : conv
+syntax (name := find) "find " term " => " tacticSeq : conv
+syntax (name := «for») "for " term:max " [" num,* "]" " => " tacticSeq : conv
+syntax (name := dsimp) "dsimp" (" (" &"config" " := " term ")")? (&" only")?
+  (" [" simpArg,* "]")? (" with " ident+)? : tactic
+syntax (name := simp) "simp" (" (" &"config" " := " term ")")? (&" only")?
+  (" [" simpArg,* "]")? (" with " ident+)? : tactic
+syntax (name := guardLHS) "guardLHS " " =ₐ " term : tactic
+syntax (name := rw) "rw " rwRuleSeq : tactic
+
+end Conv
+
+namespace Tactic
+
+syntax (name := conv) "conv" (" at " ident)? (" in " term)? " => " Conv.convSeq : tactic
 
 syntax (name := unfreezingI) "unfreezingI " tacticSeq : tactic
 syntax (name := resetI) "resetI" : tactic
@@ -348,6 +430,9 @@ syntax (name := clear!) "clear!" (ppSpace ident)* : tactic
 
 syntax (name := choose) "choose" (ppSpace ident)+ (" using " term)? : tactic
 syntax (name := choose!) "choose!" (ppSpace ident)+ (" using " term)? : tactic
+
+syntax (name := convLHS) "convLHS" (" at " ident)? (" in " term)? " => " Conv.convSeq : tactic
+syntax (name := convRHS) "convRHS" (" at " ident)? (" in " term)? " => " Conv.convSeq : tactic
 
 syntax (name := congr) "congr" (ppSpace (colGt num))?
   (" with " (colGt rcasesPat)* (" : " num)?)? : tactic
@@ -515,6 +600,9 @@ syntax (name := reassoc) "reassoc" (ppSpace (colGt ident))* : tactic
 syntax (name := reassoc!) "reassoc!" (ppSpace (colGt ident))* : tactic
 syntax (name := deriveReassocProof) "deriveReassocProof" : tactic
 
+syntax (name := sliceLHS) "sliceLHS " num num " => " Conv.convSeq : tactic
+syntax (name := sliceRHS) "sliceRHS " num num " => " Conv.convSeq : tactic
+
 syntax (name := subtypeInstance) "subtypeInstance" : tactic
 
 syntax (name := group) "group" (ppSpace location)? : tactic
@@ -591,6 +679,31 @@ syntax (name := ghostSimp) "ghostSimp" (" [" simpArg,* "]")? : tactic
 syntax (name := wittTruncateFunTac) "wittTruncateFunTac" : tactic
 
 end Tactic
+
+namespace Conv
+open Tactic (simpArg rwRuleSeq ringMode)
+
+syntax (name := conv) "conv " convSeq : conv
+syntax (name := erw) "erw " rwRuleSeq : conv
+syntax (name := applyCongr) "applyCongr" (ppSpace (colGt term))? : conv
+syntax (name := guardTarget) "guardTarget" " =ₐ " term : conv
+
+syntax (name := normCast) "normCast" : conv
+
+syntax (name := normNum1) "normNum1" : conv
+syntax (name := normNum) "normNum" (" [" simpArg,* "]")? : conv
+
+syntax (name := ringNF) "ringNF" (ppSpace ringMode)? : conv
+syntax (name := ringNF!) "ringNF!" (ppSpace ringMode)? : conv
+syntax (name := ring) "ring" : conv
+syntax (name := ring!) "ring!" : conv
+
+syntax (name := ringExp) "ringExp" : conv
+syntax (name := ringExp!) "ringExp!" : conv
+
+syntax (name := slice) "slice " num num : conv
+
+end Conv
 
 namespace Attr
 

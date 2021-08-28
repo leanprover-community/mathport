@@ -518,9 +518,34 @@ attribute [trTactic clear'] trClear
   | none => `(tactic| choose $ns* $[using $tgt]?)
   | some _ => `(tactic| choose! $ns* $[using $tgt]?)
 
--- # tactic.converter.apply_congr
-@[trTactic apply_congr] def trApplyCongr : TacM Syntax := do
-  throw! "unsupported tactic apply_congr" -- unattested
+-- # tactic.converter
+
+@[trTactic old_conv] def trOldConv : TacM Syntax := do
+  throw! "unsupported tactic old_conv" -- unattested
+
+@[trTactic find] def trFindTac : TacM Syntax := do
+  throw! "unsupported tactic find" -- unattested
+
+@[trTactic conv_lhs] def trConvLHS : TacM Syntax := do
+  `(tactic| convLHS
+    $[at $((← parse (tk "at" *> ident)?).map mkIdent)]?
+    $[in $(← liftM $ (← parse (tk "in" *> pExpr)?).mapM trExpr)]?
+    => $(← trConvBlock (← itactic)):convSeq)
+
+@[trTactic conv_rhs] def trConvRHS : TacM Syntax := do
+  `(tactic| convRHS
+    $[at $((← parse (tk "at" *> ident)?).map mkIdent)]?
+    $[in $(← liftM $ (← parse (tk "in" *> pExpr)?).mapM trExpr)]?
+    => $(← trConvBlock (← itactic)):convSeq)
+
+@[trConv erw] def trERwConv : TacM Syntax := do
+  let q ← liftM $ (← parse rwRules).mapM trRwRule
+  if let some cfg ← expr? then
+    dbg_trace "warning: unsupported: erw with cfg"
+  `(conv| erw [$q,*])
+
+@[trConv apply_congr] def trApplyCongr : TacM Syntax := do
+  `(conv| applyCongr $[$(← liftM $ (← parse (pExpr)?).mapM trExpr)]?)
 
 -- # tactic.congr
 @[trTactic congr'] def trCongr' : TacM Syntax := do
@@ -658,17 +683,8 @@ def trUsingList (args : Array AST3.Expr) : M Syntax :=
   let i ← parse (ident)?
   `(attr| mkIff $(← liftM $ (← parse (ident)?).mapM mkIdentI)?)
 
--- # tactic.converter.interactive
-@[trTactic old_conv] def trOldConv : TacM Syntax := do
-  throw! "unsupported tactic old_conv" -- unattested
-@[trTactic find] def trFindTac : TacM Syntax := do
-  throw! "unsupported tactic find" -- unattested
-@[trTactic conv_rhs] def trConvRhs : TacM Syntax := do
-  throw! "unsupported tactic conv_rhs"
-@[trTactic conv_lhs] def trConvLhs : TacM Syntax := do
-  throw! "unsupported tactic conv_lhs"
-
 -- # tactic.norm_cast
+
 @[trUserAttr norm_cast] def trNormCastAttr : TacM Syntax := do
   match ← parse (ident)? with
   | some `elim => `(attr| normCast elim)
@@ -699,7 +715,10 @@ def trUsingList (args : Array AST3.Expr) : M Syntax :=
 @[trTactic assumption_mod_cast] def trAssumptionModCast : TacM Syntax := do
   `(tactic| assumptionModCast)
 
+@[trConv norm_cast] def trNormCastConv : TacM Syntax := `(conv| normCast)
+
 -- # tactic.replacer
+
 @[trUserCmd «def_replacer»] def trDefReplacer : TacM Syntax := do
   let (n, ty) ← parse $ do (← ident, ← (tk ":" *> pExpr)?)
   `(command| def_replacer $(← mkIdentI n) $[$(← trOptType ty):typeSpec]?)
@@ -707,6 +726,7 @@ def trUsingList (args : Array AST3.Expr) : M Syntax :=
 @[trUserAttr replaceable] def trReplaceableAttr := tagAttr `replaceable
 
 -- # tactic.obviously
+
 @[trUserAttr obviously] def trObviouslyAttr := tagAttr `obviously
 
 @[trNITactic obviously] def trObviously (_ : AST3.Expr) : M Syntax := `(tactic| obviously)
@@ -941,6 +961,12 @@ def trSimpsRule : Sum (Name × Name) Name × Bool → M Syntax
 @[trTactic apply_normed] def trApplyNormed : TacM Syntax := do
   `(tactic| applyNormed $(← trExpr (← parse pExpr)))
 
+@[trConv norm_num1] def trNormNum1Conv : TacM Syntax := `(conv| normNum1)
+
+@[trConv norm_num] def trNormNumConv : TacM Syntax := do
+  let hs := trSimpList (← trSimpArgs (← parse simpArgList))
+  mkNode ``Parser.Conv.normNum #[mkAtom "normNum", hs]
+
 -- # tactic.abel
 @[trTactic abel1] def trAbel1 : TacM Syntax := `(tactic| abel1)
 
@@ -975,6 +1001,18 @@ def trRingMode (n : Name) : M Syntax :=
   | none => `(tactic| ring)
   | some _ => `(tactic| ring!)
 
+@[trConv ring_nf] def trRingNFConv : TacM Syntax := do
+  let c ← parse (tk "!")?
+  let mode ← liftM $ (← parse (ident)?).mapM trRingMode
+  match c with
+  | none => `(tactic| ringNF $(mode)?)
+  | some _ => `(tactic| ringNF! $(mode)?)
+
+@[trConv ring] def trRingConv : TacM Syntax := do
+  match ← parse (tk "!")? with
+  | none => `(tactic| ring)
+  | some _ => `(tactic| ring!)
+
 -- # tactic.ring_exp
 @[trTactic ring_exp_eq] def trRingExpEq : TacM Syntax := do
   match ← parse (tk "!")? with
@@ -987,6 +1025,11 @@ def trRingMode (n : Name) : M Syntax :=
   match c with
   | none => `(tactic| ringExp $(loc)?)
   | some _ => `(tactic| ringExp! $(loc)?)
+
+@[trConv ring_exp] def trRingExpConv : TacM Syntax := do
+  match ← parse (tk "!")? with
+  | none => `(tactic| ringExp)
+  | some _ => `(tactic| ringExp!)
 
 -- # tactic.noncomm_ring
 @[trTactic noncomm_ring] def trNoncommRing : TacM Syntax := `(tactic| noncommRing)
@@ -1109,10 +1152,21 @@ def trRingMode (n : Name) : M Syntax :=
   (_ : AST3.Expr) : M Syntax := `(deriveReassocProof)
 
 -- # tactic.slice
-@[trTactic slice_lhs] def trSliceLhs : TacM Syntax := do
-  throw! "unsupported tactic slice_lhs"
-@[trTactic slice_rhs] def trSliceRhs : TacM Syntax := do
-  throw! "unsupported tactic slice_rhs"
+
+@[trConv slice] def trSliceConv : TacM Syntax := do
+  let AST3.Expr.nat a ← expr! | throw! "slice: weird nat"
+  let AST3.Expr.nat b ← expr! | throw! "slice: weird nat"
+  `(conv| slice $(Quote.quote a) $(Quote.quote b))
+
+@[trTactic slice_lhs] def trSliceLHSConv : TacM Syntax := do
+  let AST3.Expr.nat a ← expr! | throw! "sliceLHS: weird nat"
+  let AST3.Expr.nat b ← expr! | throw! "sliceLHS: weird nat"
+  `(tactic| sliceLHS $(Quote.quote a) $(Quote.quote b) => $(← trConvBlock (← itactic)):convSeq)
+
+@[trTactic slice_rhs] def trSliceRHSConv : TacM Syntax := do
+  let AST3.Expr.nat a ← expr! | throw! "sliceRHS: weird nat"
+  let AST3.Expr.nat b ← expr! | throw! "sliceRHS: weird nat"
+  `(tactic| sliceRHS $(Quote.quote a) $(Quote.quote b) => $(← trConvBlock (← itactic)):convSeq)
 
 -- # tactic.subtype_instance
 @[trTactic subtype_instance] def trSubtypeInstance : TacM Syntax := `(tactic| subtypeInstance)

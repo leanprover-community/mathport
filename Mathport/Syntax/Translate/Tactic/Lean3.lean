@@ -410,7 +410,6 @@ def trSimpAttrs (attrs : Array Name) : Syntax :=
   mkNode ``Parser.Tactic.dsimp #[mkAtom "dsimp",
     cfg, o, trSimpList hs, trSimpAttrs attrs, loc]
 
-
 @[trTactic reflexivity refl] def trRefl : TacM Syntax := `(tactic| rfl)
 @[trNITactic tactic.interactive.refl] def trNIRefl (_ : AST3.Expr) : M Syntax := `(tactic| rfl)
 
@@ -525,11 +524,61 @@ def trSimpAttrs (attrs : Array Name) : Syntax :=
 @[trTactic async] def trAsync : TacM Syntax := do
   `(tactic| async $(← trBlock (← itactic)):tacticSeq)
 
-@[trTactic conv] def trConv : TacM Syntax := throw! "unsupported: conv"
+@[trTactic conv] def trConvTac : TacM Syntax := do
+  `(tactic| conv
+    $[at $((← parse (tk "at" *> ident)?).map mkIdent)]?
+    $[in $(← liftM $ (← parse (tk "in" *> pExpr)?).mapM trExpr)]?
+    => $(← trConvBlock (← itactic)):convSeq)
 
-@[trTactic min_tac] def trMinTac : TacM Syntax := do
-  -- wrong, but better than breakage
-  `(tactic| exact minTac $(← trExpr (← parse pExpr)) $(← trExpr (← parse pExpr)))
+@[trConv skip] def trSkipConv : TacM Syntax := `(conv| skip)
+
+@[trConv whnf] def trWhnfConv : TacM Syntax := `(conv| whnf)
+
+@[trConv dsimp] def trDSimpConv : TacM Syntax := do
+  let o := if ← parse onlyFlag then mkNullNode #[mkAtom "only"] else mkNullNode
+  let hs ← trSimpArgs (← parse simpArgList)
+  let attrs := (← parse (tk "with" *> ident*)?).getD #[]
+  let cfg := mkConfigStx $ parseSimpConfig (← expr?) |>.bind quoteSimpConfig
+  mkNode ``Parser.Conv.dsimp #[mkAtom "dsimp", cfg, o, trSimpList hs, trSimpAttrs attrs]
+
+@[trConv trace_lhs] def trTraceLHSConv : TacM Syntax := `(conv| traceLHS)
+
+@[trConv change] def trChangeConv : TacM Syntax := do
+  `(conv| change $(← trExpr (← parse pExpr)))
+
+@[trConv congr] def trCongrConv : TacM Syntax := `(conv| congr)
+
+@[trConv funext] def trFunextConv : TacM Syntax := `(conv| funext)
+
+@[trConv to_lhs] def trToLHSConv : TacM Syntax := `(conv| toLHS)
+
+@[trConv to_rhs] def trToRHSConv : TacM Syntax := `(conv| toRHS)
+
+@[trConv done] def trDoneConv : TacM Syntax := `(conv| done)
+
+@[trConv find] def trFindConv : TacM Syntax := do
+  `(conv| find $(← trExpr (← parse pExpr)) => $(← trBlock (← itactic)):tacticSeq)
+
+@[trConv «for»] def trForConv : TacM Syntax := do
+  `(conv| for $(← trExpr (← parse pExpr))
+    [$((← parse (listOf smallNat)).map Quote.quote),*]
+    => $(← trBlock (← itactic)):tacticSeq)
+
+@[trConv simp] def trSimpConv : TacM Syntax := do
+  let o := if ← parse onlyFlag then mkNullNode #[mkAtom "only"] else mkNullNode
+  let hs ← trSimpArgs (← parse simpArgList)
+  let attrs := (← parse (tk "with" *> ident*)?).getD #[]
+  let cfg := mkConfigStx $ parseSimpConfig (← expr?) |>.bind quoteSimpConfig
+  mkNode ``Parser.Conv.simp #[mkAtom "simp", cfg, o, trSimpList hs, trSimpAttrs attrs]
+
+@[trConv guard_lhs] def trGuardLHSConv : TacM Syntax := do
+  `(tactic| guardLHS =ₐ $(← trExpr (← parse pExpr)))
+
+@[trConv rewrite rw] def trRwConv : TacM Syntax := do
+  let q ← liftM $ (← parse rwRules).mapM trRwRule
+  if let some cfg ← expr? then
+    dbg_trace "warning: unsupported: rw with cfg"
+  `(tactic| rw [$q,*])
 
 section
 
@@ -577,6 +626,10 @@ end
 
 @[trUserNota format_macro] def trFormatMacro : TacM Syntax := do `(f! $(← trInterpolatedStr))
 @[trUserNota sformat_macro] def trSFormatMacro : TacM Syntax := do `(s! $(← trInterpolatedStr))
+
+@[trTactic min_tac] def trMinTac : TacM Syntax := do
+  -- wrong, but better than breakage
+  `(tactic| exact minTac $(← trExpr (← parse pExpr)) $(← trExpr (← parse pExpr)))
 
 @[trNITactic control_laws_tac] def trControlLawsTac (_ : AST3.Expr) : M Syntax :=
   `(tactic| (intros; rfl))

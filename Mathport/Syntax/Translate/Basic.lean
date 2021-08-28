@@ -43,6 +43,7 @@ structure State where
   simpSets : NameSet := predefinedSimpSets
   niTactics : NameMap (AST3.Expr → CommandElabM Syntax) := {}
   tactics : NameMap (Array (Spanned AST3.Param) → CommandElabM Syntax) := {}
+  convs : NameMap (Array (Spanned AST3.Param) → CommandElabM Syntax) := {}
   userNotas : NameMap (Array (Spanned AST3.Param) → CommandElabM Syntax) := {}
   userAttrs : NameMap (Array (Spanned AST3.Param) → CommandElabM Syntax) := {}
   userCmds : NameMap (AST3.Modifiers → Array (Spanned AST3.Param) → CommandElabM Unit) := {}
@@ -344,6 +345,37 @@ def trIdTactic : Block → (c :_:= TacticContext.one) → M Syntax
   | ⟨_, none, none, #[]⟩, _ => do `(tactic| skip)
   | ⟨_, none, none, #[tac]⟩, _ => trTactic tac.kind
   | bl, _ => do `(tactic| ($(← trBlock bl):tacticSeq))
+
+mutual
+
+  partial def trConvBlock : Block → (c :_:= TacticContext.seq) → M Syntax
+    | ⟨_, none, none, #[]⟩, TacticContext.seq => do `(Parser.Conv.convSeq| {})
+    | ⟨_, none, none, tacs⟩, TacticContext.seq => do
+      mkNode ``Parser.Conv.convSeq #[mkNode ``Parser.Conv.convSeq1Indented #[
+        mkNullNode $ ← tacs.mapM fun tac => do mkGroupNode #[← trConv tac.kind, mkNullNode]]]
+    | bl, TacticContext.one => do `(tactic| · $(← trConvBlock bl):tacticSeq)
+    | ⟨_, cl, cfg, tacs⟩, _ => throw! "unsupported (TODO): conv block with cfg"
+
+  partial def trConv : Tactic → (c :_:= TacticContext.one) → M Syntax
+    | Tactic.block bl, c => trConvBlock bl c
+    | Tactic.by tac, c => trConvBlock ⟨true, none, none, #[tac]⟩ c
+    | tac, TacticContext.seq => trConvBlock ⟨true, none, none, #[Spanned.dummy tac]⟩
+    | Tactic.«;» tacs, _ => throw! "unsupported (impossible)"
+    | Tactic.«<|>» tacs, TacticContext.one => do
+      let tacs ← tacs.mapM fun tac => trConv tac.kind TacticContext.seq
+      `(conv| first $[| $tacs:convSeq]*)
+    | Tactic.«[]» tacs, _ => throw! "unsupported (impossible)"
+    | Tactic.exact_shortcut _, _ => throw! "unsupported (impossible)"
+    | Tactic.expr e, TacticContext.one => do
+      match ← trExpr e.kind with
+      | `(do $[$els]*) => `(conv| runConv $[$els:doSeqItem]*)
+      | stx => `(conv| runConv $stx:term)
+    | Tactic.interactive n args, TacticContext.one => do
+      match (← get).convs.find? n with
+      | some f => try f args catch e => throw! "in {n}: {← e.toMessageData.toString}"
+      | none => throw! "unsupported conv tactic {repr n}"
+
+end
 
 def trBinderDefault : Default → M Syntax
   | Default.«:=» e => do `(Parser.Term.binderDefault| := $(← trExpr e.kind))

@@ -34,10 +34,11 @@ def M.run (m : M α) : (notations : Array Notation) → (commands : Array Comman
   M.run' $ do
     let tactics ← Tactic.builtinTactics
     let niTactics ← Tactic.builtinNITactics
+    let convs ← Tactic.builtinConvs
     let userNotas ← Tactic.builtinUserNotation
     let userAttrs ← Tactic.builtinUserAttrs
     let userCmds ← Tactic.builtinUserCmds
-    modify fun s => { s with tactics, niTactics, userNotas, userAttrs, userCmds }
+    modify fun s => { s with tactics, niTactics, convs, userNotas, userAttrs, userCmds }
     m
 
 end Translate
