@@ -34,9 +34,9 @@ instance : FromJson Name where
   fromJson?
   | Json.null => Name.anonymous
   | Json.str s => s
-  | Json.arr a => a.foldrM (init := Name.anonymous) fun
-    | (i : Nat), n => n.mkNum i
-    | (s : String), n => n.mkStr s
+  | Json.arr a => a.foldlM (init := Name.anonymous) fun
+    | n, (i : Nat) => n.mkNum i
+    | n, (s : String) => n.mkStr s
     | _, _ => throw "JSON string expected"
   | _ => throw "JSON array expected"
 
