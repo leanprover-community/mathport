@@ -14,7 +14,7 @@ open Syntax
 
 def synport1 (config : Config) (path : Path) : CommandElabM Unit := do
   let pcfg := config.pathConfig
-  let ast3 ← parseAST3 $ path.toLean3 pcfg ".ast.json"
+  let (ast3, _) ← parseAST3 (path.toLean3 pcfg ".ast.json") false
   let ⟨fmt, _⟩ ← AST3toData4 ast3 pcfg
   IO.FS.writeFile (path.toLean4 pcfg "Syn.lean") (toString fmt)
 
@@ -29,8 +29,8 @@ open Lean.Parser Lean.PrettyPrinter
 --   -- let s ← IO.FS.readFile "/home/mario/Documents/lean/mathport/PreData/Lean3/init/data/int/order.ast.json"
 --   let s ← IO.FS.readFile "/home/mario/Documents/lean/mathport/PreData/Mathlib/tactic/localized.ast.json"
 --   let json ← Json.parse s
---   let raw@⟨ast, file, level, expr⟩ ← fromJson? json (α := Parse.RawAST3)
---   let ⟨prel, imp, commands, inot, icmd⟩ ← raw.toAST3
+--   let raw@⟨ast, file, level, expr, _, _⟩ ← fromJson? json (α := Parse.RawAST3)
+--   let (⟨prel, imp, commands, inot, icmd⟩, _) ← raw.build false
 --   let level := Parse.buildLevels level
 --   let expr := Parse.buildExprs level expr
 --   let commands := ast[ast[file].get!.children'[2]].get!.children'

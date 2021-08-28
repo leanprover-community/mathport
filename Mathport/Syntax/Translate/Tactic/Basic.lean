@@ -67,7 +67,7 @@ scoped instance : Coe (TacM α) (Modifiers → TacM α) := ⟨withNoMods⟩
 
 def withDocString (tac : Option String → TacM α) : Modifiers → TacM α
   | #[] => tac none
-  | #[⟨_, _, Modifier.doc s⟩] => tac (some s)
+  | #[⟨_, Modifier.doc s⟩] => tac (some s)
   | _ => throw! "unsupported modifiers in user command"
 
 scoped instance : Coe (Option String → TacM α) (Modifiers → TacM α) := ⟨withDocString⟩

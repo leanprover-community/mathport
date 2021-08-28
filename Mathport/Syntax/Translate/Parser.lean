@@ -127,20 +127,20 @@ def rwRules : ParserM (Array RwRule) := maybeListOf rwRule
 
 def generalizeArg : ParserM (Expr × Name) := do
   let AST3.Expr.notation n args ← (← pExpr).unparen | failure
-  let (`«expr = », #[⟨_, _, Arg.expr lhs⟩, ⟨_, _, Arg.expr rhs⟩]) ← (n.name, args) | failure
+  let (`«expr = », #[⟨_, Arg.expr lhs⟩, ⟨_, Arg.expr rhs⟩]) ← (n.name, args) | failure
   let AST3.Expr.ident x ← rhs.unparen | failure
   (lhs, x)
 
 def hGeneralizeArg : ParserM (Expr × Name) := do
   let AST3.Expr.notation n args ← (← pExpr).unparen | failure
-  let (`«expr == », #[⟨_, _, Arg.expr lhs⟩, ⟨_, _, Arg.expr rhs⟩]) ← (n.name, args) | failure
+  let (`«expr == », #[⟨_, Arg.expr lhs⟩, ⟨_, Arg.expr rhs⟩]) ← (n.name, args) | failure
   let AST3.Expr.ident x ← rhs.unparen | failure
   (lhs, x)
 
 def generalizesArgEq (e : AST3.Expr) : ParserM (Expr × Name) := do
   let AST3.Expr.notation n args ← e.unparen | failure
   match n.name with | `«expr = » => () | `«expr == » => () | _ => failure
-  let #[⟨_, _, Arg.expr lhs⟩, ⟨_, _, Arg.expr rhs⟩] ← args | failure
+  let #[⟨_, Arg.expr lhs⟩, ⟨_, Arg.expr rhs⟩] ← args | failure
   let AST3.Expr.ident x ← rhs.unparen | failure
   (lhs, x)
 

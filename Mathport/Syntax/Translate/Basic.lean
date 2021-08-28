@@ -257,8 +257,8 @@ partial def trPrecExpr : Expr → M Precedence
   | Expr.ident `max => Precedence.max
   | Expr.ident `std.prec.max_plus => Precedence.maxPlus
   | Expr.notation (Choice.one `«expr + ») #[
-      ⟨_, _, Arg.expr (Expr.ident `max)⟩,
-      ⟨_, _, Arg.expr (Expr.nat 1)⟩
+      ⟨_, Arg.expr (Expr.ident `max)⟩,
+      ⟨_, Arg.expr (Expr.nat 1)⟩
     ] => Precedence.maxPlus
   | _ => throw! "unsupported: advanced prec syntax"
 
@@ -422,7 +422,7 @@ mutual
 end
 
 partial def trExplicitBinders : Array (Spanned Binder) → M Syntax
-  | #[⟨_, _, Binder.binder _ (some vars) _ ty none⟩] => do
+  | #[⟨_, Binder.binder _ (some vars) _ ty none⟩] => do
     let ty ← match ty with | none => #[] | some ty => do #[mkAtom ":", ← trExpr ty.kind]
     mkNode ``explicitBinders #[mkNode ``unbracketedExplicitBinders #[
       mkNullNode $ vars.map fun n => trBinderIdent n.kind, mkNullNode ty]]
@@ -553,13 +553,13 @@ def trExpr' : Expr → M Syntax
     | true, none => `(Type)
     | true, some u => do `(Type $(← trLevel u))
   | Expr.«→» lhs rhs => do `($(← trExpr lhs.kind) → $(← trExpr rhs.kind))
-  | Expr.fun true #[⟨_, _, LambdaBinder.reg (Binder.binder _ none _ (some ty) _)⟩] e => do
+  | Expr.fun true #[⟨_, LambdaBinder.reg (Binder.binder _ none _ (some ty) _)⟩] e => do
     `(fun $(mkIdent `this):ident: $(← trExpr ty.kind) => $(← trExpr e.kind))
   | Expr.fun _ bis e => do
     let bis ← bis.foldlM (fun out bi => trLambdaBinder bi.kind out) #[]
     `(fun $bis* => $(← trExpr e.kind))
   | Expr.Pi bis e => do
-    -- let dArrowHeuristic := !bis.any fun | ⟨_, _, Binder.binder _ _ _ none _⟩ => true | _ => false
+    -- let dArrowHeuristic := !bis.any fun | ⟨_, Binder.binder _ _ _ none _⟩ => true | _ => false
     let dArrowHeuristic := false
     if dArrowHeuristic then trDArrow bis e.kind else
       `(∀ $(← trBinders { allowSimple := some false } bis)*, $(← trExpr e.kind))
@@ -637,7 +637,7 @@ def trExpr' : Expr → M Syntax
     let srcs := match src with | none => srcs | some src => #[src] ++ srcs
     let srcs : Array _ ← srcs.mapM fun s => trExpr s.kind
     let srcs := if srcs.isEmpty then none else some srcs
-    let flds ← flds.mapM fun (⟨_, _, lhs⟩, ⟨_, _, rhs⟩) => do
+    let flds ← flds.mapM fun (⟨_, lhs⟩, ⟨_, rhs⟩) => do
       if (match rhs with | Expr.ident rhs => rhs == lhs | _ => false : Bool) then
         `(Parser.Term.structInstFieldAbbrev| $(← mkIdentF lhs):ident)
       else
@@ -690,11 +690,11 @@ def trAttr (prio : Option Expr) : Attribute → M (Option TrAttr)
     | `class,         none => `(attr| class)
     | `instance,      none => `(attr| instance)
     | `simp,          none => `(attr| simp)
-    | `recursor,      some ⟨_, _, AttrArg.indices #[]⟩ => throw! "unsupported: @[recursor]"
-    | `recursor,      some ⟨_, _, AttrArg.indices #[⟨_, _, n⟩]⟩ =>
+    | `recursor,      some ⟨_, AttrArg.indices #[]⟩ => throw! "unsupported: @[recursor]"
+    | `recursor,      some ⟨_, AttrArg.indices #[⟨_, n⟩]⟩ =>
       `(attr| recursor $(Quote.quote n):numLit)
     | `intro,         none => `(attr| intro)
-    | `intro,         some ⟨_, _, AttrArg.eager⟩ => `(attr| intro!)
+    | `intro,         some ⟨_, AttrArg.eager⟩ => `(attr| intro!)
     | `refl,          none => mkSimpleAttr `refl
     | `symm,          none => mkSimpleAttr `symm
     | `trans,         none => mkSimpleAttr `trans
@@ -706,12 +706,12 @@ def trAttr (prio : Option Expr) : Attribute → M (Option TrAttr)
     | `semireducible, none => mkSimpleAttr `semireducible
     | `irreducible,   none => mkSimpleAttr `irreducible
     | `elab_simple,   none => mkSimpleAttr `elabWithoutExpectedType
-    | `vm_override,   some ⟨_, _, AttrArg.vmOverride n none⟩ =>
+    | `vm_override,   some ⟨_, AttrArg.vmOverride n none⟩ =>
       mkSimpleAttr `implementedBy #[← mkIdentI n.kind]
-    | `derive,        some ⟨_, _, AttrArg.user _ args⟩ =>
+    | `derive,        some ⟨_, AttrArg.user _ args⟩ =>
       return TrAttr.derive $ ← (← Parser.pExprListOrTExpr.run' args).mapM trDerive
     | _, none => mkSimpleAttr (← renameAttr n)
-    | _, some ⟨_, _, AttrArg.user e args⟩ =>
+    | _, some ⟨_, AttrArg.user e args⟩ =>
       match (← get).userAttrs.find? n, args with
       | some f, _ =>
         try f #[Spanned.dummy (AST3.Param.parse e args)]
@@ -907,7 +907,7 @@ def trInductive (cl : Bool) (mods : Modifiers) (n : Spanned Name) (us : LevelDec
   let (s, mods) ← trModifiers mods
   let id ← trDeclId n.kind us
   let sig ← trDeclSig false bis ty
-  let ctors ← intros.mapM fun ⟨_, _, ⟨doc, name, ik, bis, ty⟩⟩ => do
+  let ctors ← intros.mapM fun ⟨_, ⟨doc, name, ik, bis, ty⟩⟩ => do
     `(Parser.Command.ctor| |
       $[$(doc.map trDocComment):docComment]?
       $(← mkIdentI name.kind):ident
@@ -953,7 +953,7 @@ def trStructure (cl : Bool) (mods : Modifiers) (n : Spanned Name) (us : LevelDec
   let id ← trDeclId n.kind us
   let bis := mkNullNode $ ← trBinders {} bis
   let exts ← exts.mapM fun
-    | ⟨_, _, false, none, ty, #[]⟩ => trExpr ty.kind
+    | ⟨_, false, none, ty, #[]⟩ => trExpr ty.kind
     | _ => throw! "unsupported: advanced extends in structure"
   let exts ← mkOpt (if exts.isEmpty then none else some exts) fun exts =>
     `(Parser.Command.extends| extends $exts,*)
@@ -961,7 +961,7 @@ def trStructure (cl : Bool) (mods : Modifiers) (n : Spanned Name) (us : LevelDec
   let flds ← @mkNullNode <$> match mk, flds with
   | none, #[] => #[]
   | mk, flds => do
-    let mk ← mk.mapM fun ⟨_, _, n, ik⟩ => do
+    let mk ← mk.mapM fun ⟨_, n, ik⟩ => do
       `(Parser.Command.structCtor| $(← mkIdentF n.kind):ident $[$(← trInferKind ik)]? ::)
     #[mkAtom "where", mkOptionalNode mk, ← trFields flds]
   let decl := mkNode ``Parser.Command.structure #[
@@ -987,17 +987,17 @@ private def mkNAry (lits : Array (Spanned AST3.Literal)) : OptionM (Array Litera
   let mut out := #[]
   for lit in lits do
     match lit with
-    | ⟨_, _, AST3.Literal.sym tk⟩ => out := out.push (Literal.tk tk.1.kind.toString)
-    | ⟨_, _, AST3.Literal.var _ _⟩ => out := out.push (Literal.arg i); i := i + 1
-    | ⟨_, _, AST3.Literal.binder _⟩ => out := out.push (Literal.arg i); i := i + 1
-    | ⟨_, _, AST3.Literal.binders _⟩ => out := out.push (Literal.arg i); i := i + 1
+    | ⟨_, AST3.Literal.sym tk⟩ => out := out.push (Literal.tk tk.1.kind.toString)
+    | ⟨_, AST3.Literal.var _ _⟩ => out := out.push (Literal.arg i); i := i + 1
+    | ⟨_, AST3.Literal.binder _⟩ => out := out.push (Literal.arg i); i := i + 1
+    | ⟨_, AST3.Literal.binders _⟩ => out := out.push (Literal.arg i); i := i + 1
     | _ => none
   out
 
 private def isIdentPrec : AST3.Literal → Bool
   | AST3.Literal.sym _ => true
   | AST3.Literal.var _ none => true
-  | AST3.Literal.var _ (some ⟨_, _, Action.prec _⟩) => true
+  | AST3.Literal.var _ (some ⟨_, Action.prec _⟩) => true
   | _ => false
 
 private def trMixfix (kind : Syntax) (prio : Option Syntax)
@@ -1028,10 +1028,10 @@ private def trMixfix (kind : Syntax) (prio : Option Syntax)
 private def trNotation4 (kind : Syntax) (prio p : Option Syntax)
   (lits : Array (Spanned AST3.Literal)) : M (Option Syntax → Syntax → Id Syntax) := do
   let lits ← lits.mapM fun
-  | ⟨_, _, AST3.Literal.sym tk⟩ => Syntax.mkStrLit tk.1.kind.toString
-  | ⟨_, _, AST3.Literal.var x none⟩ =>
+  | ⟨_, AST3.Literal.sym tk⟩ => Syntax.mkStrLit tk.1.kind.toString
+  | ⟨_, AST3.Literal.var x none⟩ =>
     `(Parser.Command.identPrec| $(mkIdent x.kind):ident)
-  | ⟨_, _, AST3.Literal.var x (some ⟨_, _, Action.prec p⟩)⟩ => do
+  | ⟨_, AST3.Literal.var x (some ⟨_, Action.prec p⟩)⟩ => do
     `(Parser.Command.identPrec| $(mkIdent x.kind):ident : $((← trPrec p).toSyntax))
   | _ => throw! "unsupported (impossible)"
   pure fun n e => `(command|
@@ -1043,9 +1043,9 @@ private def trNotation3Item (lit : AST3.Literal) : M Syntax := do
   | AST3.Literal.binder _ => binders
   | AST3.Literal.binders _ => binders
   | AST3.Literal.var x none => var x
-  | AST3.Literal.var x (some ⟨_, _, Action.prec _⟩) => var x
-  | AST3.Literal.var x (some ⟨_, _, Action.prev⟩) => var x
-  | AST3.Literal.var x (some ⟨_, _, Action.scoped _ sc⟩) => scope x sc
+  | AST3.Literal.var x (some ⟨_, Action.prec _⟩) => var x
+  | AST3.Literal.var x (some ⟨_, Action.prev⟩) => var x
+  | AST3.Literal.var x (some ⟨_, Action.scoped _ sc⟩) => scope x sc
   | _ => throw! "unsupported: advanced notation"
   mkNode ``Parser.Command.notation3Item stxs
 where
@@ -1091,14 +1091,14 @@ def trNotationCmd (loc : LocalReserve) (attrs : Attributes) (nota : Notation)
     (e, ← trMixfix kind prio m tk.kind.toString prec)
   | Notation.notation lits (some e) =>
     let p ← match lits.get? 0 with
-    | some ⟨_, _, AST3.Literal.sym tk⟩ => tk.2
-    | some ⟨_, _, AST3.Literal.var _ _⟩ => match lits.get? 1 with
-      | some ⟨_, _, AST3.Literal.sym tk⟩ => tk.2
+    | some ⟨_, AST3.Literal.sym tk⟩ => tk.2
+    | some ⟨_, AST3.Literal.var _ _⟩ => match lits.get? 1 with
+      | some ⟨_, AST3.Literal.sym tk⟩ => tk.2
       | _ => none
     | _ => none
     let p ← p.mapM fun p => do (← trPrec p.kind).toSyntax
     let desc := match lits with
-    | #[⟨_, _, AST3.Literal.sym tk⟩] => NotationDesc.const tk.1.kind.toString
+    | #[⟨_, AST3.Literal.sym tk⟩] => NotationDesc.const tk.1.kind.toString
     | _ => match mkNAry lits with
       | some lits => NotationDesc.nary lits
       | none => NotationDesc.fail
@@ -1158,8 +1158,8 @@ def trCommand' : Command → M Unit
       | VariableKind.parameter => pushM `(parameter $bis*)
   | Command.axiom _ mods n us bis ty => trAxiom mods n.kind us bis ty
   | Command.axioms _ mods bis => bis.forM fun
-    | ⟨_, _, Binder.binder _ (some ns) bis (some ty) none⟩ => ns.forM fun
-      | ⟨_, _, BinderName.ident n⟩ => trAxiom mods n none bis ty
+    | ⟨_, Binder.binder _ (some ns) bis (some ty) none⟩ => ns.forM fun
+      | ⟨_, BinderName.ident n⟩ => trAxiom mods n none bis ty
       | _ => throw! "unsupported (impossible)"
     | _ => throw! "unsupported (impossible)"
   | Command.decl dk mods n us bis ty val => do
@@ -1182,9 +1182,9 @@ def trCommand' : Command → M Unit
   | Command.hide ops => unless ops.isEmpty do
       throw! "unsupported: hide command"
       -- pushM `(hide $(ops.map fun n => mkIdent n.kind)*)
-  | Command.theory #[⟨_, _, Modifier.noncomputable⟩] =>
+  | Command.theory #[⟨_, Modifier.noncomputable⟩] =>
     pushM `(command| noncomputable theory)
-  | Command.theory #[⟨_, _, Modifier.doc doc⟩, ⟨_, _, Modifier.noncomputable⟩] =>
+  | Command.theory #[⟨_, Modifier.doc doc⟩, ⟨_, Modifier.noncomputable⟩] =>
     pushM `(command| $(trDocComment doc):docComment noncomputable theory)
   | Command.theory _ => throw! "unsupported (impossible)"
   | Command.setOption o val => match o.kind, val.kind with

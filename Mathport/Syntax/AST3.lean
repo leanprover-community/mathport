@@ -56,10 +56,15 @@ inductive Annotation
   | «by»
   | pattern_hint
   | th_proof
+  deriving Repr
 
 structure EquationsHeader :=
   (num_fns : Nat) (fn_names fn_actual_names : Array Name)
   (is_private is_noncomputable is_meta is_lemma gen_code aux_lemmas : Bool)
+  deriving Repr
+
+instance : Repr Level.Data := ⟨fun _ _ => "·"⟩
+deriving instance Repr for Level
 
 mutual
 
@@ -94,13 +99,13 @@ mutual
     | ac_app (args : Array Expr) (op : Expr)
     | perm_ac (assoc comm e1 e2 : Expr)
     | cc_proof (e1 e2 : Expr)
-    deriving Inhabited
+    deriving Inhabited, Repr
 
   inductive LambdaEquation where
     | no_equation
     | equation (lhs rhs : Expr) (ignore_if_unused : Bool)
     | lam (name : Name) (bi : BinderInfo) (dom : Expr) : LambdaEquation → LambdaEquation
-    deriving Inhabited
+    deriving Inhabited, Repr
 
 end
 
@@ -110,23 +115,25 @@ partial def Expr.toLambdaEqn : Expr → Option LambdaEquation
   | Expr.lam n pp bi e => LambdaEquation.lam n pp bi <$> e.toLambdaEqn
   | _ => none
 
-instance : Repr Expr where reprPrec
-  | _, _ => "⬝"
-
 end Lean3
 
-structure Spanned (α : Type u) where
+structure Meta where
+  id : Nat
   start : Position
   end_ : Position
+  deriving Inhabited
+
+structure Spanned (α : Type u) where
+  meta : Meta
   kind  : α
   deriving Inhabited
 
 instance [Repr α] : Repr (Spanned α) := ⟨fun n p => reprPrec n.kind p⟩
 
 def Spanned.map (f : α → β) : Spanned α → Spanned β
-  | ⟨s, e, a⟩ => ⟨s, e, f a⟩
+  | ⟨m, a⟩ => ⟨m, f a⟩
 
-def Spanned.dummy (a : α) : Spanned α := ⟨arbitrary, arbitrary, a⟩
+def Spanned.dummy (a : α) : Spanned α := ⟨arbitrary, a⟩
 
 local prefix:max "#" => Spanned
 
@@ -1091,15 +1098,15 @@ def Notation.name (sp : Char) (f : PrecSymbol → String) (withTerm : Bool) (sta
   Notation → String
 | Notation.notation lits _ => do
   let mut s := start
-  for ⟨_, _, lit⟩ in lits do
+  for ⟨_, lit⟩ in lits do
     match lit with
     | Literal.nat n => s := s ++ toString n
     | Literal.sym tk => s := s ++ f tk
     | Literal.var _ none => s := s.push sp
-    | Literal.var _ (some ⟨_, _, Action.prec _⟩) => s := s.push sp
-    | Literal.var _ (some ⟨_, _, Action.prev⟩) => s := s.push sp
-    | Literal.var _ (some ⟨_, _, Action.scoped _ _⟩) => s := s.push sp
-    | Literal.var _ (some ⟨_, _, Action.fold _ _ sep _ _ term⟩) =>
+    | Literal.var _ (some ⟨_, Action.prec _⟩) => s := s.push sp
+    | Literal.var _ (some ⟨_, Action.prev⟩) => s := s.push sp
+    | Literal.var _ (some ⟨_, Action.scoped _ _⟩) => s := s.push sp
+    | Literal.var _ (some ⟨_, Action.fold _ _ sep _ _ term⟩) =>
       s := s.push sp ++ f sep
       if withTerm then if let some term := term then s := s ++ f term
     | Literal.binder _ => s := s.push sp
@@ -1115,6 +1122,41 @@ def Notation.name (sp : Char) (f : PrecSymbol → String) (withTerm : Bool) (sta
 
 def Notation.name3 := Notation.name ' ' (·.1.kind.trim) true "expr"
 def Notation.name4 := Name.mkSimple ∘ Notation.name '_' (·.1.kind.trim) false "term"
+
+structure Hyp where
+  name : Name
+  pp : Name
+  type : Lean3.Expr
+  value : Option Lean3.Expr
+
+instance : Repr Hyp where reprPrec
+  | ⟨_, pp, t, v⟩, _ =>
+    pp.toString ++ " : " ++ repr t ++
+    match v with | none => ("":Format) | some v => repr v
+
+structure Goal where
+  hyps : Array Hyp
+  target : Lean3.Expr
+
+instance : Repr Goal where reprPrec
+  | ⟨hyps, target⟩, _ =>
+    Format.join (hyps.toList.map fun hyp => repr hyp ++ "\n") ++
+    "⊢ " ++ repr target
+
+def Goals_repr (gs : Array Goal) : Format :=
+  Format.join (gs.toList.map fun g => repr g ++ "\n")
+
+structure TacticInvocation where
+  ast : Option #Tactic
+  start : Array Goal
+  «end» : Array Goal
+  success : Bool
+
+instance : Repr TacticInvocation where reprPrec
+  | ⟨tac, start, end_, success⟩, _ =>
+    "invoking " ++ repr tac ++ ":\n" ++
+    "before:\n" ++ Goals_repr start ++
+    (if success then "success" else "failed") ++ ", after:\n" ++ Goals_repr end_
 
 end AST3
 

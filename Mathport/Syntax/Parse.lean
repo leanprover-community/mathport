@@ -18,6 +18,7 @@ namespace Parse
 abbrev AstId := Nat
 abbrev LevelId := Nat
 abbrev ExprId := Nat
+abbrev TacticStateId := Nat
 abbrev Tag := Option AstId
 
 structure RawNode3 where
@@ -40,6 +41,7 @@ open Lean3 (Proj)
 structure State where
   notations : Array Notation := #[]
   cmds : Array Command := #[]
+  tactics : HashMap AstId (Spanned AST3.Tactic) := {}
 
 abbrev NotationKind := Option MixfixKind
 
@@ -62,8 +64,9 @@ def getInductiveId (args : Array AstId) : M NotationId :=
 def getCommandId (i : AstId) : M NotationId :=
   fun r => r.getCommandId i
 
-def RawNode3.map (n : RawNode3) (f : String → Name → Array AstId → M α) : M (Spanned α) := do
-  pure ⟨n.start, n.end', ← f n.kind n.value n.children'⟩
+def RawNode3.map (i : AstId) (n : RawNode3)
+  (f : String → Name → Array AstId → M α) : M (Spanned α) := do
+  pure ⟨⟨i, n.start, n.end'⟩, ← f n.kind n.value n.children'⟩
 
 def RawNode3.pexpr' (n : RawNode3) : M Lean3.Expr :=
   match n.pexpr with
@@ -89,11 +92,11 @@ def withNodeK (f : String → Name → Array AstId → M α) (i : AstId) : M α 
 
 def withNode (f : String → Name → Array AstId → M α) (i : AstId) : M (Spanned α) := do
   let r ← getRaw i
-  pure { start := r.start, end_ := r.end', kind := ← f r.kind r.value r.children' }
+  pure { meta := ⟨i, r.start, r.end'⟩, kind := ← f r.kind r.value r.children' }
 
 def withNodeR (f : RawNode3 → M α) (i : AstId) : M (Spanned α) := do
   let r ← getRaw i
-  pure { start := r.start, end_ := r.end', kind := ← f r }
+  pure { meta := ⟨i, r.start, r.end'⟩, kind := ← f r }
 
 def getRaw? : AstId → M (Option RawNode3) := opt getRaw
 
@@ -385,8 +388,8 @@ mutual
     | "by", _, #[tac] => Proof.by <$> getTactic tac
     | k, _, _ => throw s!"getProof parse error, unknown kind {k}"
 
-  partial def getTactic : AstId → M (Spanned Tactic) :=
-    withNode fun
+  partial def getTactic (i : AstId) : M (Spanned Tactic) := do
+    let getTactic' := withNode fun
     | ";", _, args => Tactic.«;» <$> args.mapM getTactic
     | "<|>", _, args => Tactic.«<|>» <$> args.mapM getTactic
     | "[", _, args => Tactic.«[]» <$> args.mapM getTactic
@@ -397,6 +400,9 @@ mutual
     | "(", _, #[e] => Tactic.expr <$> getExpr e
     | "tactic", v, args => Tactic.interactive v <$> args.mapM getParam
     | k, _, _ => throw s!"getTactic parse error, unknown kind {k}"
+    let t ← getTactic' i
+    modify fun s => { s with tactics := s.tactics.insert i t }
+    t
 
   partial def getBlock (curly : Bool) (args : Array AstId) : M Block := do
     pure ⟨curly, ← opt getName args[0], ← opt getExpr args[1], ← args[2:].toArray.mapM getTactic⟩
@@ -595,8 +601,8 @@ def getPrintCmd (args : Array AstId) : M PrintCmd := do
   | "notation" => «notation» <$> args.mapM getName
   | "inductive" => «inductive» <$> getName args[1]
   | "attribute" => attr <$> getPrintAttrCmd args[1]
-  | "token" => token <$> r.map fun _ v _ => v
-  | "ident" => ident <$> r.map fun _ v _ => v
+  | "token" => token <$> r.map args[0] fun _ v _ => v
+  | "ident" => ident <$> r.map args[0] fun _ v _ => v
   | k => throw s!"getPrintCmd parse error, unknown kind {k}"
 
 def getHeader (args : Subarray AstId) :
@@ -703,13 +709,13 @@ where
     let mods ← getModifiers args[0]
     «attribute» (args[1] ≠ 0) mods (← arr getAttr args[2]) (← args[3:].toArray.mapM getName)
 
-def getAST : AstId → M AST3 := withNodeK fun
+def getAST : AstId → M (AST3 × HashMap AstId (Spanned AST3.Tactic)) := withNodeK fun
   | "file", _, #[prel, imp, cmds] => do
     let prel ← opt (withNode fun _ _ _ => ()) prel
     let imp ← arr (withNodeK fun _ _ args => args.mapM getName) imp
     let cmds ← arr getCommand cmds
-    let ⟨inota, icmds⟩ ← get
-    pure ⟨prel, imp, cmds, inota, icmds⟩
+    let ⟨inota, icmds, tacs⟩ ← get
+    pure (⟨prel, imp, cmds, inota, icmds⟩, tacs)
   | k, _, args => throw s!"getAST parse error, unknown kind {k}, {args}"
 
 partial def M.run (ast : Array (Option RawNode3)) (expr : Array Lean3.Expr) :
@@ -824,11 +830,39 @@ instance : FromJson RawExpr :=
     try fromJson? x
     catch e => throw s!"at: {x}\n{e}"⟩
 
+structure RawTacticInvocation where
+  ast : AstId
+  start : TacticStateId
+  «end» : TacticStateId
+  success : Bool
+  deriving FromJson
+
+structure RawHyp where
+  name : Name
+  pp : Name
+  type : ExprId
+  value : Option ExprId
+  deriving FromJson
+
+structure RawGoal where
+  hyps : Array RawHyp
+  target : ExprId
+
+instance : FromJson RawGoal where
+  fromJson? j := do pure ⟨← fromJson? (← j.getArrVal? 0), ← fromJson? (← j.getArrVal? 1)⟩
+
+structure RawTacticState where
+  decl : Name
+  goals : Array RawGoal
+  deriving FromJson
+
 structure RawAST3 where
   ast      : Array (Option RawNode3)
   file     : AstId
   level    : Array RawLevel
   expr     : Array (Option RawExpr)
+  tactics  : Option (Array RawTacticInvocation)
+  states   : Option (Array RawTacticState)
   deriving FromJson
 
 section
@@ -934,17 +968,40 @@ def buildExprs (es : Array (Option RawExpr)) : Array Expr := do
     out := out.push e'
   out
 
+def RawHyp.build : RawHyp → AST3.Hyp
+  | ⟨name, pp, ty, val⟩ => ⟨name, pp, exprs[ty], val.map fun e => exprs[e]⟩
+
+def RawGoal.build : RawGoal → AST3.Goal
+  | ⟨hyps, target⟩ => ⟨hyps.map (·.build exprs), exprs[target]⟩
+
+def RawTacticState.build : RawTacticState → Array AST3.Goal
+  | ⟨_, goals⟩ => goals.map (·.build exprs)
+
+def RawTacticInvocation.build
+  (states : Array (Array AST3.Goal))
+  (tacs : HashMap AstId (Spanned AST3.Tactic)) :
+  RawTacticInvocation → AST3.TacticInvocation
+  | ⟨ast, start, end_, success⟩ => ⟨none, states[start], states[end_], success⟩
+
 end
 
-def RawAST3.toAST3 : RawAST3 → Except String AST3
-| ⟨ast, file, level, expr⟩ => do
-  let level := buildLevels level
-  let expr := buildExprs level expr
-  getAST file |>.run ast expr
+def RawAST3.build : RawAST3 → (invocs :_:= true) → Except String (AST3 × Array AST3.TacticInvocation)
+| ⟨ast, file, level, expr, tactics, states⟩, invocs => do
+  let level ← do buildLevels level
+  let expr ← do buildExprs level expr
+  M.run ast expr $ do
+    let (ast, tacs) ← getAST file
+    let invocs ←
+      if invocs then
+        let states ← do (states.getD #[]).map (·.build expr)
+        (tactics.getD #[]).map (·.build states tacs)
+      else #[]
+    (ast, invocs)
 
 end Parse
 
-def parseAST3 (filename : System.FilePath) : IO AST3 := do
+def parseAST3 (filename : System.FilePath) (invocs :_:= true) :
+  IO (AST3 × Array AST3.TacticInvocation) := do
   -- println! "Reading {filename}..."
   let s ← IO.FS.readFile filename
   -- println! "Parsing Json..."
@@ -952,7 +1009,12 @@ def parseAST3 (filename : System.FilePath) : IO AST3 := do
   -- println! "Decoding RawAST3..."
   let rawAST3 ← fromJson? json (α := Parse.RawAST3)
   -- println! "Converting RawAST3 to AST3..."
-  rawAST3.toAST3
+  rawAST3.build invocs
+
+-- #eval show IO Unit from do
+--   let (_, invocs) ← parseAST3 "/home/mario/Documents/lean/lean/library/init/data/nat/lemmas.ast.json"
+--   for i in invocs[0:10] do
+--     println! "{repr i}\n\n"
 
 -- #eval show IO Unit from do
 --   let s ← IO.FS.readFile "/home/mario/Documents/lean/lean/library/init/data/nat/lemmas.ast.json"

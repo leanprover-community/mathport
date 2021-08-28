@@ -294,7 +294,7 @@ def parseSimpConfig : Option AST3.Expr → Option Meta.Simp.Config
   | some (AST3.Expr.«{}») => none
   | some (AST3.Expr.structInst _ none flds #[] false) => do
     let mut cfg : Meta.Simp.Config := {}
-    for (⟨_, _, n⟩, ⟨_, _, e⟩) in flds do
+    for (⟨_, n⟩, ⟨_, e⟩) in flds do
       match n, e with
       | `max_steps, Expr.nat n => cfg := {cfg with maxSteps := n}
       | `contextual, e => cfg := asBool e cfg fun cfg b => {cfg with contextual := b}
@@ -310,8 +310,8 @@ def parseSimpConfig : Option AST3.Expr → Option Meta.Simp.Config
   | some _ => dbg_trace "warning: unsupported simp config syntax"; none
 where
   asBool {α} : AST3.Expr → α → (α → Bool → α) → α
-  | AST3.Expr.const _ ⟨_, _, `tt⟩ _, a, f => f a true
-  | AST3.Expr.const _ ⟨_, _, `ff⟩ _, a, f => f a false
+  | AST3.Expr.const _ ⟨_, `tt⟩ _, a, f => f a true
+  | AST3.Expr.const _ ⟨_, `ff⟩ _, a, f => f a false
   | _, a, _ => a
 
 def quoteSimpConfig (cfg : Meta.Simp.Config) : Option Syntax := do
@@ -560,7 +560,7 @@ private partial def parseChunks [Repr α] (acc : String) (i : String.Pos)
 
 private partial def getStr : AST3.Expr → M String
   | Expr.string s => s
-  | Expr.notation n #[⟨_, _, Arg.expr s1⟩, ⟨_, _, Arg.expr s2⟩] => do
+  | Expr.notation n #[⟨_, Arg.expr s1⟩, ⟨_, Arg.expr s2⟩] => do
     if n.name == `«expr ++ » then
       pure $ (← getStr s1.unparen) ++ (← getStr s2.unparen)
     else throw! "unsupported"
