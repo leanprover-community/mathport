@@ -910,13 +910,21 @@ def trSimpsRule : Sum (Name × Name) Name × Bool → M Syntax
   mkNode tac #[mkAtom s, cfg, o, hs, trSimpAttrs attrs, loc]
 
 -- # tactic.suggest
+def trSuggestUsing (args : Array BinderName) : M Syntax := do
+  let args ← args.mapM fun
+  | BinderName.ident n => mkIdent n
+  | BinderName._ => throw! "unsupported: using _ in suggest/library_search"
+  mkNullNode $ ← match args with
+  | #[] => #[]
+  | _ => do #[mkAtom "using", mkNullNode args]
+
 @[trTactic suggest] def trSuggest : TacM Syntax := do
   let n := (← parse (smallNat)?).map Quote.quote
   let hs := trSimpList (← trSimpArgs (← parse simpArgList))
   let attrs := (← parse (tk "with" *> ident*)?).getD #[]
-  let loc := mkOptionalNode $ ← trLoc (← parse location)
+  let use ← trSuggestUsing ((← parse (tk "using" *> ident_*)?).getD #[])
   let cfg := mkConfigStx $ ← liftM $ (← expr?).mapM trExpr
-  mkNode ``Parser.Tactic.suggest #[mkAtom "suggest", cfg, hs, trSimpAttrs attrs]
+  mkNode ``Parser.Tactic.suggest #[mkAtom "suggest", cfg, hs, trSimpAttrs attrs, use]
 
 @[trTactic library_search] def trLibrarySearch : TacM Syntax := do
   let (tac, s) := match ← parse (tk "!")? with
@@ -924,8 +932,9 @@ def trSimpsRule : Sum (Name × Name) Name × Bool → M Syntax
   | some _ => (``Parser.Tactic.librarySearch!, "librarySearch!")
   let hs := trSimpList (← trSimpArgs (← parse simpArgList))
   let attrs := (← parse (tk "with" *> ident*)?).getD #[]
+  let use ← trSuggestUsing ((← parse (tk "using" *> ident_*)?).getD #[])
   let cfg := mkConfigStx $ ← liftM $ (← expr?).mapM trExpr
-  mkNode tac #[mkAtom s, cfg, hs, trSimpAttrs attrs]
+  mkNode tac #[mkAtom s, cfg, hs, trSimpAttrs attrs, use]
 
 -- # tactic.tauto
 @[trTactic tauto tautology] def trTauto : TacM Syntax := do

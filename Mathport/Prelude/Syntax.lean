@@ -501,11 +501,11 @@ syntax (name := squeezeDSimp?!) "squeezeDSimp?!" (" (" &"config" " := " term ")"
   (" [" simpArg,* "]")? (" with " (colGt ident)+)? (ppSpace location)? : tactic
 
 syntax (name := suggest) "suggest" (" (" &"config" " := " term ")")? (ppSpace num)?
-  (" [" simpArg,* "]")? (" with " (colGt ident)+)? : tactic
+  (" [" simpArg,* "]")? (" with " (colGt ident)+)? (" using " (colGt ident)+)? : tactic
 syntax (name := librarySearch) "librarySearch" (" (" &"config" " := " term ")")?
-  (" [" simpArg,* "]")? (" with " (colGt ident)+)? : tactic
+  (" [" simpArg,* "]")? (" with " (colGt ident)+)? (" using " (colGt ident)+)? : tactic
 syntax (name := librarySearch!) "librarySearch!" (" (" &"config" " := " term ")")?
-  (" [" simpArg,* "]")? (" with " (colGt ident)+)? : tactic
+  (" [" simpArg,* "]")? (" with " (colGt ident)+)? (" using " (colGt ident)+)? : tactic
 
 syntax (name := tauto) "tauto" (" (" &"config" " := " term ")")? : tactic
 syntax (name := tauto!) "tauto!" (" (" &"config" " := " term ")")? : tactic
