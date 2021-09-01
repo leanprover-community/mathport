@@ -147,37 +147,6 @@ syntax "pquote " term : term
 syntax "ppquote " term : term
 syntax "%%" term : term
 
-def calcDots := leading_parser symbol "..."
-def calcLHS : Parser where
-  fn c s :=
-    let s := calcDots.fn c s
-    if s.hasError then s else
-    let tables := (getCategory (parserExtension.getState c.env).categories `term).get!.tables
-    trailingLoop tables c s
-  info := (calcDots >> termParser).info
-
-run_cmd modifyEnv fun env => addSyntaxNodeKind env ``calcDots
-
-open Lean.PrettyPrinter Lean.Elab.Term
-
-@[formatter Lean.Parser.Term.calcDots]
-def calcDots.formatter : Formatter :=
-  Formatter.visitArgs $ Parser.symbol.formatter "..."
-
-@[parenthesizer Lean.Parser.Term.calcDots]
-def calcDots.parenthesizer : Parenthesizer :=
-  Parenthesizer.visitArgs $ Parser.symbol.parenthesizer "..."
-
-@[combinatorFormatter Lean.Parser.Term.calcLHS]
-def calcLHS.formatter : Formatter := termParser.formatter
-
-@[combinatorParenthesizer Lean.Parser.Term.calcLHS]
-def calcLHS.parenthesizer : Parenthesizer := termParser.parenthesizer
-
-syntax calcFirst := ppLine term " : " term
-syntax calcRest := ppLine calcLHS " : " term
-syntax (name := «calc») "calc " calcFirst calcRest* : term
-
 end Term
 
 namespace Tactic
@@ -219,7 +188,6 @@ syntax (name := «sorry») "sorry" : tactic
 syntax (name := iterate) "iterate" (num)? ppSpace tacticSeq : tactic
 syntax (name := repeat') "repeat' " tacticSeq : tactic
 syntax (name := abstract) "abstract" (ppSpace ident)? ppSpace tacticSeq : tactic
-syntax (name := anyGoals) "anyGoals " tacticSeq : tactic
 syntax (name := have'') "have " Term.haveIdLhs : tactic
 syntax (name := let'') "let " Term.haveIdLhs : tactic
 syntax (name := suffices') "suffices " Term.haveIdLhs : tactic
@@ -228,7 +196,6 @@ syntax (name := existsi) "exists " term,* : tactic
 syntax (name := eConstructor) "econstructor" : tactic
 syntax (name := left) "left" : tactic
 syntax (name := right) "right" : tactic
-syntax (name := split) "split" : tactic
 syntax (name := constructorM) "constructorM" "*"? ppSpace term,* : tactic
 syntax (name := exFalso) "exFalso" : tactic
 syntax (name := injections) "injections " (" with " (colGt (ident <|> "_"))+)? : tactic

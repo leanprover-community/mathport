@@ -286,6 +286,10 @@ inductive TacticContext | seq | one
 def optTy (ty : Option Syntax) : M (Option Syntax) :=
   ty.mapM fun stx => do `(Parser.Term.typeSpec| : $stx)
 
+def trCalcArgs (args : Array (Spanned Expr × Spanned Expr)) : M (Array Syntax) :=
+  args.mapM fun (lhs, rhs) => do
+    mkNode ``calcStep #[← trExpr lhs.kind, mkAtom ":=", ← trExpr rhs.kind]
+
 mutual
 
   partial def trBlock : Block → (c :_:= TacticContext.seq) → M Syntax
@@ -312,6 +316,8 @@ mutual
       let tacs ← tacs.mapM fun tac => trTactic tac.kind TacticContext.seq
       `(tactic| first $[| $tacs:tacticSeq]*)
     | Tactic.«[]» tacs, _ => throw! "unsupported (impossible)"
+    | Tactic.exact_shortcut ⟨_, Expr.calc args⟩, TacticContext.one => do
+      `(tactic| calc $(← trCalcArgs args)*)
     | Tactic.exact_shortcut e, TacticContext.one => do `(tactic| exact $(← trExpr e.kind))
     | Tactic.expr e, TacticContext.one => do
       let rec head
@@ -562,7 +568,7 @@ partial def trAppArgs [Inhabited α] : (e : Expr) → (m : Expr → M α) → M 
   | e, m => do (← m e, #[])
 
 def trExpr' : Expr → M Syntax
-  | Expr.«...» => `(Parser.Term.calcDots| ...)
+  | Expr.«...» => `(_)
   | Expr.sorry => `(sorry)
   | Expr.«_» => `(_)
   | Expr.«()» => `(())
@@ -621,12 +627,7 @@ def trExpr' : Expr → M Syntax
   | Expr.if (some h) c t e => do
     `(if $(mkIdent h.kind):ident : $(← trExpr c.kind)
       then $(← trExpr t.kind) else $(← trExpr e.kind))
-  | Expr.calc args => do
-    let (lhs, rhs) := args[0]
-    mkNode ``Parser.Term.calc #[mkAtom "calc",
-      mkNode ``Parser.Term.calcFirst #[← trExpr lhs.kind, mkAtom ":", ← trExpr rhs.kind],
-      mkNullNode $ ← args[1:].toArray.mapM fun (lhs, rhs) => do
-        mkNode ``Parser.Term.calcRest #[← trExpr lhs.kind, mkAtom ":", ← trExpr rhs.kind]]
+  | Expr.calc args => do `(calc $(← trCalcArgs args)*)
   | Expr.«@» _ e => do `(@$(← trExpr e.kind))
   | Expr.pattern e => trExpr e.kind
   | Expr.«`()» _ true e => do `(quote $(← trExpr e.kind))
