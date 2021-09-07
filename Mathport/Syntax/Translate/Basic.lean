@@ -352,13 +352,16 @@ def trIdTactic : Block → (c :_:= TacticContext.one) → M Syntax
   | ⟨_, none, none, #[tac]⟩, _ => trTactic tac.kind
   | bl, _ => do `(tactic| ($(← trBlock bl):tacticSeq))
 
+def mkConvBlock (args : Array Syntax) : Syntax :=
+  mkNode ``Parser.Tactic.Conv.convSeq #[mkNode ``Parser.Tactic.Conv.convSeq1Indented #[
+    mkNullNode $ args.map fun tac => mkGroupNode #[tac, mkNullNode]]]
+
 mutual
 
   partial def trConvBlock : Block → (c :_:= TacticContext.seq) → M Syntax
-    | ⟨_, none, none, #[]⟩, TacticContext.seq => do `(Parser.Conv.convSeq| {})
+    | ⟨_, none, none, #[]⟩, TacticContext.seq => do mkConvBlock #[← `(conv| skip)]
     | ⟨_, none, none, tacs⟩, TacticContext.seq => do
-      mkNode ``Parser.Conv.convSeq #[mkNode ``Parser.Conv.convSeq1Indented #[
-        mkNullNode $ ← tacs.mapM fun tac => do mkGroupNode #[← trConv tac.kind, mkNullNode]]]
+      mkConvBlock $ ← tacs.mapM fun tac => trConv tac.kind
     | bl, TacticContext.one => do `(tactic| · $(← trConvBlock bl):tacticSeq)
     | ⟨_, cl, cfg, tacs⟩, _ => throw! "unsupported (TODO): conv block with cfg"
 

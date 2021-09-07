@@ -974,7 +974,7 @@ def trSuggestUsing (args : Array BinderName) : M Syntax := do
 
 @[trConv norm_num] def trNormNumConv : TacM Syntax := do
   let hs := trSimpList (← trSimpArgs (← parse simpArgList))
-  mkNode ``Parser.Conv.normNum #[mkAtom "normNum", hs]
+  mkNode ``Parser.Tactic.Conv.normNum #[mkAtom "normNum", hs]
 
 -- # tactic.abel
 @[trTactic abel1] def trAbel1 : TacM Syntax := `(tactic| abel1)

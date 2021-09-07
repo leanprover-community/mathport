@@ -198,7 +198,7 @@ syntax (name := left) "left" : tactic
 syntax (name := right) "right" : tactic
 syntax (name := constructorM) "constructorM" "*"? ppSpace term,* : tactic
 syntax (name := exFalso) "exFalso" : tactic
-syntax (name := injections) "injections " (" with " (colGt (ident <|> "_"))+)? : tactic
+syntax (name := injections') "injections" (" with " (colGt (ident <|> "_"))+)? : tactic
 -- syntax simpArg := simpStar <|> simpErase <|> simpLemma
 def simpArg := simpStar.binary `orelse (simpErase.binary `orelse simpLemma)
 syntax (name := simp') "simp'" "*"? (" (" &"config" " := " term ")")? (&" only")?
@@ -236,57 +236,26 @@ syntax (name := rsimp) "rsimp" : tactic
 syntax (name := compVal) "compVal" : tactic
 syntax (name := async) "async " tacticSeq : tactic
 
-end Tactic
-
-builtin_initialize
-  registerBuiltinParserAttribute `builtinConvParser `conv LeadingIdentBehavior.both
-  registerBuiltinDynamicParserAttribute `convParser `conv
-
-declare_syntax_cat conv (behavior := both)
-@[inline] def convParser (rbp : Nat := 0) : Parser :=
-  categoryParser `conv rbp
-
 namespace Conv
 
-def convSeq1Indented : Parser :=
-  leading_parser many1Indent (group (ppLine >> convParser >> optional ";"))
-def convSeqBracketed : Parser :=
-  leading_parser "{" >> many (group (ppLine >> convParser >> optional ";")) >> ppDedent (ppLine >> "}")
-def convSeq :=
-  nodeWithAntiquot "convSeq" `Lean.Parser.Conv.convSeq (convSeqBracketed <|> convSeq1Indented)
-
-syntax (name := nestedConv) convSeqBracketed : conv
-
-syntax (name := paren) "(" convSeq ")" : conv
-syntax (name := skip) "skip" : conv
-syntax (name := done) "done" : conv
 syntax (name := first) "first " withPosition((group(colGe "|" convSeq))+) : conv
 macro "try " t:convSeq : conv => `(first | $t | skip)
-macro dot:("·" <|> ".") ts:convSeq : conv => `({%$dot ($ts:convSeq) })
 syntax "runConv " doSeq : conv
 
 open Tactic (simpArg rwRuleSeq)
-syntax (name := whnf) "whnf" : conv
 syntax (name := traceLHS) "traceLHS" : conv
-syntax (name := change) "change " term : conv
-syntax (name := congr) "congr" : conv
-syntax (name := funext) "funext" : conv
 syntax (name := toLHS) "toLHS" : conv
 syntax (name := toRHS) "toRHS" : conv
 syntax (name := find) "find " term " => " tacticSeq : conv
 syntax (name := «for») "for " term:max " [" num,* "]" " => " tacticSeq : conv
 syntax (name := dsimp) "dsimp" (" (" &"config" " := " term ")")? (&" only")?
   (" [" simpArg,* "]")? (" with " ident+)? : tactic
-syntax (name := simp) "simp" (" (" &"config" " := " term ")")? (&" only")?
+syntax (name := simp') "simp" (" (" &"config" " := " term ")")? (&" only")?
   (" [" simpArg,* "]")? (" with " ident+)? : tactic
 syntax (name := guardLHS) "guardLHS " " =ₐ " term : tactic
 syntax (name := rw) "rw " rwRuleSeq : tactic
 
 end Conv
-
-namespace Tactic
-
-syntax (name := conv) "conv" (" at " ident)? (" in " term)? " => " Conv.convSeq : tactic
 
 syntax (name := unfreezingI) "unfreezingI " tacticSeq : tactic
 syntax (name := resetI) "resetI" : tactic
@@ -645,12 +614,9 @@ syntax (name := initRing) "initRing" (" using " term)? : tactic
 syntax (name := ghostSimp) "ghostSimp" (" [" simpArg,* "]")? : tactic
 syntax (name := wittTruncateFunTac) "wittTruncateFunTac" : tactic
 
-end Tactic
-
 namespace Conv
-open Tactic (simpArg rwRuleSeq ringMode)
 
-syntax (name := conv) "conv " convSeq : conv
+syntax (name := convConv) "conv " Conv.convSeq : conv
 syntax (name := erw) "erw " rwRuleSeq : conv
 syntax (name := applyCongr) "applyCongr" (ppSpace (colGt term))? : conv
 syntax (name := guardTarget) "guardTarget" " =ₐ " term : conv
@@ -671,6 +637,7 @@ syntax (name := ringExp!) "ringExp!" : conv
 syntax (name := slice) "slice " num num : conv
 
 end Conv
+end Tactic
 
 namespace Attr
 

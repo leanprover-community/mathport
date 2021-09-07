@@ -539,7 +539,7 @@ def trSimpAttrs (attrs : Array Name) : Syntax :=
   let hs ← trSimpArgs (← parse simpArgList)
   let attrs := (← parse (tk "with" *> ident*)?).getD #[]
   let cfg := mkConfigStx $ parseSimpConfig (← expr?) |>.bind quoteSimpConfig
-  mkNode ``Parser.Conv.dsimp #[mkAtom "dsimp", cfg, o, trSimpList hs, trSimpAttrs attrs]
+  mkNode ``Parser.Tactic.Conv.dsimp #[mkAtom "dsimp", cfg, o, trSimpList hs, trSimpAttrs attrs]
 
 @[trConv trace_lhs] def trTraceLHSConv : TacM Syntax := `(conv| traceLHS)
 
@@ -548,7 +548,7 @@ def trSimpAttrs (attrs : Array Name) : Syntax :=
 
 @[trConv congr] def trCongrConv : TacM Syntax := `(conv| congr)
 
-@[trConv funext] def trFunextConv : TacM Syntax := `(conv| funext)
+@[trConv funext] def trFunextConv : TacM Syntax := `(conv| ext)
 
 @[trConv to_lhs] def trToLHSConv : TacM Syntax := `(conv| toLHS)
 
@@ -569,7 +569,7 @@ def trSimpAttrs (attrs : Array Name) : Syntax :=
   let hs ← trSimpArgs (← parse simpArgList)
   let attrs := (← parse (tk "with" *> ident*)?).getD #[]
   let cfg := mkConfigStx $ parseSimpConfig (← expr?) |>.bind quoteSimpConfig
-  mkNode ``Parser.Conv.simp #[mkAtom "simp", cfg, o, trSimpList hs, trSimpAttrs attrs]
+  mkNode ``Parser.Tactic.Conv.simp' #[mkAtom "simp", cfg, o, trSimpList hs, trSimpAttrs attrs]
 
 @[trConv guard_lhs] def trGuardLHSConv : TacM Syntax := do
   `(tactic| guardLHS =ₐ $(← trExpr (← parse pExpr)))
