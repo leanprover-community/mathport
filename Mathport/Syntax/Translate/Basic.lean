@@ -911,7 +911,6 @@ def trAxiom (mods : Modifiers) (n : Name)
 def trDecl (dk : DeclKind) (mods : Modifiers) (n : Option (Spanned Name)) (us : LevelDecl)
   (bis : Binders) (ty : Option (Spanned Expr)) (val : DeclVal) : M Syntax := do
   let (s, mods) ← trModifiers mods
-  unless s.derive.isEmpty do throw! "unsupported: @[derive] decl"
   let id ← n.mapM fun n => trDeclId n.kind us
   let sig req := trDeclSig req bis ty
   let val ← match val with
@@ -919,11 +918,20 @@ def trDecl (dk : DeclKind) (mods : Modifiers) (n : Option (Spanned Name)) (us : 
   | DeclVal.eqns #[] => `(Parser.Command.declValSimple| := fun.)
   | DeclVal.eqns arms => do `(Parser.Command.declValEqns| $[$(← arms.mapM trArm):matchAlt]*)
   match dk with
-  | DeclKind.abbrev => do `(command| $mods:declModifiers abbrev $id.get! $(← sig false) $val)
-  | DeclKind.def => do `(command| $mods:declModifiers def $id.get! $(← sig false) $val)
-  | DeclKind.example => do `(command| $mods:declModifiers example $(← sig true) $val)
-  | DeclKind.theorem => do `(command| $mods:declModifiers theorem $id.get! $(← sig true) $val)
+  | DeclKind.abbrev => do
+    unless s.derive.isEmpty do throw! "unsupported: @[derive] abbrev"
+    `(command| $mods:declModifiers abbrev $id.get! $(← sig false) $val)
+  | DeclKind.def => do
+    let ds := match s.derive with | #[] => none | ds => some (ds.map mkIdent)
+    `(command| $mods:declModifiers def $id.get! $(← sig false) $val $[deriving $ds,*]?)
+  | DeclKind.example => do
+    unless s.derive.isEmpty do throw! "unsupported: @[derive] example"
+    `(command| $mods:declModifiers example $(← sig true) $val)
+  | DeclKind.theorem => do
+    unless s.derive.isEmpty do throw! "unsupported: @[derive] theorem"
+    `(command| $mods:declModifiers theorem $id.get! $(← sig true) $val)
   | DeclKind.instance => do
+    unless s.derive.isEmpty do throw! "unsupported: @[derive] instance"
     let prio ← s.prio.mapM fun prio => do
       `(Parser.Command.namedPrio| (priority := $(← trPrio prio)))
     `(command| $mods:declModifiers instance $[$prio:namedPrio]? $[$id:declId]? $(← sig true) $val)
