@@ -362,7 +362,7 @@ mutual
     | ⟨_, none, none, #[]⟩, TacticContext.seq => do mkConvBlock #[← `(conv| skip)]
     | ⟨_, none, none, tacs⟩, TacticContext.seq => do
       mkConvBlock $ ← tacs.mapM fun tac => trConv tac.kind
-    | bl, TacticContext.one => do `(tactic| · $(← trConvBlock bl):tacticSeq)
+    | bl, TacticContext.one => do `(conv| · $(← trConvBlock bl):convSeq)
     | ⟨_, cl, cfg, tacs⟩, _ => throw! "unsupported (TODO): conv block with cfg"
 
   partial def trConv : Tactic → (c :_:= TacticContext.one) → M Syntax
@@ -472,7 +472,7 @@ partial def trExplicitBinders : Array (Spanned Binder) → M Syntax
     | Binder.binder _ vars _ ty none, bis => do
       let vars ← match vars with
       | some vars => vars.mapM fun n => trBinderIdent n.kind
-      | none => #[mkAtom "_"]
+      | none => #[mkNode ``binderIdent #[mkAtom "_"]]
       let ty ← match ty with | none => `(_) | some ty => trExpr ty.kind
       bis.push $ mkNode ``bracketedExplicitBinders #[mkAtom "(", mkNullNode vars, mkAtom ":", ty, mkAtom ")"]
     | bic@(Binder.collection _ _ _ _), bis => expandBinderCollection trBinder bic bis
@@ -612,7 +612,7 @@ def trExpr' : Expr → M Syntax
     mkNode ``Parser.Term.show #[mkAtom "show", ← trExpr t.kind, ← trProof pr.kind]
   | Expr.have true h t pr e => do
     let decl := mkNode ``Parser.Term.sufficesDecl #[
-      mkOptionalNode $ h.map fun h => mkIdent h.kind, ← trExpr t.kind, ← trProof pr.kind]
+      mkOptionalNode' h fun h => #[mkIdent h.kind, mkAtom ":"], ← trExpr t.kind, ← trProof pr.kind]
     mkNode ``Parser.Term.suffices #[mkAtom "suffices", decl, mkNullNode, ← trExpr e.kind]
   | Expr.have false h t pr e => do
     let t := match t.kind with | Expr._ => none | t => some t

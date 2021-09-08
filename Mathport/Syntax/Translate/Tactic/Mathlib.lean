@@ -1144,8 +1144,8 @@ def trRingMode (n : Name) : M Syntax :=
   mkNode ``Parser.Tactic.intervalCases #[mkAtom "intervalCases",
     ← mkOpt (← parse (pExpr)?) trExpr,
     ← mkOptionalNodeM (← parse (tk "using" *> do (← ident, ← ident))?) fun (x, y) => do
-      #[mkAtom "using", ← trExpr (Expr.ident x), mkAtom ",", ← trExpr (Expr.ident y)],
-    mkOptionalNode' (← parse (tk "with" *> ident)?) fun h => #[mkIdent h]]
+      #[mkAtom "using", mkIdent x, mkAtom ",", mkIdent y],
+    mkOptionalNode' (← parse (tk "with" *> ident)?) fun h => #[mkAtom "with", mkIdent h]]
 
 -- # tactic.reassoc_axiom
 

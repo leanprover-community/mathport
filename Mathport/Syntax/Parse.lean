@@ -981,7 +981,7 @@ def RawTacticInvocation.build
   (states : Array (Array AST3.Goal))
   (tacs : HashMap AstId (Spanned AST3.Tactic)) :
   RawTacticInvocation → AST3.TacticInvocation
-  | ⟨ast, start, end_, success⟩ => ⟨none, states[start], states[end_], success⟩
+  | ⟨ast, start, end_, success⟩ => ⟨tacs.find? ast, states[start], states[end_], success⟩
 
 end
 

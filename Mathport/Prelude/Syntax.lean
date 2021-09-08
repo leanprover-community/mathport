@@ -175,12 +175,12 @@ syntax (name := toExpr') "toExpr' " term : tactic
 syntax (name := rwa) "rwa " rwRuleSeq (ppSpace location)? : tactic
 syntax (name := withCases) "withCases " tacticSeq : tactic
 syntax (name := induction') "induction' " casesTarget,+ (" using " ident)?
-  (" with " binderIdent+)? (" generalizing " ident+)? : tactic
-syntax caseArg := ident,+ " :" (ppSpace (ident <|> "_"))*
+  (" with " (colGt binderIdent)+)? (" generalizing " (colGt ident)+)? : tactic
+syntax caseArg := binderIdent,+ (" :" (ppSpace (ident <|> "_"))+)?
 syntax (name := case') "case' " (("[" caseArg,* "]") <|> caseArg) " => " tacticSeq : tactic
 syntax "destruct " term : tactic
 syntax (name := cases') "cases' " casesTarget,+ (" using " ident)?
-  (" with " binderIdent+)? : tactic
+  (" with " (colGt binderIdent)+)? : tactic
 syntax (name := casesM) "casesM" "*"? ppSpace term,* : tactic
 syntax (name := casesType) "casesType" "*"? ppSpace ident* : tactic
 syntax (name := casesType!) "casesType!" "*"? ppSpace ident* : tactic
@@ -202,25 +202,25 @@ syntax (name := injections') "injections" (" with " (colGt (ident <|> "_"))+)? :
 -- syntax simpArg := simpStar <|> simpErase <|> simpLemma
 def simpArg := simpStar.binary `orelse (simpErase.binary `orelse simpLemma)
 syntax (name := simp') "simp'" "*"? (" (" &"config" " := " term ")")? (&" only")?
-  (" [" simpArg,* "]")? (" with " ident+)? (ppSpace location)? : tactic
+  (" [" simpArg,* "]")? (" with " (colGt ident)+)? (ppSpace location)? : tactic
 syntax (name := simpIntro) "simpIntro" (" (" &"config" " := " term ")")?
   (ppSpace (colGt (ident <|> "_")))* (&" only")? (" [" simpArg,* "]")? (" with " ident+)? : tactic
 syntax (name := dsimp) "dsimp" (" (" &"config" " := " term ")")? (&" only")?
-  (" [" simpArg,* "]")? (" with " ident+)? (ppSpace location)? : tactic
+  (" [" simpArg,* "]")? (" with " (colGt ident)+)? (ppSpace location)? : tactic
 syntax (name := symm) "symm" : tactic
 syntax (name := trans) "trans" (ppSpace (colGt term))? : tactic
 syntax (name := acRfl) "acRfl" : tactic
 syntax (name := cc) "cc" : tactic
 syntax (name := substVars) "substVars" : tactic
 syntax (name := dUnfold) "dunfold" (" (" &"config" " := " term ")")?
-  (ppSpace ident)* (ppSpace location)? : tactic
-syntax (name := delta) "delta" ident* (ppSpace location)? : tactic
+  (ppSpace (colGt ident))* (ppSpace location)? : tactic
+syntax (name := delta) "delta" (colGt ident)* (ppSpace location)? : tactic
 syntax (name := unfoldProjs) "unfoldProjs" (" (" &"config" " := " term ")")?
   (ppSpace location)? : tactic
 syntax (name := unfold) "unfold" (" (" &"config" " := " term ")")?
-  (ppSpace ident)* (ppSpace location)? : tactic
+  (ppSpace (colGt ident))* (ppSpace location)? : tactic
 syntax (name := unfold1) "unfold1" (" (" &"config" " := " term ")")?
-  (ppSpace ident)* (ppSpace location)? : tactic
+  (ppSpace (colGt ident))* (ppSpace location)? : tactic
 syntax (name := inferOptParam) "inferOptParam" : tactic
 syntax (name := inferAutoParam) "inferAutoParam" : tactic
 syntax (name := guardExprEq) "guardExpr " term:51 " =ₐ " term : tactic
@@ -228,7 +228,7 @@ syntax (name := guardTarget) "guardTarget" " =ₐ " term : tactic
 syntax (name := guardHyp) "guardHyp " ident
   ((" : " <|> " :ₐ ") term)? ((" := " <|> " :=ₐ ") term)? : tactic
 syntax (name := matchTarget) "matchTarget " term : tactic
-syntax (name := byCases) "byCases " (ident " : ")? term : tactic
+syntax (name := byCases) "byCases " atomic(ident " : ")? term : tactic
 syntax (name := byContra) "byContra " (colGt ident)? : tactic
 syntax (name := typeCheck) "typeCheck " term : tactic
 syntax (name := rsimp) "rsimp" : tactic
@@ -248,9 +248,9 @@ syntax (name := toRHS) "toRHS" : conv
 syntax (name := find) "find " term " => " tacticSeq : conv
 syntax (name := «for») "for " term:max " [" num,* "]" " => " tacticSeq : conv
 syntax (name := dsimp) "dsimp" (" (" &"config" " := " term ")")? (&" only")?
-  (" [" simpArg,* "]")? (" with " ident+)? : tactic
+  (" [" simpArg,* "]")? (" with " (colGt ident)+)? : tactic
 syntax (name := simp') "simp" (" (" &"config" " := " term ")")? (&" only")?
-  (" [" simpArg,* "]")? (" with " ident+)? : tactic
+  (" [" simpArg,* "]")? (" with " (colGt ident)+)? : tactic
 syntax (name := guardLHS) "guardLHS " " =ₐ " term : tactic
 syntax (name := rw) "rw " rwRuleSeq : tactic
 
@@ -260,7 +260,7 @@ syntax (name := unfreezingI) "unfreezingI " tacticSeq : tactic
 syntax (name := resetI) "resetI" : tactic
 syntax (name := substI) "substI " term : tactic
 syntax (name := casesI) "casesI " casesTarget,+ (" using " ident)?
-  (" with " binderIdent+)? : tactic
+  (" with " (colGt binderIdent)+)? : tactic
 syntax (name := introI) "introI" (colGt (ident <|> "_"))* : tactic
 syntax (name := introsI) "introsI" (colGt (ident <|> "_"))* : tactic
 syntax (name := haveI) "haveI " Term.haveDecl : tactic
@@ -347,17 +347,19 @@ syntax (name := clearAuxDecl) "clearAuxDecl" : tactic
 syntax (name := set) "set " ident (" : " term)? " := " term (" with " "←"? ident)? : tactic
 syntax (name := set!) "set! " ident (" : " term)? " := " term (" with " "←"? ident)? : tactic
 syntax (name := clearExcept) "clear " "*" " - " ident* : tactic
-syntax (name := extractGoal) "extractGoal" (ppSpace ident)? (" with" ident*)? : tactic
-syntax (name := extractGoal!) "extractGoal!" (ppSpace ident)? (" with" ident*)? : tactic
+syntax (name := extractGoal) "extractGoal" (ppSpace ident)?
+  (" with" (ppSpace (colGt ident))*)? : tactic
+syntax (name := extractGoal!) "extractGoal!" (ppSpace ident)?
+  (" with" (ppSpace (colGt ident))*)? : tactic
 syntax (name := inhabit) "inhabit " atomic(ident " : ")? term : tactic
-syntax (name := revertDeps) "revertDeps" (ppSpace ident)* : tactic
+syntax (name := revertDeps) "revertDeps" (ppSpace (colGt ident))* : tactic
 syntax (name := revertAfter) "revertAfter " ident : tactic
 syntax (name := revertTargetDeps) "revertTargetDeps" : tactic
-syntax (name := clearValue) "clearValue" (ppSpace ident)* : tactic
+syntax (name := clearValue) "clearValue" (ppSpace (colGt ident))* : tactic
 
 syntax (name := applyAssumption) "applyAssumption" : tactic
 syntax (name := solveByElim) "solveByElim" "*"? (" (" &"config" " := " term ")")?
-  (&" only")? (" [" simpArg,* "]")? (" with " ident+)? : tactic
+  (&" only")? (" [" simpArg,* "]")? (" with " (colGt ident)+)? : tactic
 
 syntax (name := hint) "hint" : tactic
 
@@ -478,7 +480,7 @@ syntax (name := librarySearch!) "librarySearch!" (" (" &"config" " := " term ")"
 syntax (name := tauto) "tauto" (" (" &"config" " := " term ")")? : tactic
 syntax (name := tauto!) "tauto!" (" (" &"config" " := " term ")")? : tactic
 
-syntax (name := truncCases) "truncCases " term (" with " (colGt ident)+)? : tactic
+syntax (name := truncCases) "truncCases " term (" with " (colGt binderIdent)+)? : tactic
 
 syntax (name := normNum1) "normNum1" (ppSpace location)? : tactic
 syntax (name := normNum) "normNum" (" [" simpArg,* "]")? (ppSpace location)? : tactic
@@ -530,7 +532,7 @@ syntax (name := applyFun) "applyFun " term (ppSpace location)? (" using " term)?
 syntax (name := finCases) "finCases " ("*" <|> (term,+)) (" with " term)? : tactic
 
 syntax (name := intervalCases) "intervalCases" (ppSpace (colGt term))?
-  ("using " term ", " term)? (" with " ident)? : tactic
+  (" using " term ", " term)? (" with " ident)? : tactic
 
 syntax (name := reassoc) "reassoc" (ppSpace (colGt ident))* : tactic
 syntax (name := reassoc!) "reassoc!" (ppSpace (colGt ident))* : tactic

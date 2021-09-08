@@ -137,7 +137,9 @@ def trRwArgs : TacM (Array Syntax × Option Syntax) := do
   | (tags, xs) => do
     mkNode ``Parser.Tactic.caseArg #[
       (mkAtom ",").mkSep (← liftM $ tags.mapM trBinderIdentI),
-      mkAtom ":", mkNullNode $ xs.map trIdent_]
+      mkNullNode $ match xs with
+      | #[] => #[]
+      | _ => #[mkAtom ":", mkNullNode $ xs.map trIdent_]]
   match args with
   | #[(#[BinderName.ident tag], xs)] =>
     `(tactic| case $(mkIdent tag) $(xs.map trIdent_)* => $tac:tacticSeq)
