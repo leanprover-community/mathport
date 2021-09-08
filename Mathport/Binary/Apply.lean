@@ -317,7 +317,7 @@ where
       -- by the temporary patch https://github.com/dselsam/lean4/commit/1bef1cb3498cf81f93095bda16ed8bc65af42535
       mkRecOn name
       mkCasesOn name
-      mkNoConfusion name
+      liftMetaM $ Lean.mkNoConfusion name
       mkBelow name
       mkIBelow name
       mkBRecOn name
