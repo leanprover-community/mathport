@@ -231,7 +231,6 @@ syntax (name := matchTarget) "matchTarget " term : tactic
 syntax (name := byCases) "byCases " (ident " : ")? term : tactic
 syntax (name := byContra) "byContra " (colGt ident)? : tactic
 syntax (name := typeCheck) "typeCheck " term : tactic
-syntax (name := specialize) "specialize " ident (colGt term:arg)+ : tactic
 syntax (name := rsimp) "rsimp" : tactic
 syntax (name := compVal) "compVal" : tactic
 syntax (name := async) "async " tacticSeq : tactic

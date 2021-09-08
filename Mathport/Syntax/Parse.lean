@@ -876,7 +876,7 @@ def buildLevel : RawLevel → Level
   | RawLevel.max ls => Lean.mkLevelMax lvls[ls[0]] lvls[ls[1]]
   | RawLevel.imax ls => Lean.mkLevelIMax lvls[ls[0]] lvls[ls[1]]
   | RawLevel.param n => Lean.mkLevelParam n
-  | RawLevel.mvar n => Lean.mkLevelMVar n
+  | RawLevel.mvar n => Lean.mkLevelMVar ⟨n⟩
 
 variable (exprs : Array Expr)
 

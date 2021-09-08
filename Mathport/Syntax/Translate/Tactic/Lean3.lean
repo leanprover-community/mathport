@@ -516,7 +516,7 @@ def trSimpAttrs (attrs : Array Name) : Syntax :=
       dbg_trace "unsupported: specialize @hyp"
       h
     | _ => throw! "unsupported: specialize non-hyp"
-  `(tactic| specialize $(mkIdent head) $[$args]*)
+  `(tactic| specialize $(Syntax.mkApp (mkIdent head) args))
 
 @[trTactic congr] def trCongr : TacM Syntax := do `(tactic| congr)
 
