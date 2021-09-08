@@ -68,7 +68,6 @@ private def str2expr (s : String)  : ParseM Expr := parseNat s >>= nat2expr
 private def str2level (s : String) : ParseM Level := parseNat s >>= nat2level
 private def str2name  (s : String) : ParseM Name  := parseNat s >>= nat2name
 
-
 private def writeName (i : String) (n : Name) : ParseM Unit := do
   let i ← parseNat i
   if i ≠ (← get).names.size then throw $ IO.userError s!"names in wrong order"
