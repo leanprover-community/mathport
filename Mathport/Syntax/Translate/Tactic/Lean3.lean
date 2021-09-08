@@ -40,7 +40,7 @@ def trLoc (loc : Location) : M (Option Syntax) := do
   `(tactic| introv $((← parse ident_*).map trBinderIdent)*)
 
 def trRenameArg : Name × Name → M Syntax
-  | (x, y) => mkNode ``renameArg #[mkIdent x, mkAtom "=>", mkIdent y]
+  | (x, y) => mkNode ``Parser.Tactic.renameArg #[mkIdent x, mkAtom "=>", mkIdent y]
 
 @[trTactic rename] def trRename : TacM Syntax := do
   let renames ← parse renameArgs
@@ -135,7 +135,7 @@ def trRwArgs : TacM (Array Syntax × Option Syntax) := do
   let tac ← trBlock (← itactic)
   let trCaseArg
   | (tags, xs) => do
-    mkNode ``caseArg #[
+    mkNode ``Parser.Tactic.caseArg #[
       (mkAtom ",").mkSep (← liftM $ tags.mapM trBinderIdentI),
       mkAtom ":", mkNullNode $ xs.map trIdent_]
   match args with
@@ -267,7 +267,7 @@ where
 
 @[trTactic split] def trSplit : TacM Syntax := `(tactic| split)
 
-@[trTactic contructor_matching] def trConstructorM : TacM Syntax := do
+@[trTactic constructor_matching] def trConstructorM : TacM Syntax := do
   let _rec ← parse (tk "*")?
   let ps ← liftM $ (← parse pExprListOrTExpr).mapM trExpr
   match _rec with
@@ -512,6 +512,9 @@ def trSimpAttrs (attrs : Array Name) : Syntax :=
   let (head, args) ← trAppArgs (← parse pExpr) fun e =>
     match e.unparen with
     | Expr.ident h => h
+    | Expr.«@» false ⟨_, Expr.ident h⟩ =>
+      dbg_trace "unsupported: specialize @hyp"
+      h
     | _ => throw! "unsupported: specialize non-hyp"
   `(tactic| specialize $(mkIdent head) $[$args]*)
 
@@ -529,6 +532,9 @@ def trSimpAttrs (attrs : Array Name) : Syntax :=
     $[at $((← parse (tk "at" *> ident)?).map mkIdent)]?
     $[in $(← liftM $ (← parse (tk "in" *> pExpr)?).mapM trExpr)]?
     => $(← trConvBlock (← itactic)):convSeq)
+
+@[trConv conv] def trConvConv : TacM Syntax := do
+  `(conv| conv => $(← trConvBlock (← itactic)):convSeq)
 
 @[trConv skip] def trSkipConv : TacM Syntax := `(conv| skip)
 
@@ -633,3 +639,5 @@ end
 
 @[trNITactic control_laws_tac] def trControlLawsTac (_ : AST3.Expr) : M Syntax :=
   `(tactic| (intros; rfl))
+
+@[trTactic blast_disjs] def trBlastDisjs : TacM Syntax := `(tactic| casesType* or)

@@ -469,12 +469,13 @@ partial def trExplicitBinders : Array (Spanned Binder) → M Syntax
       mkNullNode $ vars.map fun n => trBinderIdent n.kind, mkNullNode ty]]
   | bis => do
     let rec trBinder : AST3.Binder → Array Syntax → M (Array Syntax)
-    | Binder.binder _ (some vars) _ ty none, bis => do
-      let vars ← vars.mapM fun n => trBinderIdent n.kind
+    | Binder.binder _ vars _ ty none, bis => do
+      let vars ← match vars with
+      | some vars => vars.mapM fun n => trBinderIdent n.kind
+      | none => #[mkAtom "_"]
       let ty ← match ty with | none => `(_) | some ty => trExpr ty.kind
       bis.push $ mkNode ``bracketedExplicitBinders #[mkAtom "(", mkNullNode vars, mkAtom ":", ty, mkAtom ")"]
     | bic@(Binder.collection _ _ _ _), bis => expandBinderCollection trBinder bic bis
-    | Binder.binder BinderInfo.instImplicit _ _ _ _, _ => throw! "unsupported: instance binder"
     | Binder.notation _, _ => throw! "unsupported: (notation) binder"
     | _, _ => throw! "unsupported (impossible)"
     let bis ← bis.foldlM (fun out bi => trBinder bi.kind out) #[]

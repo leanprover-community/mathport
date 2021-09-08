@@ -486,7 +486,8 @@ syntax (name := normNum) "normNum" (" [" simpArg,* "]")? (ppSpace location)? : t
 syntax (name := applyNormed) "applyNormed " term : tactic
 
 syntax (name := abel1) "abel1" : tactic
-syntax (name := abel) "abel " (&"raw" <|> &"term")? (ppSpace location)? : tactic
+syntax (name := abel) "abel" (ppSpace (&"raw" <|> &"term"))? (ppSpace location)? : tactic
+syntax (name := abel!) "abel!" (ppSpace (&"raw" <|> &"term"))? (ppSpace location)? : tactic
 
 syntax (name := ring1) "ring1" : tactic
 syntax (name := ring1!) "ring1!" : tactic
@@ -552,8 +553,7 @@ syntax (name := transport) "transport" (ppSpace term)? " using " term : tactic
 syntax (name := unfoldCases) "unfoldCases " tacticSeq : tactic
 
 syntax (name := fieldSimp) "fieldSimp" (" (" &"config" " := " term ")")? (&" only")?
-  (" [" Tactic.simpArg,* "]")? (" with " (colGt ident)+)?
-  (ppSpace location)? (" using " term)? : tactic
+  (" [" Tactic.simpArg,* "]")? (" with " (colGt ident)+)? (ppSpace location)? : tactic
 
 syntax (name := equivRw) "equivRw " ("(" &"config" " := " term ") ")?
   term (ppSpace location)? : tactic
@@ -616,7 +616,7 @@ syntax (name := wittTruncateFunTac) "wittTruncateFunTac" : tactic
 
 namespace Conv
 
-syntax (name := convConv) "conv " Conv.convSeq : conv
+syntax (name := convConv) "conv" " => " Conv.convSeq : conv
 syntax (name := erw) "erw " rwRuleSeq : conv
 syntax (name := applyCongr) "applyCongr" (ppSpace (colGt term))? : conv
 syntax (name := guardTarget) "guardTarget" " =ₐ " term : conv

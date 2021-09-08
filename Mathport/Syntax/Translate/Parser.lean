@@ -121,7 +121,7 @@ structure RwRule where
   rule : Expr
 
 def rwRule : ParserM RwRule := do
-  pure ⟨Option.isSome (← (tk "←" <|> tk "<-")?), ← pExpr⟩
+  pure ⟨Option.isSome (← (tk "<-")?), ← pExpr⟩
 
 def rwRules : ParserM (Array RwRule) := maybeListOf rwRule
 

@@ -215,7 +215,8 @@ partial def trRIntroPat : RIntroPat → M Syntax
 
 @[trTactic reflexivity' refl'] def trRefl' : TacM Syntax := `(tactic| rfl')
 
-@[trTactic symmetry'] def trSymmetry' : TacM Syntax := `(tactic| symm')
+@[trTactic symmetry'] def trSymmetry' : TacM Syntax := do
+  `(tactic| symm' $(← trLoc (← parse location))?)
 
 @[trTactic transitivity'] def trTransitivity' : TacM Syntax := do
   `(tactic| trans' $[$(← liftM $ (← parse (pExpr)?).mapM trExpr)]?)
@@ -420,7 +421,7 @@ attribute [trTactic change'] trChange
   let a ← parse ident
   let ty ← parse (tk ":" *> pExpr)?
   let val ← parse (tk ":=") *> parse pExpr
-  let revName ← parse (tk "with" *> do (← (tk "←")?, ← ident))?
+  let revName ← parse (tk "with" *> do (← (tk "<-")?, ← ident))?
   let revName := mkOptionalNode' revName fun (flip, id) =>
     #[mkAtom "with", mkOptionalNode' flip fun _ => #[mkAtom "←"], mkIdent id]
   let (tac, s) := if hSimp then (``Parser.Tactic.set!, "set!") else (``Parser.Tactic.set, "set")
@@ -490,7 +491,7 @@ attribute [trTactic subst'] trSubst
 
 @[trUserCmd «alias»] def trAlias (doc : Option String) : TacM Syntax := do
   let (old, args) ← parse $ do (← ident, ←
-    do { tk "←" <|> tk "<-"; Sum.inl $ ← ident* } <|>
+    do { tk "<-"; Sum.inl $ ← ident* } <|>
     do { tk "↔" <|> tk "<->"; Sum.inr $ ←
       (tk "." *> tk "." *> pure none) <|>
       do some (← ident_, ← ident_) })
@@ -561,7 +562,7 @@ attribute [trTactic clear'] trClear
   `(tactic| rcongr $pats*)
 
 @[trTactic convert] def trConvert : TacM Syntax := do
-  let sym := mkOptionalNode' (← parse (tk "←")?) fun _ => #[mkAtom "←"]
+  let sym := mkOptionalNode' (← parse (tk "<-")?) fun _ => #[mkAtom "←"]
   let r ← trExpr (← parse pExpr)
   let n := mkOptionalNode' (← parse (tk "using" *> smallNat)?) fun n =>
     #[mkAtom "using", Quote.quote n]
@@ -680,7 +681,6 @@ def trUsingList (args : Array AST3.Expr) : M Syntax :=
   `(command| mk_iff_of_inductive_prop $(← mkIdentI i) $(← mkIdentI r))
 
 @[trUserAttr mk_iff] def trMkIffAttr : TacM Syntax := do
-  let i ← parse (ident)?
   `(attr| mkIff $(← liftM $ (← parse (ident)?).mapM mkIdentI)?)
 
 -- # tactic.norm_cast
@@ -980,11 +980,14 @@ def trSuggestUsing (args : Array BinderName) : M Syntax := do
 @[trTactic abel1] def trAbel1 : TacM Syntax := `(tactic| abel1)
 
 @[trTactic abel] def trAbel : TacM Syntax := do
-  match ← parse (ident)?, ← trLoc (← parse location) with
-  | none, loc => `(tactic| abel $(loc)?)
-  | some `raw, loc => `(tactic| abel raw $(loc)?)
-  | some `term, loc => `(tactic| abel term $(loc)?)
-  | _, _ => throw! "bad abel mode"
+  match ← parse (tk "!")?, ← parse (ident)?, ← trLoc (← parse location) with
+  | none, none, loc => `(tactic| abel $(loc)?)
+  | none, some `raw, loc => `(tactic| abel raw $(loc)?)
+  | none, some `term, loc => `(tactic| abel term $(loc)?)
+  | some _, none, loc => `(tactic| abel! $(loc)?)
+  | some _, some `raw, loc => `(tactic| abel! raw $(loc)?)
+  | some _, some `term, loc => `(tactic| abel! term $(loc)?)
+  | _, _, _ => throw! "bad abel mode"
 
 -- # tactic.ring
 @[trTactic ring1] def trRing1 : TacM Syntax := do
@@ -1080,7 +1083,7 @@ def trRingMode (n : Name) : M Syntax :=
   mkNode ``Parser.Tactic.tfaeHave #[mkAtom "tfaeHave",
     mkOptionalNode' (← parse ((ident)? <* tk ":")) fun h => #[mkIdent h, mkAtom ":"],
     Quote.quote (← parse smallNat),
-    mkAtom (← parse ((tk "->" *> pure "→") <|> (tk "↔" *> pure "↔") <|> (tk "←" *> pure "←"))),
+    mkAtom (← parse ((tk "->" *> pure "→") <|> (tk "↔" *> pure "↔") <|> (tk "<-" *> pure "←"))),
     Quote.quote (← parse smallNat)]
 
 @[trTactic tfae_finish] def trTfaeFinish : TacM Syntax := `(tactic| tfaeFinish)
@@ -1103,10 +1106,10 @@ def trRingMode (n : Name) : M Syntax :=
   | some `both => none
   | none => none
   | _ => throw! "unsupported (impossible)"
-  let w ← match ← parse (tk "with" *> pExprListOrTExpr) with
+  let w ← match ← parse ((tk "with" *> pExprListOrTExpr) <|> pure #[]) with
   | #[] => none
   | w => liftM $ some <$> w.mapM trExpr
-  let hs ← trSimpArgs (← parse (tk "using" *> simpArgList))
+  let hs ← trSimpArgs (← parse ((tk "using" *> simpArgList) <|> pure #[]))
   mkNode ``Parser.Tactic.mono #[mkAtom "mono", star,
     mkOptionalNode' side fun side => #[mkNode ``Parser.Tactic.mono.side #[side]],
     mkOptionalNode' w fun w => #[mkAtom "with", (mkAtom ",").mkSep w],
@@ -1167,15 +1170,13 @@ def trRingMode (n : Name) : M Syntax :=
   let AST3.Expr.nat b ← expr! | throw! "slice: weird nat"
   `(conv| slice $(Quote.quote a) $(Quote.quote b))
 
-@[trTactic slice_lhs] def trSliceLHSConv : TacM Syntax := do
-  let AST3.Expr.nat a ← expr! | throw! "sliceLHS: weird nat"
-  let AST3.Expr.nat b ← expr! | throw! "sliceLHS: weird nat"
-  `(tactic| sliceLHS $(Quote.quote a) $(Quote.quote b) => $(← trConvBlock (← itactic)):convSeq)
+@[trTactic slice_lhs] def trSliceLHS : TacM Syntax := do
+  `(tactic| sliceLHS $(Quote.quote (← parse smallNat)) $(Quote.quote (← parse smallNat))
+    => $(← trConvBlock (← itactic)):convSeq)
 
-@[trTactic slice_rhs] def trSliceRHSConv : TacM Syntax := do
-  let AST3.Expr.nat a ← expr! | throw! "sliceRHS: weird nat"
-  let AST3.Expr.nat b ← expr! | throw! "sliceRHS: weird nat"
-  `(tactic| sliceRHS $(Quote.quote a) $(Quote.quote b) => $(← trConvBlock (← itactic)):convSeq)
+@[trTactic slice_rhs] def trSliceRHS : TacM Syntax := do
+  `(tactic| sliceRHS $(Quote.quote (← parse smallNat)) $(Quote.quote (← parse smallNat))
+    => $(← trConvBlock (← itactic)):convSeq)
 
 -- # tactic.subtype_instance
 @[trTactic subtype_instance] def trSubtypeInstance : TacM Syntax := `(tactic| subtypeInstance)
@@ -1191,7 +1192,9 @@ def trRingMode (n : Name) : M Syntax :=
   `(tactic| cancelDenoms $(← trLoc (← parse location))?)
 
 -- # tactic.zify
-@[trUserAttr zify] def trZifyAttr : TacM Syntax := do
+@[trUserAttr zify] def trZifyAttr := tagAttr `zify
+
+@[trTactic zify] def trZify : TacM Syntax := do
   let hs := trSimpList (← trSimpArgs (← parse simpArgList))
   let loc := mkOptionalNode $ ← trLoc (← parse location)
   mkNode ``Parser.Tactic.zify #[mkAtom "zify", hs, loc]
@@ -1366,7 +1369,6 @@ attribute [trNITactic try_refl_tac] trControlLawsTac
 
 -- # data.qpf.multivariate.constructions.cofix
 @[trTactic mv_bisim] def trMvBisim : TacM Syntax := do
-  let (hp, e) ← parse casesArg
   `(tactic| mvBisim
     $[$(← liftM $ (← parse (pExpr)?).mapM trExpr)]?
     $[with $(trWithIdentList (← parse withIdentList))*]?)
@@ -1433,7 +1435,7 @@ attribute [trNITactic try_refl_tac] trControlLawsTac
   `(tactic| ghostCalc $((← parse ident_*).map trBinderIdent)*)
 
 @[trTactic init_ring] def trInitRing : TacM Syntax := do
-  `(tactic| initRing $[using $(← liftM $ (← parse (pExpr)?).mapM trExpr)]?)
+  `(tactic| initRing $[using $(← liftM $ (← parse (tk "using" *> pExpr)?).mapM trExpr)]?)
 
 @[trTactic ghost_simp] def trGhostSimp : TacM Syntax := do
   mkNode ``Parser.Tactic.ghostSimp #[mkAtom "ghostSimp",
