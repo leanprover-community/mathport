@@ -214,7 +214,7 @@ syntax (name := cc) "cc" : tactic
 syntax (name := substVars) "substVars" : tactic
 syntax (name := dUnfold) "dunfold" (" (" &"config" " := " term ")")?
   (ppSpace (colGt ident))* (ppSpace location)? : tactic
-syntax (name := delta) "delta" (colGt ident)* (ppSpace location)? : tactic
+syntax (name := delta') "delta'" (colGt ident)* (ppSpace location)? : tactic
 syntax (name := unfoldProjs) "unfoldProjs" (" (" &"config" " := " term ")")?
   (ppSpace location)? : tactic
 syntax (name := unfold) "unfold" (" (" &"config" " := " term ")")?

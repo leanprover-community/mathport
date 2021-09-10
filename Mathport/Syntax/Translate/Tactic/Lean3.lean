@@ -447,7 +447,7 @@ def trSimpAttrs (attrs : Array Name) : Syntax :=
     mkNullNode $ ← liftM $ cs.mapM mkIdentI, mkOptionalNode $ ← trLoc loc]
 
 @[trTactic delta] def trDelta : TacM Syntax := do
-  `(tactic| delta $(← liftM $ (← parse ident*).mapM mkIdentI)* $[$(← trLoc (← parse location))]?)
+  `(tactic| delta' $(← liftM $ (← parse ident*).mapM mkIdentI)* $[$(← trLoc (← parse location))]?)
 
 @[trTactic unfold_projs] def trUnfoldProjs : TacM Syntax := do
   let loc ← parse location
