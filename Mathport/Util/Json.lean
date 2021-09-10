@@ -33,7 +33,7 @@ instance : ToJson Name where
 instance : FromJson Name where
   fromJson?
   | Json.null => Name.anonymous
-  | Json.str s => s.toName
+  | Json.str s => s
   | Json.arr a => a.foldlM (init := Name.anonymous) fun
     | n, (i : Nat) => n.mkNum i
     | n, (s : String) => n.mkStr s
