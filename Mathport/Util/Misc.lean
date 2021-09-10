@@ -12,6 +12,9 @@ def uncurry (f : α → β → γ) : α × β → γ
 
 namespace Lean
 
+def PrettyPrinter.parenthesizeTactic := parenthesize $ Parenthesizer.categoryParser.parenthesizer `tactic 0
+def PrettyPrinter.formatTactic := format $ Formatter.categoryParser.formatter `tactic
+
 def Expr.isAppOfArityGE (e : Expr) (n : Name) (k : Nat) : Bool :=
   e.withApp fun f args => f.isConstOf n && args.size ≥ k
 

@@ -45,3 +45,6 @@ end Translate
 
 def AST3toData4 (ast : AST3) : (pcfg : Path.Config) → CommandElabM Data4 :=
   (Translate.AST3toData4 ast).run ast.indexed_nota ast.indexed_cmds
+
+def tactic3toSyntax (containingFile : AST3) (tac3 : AST3.Tactic) : (pcfg : Path.Config) → CommandElabM Syntax :=
+  (Translate.trTactic tac3 Translate.TacticContext.one).run containingFile.indexed_nota containingFile.indexed_cmds

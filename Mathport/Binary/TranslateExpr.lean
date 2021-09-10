@@ -24,7 +24,7 @@ namespace Mathport.Binary
 
 open Lean Lean.Meta
 
-def trExprCore (ctx : Context) (st : State) (cmdCtx : Elab.Command.Context) (cmdState : Elab.Command.State) (e : Expr) (ind? : Option (Name × Expr × List Name)) : MetaM Expr := do
+def trExprCore (ctx : Context) (cmdCtx : Elab.Command.Context) (cmdState : Elab.Command.State) (e : Expr) (ind? : Option (Name × Expr × List Name)) : MetaM Expr := do
   match ind? with
   | none => core e
   | some ⟨indName, indType, lps⟩ =>
@@ -84,13 +84,12 @@ where
       TransformStep.visit e
 
   mkCandidateLean4NameForKindIO (n3 : Name) (eKind : ExprKind) : IO Name := do
-    (mkCandidateLean4NameForKind n3 eKind).toIO ctx st cmdCtx cmdState
+    (mkCandidateLean4NameForKind n3 eKind).toIO ctx {} cmdCtx cmdState
 
 def trExpr (e : Expr) (ind? : Option (Name × Expr × List Name) := none) : BinportM Expr := do
   let ctx ← read
-  let st ← get
   let cmdCtx ← readThe Elab.Command.Context
   let cmdState ← getThe Elab.Command.State
-  liftMetaM $ trExprCore ctx st cmdCtx cmdState e ind?
+  liftMetaM $ trExprCore ctx cmdCtx cmdState e ind?
 
 end Mathport.Binary
