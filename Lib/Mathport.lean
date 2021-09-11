@@ -19,16 +19,17 @@ def mathport1 (config : Config) (path : Path) : IO Unit := do
   println! s!"\n[mathport] START {path.mod3}\n"
   createDirectoriesIfNotExists (path.toLean4 pcfg ".olean").toString
 
-  let coreImports  : List Import  := [{ module := `Mathport.Prelude : Import }]
-  let extraImports : Array Import ← (← parseTLeanImports (path.toLean3 pcfg ".tlean")).mapM fun mod3 => do
+  let mut imports : Array Import ← (← parseTLeanImports (path.toLean3 pcfg ".tlean")).mapM fun mod3 => do
     let ipath : Path ← resolveMod3 pcfg mod3
     { module := ipath.package ++ ipath.mod4 : Import }
+
+  if imports.isEmpty then imports := #[{ module := `Mathport.Prelude : Import }]
 
   let mut opts := ({} : Options)
   opts := opts.setBool `pp.analyze false
   opts := opts.setBool `pp.all true
 
-  withImportModulesConst (coreImports ++ extraImports.toList) (opts := opts) (trustLevel := 0) $ λ env => do
+  withImportModulesConst imports.toList (opts := opts) (trustLevel := 0) $ λ env => do
     let env := env.setMainModule path.mod4
     let cmdCtx : Elab.Command.Context := { fileName := path.toLean3 pcfg ".lean" |>.toString, fileMap := dummyFileMap }
     let cmdState : Elab.Command.State := Lean.Elab.Command.mkState env
