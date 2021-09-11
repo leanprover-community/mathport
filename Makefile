@@ -20,7 +20,7 @@ unport:
 	mkdir Logs
 
 port: mathport
-	LEAN_PATH=./Lib4:./Lib/build:./App/build time ./App/build/bin/MathportApp config.json Lean3::all Mathlib::all >> Logs/mathport.out 2> Logs/mathport.err
+	LEAN_PATH=./Lib4:./Lib/build time ./App/build/bin/MathportApp config.json Lean3::all Mathlib::all >> Logs/mathport.out 2> Logs/mathport.err
+	cp -r ./Lib/build/Mathport* ./Lib4
 	LEAN_PATH=./Lib4 lean --o=./Lib4/Lean3.olean                      ./Lib4/Lean3.lean
 	LEAN_PATH=./Lib4 lean --o=./Lib4/Mathlib.olean                    ./Lib4/Mathlib.lean
-	cp -r ./Lib/build/Mathport* ./Lib4
