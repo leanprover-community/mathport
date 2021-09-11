@@ -12,6 +12,9 @@ def uncurry (f : α → β → γ) : α × β → γ
 
 namespace Lean
 
+elab "leanDir!" : term => do
+  Elab.Term.elabTerm (Syntax.mkStrLit (← getLibDir).toString) none
+
 def PrettyPrinter.parenthesizeTactic := parenthesize $ Parenthesizer.categoryParser.parenthesizer `tactic 0
 def PrettyPrinter.formatTactic := format $ Formatter.categoryParser.formatter `tactic
 

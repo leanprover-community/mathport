@@ -85,28 +85,3 @@ def mathport (config : Config) (paths : Array Path) : IO Unit := do
   | Except.error err => throw err
 
 end Mathport
-
-open Mathport Lean
-
-elab "leanDir!" : term => do
-  Elab.Term.elabTerm (Syntax.mkStrLit (← getLibDir).toString) none
-
-unsafe def main (args : List String) : IO Unit := do
-  match args with
-  | (pathToConfig :: pmod3s@(_ :: _)) =>
-    let config ← parseJsonFile Config pathToConfig
-    let paths ← parsePaths pmod3s
-    println! "[paths] {repr paths}"
-    let path := match ← IO.getEnv "LEAN_PATH" with
-    | none => []
-    | some path => System.SearchPath.parse path
-    searchPathRef.set (leanDir! :: "build" :: path)
-    mathport config paths.toArray
-
-  | _ => throw $ IO.userError "usage: mathport <path-to-config> [pkg::mod3]+"
-
-where
-  parsePaths pmod3s : IO (List Path) := do
-    pmod3s.mapM fun pmod3 => do
-      let [pkg, mod3] ← pure (pmod3.splitOn "::") | throw (IO.userError "paths must be <pkg>::<mod3>")
-      pure $ Path.mk pkg mod3.toName
