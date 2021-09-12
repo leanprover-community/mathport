@@ -54,9 +54,6 @@ macro ak:Term.attrKind "notation3 "
     $(args[0]):macroArg $[$(args[1:].toArray):macroArg]* : term =>
     `(sorry))
 
-syntax (name := syntaxCat') "declare_syntax_cat " ident
-  "(" &"behavior" " := " (&"both" <|> &"symbol") ")" : command
-
 end Parser.Command
 
 namespace Elab.Command
@@ -116,21 +113,6 @@ private def declareSyntaxCatQuotParser (catName : Name) : CommandElabM Unit := d
               (Lean.ParserDescr.unary `incQuotDepth (Lean.ParserDescr.cat $(quote catName) 0))
               (Lean.ParserDescr.symbol ")"))))
     elabCommand cmd
-
-open Parser in
-@[commandElab syntaxCat'] def elabDeclareSyntaxCat' : CommandElab
-| `(declare_syntax_cat $cat (behavior := both)) => aux cat LeadingIdentBehavior.both
-| `(declare_syntax_cat $cat (behavior := symbol)) => aux cat LeadingIdentBehavior.symbol
-| `(declare_syntax_cat $cat) => aux cat LeadingIdentBehavior.default
-| _ => throwUnsupportedSyntax
-where
-  aux (cat : Syntax) (behavior : LeadingIdentBehavior) : CommandElabM Unit := do
-    let catName := cat.getId
-    let attrName := catName.appendAfter "Parser"
-    let env ← getEnv
-    let env ← liftIO $ Parser.registerParserCategory env attrName catName behavior
-    setEnv env
-    declareSyntaxCatQuotParser catName
 
 end Elab.Command
 

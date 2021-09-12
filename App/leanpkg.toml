@@ -1,7 +1,7 @@
 [package]
 name = "MathportApp"
 version = "0.1"
-lean_version = "leanprover/lean4:master"
+lean_version = "leanprover/lean4:nightly-2021-09-12"
 
 [dependencies]
 Mathport = { path = "../Lib" }
