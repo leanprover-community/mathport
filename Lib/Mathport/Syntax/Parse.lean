@@ -974,14 +974,14 @@ def RawHyp.build : RawHyp → AST3.Hyp
 def RawGoal.build : RawGoal → AST3.Goal
   | ⟨hyps, target⟩ => ⟨hyps.map (·.build exprs), exprs[target]⟩
 
-def RawTacticState.build : RawTacticState → Array AST3.Goal
-  | ⟨_, goals⟩ => goals.map (·.build exprs)
+def RawTacticState.build : RawTacticState → Name × Array AST3.Goal
+  | ⟨declName, goals⟩ => (declName, goals.map (·.build exprs))
 
 def RawTacticInvocation.build
-  (states : Array (Array AST3.Goal))
+  (states : Array (Name × Array AST3.Goal))
   (tacs : HashMap AstId (Spanned AST3.Tactic)) :
   RawTacticInvocation → AST3.TacticInvocation
-  | ⟨ast, start, end_, success⟩ => ⟨tacs.find? ast, states[start], states[end_], success⟩
+  | ⟨ast, start, end_, success⟩ => ⟨states[start].1, tacs.find? ast, states[start].2, states[end_].2, success⟩
 
 end
 
@@ -993,7 +993,7 @@ def RawAST3.build : RawAST3 → (invocs :_:= true) → Except String (AST3 × Ar
     let (ast, tacs) ← getAST file
     let invocs ←
       if invocs then
-        let states ← do (states.getD #[]).map (·.build expr)
+        let states := (states.getD #[]).map (fun (s : RawTacticState) => s.build expr)
         (tactics.getD #[]).map (·.build states tacs)
       else #[]
     (ast, invocs)

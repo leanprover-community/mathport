@@ -1147,13 +1147,15 @@ def Goals_repr (gs : Array Goal) : Format :=
   Format.join (gs.toList.map fun g => repr g ++ "\n")
 
 structure TacticInvocation where
-  ast : Option #Tactic
-  start : Array Goal
-  «end» : Array Goal
-  success : Bool
+  declName : Name
+  ast      : Option #Tactic
+  start    : Array Goal
+  «end»    : Array Goal
+  success  : Bool
 
 instance : Repr TacticInvocation where reprPrec
-  | ⟨tac, start, end_, success⟩, _ =>
+  | ⟨declName, tac, start, end_, success⟩, _ =>
+    "in declaration " ++ toString declName ++ " " ++
     "invoking " ++ repr tac ++ ":\n" ++
     "before:\n" ++ Goals_repr start ++
     (if success then "success" else "failed") ++ ", after:\n" ++ Goals_repr end_
