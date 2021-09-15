@@ -47,10 +47,17 @@ where
     | none     => pure ()
     | some ap4 => e ← Meta.transform e (pre := translateAutoParams ap4)
     e ← heterogenize e
+    e ← reflToRfl e
     e
 
   replaceConstNames (e : Expr) : MetaM Expr := do
     e.replaceConstNames fun n => (Mathlib.Prelude.Rename.getRenameMap cmdState.env).find? n
+
+  reflToRfl (e : Expr) : MetaM Expr := do
+    e.replace fun e =>
+      if e.isAppOfArity `Eq.refl 2 then
+        some $ e.withApp fun f args => mkAppN (mkConst `rfl f.constLevels!) args
+      else none
 
   replaceSorryPlaceholders (e : Expr) : MetaM TransformStep := do
     if e.isAppOfArity sorryPlaceholderName 1 then
