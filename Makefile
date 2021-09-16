@@ -1,15 +1,15 @@
 all: mathport
 
 mathport-lib:
-	cd Lib && leanpkg build lib $(MAKEFLAGS)
+	cd Lib && lake build-lib
 
 mathport-app: mathport-lib
-	cd App && leanpkg build bin LINK_OPTS+=-rdynamic LINK_OPTS+=../Lib/build/lib/libMathport.a
+	cd App && lake build-bin
 
 mathport: mathport-lib mathport-app
 
 clean:
-	rm -rf Lib/build/ App/build/ Lib/.leanpkg-lock App/.leanpkg-lock
+	rm -rf Lib/build/ App/build/
 
 unport:
 	mkdir -p tmpDir
@@ -20,12 +20,12 @@ unport:
 	mkdir Logs
 
 port-lean: mathport
-	LEAN_PATH=./Lib4:./Lib/build time ./App/build/bin/MathportApp config.json Lean3::all >> Logs/mathport.out 2> Logs/mathport.err
-	LEAN_PATH=./Lib4:./Lib/build lean --o=./Lib4/Lean3.olean                      ./Lib4/Lean3.lean
+	LEAN_PATH=./Lib4:./Lib/build/lib time ./App/build/bin/MathportApp config.json Lean3::all >> Logs/mathport.out 2> Logs/mathport.err
+	LEAN_PATH=./Lib4:./Lib/build/lib lean --o=./Lib4/Lean3.olean                      ./Lib4/Lean3.lean
 
 port-mathlib: port-lean
-	LEAN_PATH=./Lib4:./Lib/build time ./App/build/bin/MathportApp config.json Mathlib::all >> Logs/mathport.out 2> Logs/mathport.err
-	LEAN_PATH=./Lib4:./Lib/build lean --o=./Lib4/Mathlib.olean                    ./Lib4/Mathlib.lean
+	LEAN_PATH=./Lib4:./Lib/build/lib time ./App/build/bin/MathportApp config.json Mathlib::all >> Logs/mathport.out 2> Logs/mathport.err
+	LEAN_PATH=./Lib4:./Lib/build/lib lean --o=./Lib4/Mathlib.olean                    ./Lib4/Mathlib.lean
 
 lean3-predata:
 	mkdir -p PreData

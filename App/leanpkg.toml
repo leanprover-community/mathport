@@ -1,7 +1,0 @@
-[package]
-name = "MathportApp"
-version = "0.1"
-lean_version = "leanprover/lean4:master"
-
-[dependencies]
-Mathport = { path = "../Lib" }
