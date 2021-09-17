@@ -28,7 +28,7 @@ instance : ToJson Name where
       | Name.str p s .. => toJson s :: core p
       | Name.num p k .. => toJson k :: core p
       | _ => []
-    Json.arr (core n).toArray
+    Json.arr (core n).toArray.reverse
 
 instance : FromJson Name where
   fromJson?
