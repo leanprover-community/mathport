@@ -57,9 +57,9 @@ def trRenameArg : Name × Name → M Syntax
 
 @[trTactic mapply] def trMApply : TacM Syntax := do `(tactic| mapply $(← trExpr (← parse pExpr)))
 
-@[trTactic apply_instance] def trApplyInstance : TacM Syntax := `(tactic| inferInstance)
+@[trTactic apply_instance] def trApplyInstance : TacM Syntax := `(tactic| infer_instance)
 @[trNITactic tactic.apply_instance] def trNIApplyInstance (_ : AST3.Expr) : M Syntax :=
-  `(tactic| inferInstance)
+  `(tactic| infer_instance)
 
 @[trTactic refine] def trRefine : TacM Syntax := do `(tactic| refine' $(← trExpr (← parse pExpr)))
 
@@ -197,10 +197,10 @@ def trRwArgs : TacM (Array Syntax × Option Syntax) := do
       $(← trBlock (← itactic)):tacticSeq)
 
 @[trTactic all_goals] def trAllGoals : TacM Syntax := do
-  `(tactic| allGoals $(← trBlock (← itactic)):tacticSeq)
+  `(tactic| all_goals $(← trBlock (← itactic)):tacticSeq)
 
 @[trTactic any_goals] def trAnyGoals : TacM Syntax := do
-  `(tactic| anyGoals $(← trBlock (← itactic)):tacticSeq)
+  `(tactic| any_goals $(← trBlock (← itactic)):tacticSeq)
 
 @[trTactic focus] def trFocus : TacM Syntax := do
   `(tactic| focus $(← trBlock (← itactic)):tacticSeq)
@@ -252,7 +252,7 @@ where
   let ty := mkOptionalNode $ ← trOptType (← parse (tk ":" *> pExpr)?)
   mkNode ``Parser.Tactic.suffices' #[mkAtom "suffices", h, ty]
 
-@[trTactic trace_state] def trTraceState : TacM Syntax := `(tactic| traceState)
+@[trTactic trace_state] def trTraceState : TacM Syntax := `(tactic| trace_state)
 
 @[trTactic trace] def trTrace : TacM Syntax := do `(tactic| trace $(← trExpr (← expr!)))
 
@@ -473,7 +473,7 @@ def trSimpAttrs (attrs : Array Name) : Syntax :=
 @[trTactic apply_auto_param] def trApplyAutoParam : TacM Syntax := `(tactic| inferAutoParam)
 
 @[trTactic fail_if_success success_if_fail] def trFailIfSuccess : TacM Syntax := do
-  `(tactic| failIfSuccess $(← trBlock (← itactic)):tacticSeq)
+  `(tactic| fail_if_success $(← trBlock (← itactic)):tacticSeq)
 
 @[trTactic guard_expr_eq] def trGuardExprEq : TacM Syntax := do
   `(tactic| guardExpr $(← trExpr (← expr!)) =ₐ $(← trExpr (← parse (tk ":=" *> pExpr))))
