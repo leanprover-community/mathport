@@ -15,6 +15,18 @@ open Lean.FromJson (fromJson?)
 
 namespace Parse
 
+-- The following instance temporarily overrides the Lean4 instance
+-- It is a minor convenience to avoid needing to translate `RawName` -> `Name` throughout the file.
+local instance (priority := high) : FromJson Name where
+  fromJson?
+  | Json.null => Name.anonymous
+  | Json.str s => s
+  | Json.arr a => a.foldlM (init := Name.anonymous) fun
+    | n, (i : Nat) => n.mkNum i
+    | n, (s : String) => n.mkStr s
+    | _, _ => throw "JSON string expected"
+  | _ => throw "JSON array expected"
+
 abbrev AstId := Nat
 abbrev LevelId := Nat
 abbrev ExprId := Nat

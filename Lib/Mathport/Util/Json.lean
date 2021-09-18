@@ -22,24 +22,6 @@ instance : FromJson Position where
     pure ⟨← fromJson? a[0], ← fromJson? a[1]⟩
   | _ => throw "JSON array expected"
 
-instance : ToJson Name where
-  toJson n :=
-    let rec core
-      | Name.str p s .. => toJson s :: core p
-      | Name.num p k .. => toJson k :: core p
-      | _ => []
-    Json.arr (core n).toArray.reverse
-
-instance : FromJson Name where
-  fromJson?
-  | Json.null => Name.anonymous
-  | Json.str s => s
-  | Json.arr a => a.foldlM (init := Name.anonymous) fun
-    | n, (i : Nat) => n.mkNum i
-    | n, (s : String) => n.mkStr s
-    | _, _ => throw "JSON string expected"
-  | _ => throw "JSON array expected"
-
 instance : FromJson Unit := ⟨fun _ => ()⟩
 
 instance {α : Type u} {β : Type v} [FromJson α] [FromJson β] : FromJson (Sum α β) :=
@@ -52,21 +34,7 @@ instance [FromJson α] [BEq α] [Hashable α] : FromJson (Std.HashSet α) where
     elems.foldlM (init := {}) fun acc x => do acc.insert (← fromJson? x)
 
 open Lean.Json in
-instance [FromJson β] : FromJson (Std.HashMap String β) where
-  fromJson? json := do
-    let Structured.obj kvs ← fromJson? json | throw "JSON array expected"
-    kvs.foldM (init := {}) fun acc k v => do acc.insert k (← fromJson? v)
-
-open Lean.Json in
-instance [FromJson β] : FromJson (Std.HashMap Name β) where
-  fromJson? json := do
+instance [FromJson α] [BEq α] [Hashable α] [FromJson β] : FromJson (Std.HashMap α β) where
+   fromJson? json := do
     let Structured.obj kvs ← fromJson? json | throw "JSON obj expected"
-    kvs.foldM (init := {}) fun acc (k : String) v => do acc.insert k.toName (← fromJson? v)
-
-open Lean.Json in
-open Std (RBNode) in
-instance [ToJson β] : ToJson (Std.HashMap Name β) where
-  toJson map := do
-    let obj := Structured.obj $ map.fold (init := RBNode.leaf) fun kvs k v =>
-      kvs.insert String.cmp (toString k) (toJson v)
-    toJson obj
+    kvs.foldM (init := {}) fun acc (k : String) v => do acc.insert (← fromJson? k) (← fromJson? v)

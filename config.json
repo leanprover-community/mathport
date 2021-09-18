@@ -30,20 +30,20 @@
         "bInductionOn"
     ],
     "disabledInstances": [
-        ["bool", "decidable_eq"],
-        ["nat", "decidable_eq"],
-        ["and", "decidable"],
-        ["or", "decidable"],
-        ["iff", "decidable"],
-        ["not", "decidable"],
-        ["implies", "decidable"],
-        ["decidable", "true"],
-        ["decidable", "false"],
+        "bool.decidable_eq",
+        "nat.decidable_eq",
+        "and.decidable",
+        "or.decidable",
+        "iff.decidable",
+        "not.decidable",
+        "implies.decidable",
+        "decidable.true",
+        "decidable.false",
         "exists_prop_decidable",
         "forall_prop_decidable",
-        ["int", "decidable_eq"],
-        ["nat", "decidable_lt"],
-        ["nat", "decidable_le"]
+        "int.decidable_eq",
+        "nat.decidable_lt",
+        "nat.decidable_le"
     ],
     "neverSorries": [
         "of_as_true"
