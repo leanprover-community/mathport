@@ -126,7 +126,8 @@ elab:max "throw!" interpStr:interpolatedStr(term) : term <= ty => do
   let str ← Elab.liftMacroM <| interpStr.expandInterpolatedStr (← `(String)) (← `(toString))
   Elab.Term.elabTerm (← `(throwError ($head ++ $str : String))) ty
 
-def List.splitAt {α} (xs : List α) (i : Nat) : List α × List α :=
+-- Note: we add "'" because we want the Mathported version to take priority.
+def List.splitAt' {α} (xs : List α) (i : Nat) : List α × List α :=
   (xs.take i, xs.drop i)
 
 def Array.splitAt {α} (xs : Array α) (i : Nat) : Array α × Array α :=

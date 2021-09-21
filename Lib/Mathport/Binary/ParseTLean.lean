@@ -156,7 +156,7 @@ def parseLine (line : String) : ParseM Unit := do
 
       | ("#IND" :: nps :: n :: t :: nis :: rest) =>
         let (nps, n, t, nis) ← ((← parseNat nps), (← str2name n), (← str2expr t), (← parseNat nis))
-        let (is, ups) := rest.splitAt (2 * nis)
+        let (is, ups) := rest.splitAt' (2 * nis)
         let lparams ← ups.mapM str2name
         let ctors ← parseIntros is
         modify fun s => { s with ind2params := s.ind2params.insert n nps }
