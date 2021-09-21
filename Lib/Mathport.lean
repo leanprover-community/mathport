@@ -25,7 +25,7 @@ def mathport1 (config : Config) (path : Path) : IO Unit := do
 
   if imports.isEmpty then imports := #[{ module := `Mathport.Prelude : Import }]
 
-  let opts := ({} : Options) |>.setNat `maxRecDepth 10000
+  let opts := ({} : Options) |>.setNat `maxRecDepth 2000
 
   withImportModulesConst imports.toList (opts := opts) (trustLevel := 0) $ λ env => do
     let env := env.setMainModule path.mod4
