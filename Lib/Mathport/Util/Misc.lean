@@ -82,10 +82,6 @@ instance : MonadLift (Except String) IO where
   | _, Except.error err => throw $ IO.userError err
   | _, Except.ok x => pure x
 
-@[macroInline] def assert {m : Type → Type v} [Pure m] [MonadExcept ε m]
-  (p : Prop) [Decidable p] (e : ε) : m Unit :=
-  if p then pure () else throw e
-
 def Subarray.getOp {α : Type u} [Inhabited α] (self : Subarray α) (idx : Nat) : α :=
   let i := idx + self.start
   if i < self.stop then self.as[i] else arbitrary
