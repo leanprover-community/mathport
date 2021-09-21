@@ -1055,19 +1055,19 @@ private def trMixfix (kind : Syntax) (prio : Option Syntax)
   let s := Syntax.mkStrLit tk
   match m with
   | MixfixKind.infix =>
-    (NotationDesc.infix tk, fun n e => `(command|
+    (NotationDesc.infix tk, fun (n : Option Syntax) e => `(command|
       $kind:attrKind infixl:$p $[$n:namedName]? $[$prio:namedPrio]? $s => $e))
   | MixfixKind.infixl =>
-    (NotationDesc.infix tk, fun n e => `(command|
+    (NotationDesc.infix tk, fun (n : Option Syntax) e => `(command|
       $kind:attrKind infixl:$p $[$n:namedName]? $[$prio:namedPrio]? $s => $e))
   | MixfixKind.infixr =>
-    (NotationDesc.infix tk, fun n e => `(command|
+    (NotationDesc.infix tk, fun (n : Option Syntax) e => `(command|
       $kind:attrKind infixr:$p $[$n:namedName]? $[$prio:namedPrio]? $s => $e))
   | MixfixKind.prefix =>
-    (NotationDesc.prefix tk, fun n e => `(command|
+    (NotationDesc.prefix tk, fun (n : Option Syntax) e => `(command|
       $kind:attrKind prefix:$p $[$n:namedName]? $[$prio:namedPrio]? $s => $e))
   | MixfixKind.postfix =>
-    (NotationDesc.postfix tk, fun n e => `(command|
+    (NotationDesc.postfix tk, fun (n : Option Syntax) e => `(command|
       $kind:attrKind postfix:$p $[$n:namedName]? $[$prio:namedPrio]? $s => $e))
 
 private def trNotation4 (kind : Syntax) (prio p : Option Syntax)
