@@ -12,19 +12,16 @@ clean:
 	rm -rf Lib/build/ App/build/
 
 unport:
-	mkdir -p tmpDir
-	mv Lib4/*.lean tmpDir
-	rm -rf Lib4
-	mv tmpDir Lib4
-	rm -rf Logs
-	mkdir Logs
+	rm -rf Lib4 Logs/*
+	git checkout HEAD -- Lib4
 
 port-lean: mathport
 	LEAN_PATH=./Lib4:./Lib/build/lib time ./App/build/bin/MathportApp config.json Lean3::all >> Logs/mathport.out 2> Logs/mathport.err
 	LEAN_PATH=./Lib4:./Lib/build/lib lean --o=./Lib4/Lean3.olean                      ./Lib4/Lean3.lean
 
-port-mathlib: port-lean
-	LEAN_PATH=./Lib4:./Lib/build/lib time ./App/build/bin/MathportApp config.json Mathlib::all >> Logs/mathport.out 2> Logs/mathport.err
+port-mathlib: mathport
+	LEAN_PATH=./Lib4:./Lib/build/lib time ./App/build/bin/MathportApp config.json Lean3::all Mathlib::all >> Logs/mathport.out 2> Logs/mathport.err
+	LEAN_PATH=./Lib4:./Lib/build/lib lean --o=./Lib4/Lean3.olean                      ./Lib4/Lean3.lean
 	LEAN_PATH=./Lib4:./Lib/build/lib lean --o=./Lib4/Mathlib.olean                    ./Lib4/Mathlib.lean
 
 lean3-predata:
