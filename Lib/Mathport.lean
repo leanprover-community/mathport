@@ -25,14 +25,12 @@ def mathport1 (config : Config) (path : Path) : IO Unit := do
 
   if imports.isEmpty then imports := #[{ module := `Mathport.Prelude : Import }]
 
-  let mut opts := ({} : Options)
-  opts := opts.setBool `pp.analyze false
-  opts := opts.setBool `pp.all true
+  let opts := ({} : Options) |>.setNat `maxRecDepth 10000
 
   withImportModulesConst imports.toList (opts := opts) (trustLevel := 0) $ λ env => do
     let env := env.setMainModule path.mod4
     let cmdCtx : Elab.Command.Context := { fileName := path.toLean3 pcfg ".lean" |>.toString, fileMap := dummyFileMap }
-    let cmdState : Elab.Command.State := Lean.Elab.Command.mkState env
+    let cmdState : Elab.Command.State := Lean.Elab.Command.mkState (env := env) (opts := opts)
 
     CommandElabM.toIO (ctx := cmdCtx) (s := cmdState) do
       -- let _ ← IO.FS.withIsolatedStreams' $ binport1 config path
