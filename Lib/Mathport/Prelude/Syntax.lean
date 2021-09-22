@@ -230,11 +230,11 @@ syntax (name := toRHS) "toRHS" : conv
 syntax (name := find) "find " term " => " tacticSeq : conv
 syntax (name := «for») "for " term:max " [" num,* "]" " => " tacticSeq : conv
 syntax (name := dsimp) "dsimp" (" (" &"config" " := " term ")")? (&" only")?
-  (" [" simpArg,* "]")? (" with " (colGt ident)+)? : tactic
+  (" [" simpArg,* "]")? (" with " (colGt ident)+)? : conv
 syntax (name := simp') "simp" (" (" &"config" " := " term ")")? (&" only")?
-  (" [" simpArg,* "]")? (" with " (colGt ident)+)? : tactic
-syntax (name := guardLHS) "guardLHS " " =ₐ " term : tactic
-syntax (name := rw) "rw " rwRuleSeq : tactic
+  (" [" simpArg,* "]")? (" with " (colGt ident)+)? : conv
+syntax (name := guardLHS) "guardLHS " " =ₐ " term : conv
+syntax (name := rw) "rw " rwRuleSeq : conv
 
 end Conv
 

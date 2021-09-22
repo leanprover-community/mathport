@@ -580,13 +580,13 @@ def trSimpAttrs (attrs : Array Name) : Syntax :=
   mkNode ``Parser.Tactic.Conv.simp' #[mkAtom "simp", cfg, o, trSimpList hs, trSimpAttrs attrs]
 
 @[trConv guard_lhs] def trGuardLHSConv : TacM Syntax := do
-  `(tactic| guardLHS =ₐ $(← trExpr (← parse pExpr)))
+  `(conv| guardLHS =ₐ $(← trExpr (← parse pExpr)))
 
 @[trConv rewrite rw] def trRwConv : TacM Syntax := do
   let q ← liftM $ (← parse rwRules).mapM trRwRule
   if let some cfg ← expr? then
     dbg_trace "warning: unsupported: rw with cfg"
-  `(tactic| rw [$q,*])
+  `(conv| rw [$q,*])
 
 section
 
