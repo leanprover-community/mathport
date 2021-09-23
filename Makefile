@@ -1,10 +1,4 @@
-all: mathport
-
-mathport:
-	lake build-bin
-
-clean:
-	rm -rf build/
+all:
 
 unport:
 	rm -rf Lib4 Logs/*
