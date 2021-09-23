@@ -1,28 +1,26 @@
 all: mathport
 
-mathport-lib:
-	cd Lib && lake build-lib
-
-mathport-app: mathport-lib
-	cd App && lake build-bin
-
-mathport: mathport-lib mathport-app
+mathport:
+	lake build-bin
 
 clean:
-	rm -rf Lib/build/ App/build/
+	rm -rf build/
 
 unport:
 	rm -rf Lib4 Logs/*
 	git checkout HEAD -- Lib4
 
-port-lean: mathport
-	LEAN_PATH=./Lib4:./Lib/build/lib time ./App/build/bin/MathportApp config.json Lean3::all >> Logs/mathport.out 2> Logs/mathport.err
-	LEAN_PATH=./Lib4:./Lib/build/lib lean --o=./Lib4/Lean3.olean                      ./Lib4/Lean3.lean
+init-logs:
+	mkdir -p Logs
 
-port-mathlib: mathport
-	LEAN_PATH=./Lib4:./Lib/build/lib time ./App/build/bin/MathportApp config.json Lean3::all Mathlib::all >> Logs/mathport.out 2> Logs/mathport.err
-	LEAN_PATH=./Lib4:./Lib/build/lib lean --o=./Lib4/Lean3.olean                      ./Lib4/Lean3.lean
-	LEAN_PATH=./Lib4:./Lib/build/lib lean --o=./Lib4/Mathlib.olean                    ./Lib4/Mathlib.lean
+port-lean: mathport init-logs
+	LEAN_PATH=./Lib4:./build/lib time ./build/bin/Mathport config.json Lean3::all >> Logs/mathport.out 2> Logs/mathport.err
+	LEAN_PATH=./Lib4:./build/lib lean --o=./Lib4/Lean3.olean                      ./Lib4/Lean3.lean
+
+port-mathlib: mathport init-logs
+	LEAN_PATH=./Lib4:./build/lib time ./build/bin/Mathport config.json Lean3::all Mathlib::all >> Logs/mathport.out 2> Logs/mathport.err
+	LEAN_PATH=./Lib4:./build/lib lean --o=./Lib4/Lean3.olean                      ./Lib4/Lean3.lean
+	LEAN_PATH=./Lib4:./build/lib lean --o=./Lib4/Mathlib.olean                    ./Lib4/Mathlib.lean
 
 lean3-predata:
 	mkdir -p PreData
