@@ -7,14 +7,19 @@ unport:
 init-logs:
 	mkdir -p Logs
 
+MATHLIB4_LIB=./lean_packages/Mathlib/build/lib
+MATHPORT_LIB=./build/lib
+LEAN3_LIB=./Lib4/Lean3/build/lib
+MATHBIN_LIB=./Lib4/Mathbin/build/lib
+
 port-lean: mathport init-logs
-	LEAN_PATH=./Lib4:./build/lib time ./build/bin/Mathport config.json Lean3::all >> Logs/mathport.out 2> Logs/mathport.err
-	LEAN_PATH=./Lib4:./build/lib lean --o=./Lib4/Lean3.olean                      ./Lib4/Lean3.lean
+	LEAN_PATH=$(MATHPORT_LIB):$(MATHLIB4_LIB):$(LEAN3_LIB) time ./build/bin/Mathport config.json Lean3::all >> Logs/mathport.out 2> Logs/mathport.err
+	LEAN_PATH=$(MATHPORT_LIB):$(MATHLIB4_LIB):$(LEAN3_LIB) lean --o=./Lib4/Lean3/build/lib/Lean3.olean       ./Lib4/Lean3/Lean3.lean
 
 port-mathlib: mathport init-logs
-	LEAN_PATH=./Lib4:./build/lib time ./build/bin/Mathport config.json Lean3::all Mathlib::all >> Logs/mathport.out 2> Logs/mathport.err
-	LEAN_PATH=./Lib4:./build/lib lean --o=./Lib4/Lean3.olean                      ./Lib4/Lean3.lean
-	LEAN_PATH=./Lib4:./build/lib lean --o=./Lib4/Mathlib.olean                    ./Lib4/Mathlib.lean
+	LEAN_PATH=$(MATHPORT_LIB):$(MATHLIB4_LIB):$(LEAN3_LIB):$(MATHBIN_LIB) time ./build/bin/Mathport config.json Lean3::all Mathbin::all >> Logs/mathport.out 2> Logs/mathport.err
+	LEAN_PATH=$(MATHPORT_LIB):$(MATHLIB4_LIB):$(LEAN3_LIB):$(MATHBIN_LIB) lean  --o=./Lib4/Lean3/build/lib/Lean3.olean         ./Lib4/Lean3/Lean3.lean
+	LEAN_PATH=$(MATHPORT_LIB):$(MATHLIB4_LIB):$(LEAN3_LIB):$(MATHBIN_LIB) lean  --o=./Lib4/Mathbin/build/lib/Mathbin.olean     ./Lib4/Mathbin/Mathbin.lean
 
 lean3-predata:
 	mkdir -p PreData

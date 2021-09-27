@@ -3,6 +3,7 @@ Copyright (c) 2021 Microsoft Corporation. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Mario Carneiro
 -/
+import Mathlib
 import Lean.Elab.Command
 import Lean.Elab.Quotation
 
@@ -118,7 +119,7 @@ end Elab.Command
 
 namespace Parser.Term
 
-syntax:lead (name := noMatch) "match " matchDiscr,* " with" "." : term
+-- syntax:lead (name := noMatch) "match " matchDiscr,* " with" "." : term
 syntax (name := noFun) "fun" "." : term
 syntax "{" term,* "}" : term
 syntax "{ " ident (" : " term)? " | " term " }" : term
@@ -137,9 +138,6 @@ syntax tactic " <;> " "[" tactic,* "]" : tactic
 syntax "runTac " doSeq : tactic
 
 end Tactic
-
-notation "ℕ" => Nat
-notation "ℤ" => Int
 
 namespace Tactic
 
@@ -465,7 +463,7 @@ syntax (name := tauto!) "tauto!" (" (" &"config" " := " term ")")? : tactic
 syntax (name := truncCases) "truncCases " term (" with " (colGt binderIdent)+)? : tactic
 
 syntax (name := normNum1) "normNum1" (ppSpace location)? : tactic
-syntax (name := normNum) "normNum" (" [" simpArg,* "]")? (ppSpace location)? : tactic
+-- syntax (name := normNum) "normNum" (" [" simpArg,* "]")? (ppSpace location)? : tactic
 syntax (name := applyNormed) "applyNormed " term : tactic
 
 syntax (name := abel1) "abel1" : tactic
@@ -478,7 +476,7 @@ syntax (name := ring1!) "ring1!" : tactic
 syntax ringMode := &"SOP" <|> &"raw" <|> &"horner"
 syntax (name := ringNF) "ringNF" (ppSpace ringMode)? (ppSpace location)? : tactic
 syntax (name := ringNF!) "ringNF!" (ppSpace ringMode)? (ppSpace location)? : tactic
-syntax (name := ring) "ring" : tactic
+-- syntax (name := ring) "ring" : tactic
 syntax (name := ring!) "ring!" : tactic
 
 syntax (name := ringExpEq) "ringExpEq" : tactic

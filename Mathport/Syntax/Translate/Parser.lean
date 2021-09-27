@@ -88,7 +88,8 @@ def usingIdent := (tk "using" *> ident)?
 def withIdentList := (tk "with" *> ident_*) <|> pure #[]
 def withoutIdentList := (tk "without" *> ident*) <|> pure #[]
 
-def Lean.Elab.Tactic.Location.ofOption (l : Array (Option Name)) : Location :=
+open Lean.Elab.Tactic in
+def Location.ofOption (l : Array (Option Name)) : Location :=
   let (hs, ty) := l.foldl (init := (#[], false)) fun
     | (hs, ty), none => (hs, true)
     | (hs, ty), some n => (hs.push n, ty)

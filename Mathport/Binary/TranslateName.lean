@@ -162,7 +162,9 @@ where
   isDefEqUpto (lvls₁ : List Name) (t₁ : Expr) (lvls₂ : List Name) (t₂ : Expr) : BinportM Bool := do
     Kernel.isDefEq (← getEnv) {} t₁ (t₂.instantiateLevelParams lvls₂ $ lvls₁.map mkLevelParam)
 
-  extendName (n : Name) (suffix : String := "'") : Name :=
+  -- Note: "'" does not work any more, since there are many "'" suffixes in mathlib
+  -- and the extended names may clash.
+  extendName (n : Name) (suffix : String := "_'") : Name :=
     match n with
     | Name.str p s _ => Name.mkStr p (s ++ suffix)
     | n              => Name.mkStr n suffix

@@ -1091,7 +1091,7 @@ private def trNotation3Item (lit : AST3.Literal) : M Syntax := do
   | AST3.Literal.var x (some ⟨_, Action.prec _⟩) => var x
   | AST3.Literal.var x (some ⟨_, Action.prev⟩) => var x
   | AST3.Literal.var x (some ⟨_, Action.scoped _ sc⟩) => scope x sc
-  | _ => throw! "unsupported: advanced notation"
+  | _ => throw! "unsupported: advanced notation ({repr lit})"
   mkNode ``Parser.Command.notation3Item stxs
 where
   sym tk := #[Syntax.mkStrLit tk.1.kind.toString]

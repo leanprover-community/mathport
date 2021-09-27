@@ -4,7 +4,7 @@
         "packages": {
             "Lean3": "PreData/Lean3",
             "Lean3Pkg": "PreData/Lean3Pkg",
-            "Mathlib": "PreData/Mathlib",
+            "Mathbin": "PreData/Mathbin",
             "Liquid": "PreData/Liquid"
         }
     },

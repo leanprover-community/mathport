@@ -4,6 +4,7 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Mario Carneiro, Daniel Selsam
 -/
 import Mathport.Bridge.Config
+import Mathport.Syntax.AST3
 import Mathport.Syntax.Parse
 import Mathport.Syntax.Translate
 
@@ -16,7 +17,7 @@ def synport1 (config : Config) (path : Path) : CommandElabM Unit := do
   let pcfg := config.pathConfig
   let (ast3, _) ← parseAST3 (path.toLean3 pcfg ".ast.json") false
   let ⟨fmt, _⟩ ← AST3toData4 ast3 pcfg
-  IO.FS.writeFile (path.toLean4 pcfg "Syn.lean") (toString fmt)
+  IO.FS.writeFile (path.toLean4src pcfg ".lean") (toString fmt)
 
 open Lean Lean.Elab Lean.Elab.Term Lean.Elab.Tactic
 open Lean.Parser Lean.PrettyPrinter
