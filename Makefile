@@ -22,7 +22,7 @@ port-mathlib: mathport init-logs
 	LEAN_PATH=$(MATHPORT_LIB):$(MATHLIB4_LIB):$(LEAN3_LIB):$(MATHBIN_LIB) lean  --o=./Lib4/Mathbin/build/lib/Mathbin.olean     ./Lib4/Mathbin/Mathbin.lean
 
 tar-lib4:
-	tar --exclude 'build' --exclude 'lean_packages' -czvf mathport-release.tar.gz Lib4 Logs
+	tar --exclude 'lean_packages' -czvf mathport-release.tar.gz Lib4 Logs
 
 lean3-predata:
 	mkdir -p PreData
