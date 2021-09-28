@@ -164,7 +164,7 @@ where
 
   -- Note: "'" does not work any more, since there are many "'" suffixes in mathlib
   -- and the extended names may clash.
-  extendName (n : Name) (suffix : String := "_'") : Name :=
+  extendName (n : Name) (suffix : String := "ₓ") : Name :=
     match n with
     | Name.str p s _ => Name.mkStr p (s ++ suffix)
     | n              => Name.mkStr n suffix
