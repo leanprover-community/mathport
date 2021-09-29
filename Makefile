@@ -7,7 +7,7 @@ unport:
 init-logs:
 	mkdir -p Logs
 
-MATHLIB4_LIB=./lean_packages/Mathlib/build/lib
+MATHLIB4_LIB=./lean_packages/mathlib/build/lib
 MATHPORT_LIB=./build/lib
 LEAN3_LIB=./Lib4/Lean3/build/lib
 MATHBIN_LIB=./Lib4/Mathbin/build/lib
