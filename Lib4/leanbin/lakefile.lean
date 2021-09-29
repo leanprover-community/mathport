@@ -3,7 +3,7 @@ import Lake.Package
 open Lake System
 
 def package : Lake.PackageConfig := {
-  name := "lean3"
+  name := "leanbin"
   libRoots := #[],
   libGlobs := #[],
   dependencies := [

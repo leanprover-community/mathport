@@ -28,18 +28,21 @@ def mathport1 (config : Config) (path : Path) : IO Unit := do
 
   let opts := ({} : Options) |>.setNat `maxRecDepth 2000
 
-  withImportModulesConst imports.toList (opts := opts) (trustLevel := 0) $ λ env => do
-    let env := env.setMainModule path.mod4
-    let cmdCtx : Elab.Command.Context := { fileName := path.toLean3 pcfg ".lean" |>.toString, fileMap := dummyFileMap }
-    let cmdState : Elab.Command.State := Lean.Elab.Command.mkState (env := env) (opts := opts)
+  try
+    withImportModulesConst imports.toList (opts := opts) (trustLevel := 0) $ λ env => do
+      let env := env.setMainModule path.mod4
+      let cmdCtx : Elab.Command.Context := { fileName := path.toLean3 pcfg ".lean" |>.toString, fileMap := dummyFileMap }
+      let cmdState : Elab.Command.State := Lean.Elab.Command.mkState (env := env) (opts := opts)
 
-    CommandElabM.toIO (ctx := cmdCtx) (s := cmdState) do
-      -- let _ ← IO.FS.withIsolatedStreams' $ binport1 config path
-      binport1 config path
-      synport1 config path
-      writeModule (← getEnv) $ path.toLean4lib pcfg ".olean"
+      CommandElabM.toIO (ctx := cmdCtx) (s := cmdState) do
+        -- let _ ← IO.FS.withIsolatedStreams' $ binport1 config path
+        binport1 config path
+        synport1 config path
+        writeModule (← getEnv) $ path.toLean4lib pcfg ".olean"
 
-    println! "\n[mathport] END   {path.mod3}\n"
+      println! "\n[mathport] END   {path.mod3}\n"
+  catch err =>
+    throw $ IO.userError s!"failed to import environment for {path.package}:{path.mod4} with imports {imports.toList}: {err}"
 
 def bindTasks (deps : Array Task) (k? : Option (Unit → IO Task)) : IO Task := do
   if deps.isEmpty then k?.get! () else

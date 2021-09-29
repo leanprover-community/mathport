@@ -2,10 +2,9 @@
     "pathConfig": {
         "outRoot": "Lib4",
         "packages": {
-            "Lean3": "PreData/Lean3",
-            "Lean3Pkg": "PreData/Lean3Pkg",
+            "Leanbin": "PreData/Leanbin",
             "Mathbin": "PreData/Mathbin",
-            "Liquid": "PreData/Liquid"
+            "Liquidbin": "PreData/Liquidbin"
         }
     },
     "stringsToKeep": [
