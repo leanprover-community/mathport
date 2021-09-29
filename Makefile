@@ -12,17 +12,17 @@ MATHPORT_LIB=./build/lib
 LEAN3_LIB=./Lib4/Lean3/build/lib
 MATHBIN_LIB=./Lib4/Mathbin/build/lib
 
-port-lean: mathport init-logs
+port-lean: init-logs
 	LEAN_PATH=$(MATHPORT_LIB):$(MATHLIB4_LIB):$(LEAN3_LIB) time ./build/bin/mathport config.json Lean3::all >> Logs/mathport.out 2> Logs/mathport.err
 	LEAN_PATH=$(MATHPORT_LIB):$(MATHLIB4_LIB):$(LEAN3_LIB) lean --o=./Lib4/Lean3/build/lib/Lean3.olean       ./Lib4/Lean3/Lean3.lean
 
-port-mathlib: mathport init-logs
+port-mathlib: init-logs
 	LEAN_PATH=$(MATHPORT_LIB):$(MATHLIB4_LIB):$(LEAN3_LIB):$(MATHBIN_LIB) time ./build/bin/mathport config.json Lean3::all Mathbin::all >> Logs/mathport.out 2> Logs/mathport.err
 	LEAN_PATH=$(MATHPORT_LIB):$(MATHLIB4_LIB):$(LEAN3_LIB):$(MATHBIN_LIB) lean  --o=./Lib4/Lean3/build/lib/Lean3.olean         ./Lib4/Lean3/Lean3.lean
 	LEAN_PATH=$(MATHPORT_LIB):$(MATHLIB4_LIB):$(LEAN3_LIB):$(MATHBIN_LIB) lean  --o=./Lib4/Mathbin/build/lib/Mathbin.olean     ./Lib4/Mathbin/Mathbin.lean
 
 tar-lib4:
-	tar --exclude 'lean_packages' -czvf mathport-release.tar.gz Lib4 Logs
+	tar --exclude 'lean_packages' -czvf mathport-release.tar.gz Lib4 Logs PreData
 
 lean3-predata:
 	mkdir -p PreData
@@ -34,11 +34,11 @@ lean3-predata:
 	find PreData/ -name "*.lean" -delete
 	find PreData/ -name "*.olean" -delete
 
-mathlib-predata: lean3-predata
-	rm -rf PreData/Mathlib
+mathbin-predata: lean3-predata
+	rm -rf PreData/Mathbin
 	find $(MATHLIB3_SRC) -name "*.olean" -delete # ast only exported when oleans not present
 	LEAN_PATH=$(LEAN3_LIB):$(MATHLIB3_SRC)  $(LEAN3_BIN)/lean --make --recursive --ast   $(MATHLIB3_SRC)
 	LEAN_PATH=$(LEAN3_LIB):$(MATHLIB3_SRC)  $(LEAN3_BIN)/lean --make --recursive --tlean $(MATHLIB3_SRC)
-	cp -r $(MATHLIB3_SRC) PreData/Mathlib3
+	cp -r $(MATHLIB3_SRC) PreData/Mathbin
 	find PreData/ -name "*.lean" -delete
 	find PreData/ -name "*.olean" -delete
