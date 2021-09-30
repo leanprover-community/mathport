@@ -43,7 +43,7 @@ where
       if !f.isConst then return TransformStep.done e
       match hBinMap.find? f.constName! with
       | some ⟨hName, instName⟩ =>
-        if args.size < 4 then return TransformStep.done e
+        if args.size < 2 then return TransformStep.done e
         let lvl := f.constLevels!.head!
         let type := args[0]
         let inst := args[1]
@@ -53,7 +53,7 @@ where
         return TransformStep.done e'
 
       | none =>
-        if f.isConstOf `Pow.pow && args.size ≥ 5 then
+        if f.isConstOf `Pow.pow && args.size ≥ 3 then
           let [lvl1, lvl2] ← pure f.constLevels! | throwError "Pow.pow should have 2 levels"
           -- (@instHPow.{0, 0} Nat Nat instPowNatNat)
           let instName := `instHPow
