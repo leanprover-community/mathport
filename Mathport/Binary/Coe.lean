@@ -11,20 +11,29 @@ import Mathport.Bridge.Rename
 namespace Mathport.Binary
 
 open Lean Lean.Meta
+open Mathport.Rename (resolveIdent?)
 
 structure CoeInfo where
   instPos      : Nat
   indName      : Name
   projPos      : Nat
 
-def isCoeApp? (e : Expr) : Option CoeInfo :=
+def isCoeApp? (env : Environment) (e : Expr) : Option CoeInfo := do
   let nArgs := e.getAppNumArgs
-  -- Note: this hardcodes the Lean4 translations
-  -- (either call the rename map or make sure this stays in sync)
-  if e.isAppOf `coe' && nArgs ≥ 3 then some ⟨2, `HasLiftT, 0⟩
-  else if e.isAppOf `coeSort' && nArgs ≥ 2 then some ⟨1, `HasCoeToSort, 1⟩
-  else if e.isAppOf `coeFn && nArgs ≥ 2 then some ⟨1, `HasCoeToFun, 1⟩
-  else none
+
+  match resolveIdent? env `coe with
+  | some coe => if e.isAppOf coe && nArgs ≥ 3 then return some ⟨2, `HasLiftT, 0⟩
+  | _ => pure ()
+
+  match resolveIdent? env `coe_sort with
+  | some coeSort => if e.isAppOf coeSort && nArgs ≥ 2 then return some ⟨1, `HasCoeToSort, 1⟩
+  | _ => pure ()
+
+  match resolveIdent? env `coe_fn with
+  | some coeFn => if e.isAppOf coeFn && nArgs ≥ 2 then return some ⟨1, `HasCoeToFun, 1⟩
+  | _ => pure ()
+
+  return none
 
 /-
 This gem appears as a subterm in `int.mul_pos:
@@ -68,7 +77,7 @@ partial def expandCoes (e : Expr) (declName : Name) : MetaM Expr := do
       pure e
 where
   step (e : Expr) (shouldReduce : Bool) : MetaM TransformStep := do
-    match isCoeApp? e with
+    match isCoeApp? (← getEnv) e with
     | none => TransformStep.done e
     | some ⟨instPos, indName, projPos⟩ => do
       let args := e.getAppArgs
