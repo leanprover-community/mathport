@@ -6,7 +6,7 @@ def package : Lake.PackageConfig := {
   name := "leanbin"
   libRoots := #[],
   libGlobs := #[],
-  dependencies := [
+  dependencies := #[
   {
     name := "mathlib",
     src := Source.git "https://github.com/dselsam/mathlib4.git" "lake" none,

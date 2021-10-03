@@ -6,7 +6,7 @@ def package : Lake.PackageConfig := {
   name := "liquidbin"
   libRoots := #[],
   libGlobs := #[],
-  dependencies := [{
+  dependencies := #[{
     name := "mathbin",
     src := Source.path (FilePath.mk "../mathbin")
   }]
