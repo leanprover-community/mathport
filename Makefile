@@ -32,37 +32,57 @@ port-liquid: port-mathlib
 tar-lib4:
 	tar --exclude 'lean_packages' -czvf mathport-release.tar.gz Lib4 Logs PreData
 
-lean3-predata:
+lean3-source:
+	mkdir -p sources
+	if [ -d "sources/lean" ]; then \
+		cd sources/lean && git pull; \
+	else \
+		cd sources && git clone https://github.com/leanprover-community/lean.git; \
+	fi
+
+lean3-predata: lean3-source
 	mkdir -p PreData
 	rm -rf PreData/Leanbin
-	find $(LEAN3_LIB) -name "*.olean" -delete # ast only exported when oleans not present
-	LEAN_PATH=$(LEAN3_LIB)                 $(LEAN3_BIN)/lean --make --recursive --ast --tlean $(LEAN3_LIB)
-	LEAN_PATH=$(LEAN3_LIB):$(LEAN3_PKG)    $(LEAN3_BIN)/lean --make --recursive --ast --tlean $(LEAN3_PKG)
-	cp -r $(LEAN3_LIB) PreData/Leanbin
+	find sources/lean/library -name "*.olean" -delete # ast only exported when oleans not present
+	# By changing into the directory, `elan` automatically dispatches to the correct binary.
+	cd sources/lean && lean --make --recursive --ast --tlean library
+	cp -r sources/lean/library PreData/Leanbin
 	find PreData/ -name "*.lean" -delete
 	find PreData/ -name "*.olean" -delete
 
-mathbin-predata: lean3-predata
+mathbin-source:
+	mkdir -p sources
+	if [ -d "sources/mathlib" ]; then \
+		cd sources/mathlib && git pull; \
+	else \
+		cd sources && git clone https://github.com/leanprover-community/mathlib.git; \
+	fi
+	cd sources/mathlib && leanpkg configure
+
+mathbin-predata: mathbin-source
 	rm -rf PreData/Mathbin
-	find $(MATHLIB3_SRC) -name "*.olean" -delete # ast only exported when oleans not present
-	LEAN_PATH=$(LEAN3_LIB):$(MATHLIB3_SRC)  $(LEAN3_BIN)/lean --make --recursive --ast   $(MATHLIB3_SRC)
-	LEAN_PATH=$(LEAN3_LIB):$(MATHLIB3_SRC)  $(LEAN3_BIN)/lean --make --recursive --tlean $(MATHLIB3_SRC)
-	cp -r $(MATHLIB3_SRC) PreData/Mathbin
+	find sources/mathlib -name "*.olean" -delete # ast only exported when oleans not present
+	cd sources/mathlib && lean --make --recursive --ast   src
+	cd sources/mathlib && lean --make --recursive --tlean src
+	cp -r sources/mathlib PreData/Mathbin
 	find PreData/ -name "*.lean" -delete
 	find PreData/ -name "*.olean" -delete
 
-liquid-predata: mathbin-predata
+liquid-source:
+	mkdir -p sources
+	if [ -d "sources/lean-liquid" ]; then \
+		cd sources/lean-liquid && git pull; \
+	else \
+		cd sources && git clone https://github.com/leanprover-community/lean-liquid.git; \
+	fi
+	cd sources/lean-liquid && leanpkg configure && ./scripts/get-cache.sh
+
+liquid-predata: liquid-source
 	rm -rf PreData/Liquid
-	find $(LIQUID3_SRC) -name "*.olean" -delete # ast only exported when oleans not present
-	LEAN_PATH=$(LEAN3_LIB):$(MATHLIB3_SRC):$(LIQUID3_SRC) $(LEAN3_BIN)/lean --make --recursive --ast --tlean $(LIQUID3_SRC)
-	cp -r $(LIQUID3_SRC) PreData/Liquidbin
+	find sources/lean-liquid -name "*.olean" -delete # ast only exported when oleans not present
+	cd sources/lean-liquid && lean --make --recursive --ast --tlean src
+	cp -r sources/lean-liquid PreData/Liquidbin
 	find PreData/ -name "*.lean" -delete
 	find PreData/ -name "*.olean" -delete
 
-tmp-liquid-predata:
-	rm -rf PreData/Liquid
-	find $(LIQUID3_SRC) -name "*.olean" -delete # ast only exported when oleans not present
-	LEAN_PATH=$(LEAN3_LIB):$(MATHLIB3_SRC):$(LIQUID3_SRC) $(LEAN3_BIN)/lean --make --recursive --ast --tlean $(LIQUID3_SRC)
-	cp -r $(LIQUID3_SRC) PreData/Liquidbin
-	find PreData/ -name "*.lean" -delete
-	find PreData/ -name "*.olean" -delete
+predata: lean3-predata mathbin-predata liquid-predata
