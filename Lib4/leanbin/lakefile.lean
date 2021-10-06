@@ -1,9 +1,8 @@
-import Lake.Package
+import Lake
 
-open Lake System
+open Lake DSL System
 
-def package : Lake.PackageConfig := {
-  name := "leanbin"
+package leanbin {
   libRoots := #[],
   libGlobs := #[],
   dependencies := #[
