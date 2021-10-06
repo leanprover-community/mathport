@@ -1,9 +1,8 @@
-import Lake.Package
+import Lake
 
-open Lake System
+open Lake DSL System
 
-def package : Lake.PackageConfig := {
-  name := "mathport"
+package mathport {
   dependencies := #[{
     name := "mathlib",
     src := Source.git "https://github.com/dselsam/mathlib4.git" "lake" none,
