@@ -3,7 +3,7 @@
 # This is not a "real" makefile, i.e. it does not detect dependencies between targets.
 
 ## Targets:
-# `lean4-source`: clone `lean4`, patch `kernel/inductive.cpp`, and compile
+# `lean4-source`: clone `lean4`, patch `kernel/inductive.cpp`, compile, and `elan override`
 # `mathbin-source`: clone mathlib3, and create `all.lean`
 # `lean3-source`: clone lean3, and create `all.lean` (run after `mathbin-source`, to get the right commit)
 # `lean3-predata`: create `.ast` and `.tlean` files from Lean3
