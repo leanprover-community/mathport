@@ -1,4 +1,21 @@
-# This makefile makes the following assumptions about versions:
+### Makefile for mathport
+
+# This is not a "real" makefile, i.e. it does not detect dependencies between targets.
+
+## Targets:
+# `lean4-source`: clone `lean4`, patch `kernel/inductive.cpp`, and compile
+# `mathbin-source`: clone mathlib3, and create `all.lean`
+# `lean3-source`: clone lean3, and create `all.lean` (run after `mathbin-source`, to get the right commit)
+# `lean3-predata`: create `.ast` and `.tlean` files from Lean3
+# `mathbin-predata`: create `.ast` and `.tlean` files from mathlib3
+# `build`: compile mathport
+# `port-lean`: run mathport on Lean3
+# `port-mathbin`: run mathport on mathlib3
+
+## Prerequisites:
+# curl, git, cmake, elan, python3
+
+# We make the following assumptions about versions:
 #
 # * The `lake` branch of `https://github.com/semorrison/mathlib4.git` contains a `lakefile.lean`
 # * `lean-toolchain` points to the same version of `lean4` as the above branch of `mathlib4`.
