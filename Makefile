@@ -13,6 +13,19 @@ unport:
 
 MATHBIN_COMMIT=master
 
+# Unfortunately we can't use vanilla lean4: we need to cherrypick
+# https://github.com/dselsam/lean4/commit/9228d3949bda8c1411e707b3e20650fa1fdb9b4d
+lean4-source:
+	curl -L https://github.com/leanprover/lean4-nightly/archive/refs/tags/`cat lean-toolchain | sed "s/.*://"`.tar.gz -o nightly.tar.gz
+	mkdir -p sources/lean4
+	tar xf nightly.tar.gz --strip-components=1 -C sources/lean4/
+	rm nightly.tar.gz
+	cd sources/lean4 && patch -u src/kernel/inductive.cpp < ../../whnf-type-inductives.patch
+	cd sources/lean4 && rm -rf build && mkdir -p build/release && cd build/release && \
+	  cmake ../.. && make -j`python -c 'import multiprocessing as mp; print(mp.cpu_count())'`
+	elan toolchain link lean4-mathport-cherrypick sources/lean4/build/release/stage1/
+	elan override set lean4-mathport-cherrypick
+
 # Obtain the requested commit from `mathlib`, and create `all.lean`
 mathbin-source:
 	mkdir -p sources
