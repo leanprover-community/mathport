@@ -1,0 +1,67 @@
+# This Dockerfile mostly exists to verify that the Makefile works;
+# it's unlikely that we'll actually use it "in production"!
+FROM ubuntu
+
+USER root
+
+# Set timezone to UTC to avoid prompts from tzdata.
+RUN TZ=UTC ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
+# Install prerequisites.
+RUN apt-get update && \
+    apt-get install -y git libgmp-dev cmake ccache gcc-10 g++-10 && \
+    apt-get install -y build-essential && \
+    apt-get install -y curl python3-yaml python3 python-is-python3 && \
+    apt-get clean
+
+# create a non-root user
+RUN useradd -m lean
+
+USER lean
+WORKDIR /home/lean
+
+SHELL ["/bin/bash", "-c"]
+# set the entrypoint to be a login shell, so everything is on the PATH
+ENTRYPOINT ["/bin/bash", "-l"]
+
+# make sure binaries are available even in non-login shells
+ENV PATH="/home/lean/.elan/bin:/home/lean/.local/bin:$PATH"
+
+## Once `lake` is distributed as part of Lean4, hopefully we can just install `elan`:
+# install elan
+# RUN curl https://raw.githubusercontent.com/Kha/elan/master/elan-init.sh -sSf | sh -s -- -y && \
+#     . ~/.profile && \
+#     elan toolchain uninstall stable
+
+## For now, we need to grab an old version of `elan-init` and build `lake` ourselves:
+
+RUN curl -L https://github.com/leanprover/elan/releases/download/v1.0.8/elan-x86_64-unknown-linux-gnu.tar.gz -o elan.tar.gz && \
+    tar zxf elan.tar.gz && \
+    rm elan.tar.gz && \
+    ./elan-init -y && \
+    . ~/.profile && \
+    elan toolchain uninstall stable
+
+ENV CC="gcc-10"
+ENV CXX="g++-10"
+
+RUN mkdir -p /home/lean/.local/bin
+RUN git clone https://github.com/leanprover/lake && \
+    cd lake && \
+    ./build.sh && \
+    ln -s /home/lean/lake/build/bin/lake /home/lean/.local/bin/lake
+
+RUN git clone https://github.com/semorrison/mathport --branch Makefile
+WORKDIR /home/lean/mathport
+
+# We need to set CC and CCX while building lean3 / lean4.
+ENV CC="gcc-10"
+ENV CXX="g++-10"
+
+RUN make mathbin-source
+RUN make lean3-source
+RUN make lean4-source
+RUN make lean3-predata
+RUN make mathbin-predata
+RUN make build
+# RUN make port-lean
+# RUN make port-mathbin
