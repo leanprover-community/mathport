@@ -13,6 +13,7 @@
 # `port-mathbin`: run mathport on mathlib3
 
 ## Prerequisites:
+# lake [although this will soon be provided in Lean4, see https://github.com/leanprover/lean4/pull/683]
 # curl, git, cmake, elan, python3
 
 # We make the following assumptions about versions:
@@ -99,7 +100,7 @@ LEANBIN_LIB=./Lib4/leanbin/build/lib
 MATHBIN_LIB=./Lib4/mathbin/build/lib
 
 build:
-	lake build-bin
+	lake build
 
 port-lean: init-logs build
 	LEAN_PATH=$(MATHPORT_LIB):$(MATHLIB4_LIB):$(LEANBIN_LIB) time ./build/bin/mathport config.json Leanbin::all >> Logs/mathport.out 2> Logs/mathport.err
