@@ -9,5 +9,9 @@ package mathport {
     dir := FilePath.mk "."
   }],
   binRoot := `MathportApp
-  moreLinkArgs := #["-rdynamic"]
+  moreLinkArgs :=
+    if Platform.isWindows then
+      #["-Wl,--export-all"]
+    else
+      #["-rdynamic"]
 }
