@@ -9,5 +9,5 @@ package mathport {
     dir := FilePath.mk "."
   }],
   binRoot := `MathportApp
-  linkArgs := #["-rdynamic"]
+  moreLinkArgs := #["-rdynamic"]
 }
