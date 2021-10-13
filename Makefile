@@ -71,7 +71,7 @@ lean3-predata: lean3-source
 	mkdir -p PreData
 	rm -rf PreData/Leanbin
 	find sources/lean/library -name "*.olean" -delete # ast only exported when oleans not present
-	# TODO replace `stable` here with what mathlib is using?
+	# FIXME replace `stable` here with what mathlib is using?
 	cd sources/lean && elan override set stable
 	cd sources/lean && lean --make --recursive --ast --tlean library
 	cp -r sources/lean/library PreData/Leanbin
@@ -107,7 +107,7 @@ port-lean: init-logs build
 	LEAN_PATH=$(MATHPORT_LIB):$(MATHLIB4_LIB):$(LEANBIN_LIB) lean --o=$(LEANBIN_LIB)/Leanbin.olean ./Lib4/leanbin/Leanbin.lean
 	cp lean-toolchain Lib4/leanbin
 
-port-mathlib: port-lean
+port-mathbin: port-lean
 	LEAN_PATH=$(MATHPORT_LIB):$(MATHLIB4_LIB):$(LEANBIN_LIB):$(MATHBIN_LIB) ./build/bin/mathport config.json Leanbin::all Mathbin::all >> Logs/mathport.out 2> Logs/mathport.err
 	LEAN_PATH=$(MATHPORT_LIB):$(MATHLIB4_LIB):$(LEANBIN_LIB):$(MATHBIN_LIB) lean  --o=$(MATHBIN_LIB)/Mathbin.olean ./Lib4/mathbin/Mathbin.lean
 	cp lean-toolchain Lib4/mathbin
