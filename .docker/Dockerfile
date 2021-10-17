@@ -67,4 +67,4 @@ RUN make lean3-predata
 RUN make mathbin-predata
 RUN make build
 RUN make port-lean
-RUN make port-mathlib
+RUN make port-mathbin
