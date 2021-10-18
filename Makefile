@@ -13,13 +13,11 @@
 # `port-mathbin`: run mathport on mathlib3
 
 ## Prerequisites:
-# lake [although this will soon be provided in Lean4, see https://github.com/leanprover/lean4/pull/683]
 # curl, git, cmake, elan, python3
 
 # We make the following assumptions about versions:
 #
-# * The `lake` branch of `https://github.com/semorrison/mathlib4.git` contains a `lakefile.lean`
-# * `lean-toolchain` points to the same version of `lean4` as the above branch of `mathlib4`.
+# * `lean-toolchain` points to the same version of `lean4` as the master branch of `mathlib4`.
 #
 # It will automatically identify the version of `lean3` than `mathlib` currently uses.
 
@@ -34,10 +32,10 @@ MATHBIN_COMMIT=master
 # Unfortunately we can't use vanilla lean4: we need to cherrypick
 # https://github.com/dselsam/lean4/commit/9228d3949bda8c1411e707b3e20650fa1fdb9b4d
 lean4-source:
-	curl -L https://github.com/leanprover/lean4-nightly/archive/refs/tags/`cat lean-toolchain | sed "s/.*://"`.tar.gz -o nightly.tar.gz
-	mkdir -p sources/lean4
-	tar xf nightly.tar.gz --strip-components=1 -C sources/lean4/
-	rm nightly.tar.gz
+	rm -rf sources/lean4
+	mkdir -p sources
+	cd sources && git clone --depth 1 --branch `cat ../lean-toolchain | sed "s/.*://"` https://github.com/leanprover/lean4-nightly/ lean4
+	cd sources/lean4 && git submodule update --init src/lake
 	cd sources/lean4 && patch -u src/kernel/inductive.cpp < ../../whnf-type-inductives.patch
 	cd sources/lean4 && rm -rf build && mkdir -p build/release && cd build/release && \
 	  cmake ../.. && make -j`python -c 'import multiprocessing as mp; print(mp.cpu_count())'`
