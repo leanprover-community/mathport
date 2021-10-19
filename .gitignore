@@ -1,6 +1,8 @@
 *~
 *#*
+sources/
 build/
+lean_packages/
 Logs/
 PreData/
 Lib4/*/
