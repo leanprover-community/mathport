@@ -4,3 +4,5 @@ build/
 Logs/
 PreData/
 Lib4/*/
+lean_packages/
+sources/

@@ -217,7 +217,6 @@ syntax (name := async) "async " tacticSeq : tactic
 
 namespace Conv
 
-syntax (name := first) "first " withPosition((group(colGe "|" convSeq))+) : conv
 macro "try " t:convSeq : conv => `(first | $t | skip)
 syntax "runConv " doSeq : conv
 

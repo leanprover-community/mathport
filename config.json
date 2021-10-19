@@ -3,8 +3,7 @@
         "outRoot": "Lib4",
         "packages": {
             "Leanbin": "PreData/Leanbin",
-            "Mathbin": "PreData/Mathbin",
-            "Liquidbin": "PreData/Liquidbin"
+            "Mathbin": "PreData/Mathbin/src"
         }
     },
     "stringsToKeep": [
