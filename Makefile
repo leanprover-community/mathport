@@ -17,7 +17,8 @@
 
 # We make the following assumptions about versions:
 #
-# * `lean-toolchain` points to the same version of `lean4` as the master branch of `mathlib4`.
+# * `lean-toolchain` points to the same version of `lean4` as
+#    the branch/commit of `mathlib4` selected in `lakefile.lean`.
 #
 # It will automatically identify the version of `lean3` than `mathlib` currently uses.
 
@@ -27,6 +28,7 @@ unport:
 	rm -rf Lib4 Logs/*
 	git checkout HEAD -- Lib4
 
+# Select which commit of mathlib3 to use.
 MATHBIN_COMMIT=master
 
 # Unfortunately we can't use vanilla lean4: we need to cherrypick
