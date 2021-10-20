@@ -27,33 +27,12 @@ ENTRYPOINT ["/bin/bash", "-l"]
 # make sure binaries are available even in non-login shells
 ENV PATH="/home/lean/.elan/bin:/home/lean/.local/bin:$PATH"
 
-## TODO: Once `lake` is distributed as part of Lean4, hopefully we can just install `elan`:
 # install elan
-# RUN curl https://raw.githubusercontent.com/Kha/elan/master/elan-init.sh -sSf | sh -s -- -y && \
-#     . ~/.profile && \
-#     elan toolchain uninstall stable
-
-## For now, we need to grab an old version of `elan-init` and build `lake` ourselves:
-
-RUN curl -L https://github.com/leanprover/elan/releases/download/v1.0.8/elan-x86_64-unknown-linux-gnu.tar.gz -o elan.tar.gz && \
-    tar zxf elan.tar.gz && \
-    rm elan.tar.gz && \
-    ./elan-init -y && \
+RUN curl https://raw.githubusercontent.com/Kha/elan/master/elan-init.sh -sSf | sh -s -- -y && \
     . ~/.profile && \
     elan toolchain uninstall stable
 
-# We need to set CC and CCX while building lake.
-ENV CC="gcc-10"
-ENV CXX="g++-10"
-
-RUN mkdir -p /home/lean/.local/bin
-RUN git clone https://github.com/leanprover/lake && \
-    cd lake && \
-    ./build.sh && \
-    ln -s /home/lean/lake/build/bin/lake /home/lean/.local/bin/lake
-
-# TODO: switch back to the main mathport repository once the Makefile PR merges.
-RUN git clone https://github.com/semorrison/mathport --branch Makefile
+RUN git clone https://github.com/leanprover/mathport
 WORKDIR /home/lean/mathport
 
 # We need to set CC and CCX while building lean3 / lean4.
@@ -68,3 +47,4 @@ RUN make mathbin-predata
 RUN make build
 RUN make port-lean
 RUN make port-mathbin
+RUN make test
