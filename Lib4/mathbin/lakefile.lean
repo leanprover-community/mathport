@@ -2,7 +2,7 @@ import Lake
 
 open Lake DSL System
 
-package mathib {
+package mathbin {
   libRoots := #[],
   libGlobs := #[],
   dependencies := #[{
