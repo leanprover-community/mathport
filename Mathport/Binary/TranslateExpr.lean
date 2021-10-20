@@ -16,7 +16,6 @@ import Mathport.Util.String
 import Mathport.Binary.Basic
 import Mathport.Binary.Number
 import Mathport.Binary.Decode
-import Mathport.Binary.Coe
 import Mathport.Binary.TranslateName
 import Mathport.Binary.Heterogenize
 
@@ -41,7 +40,7 @@ where
     let mut e := e
     e ← replaceConstNames e
     e ← Meta.transform e (post := replaceSorryPlaceholders)
-    e ← expandCoes e (declName := ctx.currDecl)
+    e ← Meta.expandCoe e
     e ← translateNumbers e
     match (Mathlib.Prelude.Rename.getRenameMap cmdState.env).find? `auto_param with
     | none     => pure ()
