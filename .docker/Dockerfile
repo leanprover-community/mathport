@@ -32,7 +32,7 @@ RUN curl https://raw.githubusercontent.com/Kha/elan/master/elan-init.sh -sSf | s
     . ~/.profile && \
     elan toolchain uninstall stable
 
-RUN git clone https://github.com/leanprover/mathport
+RUN git clone https://github.com/semorrison/mathport --branch rm_leanbin_mathport_dep
 WORKDIR /home/lean/mathport
 
 # We need to set CC and CCX while building lean3 / lean4.
