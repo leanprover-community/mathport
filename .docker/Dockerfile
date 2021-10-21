@@ -47,4 +47,5 @@ RUN make mathbin-predata
 RUN make build
 RUN make port-lean
 RUN make port-mathbin
-RUN make test
+RUN make test-leanbin
+RUN make test-mathbin
