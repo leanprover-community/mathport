@@ -112,11 +112,11 @@ port-mathbin: port-lean
 	LEAN_PATH=$(MATHPORT_LIB):$(MATHLIB4_LIB):$(LEANBIN_LIB):$(MATHBIN_LIB) lean  --o=$(MATHBIN_LIB)/Mathbin.olean ./Lib4/mathbin/Mathbin.lean
 	cp lean-toolchain Lib4/mathbin
 
-test:
-	LEAN_PATH=$(MATHPORT_LIB):$(MATHLIB4_LIB):$(LEANBIN_LIB):$(MATHBIN_LIB) lean ./Test.lean
+test-leanbin:
+	cd Test/ImportLean && rm -rf build && lake build
 
-test-coe:
-	LEAN_PATH=$(MATHPORT_LIB):$(MATHLIB4_LIB):$(LEANBIN_LIB):$(MATHBIN_LIB) lean ./TestCoe.lean
+test-mathbin:
+	cd Test/ImportMathbin && rm -rf build && lake build
 
 tar-lib4:
 	tar --exclude 'lean_packages' -czvf mathport-release.tar.gz Lib4 Logs PreData
