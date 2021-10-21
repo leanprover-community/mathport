@@ -115,5 +115,8 @@ port-mathbin: port-lean
 test:
 	LEAN_PATH=$(MATHPORT_LIB):$(MATHLIB4_LIB):$(LEANBIN_LIB):$(MATHBIN_LIB) lean ./Test.lean
 
+test-coe:
+	LEAN_PATH=$(MATHPORT_LIB):$(MATHLIB4_LIB):$(LEANBIN_LIB):$(MATHBIN_LIB) lean ./TestCoe.lean
+
 tar-lib4:
 	tar --exclude 'lean_packages' -czvf mathport-release.tar.gz Lib4 Logs PreData

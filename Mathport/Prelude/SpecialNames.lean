@@ -23,6 +23,18 @@ namespace Mathlib.Prelude
 #align punit                   PUnit
 #align pprod                   PProd
 
+#align has_coe Coe
+#align has_coe.coe Coe.coe
+
+#align has_coe_t CoeT
+#align has_coe_t.coe CoeT.coe
+
+#align has_coe_to_fun CoeFun
+#align has_coe_to_fun.coe CoeFun.coe
+
+#align has_coe_to_sort CoeSort
+#align has_coe_to_sort.coe CoeSort.coe
+
 #align has_le                  LE
 #align has_le.le               LE.le
 #align has_lt                  LT

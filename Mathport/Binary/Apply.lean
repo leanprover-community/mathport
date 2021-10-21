@@ -10,7 +10,6 @@ import Mathport.Bridge.Config
 import Mathport.Binary.Basic
 import Mathport.Binary.NDRec
 import Mathport.Binary.EnvModification
-import Mathport.Binary.Coe
 import Mathport.Binary.TranslateName
 import Mathport.Binary.TranslateExpr
 
@@ -220,9 +219,6 @@ def applyInstance (nc ni : Name) (prio : Nat) : BinportM Unit := do
   -- (for meta instances, Lean4 won't know about the decl)
   -- TODO: `prio.pred`?
   if (← read).config.disabledInstances.contains ni then return ()
-  let ni ← match (← get).coeAltNames.find? ni with
-            | some ni => println! "[coeInst] {ni}" *> pure ni
-            | _ => pure ni
   try
     liftMetaM $ addInstance (← lookupNameExt! ni) AttributeKind.global prio
     setAttr { name := `inferTCGoalsRL } (← lookupNameExt! ni)
@@ -260,18 +256,6 @@ def applyDefinitionVal (defn : DefinitionVal) : BinportM Unit := do
     value := value
     hints := hints
   }
-
-  match ← liftMetaM $ translateCoes defn.name type value with
-  | none => pure ()
-  | some (type', value') =>
-    let altName3 := defn.name ++ `v4
-    discard <| refineAddDecl $ Declaration.defnDecl { defn with
-      name  := altName3
-      type  := type'
-      value := value'
-      hints := hints
-    }
-    modify fun s => { s with coeAltNames := s.coeAltNames.insert defn.name altName3 }
 
   if forceAbbrev then applyReducibility defn.name ReducibilityStatus.reducible
 where

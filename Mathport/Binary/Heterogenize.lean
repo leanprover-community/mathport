@@ -9,7 +9,6 @@ import Mathport.Util.String
 import Mathport.Binary.Basic
 import Mathport.Binary.Number
 import Mathport.Binary.Decode
-import Mathport.Binary.Coe
 import Mathport.Binary.TranslateName
 
 namespace Mathport.Binary
