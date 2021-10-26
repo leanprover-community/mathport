@@ -41,7 +41,6 @@ ENV CXX="g++-10"
 
 RUN make mathbin-source
 RUN make lean3-source
-RUN make lean4-source
 RUN make lean3-predata
 RUN make mathbin-predata
 RUN make build
