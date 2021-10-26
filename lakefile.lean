@@ -15,7 +15,7 @@ package mathport {
   binRoot := `MathportApp
   moreLinkArgs :=
     if Platform.isWindows then
-      #["-Wl"]
+      #[]
     else
       #["-rdynamic"]
 }
