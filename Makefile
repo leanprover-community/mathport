@@ -3,7 +3,6 @@
 # This is not a "real" makefile, i.e. it does not detect dependencies between targets.
 
 ## Targets:
-# `lean4-source`: clone `lean4`, patch `kernel/inductive.cpp`, compile, and `elan override`
 # `mathbin-source`: clone mathlib3, and create `all.lean`
 # `lean3-source`: clone lean3, and create `all.lean` (run after `mathbin-source`, to get the right commit)
 # `lean3-predata`: create `.ast` and `.tlean` files from Lean3
@@ -30,19 +29,6 @@ unport:
 
 # Select which commit of mathlib3 to use.
 MATHBIN_COMMIT=master
-
-# Unfortunately we can't use vanilla lean4: we need to cherrypick
-# https://github.com/dselsam/lean4/commit/9228d3949bda8c1411e707b3e20650fa1fdb9b4d
-lean4-source:
-	rm -rf sources/lean4
-	mkdir -p sources
-	cd sources && git clone --depth 1 --branch `cat ../lean-toolchain | sed "s/.*://"` https://github.com/leanprover/lean4-nightly/ lean4
-	cd sources/lean4 && git submodule update --init src/lake
-	cd sources/lean4 && patch -u src/kernel/inductive.cpp < ../../whnf-type-inductives.patch
-	cd sources/lean4 && rm -rf build && mkdir -p build/release && cd build/release && \
-	  cmake ../.. && make -j`python -c 'import multiprocessing as mp; print(mp.cpu_count())'`
-	elan toolchain link lean4-mathport-cherrypick sources/lean4/build/release/stage1/
-	elan override set lean4-mathport-cherrypick
 
 # Obtain the requested commit from `mathlib`, and create `all.lean`
 mathbin-source:
