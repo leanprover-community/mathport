@@ -57,7 +57,6 @@ lean3-predata: lean3-source
 	mkdir -p PreData
 	rm -rf PreData/Leanbin
 	find sources/lean/library -name "*.olean" -delete # ast only exported when oleans not present
-	# FIXME replace `stable` here with what mathlib is using?
 	cd sources/lean && elan override set `cat ../mathlib/leanpkg.toml | grep lean_version | cut -d '"' -f2`
 	cd sources/lean && lean --make --recursive --ast --tlean library
 	cp -r sources/lean/library PreData/Leanbin
