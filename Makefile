@@ -102,7 +102,7 @@ test-leanbin:
 	cd Test/ImportLean && rm -rf build && lake build
 
 test-mathbin:
-	cd Test/ImportMathbin && rm -rf build && lake build
+	cd Test/ImportMathlib && rm -rf build && lake build
 
 tar-lib4:
 	tar --exclude 'lean_packages' -czvf mathport-release.tar.gz Lib4 Logs PreData
