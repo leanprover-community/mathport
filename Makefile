@@ -89,6 +89,8 @@ build:
 
 port-lean: init-logs build
 	LEAN_PATH=$(MATHPORT_LIB):$(MATHLIB4_LIB):$(LEANBIN_LIB) ./build/bin/mathport config.json Leanbin::all >> Logs/mathport.out 2> Logs/mathport.err
+	# TODO use libGlobs in the Lib4/leanbin/lakefile.lean to specify the files we want to build,
+	# and this should become just `cd Lib4/leanbin/ && lake build`. (Also below.)
 	LEAN_PATH=$(MATHPORT_LIB):$(MATHLIB4_LIB):$(LEANBIN_LIB) lean --o=$(LEANBIN_LIB)/Leanbin.olean ./Lib4/leanbin/Leanbin.lean
 	cp lean-toolchain Lib4/leanbin
 
@@ -105,3 +107,11 @@ test-mathbin:
 
 tar-lib4:
 	tar --exclude 'lean_packages' -czvf mathport-release.tar.gz Lib4 Logs PreData
+
+tarballs:
+	tar --exclude 'lean_packages' --exclude 'build' --exclude '*.olean' -czvf lean3-synport.tar.gz -C Lib4/leanbin/ .
+	cd Lib4/leanbin/ && find . -name "*.olean" | tar --exclude 'lean_packages' -czvf ../../lean3-binport.tar.gz -T -
+	tar --exclude 'lean_packages' --exclude 'build' --exclude '*.olean' -czvf mathlib3-synport.tar.gz -C Lib4/mathbin/ .
+	cd Lib4/mathbin/ && find . -name "*.olean" | tar --exclude 'lean_packages' -czvf ../../mathlib3-binport.tar.gz -T -
+
+
