@@ -53,7 +53,7 @@ lean3-source:
 	./mk_all.sh sources/lean/library/
 
 # Build .ast and .tlean files for Lean 3
-lean3-predata: lean3-source
+lean3-predata: lean3-source mathbin-source
 	mkdir -p PreData
 	rm -rf PreData/Leanbin
 	find sources/lean/library -name "*.olean" -delete # ast only exported when oleans not present
