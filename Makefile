@@ -40,7 +40,7 @@ mathbin-source:
 	cd sources/mathlib && leanpkg configure && ./scripts/mk_all.sh
 
 # Obtain the commit from (community edition) Lean 3 which mathlib is using, and create `all.lean`.
-lean3-source:
+lean3-source: mathbin-source
 	mkdir -p sources
 	if [ ! -d "sources/lean" ]; then \
 		cd sources && git clone https://github.com/leanprover-community/lean.git; \
@@ -53,7 +53,7 @@ lean3-source:
 	./mk_all.sh sources/lean/library/
 
 # Build .ast and .tlean files for Lean 3
-lean3-predata: lean3-source mathbin-source
+lean3-predata: lean3-source
 	mkdir -p PreData
 	rm -rf PreData/Leanbin
 	find sources/lean/library -name "*.olean" -delete # ast only exported when oleans not present
