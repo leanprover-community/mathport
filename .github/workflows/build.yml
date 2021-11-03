@@ -14,7 +14,7 @@ name: ci
 jobs:
   build:
     name: Build
-    runs-on: ubuntu-latest
+    runs-on: pr
     steps:
       - name: install elan
         run: |
