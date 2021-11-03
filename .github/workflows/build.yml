@@ -25,14 +25,14 @@ jobs:
 
       - uses: actions/checkout@v2
 
-      # - name: prepare sources and predata
-      #   run: make predata
+      - name: prepare sources and predata
+        run: make predata
 
-      # - name: build mathport
-      #   run: make build
+      - name: build mathport
+        run: make build
 
-      # - name: run mathport
-      #   run: make port-lean port-mathbin
+      - name: run mathport
+        run: make port-lean port-mathbin
 
       - name: prepare tarballs for nightly
         run: make tarballs
