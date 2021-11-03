@@ -25,14 +25,23 @@ jobs:
 
       - uses: actions/checkout@v2
 
-      - name: build everything
-        run: make predata build port-lean port-mathbin tarballs
+      # - name: prepare sources and predata
+      #   run: make predata
+
+      # - name: build mathport
+      #   run: make build
+
+      # - name: run mathport
+      #   run: make port-lean port-mathbin
+
+      - name: prepare tarballs for nightly
+        run: make tarballs
 
       - name: release nightly
         uses: softprops/action-gh-release@v1
         # if: github.event_name == 'schedule'
         with:
           prerelease: true
-          files: lean3-synport.tar.gz
+          files: lean3-binport.tar.gz lean3-synport.tar.gz mathlib33-binport.tar.gz mathlib3-synport.tar.gz
         env:
           GITHUB_TOKEN: ${{ secrets.PUSH_NIGHTLY_TOKEN }}
