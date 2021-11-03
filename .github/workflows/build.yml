@@ -30,9 +30,9 @@ jobs:
 
       - name: release nightly
         uses: softprops/action-gh-release@v1
-        if: github.event_name == 'schedule'
+        # if: github.event_name == 'schedule'
         with:
           prerelease: true
-          files: *.tar.gz
+          files: lean3-synport.tar.gz
         env:
           GITHUB_TOKEN: ${{ secrets.PUSH_NIGHTLY_TOKEN }}
