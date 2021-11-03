@@ -1,0 +1,96 @@
+on:
+  push:
+    branches-ignore:
+      # ignore tmp branches used by bors
+      - 'staging.tmp*'
+      - 'trying.tmp*'
+      - 'staging*.tmp'
+  # pull_request:
+
+name: ci
+
+jobs:
+  # Cancels previous runs of jobs in this file
+  cancel:
+    if: github.repository == 'leanprover-community/mathport'
+    name: 'Cancel Previous Runs (CI)'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: styfle/cancel-workflow-action@0.9.0
+        with:
+          all_but_latest: true
+          access_token: ${{ github.token }}
+
+  build:
+    name: Build
+    runs-on: mathport
+    steps:
+      - name: install elan
+        run: |
+          set -o pipefail
+          curl -sSfL https://github.com/leanprover/elan/releases/download/v1.3.1/elan-x86_64-unknown-linux-gnu.tar.gz | tar xz
+          ./elan-init -y
+          echo "$HOME/.elan/bin" >> $GITHUB_PATH
+
+      - uses: actions/checkout@v2
+
+      - name: build mathport
+        run: make build
+
+      - name: prepare sources
+        run: make mathbin-source lean3-source
+
+      - name: prepare predata for Lean 3
+        run: make lean3-predata
+
+      - name: run mathport on Lean 3
+        run: make port-lean
+
+      - name: prepare predata for mathlib
+        run: make mathbin-predata
+
+      - name: run mathport on mathlib
+        run: make port-mathbin
+
+      - name: prepare tarballs for release
+        run: make tarballs
+
+      - name: set tag (non-master)
+        if: github.ref != 'refs/heads/master'
+        run: echo "TAG=pr-${GITHUB_REF##*/}" >> $GITHUB_ENV && echo "SHORT_SHA=`git rev-parse --short HEAD`" >> $GITHUB_ENV
+
+      - name: set tag (master)
+        if: github.ref == 'refs/heads/master'
+        run: echo "TAG=nightly-$(date -u +%F)" >> $GITHUB_ENV
+
+      - name: release (non-master)
+        if: github.ref != 'refs/heads/master'
+        uses: softprops/action-gh-release@v1
+        with:
+          draft: true
+          prerelease: true
+          tag_name: ${{ env.TAG }}-${{ env.SHORT_SHA }}
+          files: |
+            lean3-binport.tar.gz
+            lean3-synport.tar.gz
+            mathlib3-binport.tar.gz
+            mathlib3-synport.tar.gz
+        env:
+          GITHUB_TOKEN: ${{ secrets.PUSH_NIGHTLY_TOKEN }}
+
+      - name: release (master)
+        if: github.ref == 'refs/heads/master'
+        uses: softprops/action-gh-release@v1
+        with:
+          prerelease: true
+          tag_name: ${{ env.TAG }}
+          files: |
+            lean3-binport.tar.gz
+            lean3-synport.tar.gz
+            mathlib3-binport.tar.gz
+            mathlib3-synport.tar.gz
+        env:
+          GITHUB_TOKEN: ${{ secrets.PUSH_NIGHTLY_TOKEN }}
+
+      - name: delete tarballs
+        run: make rm-tarballs

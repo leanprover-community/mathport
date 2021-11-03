@@ -76,7 +76,7 @@ partial def visit (config : Config) (path : Path) : StateRefT (HashMap Path Task
           match ← IO.wait (← visit config importPath) with
           | Except.error err => throw err
           | Except.ok result => deps := deps.push (← IO.asTask $ pure result)
-      let task ← bindTasks deps fun () => IO.asTask (mathport1 config path)
+      let task ← bindTasks deps (some fun () => IO.asTask (mathport1 config path))
       modify λ path2task => path2task.insert path task
       pure task
 

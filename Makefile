@@ -21,6 +21,8 @@
 #
 # It will automatically identify the version of `lean3` than `mathlib` currently uses.
 
+SHELL := /bin/bash   # so we can use process redirection
+
 all:
 
 unport:
@@ -87,11 +89,11 @@ build:
 	lake build
 
 port-lean: init-logs build
-	LEAN_PATH=$(MATHPORT_LIB):$(MATHLIB4_LIB):$(LEANBIN_LIB) ./build/bin/mathport config.json Leanbin::all >> Logs/mathport.out 2> Logs/mathport.err
+	LEAN_PATH=$(MATHPORT_LIB):$(MATHLIB4_LIB):$(LEANBIN_LIB) ./build/bin/mathport config.json Leanbin::all >> Logs/mathport.out 2> >(tee -a Logs/mathport.err >&2)
 	cp lean-toolchain Lean4Packages/leanbin/
 
 port-mathbin: port-lean
-	LEAN_PATH=$(MATHPORT_LIB):$(MATHLIB4_LIB):$(LEANBIN_LIB):$(MATHBIN_LIB) ./build/bin/mathport config.json Leanbin::all Mathbin::all >> Logs/mathport.out 2> Logs/mathport.err
+	LEAN_PATH=$(MATHPORT_LIB):$(MATHLIB4_LIB):$(LEANBIN_LIB):$(MATHBIN_LIB) ./build/bin/mathport config.json Leanbin::all Mathbin::all >> Logs/mathport.out 2> >(tee -a Logs/mathport.err >&2)
 	cp lean-toolchain Lean4Packages/mathbin/
 
 test-import-leanbin:
@@ -101,7 +103,11 @@ test-import-mathbin:
 	cd Test/importMathbin && rm -rf build lean_packages && lake build
 
 tarballs:
+	mkdir -p Outputs/src/leanbin Outputs/src/mathbin Outputs/oleans/leanbin Outputs/oleans/mathbin
 	tar -czvf lean3-synport.tar.gz -C Outputs/src/leanbin .
 	tar -czvf lean3-binport.tar.gz -C Outputs/oleans/leanbin .
 	tar -czvf mathlib3-synport.tar.gz -C Outputs/src/mathbin .
 	tar -czvf mathlib3-binport.tar.gz -C Outputs/oleans/mathbin .
+
+rm-tarballs:
+	rm lean3-synport.tar.gz lean3-binport.tar.gz mathlib3-synport.tar.gz mathlib3-binport.tar.gz

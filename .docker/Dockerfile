@@ -9,8 +9,7 @@ USER root
 RUN TZ=UTC ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
 # Install prerequisites.
 RUN apt-get update && \
-    apt-get install -y git libgmp-dev cmake ccache gcc-10 g++-10 && \
-    apt-get install -y build-essential && \
+    apt-get install -y git libgmp-dev cmake ccache clang && \
     apt-get install -y curl python3-yaml python3 python-is-python3 && \
     apt-get clean
 
@@ -32,19 +31,15 @@ RUN curl https://raw.githubusercontent.com/Kha/elan/master/elan-init.sh -sSf | s
     . ~/.profile && \
     elan toolchain uninstall stable
 
-RUN git clone https://github.com/leanprover/mathport
+RUN git clone https://github.com/leanprover-community/mathport
 WORKDIR /home/lean/mathport
 
-# We need to set CC and CCX while building lean3 / lean4.
-ENV CC="gcc-10"
-ENV CXX="g++-10"
-
+RUN make build
 RUN make mathbin-source
 RUN make lean3-source
 RUN make lean3-predata
-RUN make mathbin-predata
-RUN make build
 RUN make port-lean
+RUN make mathbin-predata
 RUN make port-mathbin
-RUN make test-leanbin
-RUN make test-mathbin
+RUN make test-import-leanbin
+RUN make test-import-mathbin

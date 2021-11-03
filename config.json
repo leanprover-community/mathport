@@ -48,6 +48,6 @@
     ],
     "sorries": [],
     "skipProofs": false,
-    "parallel" : true,
+    "parallel" : false,
     "error2warning" : false
 }
