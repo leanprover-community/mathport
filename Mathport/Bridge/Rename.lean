@@ -4,7 +4,7 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Daniel Selsam
 -/
 import Lean
-import Mathport.Prelude.Rename
+import Mathlib.Mathport.Rename
 import Mathport.Util.Misc
 import Mathport.Util.Name
 import Mathport.Util.String

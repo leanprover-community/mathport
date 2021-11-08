@@ -9,8 +9,8 @@ package mathport {
     -- as changes to tactics in mathlib4 often cause breakages here,
     -- particularly in `Mathport/Syntax/Translate/Tactic/Mathlib.lean`.
     -- We'll need to keep updating that file, and bumping the commit here.
-    src := Source.git "https://github.com/leanprover-community/mathlib4.git" "b05d1f205209aa08422d0aecc8a8768787f49d91",
-    dir := FilePath.mk "."
+    -- TODO: this currently points to dselsam due to one tiny commit
+     src := Source.git "https://github.com/dselsam/mathlib4.git" "5366ff9252f9001fc10e610795efd259fd4b8dc6"
   }],
   binRoot := `MathportApp
   moreLinkArgs := if Platform.isWindows then #[] else #["-rdynamic"]
