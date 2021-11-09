@@ -68,7 +68,7 @@ mathbin-predata: mathbin-source
 	rm -rf PreData/Mathbin
 	find sources/mathlib -name "*.olean" -delete # ast only exported when oleans not present
 	# By changing into the directory, `elan` automatically dispatches to the correct binary.
-	cd sources/mathlib && lean -j4 --make --recursive --ast --tlean src
+	cd sources/mathlib && lean --make --recursive --ast --tlean src
 	cp -r sources/mathlib PreData/Mathbin
 	find PreData/ -name "*.lean" -delete
 	find PreData/ -name "*.olean" -delete
