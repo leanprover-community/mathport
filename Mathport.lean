@@ -3,7 +3,6 @@ Copyright (c) 2021 Microsoft Corporation. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Mario Carneiro, Daniel Selsam
 -/
-import Mathport.Prelude
 import Mathport.Binary
 import Mathport.Syntax
 
@@ -24,7 +23,7 @@ def mathport1 (config : Config) (path : Path) : IO Unit := do
     let ipath : Path ← resolveMod3 pcfg mod3
     { module := ipath.package ++ ipath.mod4 : Import }
 
-  if imports.isEmpty then imports := #[{ module := `Mathport : Import }, { module := `Mathlib : Import }]
+  if imports.isEmpty then imports := #[{ module := `Mathlib : Import }]
 
   let opts := ({} : Options) |>.setNat `maxRecDepth 2000
 

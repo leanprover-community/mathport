@@ -495,7 +495,7 @@ def trSimpAttrs (attrs : Array Name) : Syntax :=
 @[trTactic by_cases] def trByCases : TacM Syntax := do
   let (n, q) ← parse casesArg
   let q ← trExpr q
-  `(tactic| byCases $[$(n.map mkIdent) :]? $q)
+  `(tactic| byCases' $[$(n.map mkIdent) :]? $q)
 
 @[trTactic funext] def trFunext : TacM Syntax := do
   `(tactic| funext $[$((← parse ident_*).map trBinderName)]*)

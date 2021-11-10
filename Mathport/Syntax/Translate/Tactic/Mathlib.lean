@@ -140,7 +140,7 @@ partial def trRCasesPatLo (pat : RCasesPat) : M Syntax := do
   let (pat, ty) ← match pat with
   | RCasesPat.typed pat ty => (pat, mkNullNode #[mkAtom ":", ← trExpr ty])
   | _ => (pat, mkNullNode)
-  Syntax.node ``Parser.Tactic.rcasesPatLo #[← trRCasesPatMed pat, ty]
+  Syntax.node SourceInfo.none ``Parser.Tactic.rcasesPatLo #[← trRCasesPatMed pat, ty]
 
 end
 
@@ -351,7 +351,7 @@ def trInterpolatedStr' := trInterpolatedStr fun stx => `(← $stx)
 @[trTactic guard_expr_strict] def trGuardExprStrict : TacM Syntax := do
   let t ← expr!
   let p ← parse (tk ":=" *> pExpr)
-  `(tactic| guardExpr $(← trExpr t) == $(← trExpr p))
+  `(tactic| guardExpr $(← trExpr t):term == $(← trExpr p):term)
 
 @[trTactic guard_target_strict] def trGuardTargetStrict : TacM Syntax := do
   `(tactic| guardTarget == $(← trExpr (← parse pExpr)))
@@ -472,7 +472,7 @@ attribute [trTactic subst'] trSubst
   let hs := trSimpList (← trSimpArgs (← parse simpArgList))
   let attrs := (← parse (tk "with" *> ident*)?).getD #[]
   let cfg ← liftM $ (← expr?).mapM trExpr
-  mkNode ``Parser.Tactic.solveByElim #[mkAtom "solveByElim",
+  mkNode ``Lean.Meta.solveByElim #[mkAtom "solveByElim",
     star, mkConfigStx cfg, o, hs, trSimpAttrs attrs]
 
 -- # tactic.hint
@@ -928,7 +928,7 @@ def trSuggestUsing (args : Array BinderName) : M Syntax := do
 
 @[trTactic library_search] def trLibrarySearch : TacM Syntax := do
   let (tac, s) := match ← parse (tk "!")? with
-  | none => (``Parser.Tactic.librarySearch, "librarySearch")
+  | none => (``Tactic.LibrarySearch.librarySearch', "librarySearch")
   | some _ => (``Parser.Tactic.librarySearch!, "librarySearch!")
   let hs := trSimpList (← trSimpArgs (← parse simpArgList))
   let attrs := (← parse (tk "with" *> ident*)?).getD #[]
@@ -965,7 +965,7 @@ def trSuggestUsing (args : Array BinderName) : M Syntax := do
 @[trTactic norm_num] def trNormNum : TacM Syntax := do
   let hs := trSimpList (← trSimpArgs (← parse simpArgList))
   let loc := mkOptionalNode $ ← trLoc (← parse location)
-  mkNode ``Lean.tacticNormNum #[mkAtom "normNum", hs, loc]
+  mkNode ``Tactic.normNum #[mkAtom "normNum", hs, loc]
 
 @[trTactic apply_normed] def trApplyNormed : TacM Syntax := do
   `(tactic| applyNormed $(← trExpr (← parse pExpr)))

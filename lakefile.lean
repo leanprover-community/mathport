@@ -7,8 +7,7 @@ package mathport {
     name := "mathlib",
     -- We point to a particular commit in mathlib4,
     -- as changes to tactics in mathlib4 may cause breakages here,
-    src := Source.git "https://github.com/leanprover-community/mathlib4.git" "d4ec6b4717e21193fee95da3b94c089123a4bc3b",
-    dir := FilePath.mk "."
+    src := Source.git "https://github.com/leanprover-community/mathlib4.git" "64f9c43eb9a75fb4c5989ac711623d06e9696e60",
   }],
   binRoot := `MathportApp
   moreLinkArgs := if Platform.isWindows then #[] else #["-rdynamic"]

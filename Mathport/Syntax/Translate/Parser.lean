@@ -5,7 +5,7 @@ Authors: Mario Carneiro
 -/
 import Std.Data.HashMap
 import Mathport.Syntax.AST3
-import Mathport.Prelude.Syntax
+import Mathlib.Mathport.Syntax
 
 open Std (HashMap)
 open Lean hiding Expr
