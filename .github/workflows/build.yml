@@ -28,17 +28,17 @@ jobs:
       - name: build mathport
         run: make build
 
-      # - name: prepare sources and predata
-      #   run: make predata
+      - name: prepare sources and predata
+        run: make predata
 
-      # - name: run mathport
-      #   run: make port-lean port-mathbin
+      - name: run mathport
+        run: make port-lean port-mathbin
 
       - name: prepare tarballs for nightly
         run: make tarballs
 
       - name: set now
-        run: echo "NOW=$(date -u +%F)" > $GITHUB_ENV
+        run: echo "NOW=$(date -u +%F)" >> $GITHUB_ENV
 
       - name: release nightly
         uses: softprops/action-gh-release@v1
