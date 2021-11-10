@@ -31,14 +31,14 @@ RUN curl https://raw.githubusercontent.com/Kha/elan/master/elan-init.sh -sSf | s
     . ~/.profile && \
     elan toolchain uninstall stable
 
-RUN git clone https://github.com/leanprover/mathport
+RUN git clone https://github.com/leanprover-community/mathport
 WORKDIR /home/lean/mathport
 
+RUN make build
 RUN make mathbin-source
 RUN make lean3-source
 RUN make lean3-predata
 RUN make mathbin-predata
-RUN make build
 RUN make port-lean
 RUN make port-mathbin
 RUN make test-leanbin
