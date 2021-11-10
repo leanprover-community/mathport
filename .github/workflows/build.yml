@@ -14,7 +14,7 @@ name: ci
 jobs:
   build:
     name: Build
-    runs-on: mathport-pr
+    runs-on: mathport
     steps:
       - name: install elan
         run: |
