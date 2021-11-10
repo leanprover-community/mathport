@@ -14,7 +14,7 @@ name: ci
 jobs:
   build:
     name: Build
-    runs-on: pr
+    runs-on: mathport-pr
     steps:
       - name: install elan
         run: |
@@ -37,12 +37,15 @@ jobs:
       - name: prepare tarballs for nightly
         run: make tarballs
 
+      - name: set now
+        run: echo "::set-env name=NOW::$(date -u +%F)"
+
       - name: release nightly
         uses: softprops/action-gh-release@v1
         # if: github.event_name == 'schedule'
         with:
           prerelease: true
-          tag_name: "nightly"
+          tag_name: nightly-${{ env.NOW }}
           files: |
             lean3-binport.tar.gz
             lean3-synport.tar.gz
