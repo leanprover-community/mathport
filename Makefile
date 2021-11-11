@@ -24,8 +24,7 @@
 all:
 
 unport:
-	rm -rf Lib4 Logs/*
-	git checkout HEAD -- Lib4
+	rm -rf Outputs/* Logs/*
 
 # Select which commit of mathlib3 to use.
 MATHBIN_COMMIT=master
@@ -40,7 +39,7 @@ mathbin-source:
 	cd sources/mathlib && leanpkg configure && ./scripts/mk_all.sh
 
 # Obtain the commit from (community edition) Lean 3 which mathlib is using, and create `all.lean`.
-lean3-source:
+lean3-source: mathbin-source
 	mkdir -p sources
 	if [ ! -d "sources/lean" ]; then \
 		cd sources && git clone https://github.com/leanprover-community/lean.git; \
@@ -89,19 +88,20 @@ build:
 
 port-lean: init-logs build
 	LEAN_PATH=$(MATHPORT_LIB):$(MATHLIB4_LIB):$(LEANBIN_LIB) ./build/bin/mathport config.json Leanbin::all >> Logs/mathport.out 2> Logs/mathport.err
-	LEAN_PATH=$(MATHPORT_LIB):$(MATHLIB4_LIB):$(LEANBIN_LIB) lean --o=$(LEANBIN_LIB)/Leanbin.olean ./Lib4/leanbin/Leanbin.lean
-	cp lean-toolchain Lib4/leanbin
+	cp lean-toolchain Lean4Packages/leanbin/
 
 port-mathbin: port-lean
 	LEAN_PATH=$(MATHPORT_LIB):$(MATHLIB4_LIB):$(LEANBIN_LIB):$(MATHBIN_LIB) ./build/bin/mathport config.json Leanbin::all Mathbin::all >> Logs/mathport.out 2> Logs/mathport.err
-	LEAN_PATH=$(MATHPORT_LIB):$(MATHLIB4_LIB):$(LEANBIN_LIB):$(MATHBIN_LIB) lean  --o=$(MATHBIN_LIB)/Mathbin.olean ./Lib4/mathbin/Mathbin.lean
-	cp lean-toolchain Lib4/mathbin
+	cp lean-toolchain Lean4Packages/mathbin/
 
-test-leanbin:
-	cd Test/ImportLean && rm -rf build && lake build
+test-import-leanbin:
+	cd Test/importLeanbin && rm -rf build lean_packages && lake build
 
-test-mathbin:
-	cd Test/ImportMathbin && rm -rf build && lake build
+test-import-mathbin:
+	cd Test/importMathbin && rm -rf build lean_packages && lake build
 
-tar-lib4:
-	tar --exclude 'lean_packages' -czvf mathport-release.tar.gz Lib4 Logs PreData
+tarballs:
+	tar -czvf lean3-synport.tar.gz -C Outputs/leanbin/src .
+	tar -czvf lean3-binport.tar.gz -C Outputs/leanbin/oleans .
+	tar -czvf mathlib3-synport.tar.gz -C Outputs/mathbin/src .
+	tar -czvf mathlib3-binport.tar.gz -C Outputs/mathbin/oleans .
