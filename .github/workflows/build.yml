@@ -6,8 +6,6 @@ on:
       - 'trying.tmp*'
       - 'staging*.tmp'
   pull_request:
-  schedule:
-    - cron: '0 0 * * *'
 
 name: ci
 
@@ -37,15 +35,20 @@ jobs:
       - name: prepare tarballs for nightly
         run: make tarballs
 
-      - name: set now
-        run: echo "NOW=$(date -u +%F)" >> $GITHUB_ENV
+      - name: set tag (pull requests)
+        if: github.event_name == 'pull_request'
+        run: echo "TAG=pr-${GITHUB_REF##*/}" >> $GITHUB_ENV
+
+      - name: set tag (push to master)
+        if: github.event_name == 'push'
+        if: github.ref == 'refs/heads/master'
+        run: echo "TAG=nightly-$(date -u +%F)" >> $GITHUB_ENV
 
       - name: release nightly
         uses: softprops/action-gh-release@v1
-        # if: github.event_name == 'schedule'
         with:
           prerelease: true
-          tag_name: nightly-${{ env.NOW }}
+          tag_name: ${{ env.TAG }}
           files: |
             lean3-binport.tar.gz
             lean3-synport.tar.gz
