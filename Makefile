@@ -21,6 +21,8 @@
 #
 # It will automatically identify the version of `lean3` than `mathlib` currently uses.
 
+SHELL := /bin/bash   # so we can use process redirection
+
 all:
 
 unport:
@@ -87,11 +89,11 @@ build:
 	lake build
 
 port-lean: init-logs build
-	LEAN_PATH=$(MATHPORT_LIB):$(MATHLIB4_LIB):$(LEANBIN_LIB) ./build/bin/mathport config.json Leanbin::all >> Logs/mathport.out 2> Logs/mathport.err
+	LEAN_PATH=$(MATHPORT_LIB):$(MATHLIB4_LIB):$(LEANBIN_LIB) ./build/bin/mathport config.json Leanbin::all >> Logs/mathport.out 2> >(tee -a Logs/mathport.err >&2)
 	cp lean-toolchain Lean4Packages/leanbin/
 
 port-mathbin: port-lean
-	LEAN_PATH=$(MATHPORT_LIB):$(MATHLIB4_LIB):$(LEANBIN_LIB):$(MATHBIN_LIB) ./build/bin/mathport config.json Leanbin::all Mathbin::all >> Logs/mathport.out 2> Logs/mathport.err
+	LEAN_PATH=$(MATHPORT_LIB):$(MATHLIB4_LIB):$(LEANBIN_LIB):$(MATHBIN_LIB) ./build/bin/mathport config.json Leanbin::all Mathbin::all >> Logs/mathport.out 2> >(tee -a Logs/mathport.err >&2)
 	cp lean-toolchain Lean4Packages/mathbin/
 
 test-import-leanbin:
