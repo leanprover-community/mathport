@@ -1,6 +1,6 @@
 {
     "pathConfig": {
-        "outRoot": "Lib4",
+        "outRoot": "Outputs",
         "packages": {
             "Leanbin": "PreData/Leanbin",
             "Mathbin": "PreData/Mathbin/src"

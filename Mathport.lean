@@ -16,8 +16,8 @@ def mathport1 (config : Config) (path : Path) : IO Unit := do
   let pcfg := config.pathConfig
 
   println! s!"\n[mathport] START {path.mod3}\n"
-  createDirectoriesIfNotExists (path.toLean4lib pcfg ".olean").toString
-  createDirectoriesIfNotExists (path.toLean4src pcfg ".lean").toString
+  createDirectoriesIfNotExists (path.toLean4olean pcfg).toString
+  createDirectoriesIfNotExists (path.toLean4src pcfg).toString
 
   let mut imports : Array Import ← (← parseTLeanImports (path.toLean3 pcfg ".tlean")).mapM fun mod3 => do
     let ipath : Path ← resolveMod3 pcfg mod3
@@ -37,7 +37,7 @@ def mathport1 (config : Config) (path : Path) : IO Unit := do
         -- let _ ← IO.FS.withIsolatedStreams' $ binport1 config path
         binport1 config path
         synport1 config path
-        writeModule (← getEnv) $ path.toLean4lib pcfg ".olean"
+        writeModule (← getEnv) $ path.toLean4olean pcfg
 
       println! "\n[mathport] END   {path.mod3}\n"
   catch err =>
@@ -63,7 +63,7 @@ partial def visit (config : Config) (path : Path) : StateRefT (HashMap Path Task
   match (← get).find? path with
   | some task => pure task
   | none     => do
-    if ← path.toLean4lib pcfg ".olean" |>.pathExists then
+    if ← path.toLean4olean pcfg |>.pathExists then
       println! "[visit] {repr path} already exists"
       IO.asTask (pure ())
     else

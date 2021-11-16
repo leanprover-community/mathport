@@ -37,15 +37,15 @@ def Path.toLean3 (cfg : Path.Config) (p : Path) (suffix : String) : FilePath := 
 def Path.mod4 (p : Path) : Name :=
   p.mod3.mapStrings String.snake2pascal
 
-def Path.toLean4src (cfg : Path.Config) (p : Path) (suffix : String) : FilePath := do
+def Path.toLean4src (cfg : Path.Config) (p : Path) : FilePath := do
   -- Lib4/lean3/Lean3.lean
   -- Lib4/mathbin/Mathbin.lean
-  let path := cfg.outRoot / (FilePath.mk p.package.decapitalize) / (FilePath.mk p.package) / (FilePath.mk "src") / p.mod4.toFilePath
-  ⟨path.toString ++ suffix⟩
+  let path := cfg.outRoot / (FilePath.mk p.package.decapitalize) / (FilePath.mk "src") / p.mod4.toFilePath
+  ⟨path.toString ++ ".lean"⟩
 
-def Path.toLean4lib (cfg : Path.Config) (p : Path) (suffix : String) : FilePath := do
-  let path := cfg.outRoot / (FilePath.mk p.package.decapitalize) / (FilePath.mk "build/lib") / (FilePath.mk p.package) / p.mod4.toFilePath
-  ⟨path.toString ++ suffix⟩
+def Path.toLean4olean (cfg : Path.Config) (p : Path) : FilePath := do
+  let path := cfg.outRoot / (FilePath.mk p.package.decapitalize) / (FilePath.mk "oleans") / p.mod4.toFilePath
+  ⟨path.toString ++ ".olean"⟩
 
 def resolveMod3 (cfg : Path.Config) (mod3 : Name) : IO Path := do
   for (package, root3) in cfg.packages.toList do

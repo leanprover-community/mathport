@@ -24,8 +24,7 @@
 all:
 
 unport:
-	rm -rf Lib4 Logs/*
-	git checkout HEAD -- Lib4
+	rm -rf Outputs/* Logs/*
 
 # Select which commit of mathlib3 to use.
 MATHBIN_COMMIT=master
@@ -89,29 +88,20 @@ build:
 
 port-lean: init-logs build
 	LEAN_PATH=$(MATHPORT_LIB):$(MATHLIB4_LIB):$(LEANBIN_LIB) ./build/bin/mathport config.json Leanbin::all >> Logs/mathport.out 2> Logs/mathport.err
-	# TODO use libGlobs in the Lib4/leanbin/lakefile.lean to specify the files we want to build,
-	# and this should become just `cd Lib4/leanbin/ && lake build`. (Also below.)
-	LEAN_PATH=$(MATHPORT_LIB):$(MATHLIB4_LIB):$(LEANBIN_LIB) lean --o=$(LEANBIN_LIB)/Leanbin.olean ./Lib4/leanbin/Leanbin.lean
-	cp lean-toolchain Lib4/leanbin
+	cp lean-toolchain Lean4Packages/leanbin/
 
 port-mathbin: port-lean
 	LEAN_PATH=$(MATHPORT_LIB):$(MATHLIB4_LIB):$(LEANBIN_LIB):$(MATHBIN_LIB) ./build/bin/mathport config.json Leanbin::all Mathbin::all >> Logs/mathport.out 2> Logs/mathport.err
-	LEAN_PATH=$(MATHPORT_LIB):$(MATHLIB4_LIB):$(LEANBIN_LIB):$(MATHBIN_LIB) lean  --o=$(MATHBIN_LIB)/Mathbin.olean ./Lib4/mathbin/Mathbin.lean
-	cp lean-toolchain Lib4/mathbin
+	cp lean-toolchain Lean4Packages/mathbin/
 
-test-leanbin:
-	cd Test/ImportLean && rm -rf build && lake build
+test-import-leanbin:
+	cd Test/importLeanbin && rm -rf build lean_packages && lake build
 
-test-mathbin:
-	cd Test/ImportMathbin && rm -rf build && lake build
-
-tar-lib4:
-	tar --exclude 'lean_packages' -czvf mathport-release.tar.gz Lib4 Logs PreData
+test-import-mathbin:
+	cd Test/importMathbin && rm -rf build lean_packages && lake build
 
 tarballs:
-	tar --exclude 'lean_packages' --exclude 'build' --exclude '*.olean' -czvf lean3-synport.tar.gz -C Lib4/leanbin/ .
-	cd Lib4/leanbin/ && find . -name "*.olean" | tar --exclude 'lean_packages' -czvf ../../lean3-binport.tar.gz -T -
-	tar --exclude 'lean_packages' --exclude 'build' --exclude '*.olean' -czvf mathlib3-synport.tar.gz -C Lib4/mathbin/ .
-	cd Lib4/mathbin/ && find . -name "*.olean" | tar --exclude 'lean_packages' -czvf ../../mathlib3-binport.tar.gz -T -
-
-
+	tar -czvf lean3-synport.tar.gz -C Outputs/leanbin/src .
+	tar -czvf lean3-binport.tar.gz -C Outputs/leanbin/oleans .
+	tar -czvf mathlib3-synport.tar.gz -C Outputs/mathbin/src .
+	tar -czvf mathlib3-binport.tar.gz -C Outputs/mathbin/oleans .
