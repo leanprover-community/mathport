@@ -5,7 +5,7 @@ on:
       - 'staging.tmp*'
       - 'trying.tmp*'
       - 'staging*.tmp'
-  pull_request:
+  # pull_request:
 
 name: ci
 
@@ -46,12 +46,12 @@ jobs:
       - name: prepare tarballs for nightly
         run: make tarballs
 
-      - name: set tag (pull requests)
-        if: github.event_name == 'pull_request'
+      - name: set tag (non-master)
+        if: github.ref != 'refs/heads/master'
         run: echo "TAG=pr-${GITHUB_REF##*/}" >> $GITHUB_ENV
 
-      - name: set tag (push to master)
-        if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+      - name: set tag (master)
+        if: github.ref == 'refs/heads/master'
         run: echo "TAG=nightly-$(date -u +%F)" >> $GITHUB_ENV
 
       - name: release nightly
