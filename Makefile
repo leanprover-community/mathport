@@ -82,8 +82,8 @@ init-logs:
 MATHLIB4_LIB=./lean_packages/mathlib/build/lib
 MATHPORT_LIB=./build/lib
 
-LEANBIN_LIB=./Lib4/leanbin/build/lib
-MATHBIN_LIB=./Lib4/mathbin/build/lib
+LEANBIN_LIB=./Outputs/leanbin/oleans
+MATHBIN_LIB=./Outputs/mathbin/oleans
 
 build:
 	lake build

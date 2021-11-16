@@ -37,11 +37,17 @@ jobs:
       - name: build mathport
         run: make build
 
-      - name: prepare sources and predata
-        run: make predata
+      - name: prepare sources
+        run: make mathbin-source lean3-source
 
-      - name: run mathport
-        run: make port-lean port-mathbin
+      - name: prepare predata for Lean 3
+        run: make lean3-predata
+
+      - name: run mathport on Lean 3
+        run: make port-lean
+
+      - name: prepare predata for mathlib
+        run: make port-mathbin
 
       - name: prepare tarballs for nightly
         run: make tarballs
