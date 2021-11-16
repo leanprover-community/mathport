@@ -38,8 +38,8 @@ RUN make build
 RUN make mathbin-source
 RUN make lean3-source
 RUN make lean3-predata
-RUN make mathbin-predata
 RUN make port-lean
+RUN make mathbin-predata
 RUN make port-mathbin
-RUN make test-leanbin
-RUN make test-mathbin
+RUN make test-import-leanbin
+RUN make test-import-mathbin

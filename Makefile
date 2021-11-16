@@ -112,3 +112,7 @@ tarballs:
 	tar -czvf lean3-binport.tar.gz -C Outputs/leanbin/oleans .
 	tar -czvf mathlib3-synport.tar.gz -C Outputs/mathbin/src .
 	tar -czvf mathlib3-binport.tar.gz -C Outputs/mathbin/oleans .
+
+rm-tarballs
+	rm lean3-synport.tar.gz && rm lean3-binport.tar.gz && rm mathlib3-synport.tar.gz && rm mathlib3-binport.tar.gz
+
