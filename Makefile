@@ -101,6 +101,7 @@ test-import-mathbin:
 	cd Test/importMathbin && rm -rf build lean_packages && lake build
 
 tarballs:
+	# Create the Outputs/* directories, if they don't already exist, in case we're doing a dry run for CI.
 	mkdir -p Outputs/leanbin/src/
 	mkdir -p Outputs/leanbin/oleans/
 	mkdir -p Outputs/mathbin/src/
