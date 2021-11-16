@@ -101,6 +101,10 @@ test-import-mathbin:
 	cd Test/importMathbin && rm -rf build lean_packages && lake build
 
 tarballs:
+    mkdir -p Outputs/leanbin/src/
+    mkdir -p Outputs/leanbin/oleans/
+    mkdir -p Outputs/mathbin/src/
+    mkdir -p Outputs/mathbin/oleans/
 	tar -czvf lean3-synport.tar.gz -C Outputs/leanbin/src .
 	tar -czvf lean3-binport.tar.gz -C Outputs/leanbin/oleans .
 	tar -czvf mathlib3-synport.tar.gz -C Outputs/mathbin/src .
