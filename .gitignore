@@ -3,7 +3,7 @@
 build/
 Logs/
 PreData/
-Lib4/*/
+Outputs/
 lean_packages/
 sources/
 *.tar.gz
