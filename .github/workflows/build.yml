@@ -46,11 +46,11 @@ jobs:
       - name: run mathport on Lean 3
         run: make port-lean
 
-      # - name: prepare predata for mathlib
-      #   run: make mathbin-predata
+      - name: prepare predata for mathlib
+        run: make mathbin-predata
 
-      # - name: run mathport on mathlib
-      #   run: make port-mathbin
+      - name: run mathport on mathlib
+        run: make port-mathbin
 
       - name: prepare tarballs for nightly
         run: make tarballs
