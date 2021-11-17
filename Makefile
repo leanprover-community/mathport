@@ -82,8 +82,8 @@ init-logs:
 MATHLIB4_LIB=./lean_packages/mathlib/build/lib
 MATHPORT_LIB=./build/lib
 
-LEANBIN_LIB=./Outputs/leanbin/oleans
-MATHBIN_LIB=./Outputs/mathbin/oleans
+LEANBIN_LIB=./Outputs/oleans/leanbin
+MATHBIN_LIB=./Outputs/oleans/mathbin
 
 build:
 	lake build
@@ -104,15 +104,15 @@ test-import-mathbin:
 
 tarballs:
 	# Create the Outputs/* directories, if they don't already exist, in case we're doing a dry run for CI.
-	mkdir -p Outputs/leanbin/src/
-	mkdir -p Outputs/leanbin/oleans/
-	mkdir -p Outputs/mathbin/src/
-	mkdir -p Outputs/mathbin/oleans/
-	tar -czvf lean3-synport.tar.gz -C Outputs/leanbin/src .
-	tar -czvf lean3-binport.tar.gz -C Outputs/leanbin/oleans .
-	tar -czvf mathlib3-synport.tar.gz -C Outputs/mathbin/src .
-	tar -czvf mathlib3-binport.tar.gz -C Outputs/mathbin/oleans .
+	mkdir -p Outputs/src/leanbin/
+	mkdir -p Outputs/oleans/leanbin/
+	mkdir -p Outputs/src/mathbin/
+	mkdir -p Outputs/oleans/mathbin/
+	tar -czvf lean3-synport.tar.gz -C Outputs/src/leanbin .
+	tar -czvf lean3-binport.tar.gz -C Outputs/oleans/leanbin .
+	tar -czvf mathlib3-synport.tar.gz -C Outputs/src/mathbin .
+	tar -czvf mathlib3-binport.tar.gz -C Outputs/oleans/mathbin .
 
-rm-tarballs
+rm-tarballs:
 	rm lean3-synport.tar.gz && rm lean3-binport.tar.gz && rm mathlib3-synport.tar.gz && rm mathlib3-binport.tar.gz
 
