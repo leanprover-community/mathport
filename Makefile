@@ -80,8 +80,8 @@ init-logs:
 MATHLIB4_LIB=./lean_packages/mathlib/build/lib
 MATHPORT_LIB=./build/lib
 
-LEANBIN_LIB=./Lib4/leanbin/build/lib
-MATHBIN_LIB=./Lib4/mathbin/build/lib
+LEANBIN_LIB=./Outputs/oleans/leanbin
+MATHBIN_LIB=./Outputs/oleans/mathbin
 
 build:
 	lake build
@@ -101,7 +101,7 @@ test-import-mathbin:
 	cd Test/importMathbin && rm -rf build lean_packages && lake build
 
 tarballs:
-	tar -czvf lean3-synport.tar.gz -C Outputs/leanbin/src .
-	tar -czvf lean3-binport.tar.gz -C Outputs/leanbin/oleans .
-	tar -czvf mathlib3-synport.tar.gz -C Outputs/mathbin/src .
-	tar -czvf mathlib3-binport.tar.gz -C Outputs/mathbin/oleans .
+	tar -czvf lean3-synport.tar.gz -C Outputs/src/leanbin .
+	tar -czvf lean3-binport.tar.gz -C Outputs/oleans/leanbin .
+	tar -czvf mathlib3-synport.tar.gz -C Outputs/src/mathbin .
+	tar -czvf mathlib3-binport.tar.gz -C Outputs/oleans/mathbin .
