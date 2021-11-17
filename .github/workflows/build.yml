@@ -34,25 +34,25 @@ jobs:
 
       - uses: actions/checkout@v2
 
-      - name: build mathport
-        run: make build
+      # - name: build mathport
+      #   run: make build
 
-      - name: prepare sources
-        run: make mathbin-source lean3-source
+      # - name: prepare sources
+      #   run: make mathbin-source lean3-source
 
-      - name: prepare predata for Lean 3
-        run: make lean3-predata
+      # - name: prepare predata for Lean 3
+      #   run: make lean3-predata
 
-      - name: run mathport on Lean 3
-        run: make port-lean
+      # - name: run mathport on Lean 3
+      #   run: make port-lean
 
-      - name: prepare predata for mathlib
-        run: make mathbin-predata
+      # - name: prepare predata for mathlib
+      #   run: make mathbin-predata
 
-      - name: run mathport on mathlib
-        run: make port-mathbin
+      # - name: run mathport on mathlib
+      #   run: make port-mathbin
 
-      - name: prepare tarballs for nightly
+      - name: prepare tarballs for release
         run: make tarballs
 
       - name: set tag (non-master)
@@ -63,7 +63,24 @@ jobs:
         if: github.ref == 'refs/heads/master'
         run: echo "TAG=nightly-$(date -u +%F)" >> $GITHUB_ENV
 
-      - name: release nightly
+      - name: release (non-master)
+        if: github.ref != 'refs/heads/master'
+        uses: softprops/action-gh-release@v1
+        with:
+          draft: true
+          prerelease: true
+          commitish: ${{ github.sha }}
+          tag_name: ${{ env.TAG }}
+          files: |
+            lean3-binport.tar.gz
+            lean3-synport.tar.gz
+            mathlib3-binport.tar.gz
+            mathlib3-synport.tar.gz
+        env:
+          GITHUB_TOKEN: ${{ secrets.PUSH_NIGHTLY_TOKEN }}
+
+      - name: release (master)
+        if: github.ref == 'refs/heads/master'
         uses: softprops/action-gh-release@v1
         with:
           prerelease: true
