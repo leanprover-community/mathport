@@ -57,8 +57,7 @@ jobs:
 
       - name: set tag (non-master)
         if: github.ref != 'refs/heads/master'
-        run: echo "TAG=pr-${GITHUB_REF##*/}" >> $GITHUB_ENV
-        run: echo "SHORT_SHA=`git rev-parse --short HEAD`" >> $GITHUB_ENV
+        run: echo "TAG=pr-${GITHUB_REF##*/}" >> $GITHUB_ENV && echo "SHORT_SHA=`git rev-parse --short HEAD`" >> $GITHUB_ENV
 
       - name: set tag (master)
         if: github.ref == 'refs/heads/master'
