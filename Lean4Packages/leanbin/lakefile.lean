@@ -1,14 +1,9 @@
 import Lake
 open Lake DSL System
 
--- TODO: switch to these once the releases adopt the expected format
--- def tag : String := "nightly-2021-11-11"
--- def releaseRepo : String := "leanprover-community/mathport"
--- def tarName : String := "lean3-binport.tar.gz"
-
-def tag : String := "test"
-def releaseRepo : String := "dselsam/mathport"
-def tarName : String := "leanbin-oleans.tar.gz"
+def tag : String := "untagged-eb6c80e4c6aa289dc8d3" -- "nightly-2021-11-11"
+def releaseRepo : String := "leanprover-community/mathport"
+def tarName : String := "lean3-binport.tar.gz"
 
 def fetchOleans (dir : FilePath) : OpaqueTarget := { info := (), task := fetch } where
   fetch := async do

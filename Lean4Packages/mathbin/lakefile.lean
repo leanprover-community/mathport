@@ -1,7 +1,7 @@
 import Lake
 open Lake DSL System
 
-def tag : String := "nightly-2021-11-11"
+def tag : String := "untagged-eb6c80e4c6aa289dc8d3" -- "nightly-2021-11-11"
 def releaseRepo : String := "leanprover-community/mathport"
 def tarName : String := "mathlib3-binport.tar.gz"
 
@@ -27,13 +27,14 @@ def fetchOleans (dir : FilePath) : OpaqueTarget := { info := (), task := fetch }
 
   libDir : FilePath := dir / "build" / "lib"
 
-package leanbin (dir) {
+package mathbin (dir) {
   libRoots := #[]
-  libGlobs := #[`Leanbin]
+  libGlobs := #[`Mathbin]
   extraDepTarget := fetchOleans dir
   defaultFacet := PackageFacet.oleans
   dependencies := #[{
-    name := "mathlib",
-    src := Source.git "https://github.com/dselsam/mathlib4.git" "5366ff9252f9001fc10e610795efd259fd4b8dc6"
+    name := "leanbin",
+    src := Source.git "https://github.com/dselsam/mathport.git" "master",
+    dir := "Lean4Packages/leanbin"
   }]
 }
