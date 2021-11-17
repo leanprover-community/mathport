@@ -62,7 +62,6 @@ jobs:
       - name: set tag (master)
         if: github.ref == 'refs/heads/master'
         run: echo "TAG=nightly-$(date -u +%F)" >> $GITHUB_ENV
-
       - name: release (non-master)
         if: github.ref != 'refs/heads/master'
         uses: softprops/action-gh-release@v1
