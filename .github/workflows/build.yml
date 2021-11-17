@@ -62,14 +62,14 @@ jobs:
       - name: set tag (master)
         if: github.ref == 'refs/heads/master'
         run: echo "TAG=nightly-$(date -u +%F)" >> $GITHUB_ENV
+
       - name: release (non-master)
         if: github.ref != 'refs/heads/master'
         uses: softprops/action-gh-release@v1
         with:
           draft: true
           prerelease: true
-          commitish: ${{ github.sha }}
-          tag_name: ${{ env.TAG }}
+          tag_name: ${{ env.TAG }}-${{ github.sha }}
           files: |
             lean3-binport.tar.gz
             lean3-synport.tar.gz
