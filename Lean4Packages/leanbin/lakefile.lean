@@ -34,6 +34,6 @@ package leanbin (dir) {
   defaultFacet := PackageFacet.oleans
   dependencies := #[{
     name := "mathlib",
-    src := Source.git "https://github.com/leanprover-community/mathlib4.git" "64f9c43eb9a75fb4c5989ac711623d06e9696e60"
+    src := Source.git "https://github.com/leanprover-community/mathlib4.git" "9b812ac66f32a5b4f016329c6537f775a8ed4ff6"
   }]
 }
