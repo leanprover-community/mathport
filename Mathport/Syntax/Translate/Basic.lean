@@ -8,6 +8,7 @@ import Mathport.Syntax.Data4
 import Mathport.Syntax.Translate.Notation
 import Mathport.Syntax.Translate.Attributes
 import Mathport.Syntax.Translate.Parser
+import Mathlib
 
 namespace Mathport
 
@@ -637,7 +638,7 @@ def trExpr' : Expr → M Syntax
   | Expr.«`()» _ true e => do `(quote $(← trExpr e.kind))
   | Expr.«`()» false false e => do `(pquote $(← trExpr e.kind))
   | Expr.«`()» true false e => do `(ppquote $(← trExpr e.kind))
-  | Expr.«%%» e => do `(%%$(← trExpr e.kind))
+  | Expr.«%%» e => do `(%%ₓ$(← trExpr e.kind))
   | Expr.«`[]» tacs => do
     dbg_trace "warning: unsupported (TODO): `[tacs]"
     `(sorry)
@@ -664,8 +665,9 @@ def trExpr' : Expr → M Syntax
   | Expr.«{,}» es => do `({$(← es.mapM fun e => trExpr e.kind),*})
   | Expr.subtype false x ty p => do
     `({$(mkIdent x.kind) $[: $(← ty.mapM fun e => trExpr e.kind)]? // $(← trExpr p.kind)})
-  | Expr.subtype true x ty p => do
-    `({$(mkIdent x.kind) $[: $(← ty.mapM fun e => trExpr e.kind)]? | $(← trExpr p.kind)})
+  | Expr.subtype true x none p => do `({$(mkIdent x.kind) | $(← trExpr p.kind)})
+  | Expr.subtype true x (some ty) p => do
+    `({$(mkIdent x.kind) : $(← trExpr ty.kind) | $(← trExpr p.kind)})
   | Expr.sep x ty p => do
     `({$(mkIdent x.kind) ∈ $(← trExpr ty.kind) | $(← trExpr p.kind)})
   | Expr.setReplacement e bis => do

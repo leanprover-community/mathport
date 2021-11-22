@@ -15,12 +15,12 @@ open AST3 Parser
 -- # tactic.cache
 
 @[trTactic unfreezingI] def trUnfreezingI : TacM Syntax := do
-  `(tactic| unfreezingI $(← trBlock (← itactic)):tacticSeq)
+  `(tactic| ($(← trBlock (← itactic)):tacticSeq))
 
-@[trTactic resetI] def trResetI : TacM Syntax := `(tactic| resetI)
+@[trTactic resetI] def trResetI : TacM Syntax := `(tactic| skip)
 
 @[trTactic substI] def trSubstI : TacM Syntax := do
-  `(tactic| substI $(← trExpr (← parse pExpr)))
+  `(tactic| subst $(← trExpr (← parse pExpr)))
 
 def trWithIdentList : Array BinderName → Option (Array Syntax)
   | #[] => none
@@ -28,43 +28,38 @@ def trWithIdentList : Array BinderName → Option (Array Syntax)
 
 @[trTactic casesI] def trCasesI : TacM Syntax := do
   let (hp, e) ← parse casesArg
-  `(tactic| casesI $[$(hp.map mkIdent) :]?
+  `(tactic| cases' $[$(hp.map mkIdent) :]?
     $(← trExpr e) $[with $(trWithIdentList (← parse withIdentList))*]?)
 
 @[trTactic introI] def trIntroI : TacM Syntax := do
   match ← parse ident_ ? with
-  | some (BinderName.ident h) => `(tactic| introI $(mkIdent h):ident)
-  | _ => `(tactic| introI)
+  | some (BinderName.ident h) => `(tactic| intro $(mkIdent h):ident)
+  | _ => `(tactic| intro)
 
 @[trTactic introsI] def trIntrosI : TacM Syntax := do
   match ← parse ident_* with
-  | #[] => `(tactic| introsI)
-  | hs => `(tactic| introI $(hs.map trIdent_)*)
+  | #[] => `(tactic| intros)
+  | hs => `(tactic| intros $(hs.map trIdent_)*)
 
 @[trTactic haveI] def trHaveI : TacM Syntax := do
   let h ← parse (ident)?
   let h := mkOptionalNode' h fun h => #[mkIdent h, mkNullNode]
   let ty := mkOptionalNode $ ← trOptType (← parse (tk ":" *> pExpr)?)
   match ← parse (tk ":=" *> pExpr)? with
-  | some pr =>
-    let haveId := mkNode ``Parser.Term.haveIdDecl #[h, ty, mkAtom ":=", ← trExpr pr]
-    `(tactic| haveI $haveId:haveIdDecl)
-  | none => mkNode ``Parser.Tactic.haveI' #[mkAtom "haveI", h, ty]
+  | some pr => `(tactic| have $h:ident : $ty:term := $(← trExpr pr))
+  | none => `(tactic| have $h:ident : $ty:term)
 
 @[trTactic letI] def trLetI : TacM Syntax := do
   let h ← parse (ident)?
   let ty := mkOptionalNode $ ← trOptType (← parse (tk ":" *> pExpr)?)
   match ← parse (tk ":=" *> pExpr)? with
   | some pr =>
-    let letId := mkNode ``Parser.Term.letIdDecl #[
-      mkIdent (h.getD `this), ty, mkAtom ":=", ← trExpr pr]
-    `(tactic| letI $letId:letIdDecl)
+    `(tactic| let $(mkIdent <| h.getD `this) : $ty:term := $(← trExpr pr))
   | none =>
-    let h := mkOptionalNode' h fun h => #[mkIdent h, mkNullNode]
-    mkNode ``Parser.Tactic.letI' #[mkAtom "letI", h, ty]
+    `(tactic| let $[$(h.map mkIdent):ident]? : $ty:term)
 
 @[trTactic exactI] def trExactI : TacM Syntax := do
-  `(tactic| exactI $(← trExpr (← parse pExpr)))
+  `(tactic| exact $(← trExpr (← parse pExpr)))
 
 -- # tactic.lint
 
@@ -73,33 +68,20 @@ def trWithIdentList : Array BinderName → Option (Array Syntax)
 
 @[trUserAttr linter] def trLinterAttr := tagAttr `linter
 
-def trLintFast (fast : Bool) : Syntax := mkNullNode (if fast then #[mkAtom "*"] else #[])
-
-def trLintVerb : LintVerbosity → Option Syntax
-  | LintVerbosity.medium => none
-  | LintVerbosity.low => some $ mkNode ``Parser.Command.Lint.verbosity #[mkAtom "-"]
-  | LintVerbosity.high => some $ mkNode ``Parser.Command.Lint.verbosity #[mkAtom "+"]
-
-def trLintOpts : Bool × LintVerbosity → Syntax
-  | (fast, verb) => match trLintVerb verb with
-    | none => mkNode ``Parser.Command.Lint.opts #[trLintFast fast, mkNullNode]
-    | some v => mkNode ``Parser.Command.Lint.opts #[v, trLintFast fast]
-
-def trLintArgs : (Bool × LintVerbosity) × Bool × Array Name → Syntax
-  | (opts, use_only, extra) =>
-    mkNode ``Parser.Command.Lint.args #[
-      trLintOpts opts,
-      mkNullNode $ if use_only then #[mkAtom "only"] else #[],
-      mkNullNode $ extra.map mkIdent]
-
 @[trUserCmd «#lint»] def trLintCmd : TacM Syntax := do
-  `(command| #lint $(trLintArgs $ ← parse lintArgs))
+  let ((fast, verb), use_only, extra) ← parse lintArgs
+  -- TODO: translate (hard because syntax quotation is tricky)
+  `(#lint)
 
 @[trUserCmd «#lint_mathlib»] def trLintMathlibCmd : TacM Syntax := do
-  `(command| #lint_mathlib $(trLintArgs $ ← parse lintArgs))
+  let ((fast, verb), use_only, extra) ← parse lintArgs
+  -- TODO: translate (hard because syntax quotation is tricky)
+  `(#lint mathlib)
 
 @[trUserCmd «#lint_all»] def trLintAllCmd : TacM Syntax := do
-  `(command| #lint_all $(trLintArgs $ ← parse lintArgs))
+  let ((fast, verb), use_only, extra) ← parse lintArgs
+  -- TODO: translate (hard because syntax quotation is tricky)
+  `(#lint all)
 
 @[trUserCmd «#list_linters»] def trListLintersCmd : TacM Syntax :=
   parse () *> `(command| #list_linters)
@@ -259,7 +241,7 @@ def trInterpolatedStr' := trInterpolatedStr fun stx => `(← $stx)
 
 @[trUserCmd «import_private»] def trImportPrivate : TacM Syntax := do
   let (n, fr) ← parse $ do (← ident, ← (tk "from" *> ident)?)
-  `(import_private $(← mkIdentF n) $[from $(← liftM $ fr.mapM mkIdentI)]?)
+  `(open private $(← mkIdentF n) $[from $(← liftM $ fr.mapM mkIdentI)]?)
 
 @[trUserCmd «mk_simp_attribute»] def trMkSimpAttribute : TacM Syntax := do
   let (n, d, withList) ← parse $ do (← ident, ← pExpr, ← (tk "with" *> ident*)?)
