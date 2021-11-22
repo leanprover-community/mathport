@@ -6,6 +6,7 @@ Authors: Mario Carneiro, Daniel Selsam
 import Lean
 import Std.Data.HashMap
 import Std.Data.RBMap
+import Mathlib.Tactic.Lint
 
 def uncurry (f : α → β → γ) : α × β → γ
   | (x, y) => f x y
@@ -90,11 +91,6 @@ def Subarray.getOp {α : Type u} [Inhabited α] (self : Subarray α) (idx : Nat)
   if prec >= p then paren f else f
 
 instance : Coe (Array α) (Subarray α) := ⟨(·[0:])⟩
-
-def Option.mapM {α : Type u} {β : Type v} {m : Type v → Type w} [Monad m] (f : α → m β) :
-    Option α → m (Option β)
-  | none => pure none
-  | some a => some <$> f a
 
 /-- Run action with `stdin` emptied and `stdout+stderr` captured into a `String`. -/
 def IO.FS.withIsolatedStreams' [Monad m] [MonadFinally m] [MonadLiftT IO m] (x : m α) : m (String × α) := do

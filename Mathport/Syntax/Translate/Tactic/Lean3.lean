@@ -229,10 +229,8 @@ where
   let h := mkOptionalNode' h fun h => #[mkIdent h, mkNullNode]
   let ty := mkOptionalNode $ ← trOptType (← parse (tk ":" *> pExpr)?)
   match ← parse (tk ":=" *> pExpr)? with
-  | some pr =>
-    let haveId := mkNode ``Parser.Term.haveIdDecl #[h, ty, mkAtom ":=", ← trExpr pr]
-    `(tactic| have $haveId:haveIdDecl)
-  | none => mkNode ``Parser.Tactic.have'' #[mkAtom "have", h, ty]
+  | some pr => `(tactic| have $h:ident : $ty:term := $(← trExpr pr))
+  | none => `(tactic| have $h:ident : $ty:term)
 
 @[trTactic «let»] def trLet : TacM Syntax := do
   let h ← parse (ident)?
