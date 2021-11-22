@@ -13,7 +13,7 @@ def uncurry (f : α → β → γ) : α × β → γ
 namespace Lean
 
 elab "leanDir!" : term => do
-  Elab.Term.elabTerm (Syntax.mkStrLit (← getLibDir).toString) none
+  Elab.Term.elabTerm (Syntax.mkStrLit (← getLibDir (← findSysroot?)).toString) none
 
 def Expr.isAppOfArityGE (e : Expr) (n : Name) (k : Nat) : Bool :=
   e.withApp fun f args => f.isConstOf n && args.size ≥ k
