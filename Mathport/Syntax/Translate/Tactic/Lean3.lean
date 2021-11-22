@@ -276,7 +276,7 @@ where
   | none => `(tactic| constructorM $ps,*)
   | some () => `(tactic| constructorM* $ps,*)
 
-@[trTactic exfalso] def trExFalso : TacM Syntax := `(tactic| exFalso)
+@[trTactic exfalso] def trExfalso : TacM Syntax := `(tactic| exfalso)
 
 @[trTactic injection] def trInjection : TacM Syntax := do
   let e ← trExpr (← parse pExpr)
