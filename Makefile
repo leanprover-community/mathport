@@ -90,11 +90,11 @@ build:
 
 port-lean: init-logs build
 	LEAN_PATH=$(MATHPORT_LIB):$(MATHLIB4_LIB):$(LEANBIN_LIB) ./build/bin/mathport config.json Leanbin::all >> Logs/mathport.out 2> >(tee -a Logs/mathport.err >&2)
-	cp lean-toolchain Lean4Packages/leanbin/
+	cp lean-toolchain Lean4Packages/lean3port/
 
 port-mathbin: port-lean
 	LEAN_PATH=$(MATHPORT_LIB):$(MATHLIB4_LIB):$(LEANBIN_LIB):$(MATHBIN_LIB) ./build/bin/mathport config.json Leanbin::all Mathbin::all >> Logs/mathport.out 2> >(tee -a Logs/mathport.err >&2)
-	cp lean-toolchain Lean4Packages/mathbin/
+	cp lean-toolchain Lean4Packages/mathlib3port/
 
 test-import-leanbin:
 	cd Test/importLeanbin && rm -rf build lean_packages && lake build
