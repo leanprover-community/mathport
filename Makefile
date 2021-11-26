@@ -21,7 +21,7 @@
 #
 # It will automatically identify the version of `lean3` than `mathlib` currently uses.
 
-SHELL := /bin/bash   # so we can use process redirection
+SHELL := bash   # so we can use process redirection
 
 all:
 
