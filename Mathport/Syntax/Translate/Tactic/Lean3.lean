@@ -265,7 +265,7 @@ where
 
 @[trTactic right] def trRight : TacM Syntax := `(tactic| right)
 
-@[trTactic split] def trSplit : TacM Syntax := `(tactic| split)
+@[trTactic split] def trSplit : TacM Syntax := `(tactic| constructor)
 
 @[trTactic constructor_matching] def trConstructorM : TacM Syntax := do
   let _rec ← parse (tk "*")?
