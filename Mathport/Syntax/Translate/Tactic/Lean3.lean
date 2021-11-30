@@ -225,12 +225,11 @@ where
     bis.foldlM (fun out bi => trIntroBinder bi.kind out) #[]
 
 @[trTactic «have»] def trHave : TacM Syntax := do
-  let h ← parse (ident)?
-  let h := mkOptionalNode' h fun h => #[mkIdent h, mkNullNode]
-  let ty := mkOptionalNode $ ← trOptType (← parse (tk ":" *> pExpr)?)
+  let h := (← parse (ident)?).map mkIdent
+  let ty ← (← parse (tk ":" *> pExpr)?).mapM (trExpr ·)
   match ← parse (tk ":=" *> pExpr)? with
-  | some pr => `(tactic| have $h:ident : $ty:term := $(← trExpr pr))
-  | none => `(tactic| have $h:ident : $ty:term)
+  | some pr => `(tactic| have $[$h:ident]? $[: $ty:term]? := $(← trExpr pr))
+  | none => `(tactic| have $[$h:ident]? $[: $ty:term]?)
 
 @[trTactic «let»] def trLet : TacM Syntax := do
   let h ← parse (ident)?
