@@ -208,7 +208,7 @@ partial def trRIntroPat : RIntroPat → M Syntax
 @[trNITactic tactic.exact_dec_trivial] def trExactDecTrivial (_ : AST3.Expr) : M Syntax :=
   `(tactic| decide)
 
-@[trTactic fsplit] def trFSplit : TacM Syntax := `(tactic| fsplit)
+@[trTactic fsplit] def trFSplit : TacM Syntax := `(tactic| fconstructor)
 
 @[trTactic injections_and_clear] def trInjectionsAndClear : TacM Syntax :=
   `(tactic| injectionsAndClear)
