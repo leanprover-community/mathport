@@ -170,13 +170,28 @@ def AST3toData4 : AST3 → M Data4
     let s ← get
     pure ⟨s.output, HashMap.empty⟩
 
+partial def reprintCore : Syntax → Option Format
+  | Syntax.missing => none
+  | Syntax.atom _ val => val.trim
+  | Syntax.ident _ rawVal _ _ => rawVal.toString
+  | Syntax.node _ kind args =>
+    match args.toList.filterMap reprintCore with
+    | [] => none
+    | [arg] => arg
+    | args => Format.group <| Format.nest 2 <| Format.line.joinSep args
+
+def reprint (stx : Syntax) : Format :=
+  reprintCore stx |>.getD ""
+
 def push (stx : Syntax) : M Unit := do
   let fmt ← liftCoreM $ do
-    let stx ←
-      try Lean.PrettyPrinter.parenthesizeCommand stx
-      catch e => throw! "failed to parenthesize: {← e.toMessageData.toString}" -- \nin: {stx}"
-    try Lean.PrettyPrinter.formatCommand stx
-    catch e => throw! "failed to format: {← e.toMessageData.toString}" -- \nin: {stx}"
+    let (stx, parenthesizerErr) ←
+      try (← Lean.PrettyPrinter.parenthesizeCommand stx, f!"")
+      catch e => (stx, f!"-- failed to parenthesize: {← e.toMessageData.toString}\n")
+    parenthesizerErr ++ (←
+      try Lean.PrettyPrinter.formatCommand stx
+      catch e =>
+        f!"-- failed to format: {← e.toMessageData.toString}\n{reprint stx}")
   modify fun s => { s with output := s.output ++ fmt ++ "\n\n" }
 
 def pushM (stx : M Syntax) : M Unit := stx >>= push
