@@ -16,14 +16,14 @@ mv lean3-binport.tar.gz Outputs/oleans/leanbin/
 cd Outputs/oleans/leanbin/
 tar zxvf lean3-binport.tar.gz
 rm lean3-binport.tar.gz
-cd ../../
+cd ../../../
 curl -O -L https://github.com/leanprover-community/mathport/releases/download/$RELEASE/lean3-synport.tar.gz
 mkdir -p Outputs/src/leanbin/
 mv lean3-synport.tar.gz Outputs/src/leanbin/
 cd Outputs/src/leanbin/
 tar zxvf lean3-synport.tar.gz
 rm lean3-synport.tar.gz
-cd ../../
+cd ../../../
 curl -O -L https://github.com/leanprover-community/mathport/releases/download/$RELEASE/mathlib3-predata.tar.gz
 mkdir -p PreData/Mathbin/
 mv mathlib3-predata.tar.gz PreData/Mathbin/
@@ -37,12 +37,12 @@ mv mathlib3-binport.tar.gz Outputs/oleans/mathbin/
 cd Outputs/oleans/mathbin/
 tar zxvf mathlib3-binport.tar.gz
 rm mathlib3-binport.tar.gz
-cd ../../
+cd ../../../
 curl -O -L https://github.com/leanprover-community/mathport/releases/download/$RELEASE/mathlib3-synport.tar.gz
 mkdir -p Outputs/src/mathbin/
 mv mathlib3-synport.tar.gz Outputs/src/mathbin/
 cd Outputs/src/mathbin/
 tar zxvf mathlib3-synport.tar.gz
 rm mathlib3-synport.tar.gz
-cd ../../
+cd ../../../
 
