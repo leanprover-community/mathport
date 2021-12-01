@@ -42,21 +42,21 @@ def trWithIdentList : Array BinderName → Option (Array Syntax)
   | hs => `(tactic| intros $(hs.map trIdent_)*)
 
 @[trTactic haveI] def trHaveI : TacM Syntax := do
-  let h ← parse (ident)?
-  let h := mkOptionalNode' h fun h => #[mkIdent h, mkNullNode]
-  let ty := mkOptionalNode $ ← trOptType (← parse (tk ":" *> pExpr)?)
+  let h := (← parse (ident)?).map mkIdent
+  let ty ← (← parse (tk ":" *> pExpr)?).mapM (trExpr ·)
   match ← parse (tk ":=" *> pExpr)? with
-  | some pr => `(tactic| have $h:ident : $ty:term := $(← trExpr pr))
-  | none => `(tactic| have $h:ident : $ty:term)
+  | some pr => `(tactic| have $[$h:ident]? $[: $ty:term]? := $(← trExpr pr))
+  | none => `(tactic| have $[$h:ident]? $[: $ty:term]?)
 
 @[trTactic letI] def trLetI : TacM Syntax := do
   let h ← parse (ident)?
-  let ty := mkOptionalNode $ ← trOptType (← parse (tk ":" *> pExpr)?)
+  let ty ← (← parse (tk ":" *> pExpr)?).mapM (trExpr ·)
   match ← parse (tk ":=" *> pExpr)? with
   | some pr =>
-    `(tactic| let $(mkIdent <| h.getD `this) : $ty:term := $(← trExpr pr))
+    -- FIXME: this is a keyword now
+    `(tactic| let $(mkIdent <| h.getD `this') $[: $ty:term]? := $(← trExpr pr))
   | none =>
-    `(tactic| let $[$(h.map mkIdent):ident]? : $ty:term)
+    `(tactic| let $[$(h.map mkIdent):ident]? $[: $ty:term]?)
 
 @[trTactic exactI] def trExactI : TacM Syntax := do
   `(tactic| exact $(← trExpr (← parse pExpr)))
