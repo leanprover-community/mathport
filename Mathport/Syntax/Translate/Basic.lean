@@ -708,6 +708,7 @@ inductive TrAttr
   | add : Syntax → TrAttr
   | prio : Expr → TrAttr
   | parsingOnly : TrAttr
+  | irreducible : TrAttr
   | derive : Array Name → TrAttr
 
 def trAttr (prio : Option Expr) : Attribute → M (Option TrAttr)
@@ -724,6 +725,7 @@ def trAttr (prio : Option Expr) : Attribute → M (Option TrAttr)
       return none
     TrAttr.del (← `(Parser.Command.eraseAttr| -$(← mkIdentI n)))
   | AST3.Attribute.add `parsing_only none => TrAttr.parsingOnly
+  | AST3.Attribute.add `irreducible none => TrAttr.irreducible
   | AST3.Attribute.add n arg => do
     let attr ← match n, arg with
     | `class,         none => `(attr| class)
@@ -770,6 +772,7 @@ def trAttrKind : AttributeKind → M Syntax
 structure SpecialAttrs where
   prio : Option AST3.Expr := none
   parsingOnly := false
+  irreducible := false
   derive : Array Name := #[]
 
 def AttrState := SpecialAttrs × Array Syntax
@@ -785,6 +788,7 @@ def trAttrInstance (attr : Attribute) (allowDel := false)
     modify fun s => { s with 2 := s.2.push stx }
   | some (TrAttr.prio prio) => modify fun s => { s with 1.prio := prio }
   | some TrAttr.parsingOnly => modify fun s => { s with 1.parsingOnly := true }
+  | some TrAttr.irreducible => modify fun s => { s with 1.irreducible := true }
   | some (TrAttr.derive ns) => modify fun s => { s with 1.derive := s.1.derive ++ ns }
   | none => pure ()
 
@@ -919,6 +923,10 @@ def trDecl (dk : DeclKind) (mods : Modifiers) (n : Option (Spanned Name)) (us : 
   | DeclVal.expr e => do `(Parser.Command.declValSimple| := $(← trExpr e))
   | DeclVal.eqns #[] => `(Parser.Command.declValSimple| := fun.)
   | DeclVal.eqns arms => do `(Parser.Command.declValEqns| $[$(← arms.mapM trArm):matchAlt]*)
+  if s.irreducible then
+    unless dk matches DeclKind.def do throw! "unsupported irreducible non-definition"
+    unless s.derive.isEmpty do throw! "unsupported: @[derive, irreducible] def"
+    return ← `(command| $mods:declModifiers irreducible_def $id.get! $(← sig false) $val)
   match dk with
   | DeclKind.abbrev => do
     unless s.derive.isEmpty do throw! "unsupported: @[derive] abbrev"
