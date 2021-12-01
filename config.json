@@ -3,7 +3,11 @@
         "outRoot": "Outputs",
         "packages": {
             "Leanbin": "PreData/Leanbin",
-            "Mathbin": "PreData/Mathbin/src"
+            "Mathbin": "PreData/Mathbin/src",
+            "Mathbin_test": "PreData/Mathbin/test",
+            "Mathbin_archive": "PreData/Mathbin/archive",
+            "Mathbin_counterexample": "PreData/Mathbin/counterexample",
+            "Mathbin_roadmap": "PreData/Mathbin/roadmap"
         }
     },
     "stringsToKeep": [

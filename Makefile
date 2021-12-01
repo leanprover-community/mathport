@@ -70,6 +70,10 @@ mathbin-predata: mathbin-source
 	find sources/mathlib -name "*.olean" -delete # ast only exported when oleans not present
 	# By changing into the directory, `elan` automatically dispatches to the correct binary.
 	cd sources/mathlib && lean --make --recursive --ast --tlean src
+	cd sources/mathlib && lean --make --recursive --ast --tlean test
+	cd sources/mathlib && lean --make --recursive --ast --tlean archive
+	cd sources/mathlib && lean --make --recursive --ast --tlean counterexample
+	cd sources/mathlib && lean --make --recursive --ast --tlean roadmap
 	cp -r sources/mathlib PreData/Mathbin
 	find PreData/ -name "*.lean" -delete
 	find PreData/ -name "*.olean" -delete
@@ -93,7 +97,11 @@ port-lean: init-logs build
 	cp lean-toolchain Lean4Packages/lean3port/
 
 port-mathbin: port-lean
-	LEAN_PATH=$(MATHPORT_LIB):$(MATHLIB4_LIB):$(LEANBIN_LIB):$(MATHBIN_LIB) ./build/bin/mathport config.json Leanbin::all Mathbin::all >> Logs/mathport.out 2> >(tee -a Logs/mathport.err >&2)
+	LEAN_PATH=$(MATHPORT_LIB):$(MATHLIB4_LIB):$(LEANBIN_LIB):$(MATHBIN_LIB) ./build/bin/mathport config.json Leanbin::all Mathbin::all                             >> Logs/mathport.out 2> >(tee -a Logs/mathport.err >&2)
+	LEAN_PATH=$(MATHPORT_LIB):$(MATHLIB4_LIB):$(LEANBIN_LIB):$(MATHBIN_LIB) ./build/bin/mathport config.json Leanbin::all Mathbin::all Mathbin_test::all           >> Logs/mathport.out 2> >(tee -a Logs/mathport.err >&2)
+	LEAN_PATH=$(MATHPORT_LIB):$(MATHLIB4_LIB):$(LEANBIN_LIB):$(MATHBIN_LIB) ./build/bin/mathport config.json Leanbin::all Mathbin::all Mathbin_archive::all        >> Logs/mathport.out 2> >(tee -a Logs/mathport.err >&2)
+	LEAN_PATH=$(MATHPORT_LIB):$(MATHLIB4_LIB):$(LEANBIN_LIB):$(MATHBIN_LIB) ./build/bin/mathport config.json Leanbin::all Mathbin::all Mathbin_counterexample::all >> Logs/mathport.out 2> >(tee -a Logs/mathport.err >&2)
+	LEAN_PATH=$(MATHPORT_LIB):$(MATHLIB4_LIB):$(LEANBIN_LIB):$(MATHBIN_LIB) ./build/bin/mathport config.json Leanbin::all Mathbin::all Mathbin_roadmap::all        >> Logs/mathport.out 2> >(tee -a Logs/mathport.err >&2)
 	cp lean-toolchain Lean4Packages/mathlib3port/
 
 test-import-leanbin:
