@@ -104,10 +104,12 @@ test-import-mathbin:
 
 tarballs:
 	mkdir -p Outputs/src/leanbin Outputs/src/mathbin Outputs/oleans/leanbin Outputs/oleans/mathbin
+	tar -czvf lean3-predata.tar.gz -C PreData/Leanbin .
 	tar -czvf lean3-synport.tar.gz -C Outputs/src/leanbin .
 	tar -czvf lean3-binport.tar.gz -C Outputs/oleans/leanbin .
+	tar -czvf mathlib3-predata.tar.gz -C PreData/Mathbin .
 	tar -czvf mathlib3-synport.tar.gz -C Outputs/src/mathbin .
 	tar -czvf mathlib3-binport.tar.gz -C Outputs/oleans/mathbin .
 
 rm-tarballs:
-	rm lean3-synport.tar.gz lean3-binport.tar.gz mathlib3-synport.tar.gz mathlib3-binport.tar.gz
+	rm lean3-predata.tar.gz lean3-synport.tar.gz lean3-binport.tar.gz mathlib3-predata.tar.gz mathlib3-synport.tar.gz mathlib3-binport.tar.gz

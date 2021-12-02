@@ -76,8 +76,10 @@ jobs:
           prerelease: true
           tag_name: ${{ env.TAG }}-${{ env.SHORT_SHA }}
           files: |
+            lean3-predata.tar.gz
             lean3-binport.tar.gz
             lean3-synport.tar.gz
+            mathlib3-predata.tar.gz
             mathlib3-binport.tar.gz
             mathlib3-synport.tar.gz
         env:
@@ -90,8 +92,10 @@ jobs:
           prerelease: true
           tag_name: ${{ env.TAG }}
           files: |
+            lean3-predata.tar.gz
             lean3-binport.tar.gz
             lean3-synport.tar.gz
+            mathlib3-predata.tar.gz
             mathlib3-binport.tar.gz
             mathlib3-synport.tar.gz
         env:
