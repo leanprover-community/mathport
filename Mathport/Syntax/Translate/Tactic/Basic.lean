@@ -26,7 +26,7 @@ abbrev TacM := ReaderT Context $ StateT State M
 
 def TacM.run (m : TacM α) (args : Array (Spanned Param)) : M α := do
   let (a, ⟨n⟩) ← (m ⟨args⟩).run {}
-  unless args.size = n do throw! "unsupported: too many args"
+  unless args.size = n do warn! "unsupported: too many args"
   a
 
 def next? : TacM (Option Param) := do
@@ -38,7 +38,7 @@ def next? : TacM (Option Param) := do
   else none
 
 def next! : TacM Param := do
-  match ← next? with | some p => p | none => throw! "missing argument"
+  match ← next? with | some p => p | none => warn! "missing argument"
 
 def parse (p : Parser.ParserM α) : TacM α := do
   let Param.parse _ args ← next! | throw! "expecting parse arg"
@@ -48,18 +48,18 @@ def expr? : TacM (Option AST3.Expr) := do
   match ← next? with
   | none => none
   | some (Param.expr e) => some e.kind
-  | _ => throw! "parse error"
+  | _ => warn! "parse error"
 
 def expr! : TacM AST3.Expr := do
-  match ← expr? with | some p => p | none => throw! "missing argument"
+  match ← expr? with | some p => p | none => warn! "missing argument"
 
 def itactic : TacM AST3.Block := do
-  let Param.block bl ← next! | throw! "expecting tactic arg"
+  let Param.block bl ← next! | warn! "expecting tactic arg"
   bl
 
 def withNoMods (tac : TacM α) : Modifiers → TacM α
   | #[] => tac
-  | _ => throw! "expecting no modifiers"
+  | _ => warn! "expecting no modifiers" | tac
 
 def tagAttr (n : Name) : TacM Syntax := parse () *> mkSimpleAttr n
 
@@ -68,7 +68,7 @@ scoped instance : Coe (TacM α) (Modifiers → TacM α) := ⟨withNoMods⟩
 def withDocString (tac : Option String → TacM α) : Modifiers → TacM α
   | #[] => tac none
   | #[⟨_, Modifier.doc s⟩] => tac (some s)
-  | _ => throw! "unsupported modifiers in user command"
+  | _ => warn! "unsupported modifiers in user command" | tac none
 
 scoped instance : Coe (Option String → TacM α) (Modifiers → TacM α) := ⟨withDocString⟩
 scoped instance : Coe (α → TacM Syntax) (α → TacM Unit) := ⟨fun tac mods => do push (← tac mods)⟩
