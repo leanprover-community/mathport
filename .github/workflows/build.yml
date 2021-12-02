@@ -25,6 +25,12 @@ jobs:
     name: Build
     runs-on: mathport
     steps:
+      - name: clean up working directory
+        run: rm -rf *
+
+      - name: clean up elan
+        run: rm -rf $HOME/.elan
+
       - name: install elan
         run: |
           set -o pipefail
