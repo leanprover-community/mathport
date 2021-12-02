@@ -101,7 +101,6 @@ port-mathbin: port-lean
 	LEAN_PATH=$(MATHPORT_LIB):$(MATHLIB4_LIB):$(LEANBIN_LIB):$(MATHBIN_LIB) ./build/bin/mathport config.json Leanbin::all Mathbin::all Mathbin_test::all           >> Logs/mathport.out 2> >(tee -a Logs/mathport.err >&2)
 	LEAN_PATH=$(MATHPORT_LIB):$(MATHLIB4_LIB):$(LEANBIN_LIB):$(MATHBIN_LIB) ./build/bin/mathport config.json Leanbin::all Mathbin::all Mathbin_archive::all        >> Logs/mathport.out 2> >(tee -a Logs/mathport.err >&2)
 	LEAN_PATH=$(MATHPORT_LIB):$(MATHLIB4_LIB):$(LEANBIN_LIB):$(MATHBIN_LIB) ./build/bin/mathport config.json Leanbin::all Mathbin::all Mathbin_counterexample::all >> Logs/mathport.out 2> >(tee -a Logs/mathport.err >&2)
-	LEAN_PATH=$(MATHPORT_LIB):$(MATHLIB4_LIB):$(LEANBIN_LIB):$(MATHBIN_LIB) ./build/bin/mathport config.json Leanbin::all Mathbin::all Mathbin_roadmap::all        >> Logs/mathport.out 2> >(tee -a Logs/mathport.err >&2)
 	cp lean-toolchain Lean4Packages/mathlib3port/
 
 test-import-leanbin:
