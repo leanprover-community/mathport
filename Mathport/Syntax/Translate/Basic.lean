@@ -135,13 +135,21 @@ def logComment (comment : Format) : M Unit :=
 
 private def checkColGt := Lean.Parser.checkColGt
 
+class Warnable (α) where
+  warn : String → α
+
+instance [Inhabited α] : Warnable α where
+  warn := arbitrary
+
+instance (priority := high) [Monad m] : Warnable <| m Syntax where
+  warn s := Syntax.mkStrLit s
+
 open Lean Elab in
 elab:max "warn!" interpStr:interpolatedStr(term) or:(checkColGt "|" term)? : term <= ty => do
   let pos ← Elab.getRefPosition
   let head := Syntax.mkStrLit $ mkErrorStringWithPos (← read).fileName pos ""
   let str ← Elab.liftMacroM <| interpStr.expandInterpolatedStr (← `(String)) (← `(toString))
-  let or ← if or.getNumArgs == 2 then or.getArg 1 else
-    `(by first | exact Syntax.mkStrLit msg | exact arbitrary)
+  let or ← if or.getNumArgs == 2 then or.getArg 1 else `(Warnable.warn str)
   (Term.elabTerm · ty) <|<- `(do
     let str : String := $head ++ $str
     dbg_trace str
