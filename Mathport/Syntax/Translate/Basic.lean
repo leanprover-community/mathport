@@ -572,7 +572,7 @@ def trNotation (n : Choice) (args : Array (Spanned Arg)) : M Syntax := do
   | Choice.one n => n
   | Choice.many ns =>
     if ns[1:].all (ns[0] == ·) then ns[0] else
-      warn! "unsupported: ambiguous notation"
+      warn! "unsupported: ambiguous notation" | ns[0]
   match ← getNotationEntry? n.getString!, args.map (·.kind) with
   | some ⟨_, _, NotationKind.const stx, _⟩, #[] => stx
   | some ⟨_, _, NotationKind.const stx, _⟩, _ => warn! "unsupported (impossible)"
@@ -606,7 +606,7 @@ def trInfixFn (n : Choice) (e : Option (Spanned Expr)) : M Syntax := do
   | Choice.one n => n
   | Choice.many ns =>
     if ns[1:].all (ns[0] == ·) then ns[0] else
-      warn! "unsupported: ambiguous notation"
+      warn! "unsupported: ambiguous notation" | ns[0]
   trBinary n mkCDot $ ← match e with
   | none => mkCDot
   | some e => trExpr e.kind

@@ -424,7 +424,7 @@ def trSimpAttrs (attrs : Array Name) : Syntax :=
 @[trTactic subst] def trSubst : TacM Syntax := do
   let n ← match (← parse pExpr).unparen with
   | AST3.Expr.ident n => n
-  | _ => warn! "unsupported"
+  | _ => warn! "unsupported: subst (term)"
   `(tactic| subst $(mkIdent n):ident)
 
 @[trTactic subst_vars] def trSubstVars : TacM Syntax := `(tactic| substVars)
@@ -581,7 +581,7 @@ def trSimpAttrs (attrs : Array Name) : Syntax :=
 @[trConv rewrite rw] def trRwConv : TacM Syntax := do
   let q ← liftM $ (← parse rwRules).mapM trRwRule
   if let some cfg ← expr? then
-    warn! "warning: unsupported: rw with cfg"
+    warn! "warning: unsupported: rw with cfg: {repr cfg}"
   `(conv| rw [$q,*])
 
 section
@@ -616,8 +616,8 @@ private partial def getStr : AST3.Expr → M String
   | Expr.notation n #[⟨_, Arg.expr s1⟩, ⟨_, Arg.expr s2⟩] => do
     if n.name == `«expr ++ » then
       pure $ (← getStr s1.unparen) ++ (← getStr s2.unparen)
-    else warn! "unsupported"
-  | _ => warn! "unsupported"
+    else warn! "unsupported: interpolated non string literal"
+  | _ => warn! "unsupported: interpolated non string literal"
 
 def trInterpolatedStr (f : Syntax → TacM Syntax := pure) : TacM Syntax := do
   let s ← getStr (← expr!).unparen
