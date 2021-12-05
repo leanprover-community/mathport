@@ -37,6 +37,11 @@ def parseTLeanImports (tlean : FilePath) : IO (Array Name) := do
   let nImports := tokens[1].toNat!
   let mut paths := #[]
   for i in [:nImports] do
-    if tokens[2+2*i+1] ≠ "-1" then throw $ IO.userError "found relative import!"
-    paths := paths.push $ tokens[2+2*i].toName
+    if tokens[2+2*i+1] ≠ "-1" then
+      -- This was previously an error,
+      -- but we would like to be able to port `test/`, which has relative imports.
+      -- TODO: find a better solution than simply dropping relative imports.
+      dbg_trace "warning: found relative import!"
+    else
+      paths := paths.push $ tokens[2+2*i].toName
   return paths

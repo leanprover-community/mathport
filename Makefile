@@ -3,11 +3,11 @@
 # This is not a "real" makefile, i.e. it does not detect dependencies between targets.
 
 ## Targets:
+# `build`: compile mathport
 # `mathbin-source`: clone mathlib3, and create `all.lean`
 # `lean3-source`: clone lean3, and create `all.lean` (run after `mathbin-source`, to get the right commit)
 # `lean3-predata`: create `.ast` and `.tlean` files from Lean3
 # `mathbin-predata`: create `.ast` and `.tlean` files from mathlib3
-# `build`: compile mathport
 # `port-lean`: run mathport on Lean3
 # `port-mathbin`: run mathport on mathlib3
 
@@ -38,7 +38,8 @@ mathbin-source:
 		cd sources && git clone https://github.com/leanprover-community/mathlib.git; \
 	fi
 	cd sources/mathlib && git clean -xfd && git checkout $(MATHBIN_COMMIT)
-	cd sources/mathlib && leanpkg configure && ./scripts/mk_all.sh
+	cd sources/mathlib && leanpkg configure && \
+	  ./scripts/mk_all.sh && ./scripts/mk_all.sh ../test && ./scripts/mk_all.sh ../archive && ./scripts/mk_all.sh ../counterexamples
 
 # Obtain the commit from (community edition) Lean 3 which mathlib is using, and create `all.lean`.
 lean3-source: mathbin-source
@@ -70,6 +71,9 @@ mathbin-predata: mathbin-source
 	find sources/mathlib -name "*.olean" -delete # ast only exported when oleans not present
 	# By changing into the directory, `elan` automatically dispatches to the correct binary.
 	cd sources/mathlib && lean --make --recursive --ast --tlean src
+	cd sources/mathlib && lean --make --recursive --ast --tlean test
+	cd sources/mathlib && lean --make --recursive --ast --tlean archive
+	cd sources/mathlib && lean --make --recursive --ast --tlean counterexamples
 	cp -r sources/mathlib PreData/Mathbin
 	find PreData/ -name "*.lean" -delete
 	find PreData/ -name "*.olean" -delete
@@ -93,7 +97,10 @@ port-lean: init-logs build
 	cp lean-toolchain Lean4Packages/lean3port/
 
 port-mathbin: port-lean
-	LEAN_PATH=$(MATHPORT_LIB):$(MATHLIB4_LIB):$(LEANBIN_LIB):$(MATHBIN_LIB) ./build/bin/mathport config.json Leanbin::all Mathbin::all >> Logs/mathport.out 2> >(tee -a Logs/mathport.err >&2)
+	LEAN_PATH=$(MATHPORT_LIB):$(MATHLIB4_LIB):$(LEANBIN_LIB):$(MATHBIN_LIB) ./build/bin/mathport config.json Leanbin::all Mathbin::all                              >> Logs/mathport.out 2> >(tee -a Logs/mathport.err >&2)
+	LEAN_PATH=$(MATHPORT_LIB):$(MATHLIB4_LIB):$(LEANBIN_LIB):$(MATHBIN_LIB) ./build/bin/mathport config.json Leanbin::all Mathbin::all Mathbin_test::all            >> Logs/mathport.out 2> >(tee -a Logs/mathport.err >&2)
+	LEAN_PATH=$(MATHPORT_LIB):$(MATHLIB4_LIB):$(LEANBIN_LIB):$(MATHBIN_LIB) ./build/bin/mathport config.json Leanbin::all Mathbin::all Mathbin_archive::all         >> Logs/mathport.out 2> >(tee -a Logs/mathport.err >&2)
+	LEAN_PATH=$(MATHPORT_LIB):$(MATHLIB4_LIB):$(LEANBIN_LIB):$(MATHBIN_LIB) ./build/bin/mathport config.json Leanbin::all Mathbin::all Mathbin_counterexamples::all >> Logs/mathport.out 2> >(tee -a Logs/mathport.err >&2)
 	cp lean-toolchain Lean4Packages/mathlib3port/
 
 test-import-leanbin:
