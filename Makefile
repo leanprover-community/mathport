@@ -3,11 +3,11 @@
 # This is not a "real" makefile, i.e. it does not detect dependencies between targets.
 
 ## Targets:
+# `build`: compile mathport
 # `mathbin-source`: clone mathlib3, and create `all.lean`
 # `lean3-source`: clone lean3, and create `all.lean` (run after `mathbin-source`, to get the right commit)
 # `lean3-predata`: create `.ast` and `.tlean` files from Lean3
 # `mathbin-predata`: create `.ast` and `.tlean` files from mathlib3
-# `build`: compile mathport
 # `port-lean`: run mathport on Lean3
 # `port-mathbin`: run mathport on mathlib3
 
@@ -38,7 +38,8 @@ mathbin-source:
 		cd sources && git clone https://github.com/leanprover-community/mathlib.git; \
 	fi
 	cd sources/mathlib && git clean -xfd && git checkout $(MATHBIN_COMMIT)
-	cd sources/mathlib && leanpkg configure && ./scripts/mk_all.sh
+	cd sources/mathlib && leanpkg configure && \
+	  ./scripts/mk_all.sh && scripts/mk_all.sh ../test && scripts/mk_all.sh ../archive && scripts/mk_all.sh ../counterexample
 
 # Obtain the commit from (community edition) Lean 3 which mathlib is using, and create `all.lean`.
 lean3-source: mathbin-source
@@ -73,7 +74,6 @@ mathbin-predata: mathbin-source
 	cd sources/mathlib && lean --make --recursive --ast --tlean test
 	cd sources/mathlib && lean --make --recursive --ast --tlean archive
 	cd sources/mathlib && lean --make --recursive --ast --tlean counterexample
-	cd sources/mathlib && lean --make --recursive --ast --tlean roadmap
 	cp -r sources/mathlib PreData/Mathbin
 	find PreData/ -name "*.lean" -delete
 	find PreData/ -name "*.olean" -delete
