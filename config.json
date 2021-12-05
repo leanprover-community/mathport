@@ -6,7 +6,7 @@
             "Mathbin": "PreData/Mathbin/src",
             "Mathbin_test": "PreData/Mathbin/test",
             "Mathbin_archive": "PreData/Mathbin/archive",
-            "Mathbin_counterexample": "PreData/Mathbin/counterexample"
+            "Mathbin_counterexamples": "PreData/Mathbin/counterexamples"
         }
     },
     "stringsToKeep": [
