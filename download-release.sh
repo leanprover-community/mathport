@@ -3,6 +3,12 @@
 
 RELEASE=$1    # e.g. nightly-2021-11-30
 
+if [ -z "$RELEASE" ]; then
+    echo "Usage: ./download-release.sh nightly-YYYY-MM-DD"
+    echo "See https://github.com/leanprover-community/mathport/releases for available releases"
+    exit 1
+fi
+
 curl -O -L https://github.com/leanprover-community/mathport/releases/download/$RELEASE/lean3-predata.tar.gz
 mkdir -p PreData/Leanbin/
 mv lean3-predata.tar.gz PreData/Leanbin/
