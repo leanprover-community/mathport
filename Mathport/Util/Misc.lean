@@ -6,7 +6,6 @@ Authors: Mario Carneiro, Daniel Selsam
 import Lean
 import Std.Data.HashMap
 import Std.Data.RBMap
-import Mathlib.Tactic.Lint
 
 def uncurry (f : α → β → γ) : α × β → γ
   | (x, y) => f x y
@@ -50,7 +49,7 @@ def InductiveType.replacePlaceholder (indType : InductiveType) (newName : Name) 
 where
   renameSelf (ctorType : Expr) := ctorType.replaceConstNames fun n => if n == selfPlaceholder then newName else none
 
-def InductiveType.updateNames (indType : InductiveType) (oldIndName newIndName : Name) : InductiveType := do
+def InductiveType.updateNames (indType : InductiveType) (oldIndName newIndName : Name) : InductiveType := Id.run do
   let map : HashMap Name Name := ({} : HashMap Name Name).insert oldIndName newIndName
   { indType with
     name  := newIndName,

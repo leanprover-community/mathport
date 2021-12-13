@@ -114,8 +114,8 @@ def getPrecedence? (tk : String) (kind : MixfixKind) : CommandElabM (Option Prec
 
 def Precedence.toSyntax : Precedence → Syntax
   | Precedence.nat n => Quote.quote n
-  | Precedence.max => do `(prec| arg)
-  | Precedence.maxPlus => do `(prec| max)
+  | Precedence.max => Id.run `(prec| arg)
+  | Precedence.maxPlus => Id.run `(prec| max)
 
 structure Context where
   pcfg : Path.Config
@@ -710,11 +710,12 @@ def trExpr' : Expr → M Syntax
     `({$(mkIdent x.kind) $[: $(← ty.mapM fun e => trExpr e.kind)]? // $(← trExpr p.kind)})
   | Expr.subtype true x none p => do `({$(mkIdent x.kind) | $(← trExpr p.kind)})
   | Expr.subtype true x (some ty) p => do
-    `({$(mkIdent x.kind) : $(← trExpr ty.kind) | $(← trExpr p.kind)})
+    `({ $(mkIdent x.kind):ident : $(← trExpr ty.kind):term | $(← trExpr p.kind):term })
   | Expr.sep x ty p => do
     `({$(mkIdent x.kind) ∈ $(← trExpr ty.kind) | $(← trExpr p.kind)})
-  | Expr.setReplacement e bis => do
-    `({$(← trExpr e.kind) | $[$(← trBinders {} bis):bracketedBinder]*})
+  | stx@(Expr.setReplacement e bis) => do
+    warn!"unsupported set replacement {repr stx}"
+    -- `({$(← trExpr e.kind) | $[$(← trBinders {} bis):bracketedBinder]*})
   | Expr.structInst _ src flds srcs catchall => do
     let srcs := match src with | none => srcs | some src => #[src] ++ srcs
     let srcs : Array _ ← srcs.mapM fun s => trExpr s.kind

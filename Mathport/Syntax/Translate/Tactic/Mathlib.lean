@@ -803,7 +803,7 @@ def trUsingList (args : Array AST3.Expr) : M Syntax :=
   let e ← liftM $ (← parse (tk "using" *> pExpr)?).mapM trExpr
   let cfg := mkConfigStx $ parseSimpConfig (← expr?) |>.bind quoteSimpConfig
   mkNode tac #[mkAtom s, cfg, o, hs, trSimpAttrs attrs,
-    mkOptionalNode' e fun e => do #[mkAtom "using", e]]
+    mkOptionalNode' e fun e => #[mkAtom "using", e]]
 
 -- # tactic.simps
 @[trUserAttr notation_class] def trNotationClassAttr : TacM Syntax := do
@@ -816,19 +816,19 @@ def trSimpsRule : Sum (Name × Name) Name × Bool → M Syntax
   | (arg, pfx) => do
     let stx ← match arg with
     | Sum.inl (a, b) => do
-      mkNode ``Parser.Command.simpsRule.rename #[← mkIdentF a, mkAtom "→", ← mkIdentF b]
+      mkNode ``Command.simpsRule.rename #[← mkIdentF a, mkAtom "→", ← mkIdentF b]
     | Sum.inr a => do
-      mkNode ``Parser.Command.simpsRule.erase #[mkAtom "-", ← mkIdentF a]
-    mkNode ``Parser.Command.simpsRule #[stx,
+      mkNode ``Command.simpsRule.erase #[mkAtom "-", ← mkIdentF a]
+    mkNode ``Command.simpsRule #[stx,
       @mkNullNode $ if pfx then #[mkAtom "as_prefix"] else #[]]
 
 @[trUserCmd «initialize_simps_projections»] def trInitializeSimpsProjections : TacM Syntax := do
   let (trc, args) ← parse $ do (← (tk "?")?, ← (do (← ident, ← simpsRules))*)
   let (tac, s) := match trc with
-  | none => (``Parser.Command.initializeSimpsProjections, "initialize_simps_projections")
-  | some _ => (``Parser.Command.initializeSimpsProjections?, "initialize_simps_projections?")
+  | none => (``Command.initializeSimpsProjections, "initialize_simps_projections")
+  | some _ => (``Command.initializeSimpsProjections?, "initialize_simps_projections?")
   mkNode tac #[mkAtom s, mkNullNode $ ← liftM (m := M) $ args.mapM fun (n, rules) => do
-    mkNode ``Parser.Command.simpsProj #[← mkIdentF n,
+    mkNode ``Command.simpsProj #[← mkIdentF n,
       mkNullNode $ ← match rules with
       | #[] => #[]
       | _ => do #[mkAtom "(", (mkAtom ",").mkSep $ ← rules.mapM trSimpsRule, mkAtom ")"]]]
@@ -876,7 +876,7 @@ def trSimpsRule : Sum (Name × Name) Name × Bool → M Syntax
   let e ← liftM $ (← parse (tk "using" *> pExpr)?).mapM trExpr
   let cfg := mkConfigStx $ parseSimpConfig (← parse (structInst)?) |>.bind quoteSimpConfig
   mkNode tac #[mkAtom s, cfg, o, hs, trSimpAttrs attrs,
-    mkOptionalNode' e fun e => do #[mkAtom "using", e]]
+    mkOptionalNode' e fun e => #[mkAtom "using", e]]
 
 @[trTactic squeeze_dsimp] def trSqueezeDSimp : TacM Syntax := do
   let (tac, s) := match ← parse () *> parse (tk "?")?, ← parse (tk "!")? with

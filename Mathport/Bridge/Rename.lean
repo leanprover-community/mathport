@@ -35,7 +35,7 @@ initialize mathportFieldNameExtension : SimplePersistentEnvExtension (Name × Na
     addImportedFn := fun es => mkStateFromImportedEntries FieldNameMap.insert {} es
   }
 
-def getFieldNameMap (env : Environment) : FieldNameMap := do
+def getFieldNameMap (env : Environment) : FieldNameMap :=
   mathportFieldNameExtension.getState env
 
 def addPossibleFieldName (n3 n4 : Name) : CoreM Unit := do

@@ -92,7 +92,7 @@ open Lean.Elab.Tactic in
 def Location.ofOption (l : Array (Option Name)) : Location :=
   let (hs, ty) := l.foldl (init := (#[], false)) fun
     | (hs, ty), none => (hs, true)
-    | (hs, ty), some n => (hs.push n, ty)
+    | (hs, ty), some n => (hs.push (mkIdent n), ty)
   Location.targets hs ty
 
 open Lean.Elab.Tactic in
