@@ -29,7 +29,7 @@ structure Path where
   mod3    : Name
   deriving Inhabited, FromJson, BEq, Hashable, Repr
 
-def Path.toLean3 (cfg : Path.Config) (p : Path) (suffix : String) : FilePath := do
+def Path.toLean3 (cfg : Path.Config) (p : Path) (suffix : String) : FilePath :=
   let l3root := cfg.packages.find! p.package
   let path := l3root / p.mod3.toFilePath
   ⟨path.toString ++ suffix⟩
@@ -37,13 +37,13 @@ def Path.toLean3 (cfg : Path.Config) (p : Path) (suffix : String) : FilePath := 
 def Path.mod4 (p : Path) : Name :=
   p.mod3.mapStrings String.snake2pascal
 
-def Path.toLean4src (cfg : Path.Config) (p : Path) : FilePath := do
+def Path.toLean4src (cfg : Path.Config) (p : Path) : FilePath :=
   -- Lib4/lean3/Lean3.lean
   -- Lib4/mathbin/Mathbin.lean
   let path := cfg.outRoot / (FilePath.mk "src") / (FilePath.mk p.package.decapitalize) / (FilePath.mk p.package) / p.mod4.toFilePath
   ⟨path.toString ++ ".lean"⟩
 
-def Path.toLean4olean (cfg : Path.Config) (p : Path) : FilePath := do
+def Path.toLean4olean (cfg : Path.Config) (p : Path) : FilePath :=
   let path := cfg.outRoot / (FilePath.mk "oleans") / (FilePath.mk p.package.decapitalize) / (FilePath.mk p.package) / p.mod4.toFilePath
   ⟨path.toString ++ ".olean"⟩
 

@@ -19,7 +19,7 @@ structure HBinInfo where
   hName    : Name
   instName : Name
 
-def hBinMap : HashMap Name HBinInfo := do
+def hBinMap : HashMap Name HBinInfo := Id.run do
   let mut m : HashMap Name HBinInfo := {}
   m := m.insert `Add.add ⟨`HAdd.hAdd, `instHAdd⟩
   m := m.insert `Sub.sub ⟨`HSub.hSub, `instHSub⟩

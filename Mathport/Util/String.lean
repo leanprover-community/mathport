@@ -5,7 +5,7 @@ Authors: Daniel Selsam
 -/
 namespace String
 
-def snake2pascalCamel (snake : String) (lc : Bool) : String := do
+def snake2pascalCamel (snake : String) (lc : Bool) : String := Id.run do
   let mut pascal := join (snake.splitOn "_" |>.map capitalize)
   if lc then pascal := decapitalize pascal
   if snake.startsWith "_" then pascal := "_" ++ pascal
@@ -23,7 +23,7 @@ inductive CapsKind
   | camel
   | pascal
 
-def getCapsKind (snake : String) : CapsKind := do
+def getCapsKind (snake : String) : CapsKind := Id.run do
   let mut s := snake
   let startPos := if s.startsWith "_" then 1 else 0
   let stopPos  := if s.endsWith "_" then s.length - 1 else s.length

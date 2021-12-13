@@ -892,7 +892,7 @@ def buildLevel : RawLevel → Level
 
 variable (exprs : Array Expr)
 
-def buildLevels (ls : Array RawLevel) : Array Level := do
+def buildLevels (ls : Array RawLevel) : Array Level := Id.run do
   let mut out := #[]
   for l in ls do
     let l' := buildLevel out l
@@ -971,7 +971,7 @@ def RawExpr.build : RawExpr → Expr
   | perm_ac args => Expr.perm_ac exprs[args[0]] exprs[args[1]] exprs[args[2]] exprs[args[3]]
   | cc_proof args => Expr.cc_proof exprs[args[0]] exprs[args[1]]
 
-def buildExprs (es : Array (Option RawExpr)) : Array Expr := do
+def buildExprs (es : Array (Option RawExpr)) : Array Expr := Id.run do
   let mut out := #[]
   for e in es do
     let e' : Expr := match e with

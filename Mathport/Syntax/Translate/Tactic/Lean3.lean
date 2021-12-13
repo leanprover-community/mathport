@@ -19,7 +19,7 @@ def trLoc (loc : Location) : M (Option Syntax) := do
     | Location.targets #[] true => none
     | Location.targets hs goal =>
       some $ mkNode ``Parser.Tactic.locationHyp #[
-        mkNullNode $ hs.map mkIdent,
+        mkNullNode hs,
         mkOptionalNode $ if goal then mkAtom "⊢" else none]
   loc.map fun stx => mkNode ``Parser.Tactic.location #[mkAtom "at", stx]
 
@@ -39,12 +39,11 @@ def trLoc (loc : Location) : M (Option Syntax) := do
 @[trTactic introv] def trIntrov : TacM Syntax := do
   `(tactic| introv $((← parse ident_*).map trBinderIdent)*)
 
-def trRenameArg : Name × Name → M Syntax
-  | (x, y) => mkNode ``Parser.Tactic.renameArg #[mkIdent x, mkAtom "=>", mkIdent y]
-
 @[trTactic rename] def trRename : TacM Syntax := do
   let renames ← parse renameArgs
-  `(tactic| rename' $(← (renames.mapM trRenameArg : M _)),*)
+  let as := renames.map fun (a, b) => mkIdent a
+  let bs := renames.map fun (a, b) => mkIdent b
+  `(tactic| rename' $[$as => $bs],*)
 
 @[trTactic apply] def trApply : TacM Syntax := do `(tactic| apply $(← trExpr (← parse pExpr)))
 
@@ -82,7 +81,7 @@ def trRenameArg : Name × Name → M Syntax
   `(tactic| exacts [$(← liftM $ (← parse pExprListOrTExpr).mapM trExpr),*])
 
 @[trTactic revert] def trRevert : TacM Syntax := do
-  `(tactic| revert $((← parse ident*).map mkIdent)*)
+  `(tactic| revert $[$((← parse ident*).map mkIdent)]*)
 
 @[trTactic to_expr'] def trToExpr' : TacM Syntax := do
   `(tactic| toExpr' $(← trExpr (← parse pExpr)))
@@ -125,7 +124,7 @@ def trRwArgs : TacM (Array Syntax × Option Syntax) := do
   | #[] => none
   | ids => some (ids.map mkIdent)
   match hp, ids with
-  | none, #[] => `(tactic| induction $e $[using $rec_name]? $[generalizing $revert*]?)
+  | none, #[] => `(tactic| induction $e $[using $rec_name]? $[generalizing $[$revert]*]?)
   | _, _ =>
     `(tactic| induction' $[$(hp.map mkIdent) :]? $e $[using $rec_name]?
         with $(ids.map trBinderIdent)* $[generalizing $revert*]?)
@@ -291,7 +290,7 @@ where
 def parseSimpConfig : Option AST3.Expr → Option Meta.Simp.Config
   | none => none
   | some (AST3.Expr.«{}») => none
-  | some (AST3.Expr.structInst _ none flds #[] false) => do
+  | some (AST3.Expr.structInst _ none flds #[] false) => Id.run do
     let mut cfg : Meta.Simp.Config := {}
     for (⟨_, n⟩, ⟨_, e⟩) in flds do
       match n, e with
@@ -313,7 +312,7 @@ where
   | AST3.Expr.const _ ⟨_, `ff⟩ _, a, f => f a false
   | _, a, _ => a
 
-def quoteSimpConfig (cfg : Meta.Simp.Config) : Option Syntax := do
+def quoteSimpConfig (cfg : Meta.Simp.Config) : Option Syntax := Id.run do
   if cfg == {} then return none
   let a := #[]
     |> push cfg {} `maxSteps (·.maxSteps)
@@ -330,9 +329,9 @@ def quoteSimpConfig (cfg : Meta.Simp.Config) : Option Syntax := do
   `({ $[$(a.pop):structInstField ,]* $(a.back):structInstField })
 where
   push {β} [BEq β] [Quote β]
-    {α} (a b : α) (n : Name) (f : α → β) (args : Array Syntax) : Array Syntax := do
+    {α} (a b : α) (n : Name) (f : α → β) (args : Array Syntax) : Array Syntax := Id.run do
     if f a == f b then args else
-      args.push do `(Parser.Term.structInstField| $(mkIdent n):ident := $(Quote.quote (f a)))
+      args.push <| Id.run `(Parser.Term.structInstField| $(mkIdent n):ident := $(Quote.quote (f a)))
 
 def trSimpLemma (e : AST3.Expr) : M Syntax := do
   mkNode ``Parser.Tactic.simpLemma #[mkNullNode, ← trExpr e]
@@ -432,7 +431,7 @@ def trSimpAttrs (attrs : Array Name) : Syntax :=
 @[trTactic clear] def trClear : TacM Syntax := do
   match ← parse ident* with
   | #[] => `(tactic| skip)
-  | ids => `(tactic| clear $(ids.map mkIdent)*)
+  | ids => `(tactic| clear $[$(ids.map mkIdent)]*)
 
 @[trTactic dunfold] def trDUnfold : TacM Syntax := do
   let cs ← parse ident*
@@ -555,14 +554,15 @@ def trSimpAttrs (attrs : Array Name) : Syntax :=
 
 @[trConv funext] def trFunextConv : TacM Syntax := `(conv| ext)
 
-@[trConv to_lhs] def trToLHSConv : TacM Syntax := `(conv| toLHS)
+@[trConv to_lhs] def trToLHSConv : TacM Syntax := `(conv| lhs)
 
-@[trConv to_rhs] def trToRHSConv : TacM Syntax := `(conv| toRHS)
+@[trConv to_rhs] def trToRHSConv : TacM Syntax := `(conv| rhs)
 
 @[trConv done] def trDoneConv : TacM Syntax := `(conv| done)
 
 @[trConv find] def trFindConv : TacM Syntax := do
-  `(conv| find $(← trExpr (← parse pExpr)) => $(← trBlock (← itactic)):tacticSeq)
+  -- TODO: parse conv itactic FIXME
+  `(conv| find $(← trExpr (← parse pExpr)) => $(← trBlock (← itactic)):convSeq)
 
 @[trConv «for»] def trForConv : TacM Syntax := do
   `(conv| for $(← trExpr (← parse pExpr))
@@ -574,7 +574,8 @@ def trSimpAttrs (attrs : Array Name) : Syntax :=
   let hs ← trSimpArgs (← parse simpArgList)
   let attrs := (← parse (tk "with" *> ident*)?).getD #[]
   let cfg := mkConfigStx $ parseSimpConfig (← expr?) |>.bind quoteSimpConfig
-  mkNode ``Parser.Tactic.Conv.simp' #[mkAtom "simp", cfg, o, trSimpList hs, trSimpAttrs attrs]
+  -- FIXME TODO: probably very very wrong
+  mkNode ``Parser.Tactic.Conv.simp #[mkAtom "simp", cfg, o, trSimpList hs, trSimpAttrs attrs]
 
 @[trConv guard_lhs] def trGuardLHSConv : TacM Syntax := do
   `(conv| guardLHS =ₐ $(← trExpr (← parse pExpr)))

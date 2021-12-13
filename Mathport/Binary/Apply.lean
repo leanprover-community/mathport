@@ -190,7 +190,7 @@ where
       }
     | _, _ => throwError "unexpected projName with num field: {projName}"
 
-  getSubobject? (numParams : Nat) (type : Expr) (fieldName3 : String) : Option Name := do
+  getSubobject? (numParams : Nat) (type : Expr) (fieldName3 : String) : Option Name := Id.run do
     -- Note: we do not translate binder names, so we need the *lean3* fieldName here
     let candidateName := "_" ++ fieldName3
     let mut type := type

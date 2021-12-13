@@ -1096,7 +1096,7 @@ instance : Repr Command where reprPrec c _ := match c with
 
 def Notation.name (sp : Char) (f : PrecSymbol → String) (withTerm : Bool) (start : String) :
   Notation → String
-| Notation.notation lits _ => do
+| Notation.notation lits _ => Id.run do
   let mut s := start
   for ⟨_, lit⟩ in lits do
     match lit with
