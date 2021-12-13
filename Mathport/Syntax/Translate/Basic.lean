@@ -1159,9 +1159,19 @@ where
         mkAtom ":", mkAtom "(", mkAtom "scoped",
         mkIdent p, mkAtom "=>", ← trExpr e, mkAtom ")"]]]
 
+private def addSpaceBeforeBinders (lits : Array AST3.Literal) : Array AST3.Literal := Id.run do
+  let mut lits := lits
+  for i in [1:lits.size] do
+    if lits[i] matches AST3.Literal.binder .. || lits[i] matches AST3.Literal.binders .. then
+      if let AST3.Literal.sym (⟨s, Symbol.quoted tk⟩, prec) := lits[i-1] then
+        if !tk.endsWith " " then
+          lits := lits.set! (i-1) <| AST3.Literal.sym (⟨s, Symbol.quoted (tk ++ " ")⟩, prec)
+  lits
+
 private def trNotation3 (kind : Syntax) (prio p : Option Syntax)
   (lits : Array (Spanned AST3.Literal)) : M (Option Syntax → Syntax → Id Syntax) := do
-  let lits ← lits.mapM fun lit => trNotation3Item lit.kind
+  let lits := addSpaceBeforeBinders <| lits.map (·.kind)
+  let lits ← lits.mapM trNotation3Item
   pure fun n e => `(command|
     $kind:attrKind notation3$[:$p]? $[$n:namedName]? $[$prio:namedPrio]? $lits* => $e)
 
