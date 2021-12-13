@@ -713,8 +713,8 @@ def trExpr' : Expr → M Syntax
     `({ $(mkIdent x.kind):ident : $(← trExpr ty.kind):term | $(← trExpr p.kind):term })
   | Expr.sep x ty p => do
     `({$(mkIdent x.kind) ∈ $(← trExpr ty.kind) | $(← trExpr p.kind)})
-  | Expr.setReplacement e bis => do
-    `(sorry) -- TODO
+  | stx@(Expr.setReplacement e bis) => do
+    warn!"unsupported set replacement {repr stx}"
     -- `({$(← trExpr e.kind) | $[$(← trBinders {} bis):bracketedBinder]*})
   | Expr.structInst _ src flds srcs catchall => do
     let srcs := match src with | none => srcs | some src => #[src] ++ srcs
