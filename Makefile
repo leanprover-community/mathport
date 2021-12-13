@@ -1,15 +1,23 @@
 ### Makefile for mathport
 
-# This is not a "real" makefile, i.e. it does not detect dependencies between targets.
+# This is not a "real" makefile, i.e. it does not support partial compilation.
 
 ## Targets:
-# `mathbin-source`: clone mathlib3, and create `all.lean`
-# `lean3-source`: clone lean3, and create `all.lean` (run after `mathbin-source`, to get the right commit)
-# `lean3-predata`: create `.ast` and `.tlean` files from Lean3
-# `mathbin-predata`: create `.ast` and `.tlean` files from mathlib3
-# `build`: compile mathport
-# `port-lean`: run mathport on Lean3
-# `port-mathbin`: run mathport on mathlib3
+# You will need to run each of the following steps in sequence.
+#
+# * `build`: compile mathport
+# * `source`: clone local copies of lean3 and mathlib3, and some minor preparation
+# * `predata`: create `.ast` and `.tlean` files from the sources
+# * `port`: run mathport on lean3 and mathlib3
+#
+# See also `download-release.sh`, which can be used to download artifacts for
+# the `predata` and `port` targets.
+#
+# If you have already done a complete run,
+# or `make build source` followed by running `download-release.sh`
+# you can also use the `make TARGET=Data.Nat.Bitwise port-mathbin-single` target
+# (similarly for `port-lean-single`) to run mathport on a single file.
+# This is useful if you are testing a change to mathport.
 
 ## Prerequisites:
 # curl, git, cmake, elan, python3
@@ -25,13 +33,13 @@ SHELL := bash   # so we can use process redirection
 
 all:
 
-unport:
-	rm -rf Outputs/* Logs/*
+build:
+	lake build
 
 # Select which commit of mathlib3 to use.
 MATHBIN_COMMIT=master
 
-# Obtain the requested commit from `mathlib`, and create `all.lean`
+# Clone mathlib3 and create `all.lean`.
 mathbin-source:
 	mkdir -p sources
 	if [ ! -d "sources/mathlib" ]; then \
@@ -40,7 +48,10 @@ mathbin-source:
 	cd sources/mathlib && git clean -xfd && git checkout $(MATHBIN_COMMIT)
 	cd sources/mathlib && leanpkg configure && ./scripts/mk_all.sh
 
-# Obtain the commit from (community edition) Lean 3 which mathlib is using, and create `all.lean`.
+# Clone Lean 3, and some preparatory work:
+# * Obtain the commit from (community edition) Lean 3 which mathlib is using
+# * Run `cmake` to generate `version.lean`
+# * Create `all.lean`.
 lean3-source: mathbin-source
 	mkdir -p sources
 	if [ ! -d "sources/lean" ]; then \
@@ -52,6 +63,8 @@ lean3-source: mathbin-source
 	cd sources/lean/build/release && cmake ../../src
 	# Create `all.lean`.
 	./mk_all.sh sources/lean/library/
+
+source: mathbin-source lean3-source
 
 # Build .ast and .tlean files for Lean 3
 lean3-predata: lean3-source
@@ -85,9 +98,6 @@ MATHPORT_LIB=./build/lib
 LEANBIN_LIB=./Outputs/oleans/leanbin
 MATHBIN_LIB=./Outputs/oleans/mathbin
 
-build:
-	lake build
-
 port-lean: init-logs build
 	LEAN_PATH=$(MATHPORT_LIB):$(MATHLIB4_LIB):$(LEANBIN_LIB) ./build/bin/mathport config.json Leanbin::all >> Logs/mathport.out 2> >(tee -a Logs/mathport.err >&2)
 	cp lean-toolchain Lean4Packages/lean3port/
@@ -95,6 +105,23 @@ port-lean: init-logs build
 port-mathbin: port-lean
 	LEAN_PATH=$(MATHPORT_LIB):$(MATHLIB4_LIB):$(LEANBIN_LIB):$(MATHBIN_LIB) ./build/bin/mathport config.json Leanbin::all Mathbin::all >> Logs/mathport.out 2> >(tee -a Logs/mathport.err >&2)
 	cp lean-toolchain Lean4Packages/mathlib3port/
+
+port: port-lean port-mathbin
+
+# You can use the next two targets to recompile a single file
+# (e.g. if you are testing a modification of mathport)
+# You'll need to have either run all the steps: `make build source predata port`,
+# or run `make build source` and `./download-re=lease.sh nightly-YYYY-MM-DD`.
+
+port-lean-single:
+	rm -f Outputs/src/leanbin/Leanbin/$(subst .,/,$(TARGET)).lean
+	rm -f Outputs/oleans/leanbin/Leanbin/$(subst .,/,$(TARGET)).olean
+	LEAN_PATH=$(MATHPORT_LIB):$(MATHLIB4_LIB):$(LEANBIN_LIB) ./build/bin/mathport config.json Leanbin::$(TARGET)
+
+port-mathbin-single:
+	rm -f Outputs/src/mathbin/Mathbin/$(subst .,/,$(TARGET)).lean
+	rm -f Outputs/oleans/mathbin/Mathbin/$(subst .,/,$(TARGET)).olean
+	LEAN_PATH=$(MATHPORT_LIB):$(MATHLIB4_LIB):$(LEANBIN_LIB):$(MATHBIN_LIB) ./build/bin/mathport config.json Mathbin::$(TARGET)
 
 test-import-leanbin:
 	cd Test/importLeanbin && rm -rf build lean_packages && lake build
@@ -104,10 +131,15 @@ test-import-mathbin:
 
 tarballs:
 	mkdir -p Outputs/src/leanbin Outputs/src/mathbin Outputs/oleans/leanbin Outputs/oleans/mathbin
+	tar -czvf lean3-predata.tar.gz -C PreData/Leanbin .
 	tar -czvf lean3-synport.tar.gz -C Outputs/src/leanbin .
 	tar -czvf lean3-binport.tar.gz -C Outputs/oleans/leanbin .
+	tar -czvf mathlib3-predata.tar.gz -C PreData/Mathbin .
 	tar -czvf mathlib3-synport.tar.gz -C Outputs/src/mathbin .
 	tar -czvf mathlib3-binport.tar.gz -C Outputs/oleans/mathbin .
 
+unport:
+	rm -rf Outputs/* Logs/*
+
 rm-tarballs:
-	rm lean3-synport.tar.gz lean3-binport.tar.gz mathlib3-synport.tar.gz mathlib3-binport.tar.gz
+	rm lean3-predata.tar.gz lean3-synport.tar.gz lean3-binport.tar.gz mathlib3-predata.tar.gz mathlib3-synport.tar.gz mathlib3-binport.tar.gz

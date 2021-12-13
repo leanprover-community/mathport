@@ -127,6 +127,35 @@ structure Context where
 
 abbrev M := ReaderT Context $ StateRefT State CommandElabM
 
+def printOutput (out : Format) : M Unit :=
+  modify fun s => { s with output := s.output ++ out }
+
+def logComment (comment : Format) : M Unit :=
+  printOutput f!"-- {comment}\n"
+
+private def checkColGt := Lean.Parser.checkColGt
+
+class Warnable (α) where
+  warn : String → α
+
+instance [Inhabited α] : Warnable α where
+  warn := arbitrary
+
+instance (priority := high) [Monad m] : Warnable <| m Syntax where
+  warn s := Syntax.mkStrLit s
+
+open Lean Elab in
+elab:max "warn!" interpStr:interpolatedStr(term) or:(checkColGt "|" term)? : term <= ty => do
+  let pos ← Elab.getRefPosition
+  let head := Syntax.mkStrLit $ mkErrorStringWithPos (← read).fileName pos ""
+  let str ← Elab.liftMacroM <| interpStr.expandInterpolatedStr (← `(String)) (← `(toString))
+  let or ← if or.getNumArgs == 2 then or.getArg 1 else `(Warnable.warn str)
+  (Term.elabTerm · ty) <|<- `(do
+    let str : String := $head ++ $str
+    dbg_trace str
+    logComment str
+    $or:term)
+
 def trExpr (e : Expr) : M Syntax := do (← read).trExpr e
 def trCommand (e : Command) : M Unit := do (← read).trCommand e
 
@@ -136,7 +165,7 @@ def renameAttr (n : Name) : M Name := do Rename.renameAttr n
 def renameModule (n : Name) : M Name := do Rename.renameModule (← read).pcfg n
 def renameField (n : Name) : M Name := do Rename.renameField? (← getEnv) n |>.getD n
 def renameOption : Name → M Name
-  | n => do dbg_trace "warning: unsupported option {n}"; n
+  | n => warn! "warning: unsupported option {n}" | n
 
 def mkIdentI (n : Name) : M Syntax := do mkIdent (← renameIdent n)
 def mkIdentA (n : Name) : M Syntax := do mkIdent (← renameAttr n)
@@ -165,19 +194,33 @@ def AST3toData4 : AST3 → M Data4
         let e := s!"error in {(← getEnv).mainModule}: {← e.toMessageData.toString}"
         println! e
         -- println! (repr c.kind)
-        modify fun s => { s with
-          output := s.output ++ "-- " ++ e ++ "\n" ++ (repr c.kind).group ++ "\n\n" }
+        printOutput f!"/- {e}\nLean 3 AST:\n{(repr c.kind).group}-/\n\n"
     let s ← get
     pure ⟨s.output, HashMap.empty⟩
 
+partial def reprintCore : Syntax → Option Format
+  | Syntax.missing => none
+  | Syntax.atom _ val => val.trim
+  | Syntax.ident _ rawVal _ _ => rawVal.toString
+  | Syntax.node _ kind args =>
+    match args.toList.filterMap reprintCore with
+    | [] => none
+    | [arg] => arg
+    | args => Format.group <| Format.nest 2 <| Format.line.joinSep args
+
+def reprint (stx : Syntax) : Format :=
+  reprintCore stx |>.getD ""
+
 def push (stx : Syntax) : M Unit := do
   let fmt ← liftCoreM $ do
-    let stx ←
-      try Lean.PrettyPrinter.parenthesizeCommand stx
-      catch e => throw! "failed to parenthesize: {← e.toMessageData.toString}" -- \nin: {stx}"
-    try Lean.PrettyPrinter.formatCommand stx
-    catch e => throw! "failed to format: {← e.toMessageData.toString}" -- \nin: {stx}"
-  modify fun s => { s with output := s.output ++ fmt ++ "\n\n" }
+    let (stx, parenthesizerErr) ←
+      try (← Lean.PrettyPrinter.parenthesizeCommand stx, f!"")
+      catch e => (stx, f!"-- failed to parenthesize: {← e.toMessageData.toString}\n")
+    parenthesizerErr ++ (←
+      try Lean.PrettyPrinter.formatCommand stx
+      catch e =>
+        f!"-- failed to format: {← e.toMessageData.toString}\n{reprint stx}")
+  printOutput f!"{fmt}\n\n"
 
 def pushM (stx : M Syntax) : M Unit := stx >>= push
 
@@ -251,7 +294,7 @@ partial def trLevel : Level → M Syntax
 partial def trPrio : Expr → M Syntax
   | Expr.nat n => Quote.quote n
   | Expr.paren e => trPrio e.kind -- do `(prio| ($(← trPrio e.kind)))
-  | _ => throw! "unsupported: advanced prio syntax"
+  | _ => warn! "unsupported: advanced prio syntax" | quote (999 : Nat)
 
 partial def trPrecExpr : Expr → M Precedence
   | Expr.nat n => Precedence.nat n
@@ -262,7 +305,7 @@ partial def trPrecExpr : Expr → M Precedence
       ⟨_, Arg.expr (Expr.ident `max)⟩,
       ⟨_, Arg.expr (Expr.nat 1)⟩
     ] => Precedence.maxPlus
-  | _ => throw! "unsupported: advanced prec syntax"
+  | _ => warn! "unsupported: advanced prec syntax" | Precedence.nat 999
 
 def trPrec : AST3.Precedence → M Precedence
   | AST3.Precedence.nat n => Precedence.nat n
@@ -299,7 +342,7 @@ mutual
       mkNode ``Parser.Tactic.tacticSeq #[mkNode ``Parser.Tactic.tacticSeq1Indented #[
         mkNullNode $ ← tacs.mapM fun tac => do mkGroupNode #[← trTactic tac.kind, mkNullNode]]]
     | bl, TacticContext.one => do `(tactic| · $(← trBlock bl):tacticSeq)
-    | ⟨_, cl, cfg, tacs⟩, _ => throw! "unsupported (TODO): block with cfg"
+    | ⟨_, cl, cfg, tacs⟩, _ => warn! "unsupported (TODO): block with cfg"
 
   partial def trTactic : Tactic → (c :_:= TacticContext.one) → M Syntax
     | Tactic.block bl, c => trBlock bl c
@@ -316,7 +359,7 @@ mutual
     | Tactic.«<|>» tacs, TacticContext.one => do
       let tacs ← tacs.mapM fun tac => trTactic tac.kind TacticContext.seq
       `(tactic| first $[| $tacs:tacticSeq]*)
-    | Tactic.«[]» tacs, _ => throw! "unsupported (impossible)"
+    | Tactic.«[]» tacs, _ => warn! "unsupported (impossible)"
     | Tactic.exact_shortcut ⟨_, Expr.calc args⟩, TacticContext.one => do
       `(tactic| calc $(← trCalcArgs args)*)
     | Tactic.exact_shortcut e, TacticContext.one => do `(tactic| exact $(← trExpr e.kind))
@@ -328,18 +371,18 @@ mutual
       | _ => Name.anonymous
       match Rename.resolveIdent? (← getEnv) (head e.kind) with
       | none =>
-        -- throw! "unsupported non-interactive tactic {repr e}"
+        -- warn! "unsupported non-interactive tactic {repr e}"
         match ← trExpr e.kind with
         | `(do $[$els]*) => `(tactic| runTac $[$els:doSeqItem]*)
         | stx => `(tactic| runTac $stx:term)
       | some n =>
         match (← get).niTactics.find? n with
-        | some f => try f e.kind catch e => throw! "in {n}: {← e.toMessageData.toString}"
-        | none => throw! "unsupported non-interactive tactic {n}"
+        | some f => try f e.kind catch e => warn! "in {n}: {← e.toMessageData.toString}"
+        | none => warn! "unsupported non-interactive tactic {n}"
     | Tactic.interactive n args, TacticContext.one => do
       match (← get).tactics.find? n with
-      | some f => try f args catch e => throw! "in {n}: {← e.toMessageData.toString}"
-      | none => throw! "unsupported tactic {repr n}"
+      | some f => try f args catch e => warn! "in {n}: {← e.toMessageData.toString}"
+      | none => warn! "unsupported tactic {repr n}"
 
   partial def trTacticOrList : Tactic → M (Sum Syntax (Array Syntax))
     | Tactic.«[]» args => Sum.inr <$> args.mapM fun arg => trTactic arg.kind
@@ -364,26 +407,26 @@ mutual
     | ⟨_, none, none, tacs⟩, TacticContext.seq => do
       mkConvBlock $ ← tacs.mapM fun tac => trConv tac.kind
     | bl, TacticContext.one => do `(conv| · $(← trConvBlock bl):convSeq)
-    | ⟨_, cl, cfg, tacs⟩, _ => throw! "unsupported (TODO): conv block with cfg"
+    | ⟨_, cl, cfg, tacs⟩, _ => warn! "unsupported (TODO): conv block with cfg"
 
   partial def trConv : Tactic → (c :_:= TacticContext.one) → M Syntax
     | Tactic.block bl, c => trConvBlock bl c
     | Tactic.by tac, c => trConvBlock ⟨true, none, none, #[tac]⟩ c
     | tac, TacticContext.seq => trConvBlock ⟨true, none, none, #[Spanned.dummy tac]⟩
-    | Tactic.«;» tacs, _ => throw! "unsupported (impossible)"
+    | Tactic.«;» tacs, _ => warn! "unsupported (impossible)"
     | Tactic.«<|>» tacs, TacticContext.one => do
       let tacs ← tacs.mapM fun tac => trConv tac.kind TacticContext.seq
       `(conv| first $[| $tacs:convSeq]*)
-    | Tactic.«[]» tacs, _ => throw! "unsupported (impossible)"
-    | Tactic.exact_shortcut _, _ => throw! "unsupported (impossible)"
+    | Tactic.«[]» tacs, _ => warn! "unsupported (impossible)"
+    | Tactic.exact_shortcut _, _ => warn! "unsupported (impossible)"
     | Tactic.expr e, TacticContext.one => do
       match ← trExpr e.kind with
       | `(do $[$els]*) => `(conv| runConv $[$els:doSeqItem]*)
       | stx => `(conv| runConv $stx:term)
     | Tactic.interactive n args, TacticContext.one => do
       match (← get).convs.find? n with
-      | some f => try f args catch e => throw! "in {n}: {← e.toMessageData.toString}"
-      | none => throw! "unsupported conv tactic {repr n}"
+      | some f => try f args catch e => warn! "in {n}: {← e.toMessageData.toString}"
+      | none => warn! "unsupported conv tactic {repr n}"
 
 end
 
@@ -399,14 +442,14 @@ def trBinary (n : Name) (lhs rhs : Syntax) : M Syntax := do
   | some ⟨_, _, NotationKind.binary f, _⟩ => f lhs rhs
   | some ⟨_, _, NotationKind.nary f, _⟩ => f #[lhs, rhs]
   | _ =>
-    dbg_trace "warning: unsupported binary notation {repr n}"
+    warn! "warning: unsupported binary notation {repr n}"
     mkNode ``Parser.Term.app #[mkIdent n, mkNullNode #[lhs, rhs]]
 
 def expandBinderCollection
   (trBinder : AST3.Binder → Array Syntax → M (Array Syntax)) :
   AST3.Binder → Array Syntax → M (Array Syntax)
 | bic@(Binder.collection bi vars n e), out => do
-  dbg_trace "warning: expanding binder collection {repr bic}"
+  warn! "warning: expanding binder collection {repr bic}"
   let vars := vars.map $ Spanned.map fun | BinderName.ident v => v | _ => `_x
   let vars1 := vars.map $ Spanned.map BinderName.ident
   let mut out ← trBinder (Binder.binder bi (some vars1) #[] none none) out
@@ -429,7 +472,7 @@ mutual
       let var ← match vars with
       | none => #[]
       | some #[v] => pure #[trBinderName v.kind, mkAtom ":"]
-      | some _ => throw! "unsupported (impossible)"
+      | some _ => warn! "unsupported (impossible)"
       out.push $ mkNode ``Parser.Term.instBinder
         #[mkAtom "[", mkNullNode var, ← trExpr ty.kind, mkAtom "]"]
     | ⟨allowSimp, req⟩, Binder.binder bi (some vars) bis ty dflt, out => do
@@ -449,8 +492,8 @@ mutual
         let dflt ← mkOptionalNode <$> dflt.mapM trBinderDefault
         mkNode ``Parser.Term.explicitBinder #[mkAtom "(", vars, ty, dflt, mkAtom ")"]
     | bc, bic@(Binder.collection _ _ _ _), out => expandBinderCollection (trBinder bc) bic out
-    | _, Binder.notation _, _ => throw! "unsupported: (notation) binder"
-    | _, _, _ => throw! "unsupported (impossible)"
+    | _, Binder.notation _, _ => warn! "unsupported: (notation) binder"
+    | _, _, _ => warn! "unsupported (impossible)"
   where
     trSimple
     | some b, BinderInfo.default, vars, ty, none => do
@@ -477,8 +520,8 @@ partial def trExplicitBinders : Array (Spanned Binder) → M Syntax
       let ty ← match ty with | none => `(_) | some ty => trExpr ty.kind
       bis.push $ mkNode ``bracketedExplicitBinders #[mkAtom "(", mkNullNode vars, mkAtom ":", ty, mkAtom ")"]
     | bic@(Binder.collection _ _ _ _), bis => expandBinderCollection trBinder bic bis
-    | Binder.notation _, _ => throw! "unsupported: (notation) binder"
-    | _, _ => throw! "unsupported (impossible)"
+    | Binder.notation _, _ => warn! "unsupported: (notation) binder"
+    | _, _ => warn! "unsupported (impossible)"
     let bis ← bis.foldlM (fun out bi => trBinder bi.kind out) #[]
     mkNode ``explicitBinders #[mkNullNode bis]
 
@@ -498,7 +541,7 @@ def trLetDecl : LetDecl → M Syntax
     `(Parser.Term.letDecl| $letId:letIdDecl)
   | LetDecl.pat lhs val => do
     `(Parser.Term.letDecl| $(← trExpr lhs.kind):term := $(← trExpr val.kind))
-  | LetDecl.notation n => throw! "unsupported: let notation := ..."
+  | LetDecl.notation n => warn! "unsupported: let notation := ..."
 
 def trArm : Arm → M Syntax
   | ⟨lhs, rhs⟩ => do
@@ -529,33 +572,33 @@ def trNotation (n : Choice) (args : Array (Spanned Arg)) : M Syntax := do
   | Choice.one n => n
   | Choice.many ns =>
     if ns[1:].all (ns[0] == ·) then ns[0] else
-      throw! "unsupported: ambiguous notation"
+      warn! "unsupported: ambiguous notation" | ns[0]
   match ← getNotationEntry? n.getString!, args.map (·.kind) with
   | some ⟨_, _, NotationKind.const stx, _⟩, #[] => stx
-  | some ⟨_, _, NotationKind.const stx, _⟩, _ => throw! "unsupported (impossible)"
+  | some ⟨_, _, NotationKind.const stx, _⟩, _ => warn! "unsupported (impossible)"
   | some ⟨_, _, NotationKind.unary f, _⟩, #[Arg.expr e] => f (← trExpr e)
-  | some ⟨_, _, NotationKind.unary f, _⟩, _ => throw! "unsupported (impossible)"
+  | some ⟨_, _, NotationKind.unary f, _⟩, _ => warn! "unsupported (impossible)"
   | some ⟨_, _, NotationKind.binary f, _⟩, #[Arg.expr e₁, Arg.expr e₂] => f (← trExpr e₁) (← trExpr e₂)
-  | some ⟨_, _, NotationKind.binary f, _⟩, _ => throw! "unsupported (impossible)"
+  | some ⟨_, _, NotationKind.binary f, _⟩, _ => warn! "unsupported (impossible)"
   | some ⟨_, _, NotationKind.nary f, _⟩, args => f <$> args.mapM fun
     | Arg.expr e => trExpr e
     | Arg.binder bi => trExplicitBinders #[Spanned.dummy bi]
     | Arg.binders bis => trExplicitBinders bis
-    | _ => throw! "unsupported (impossible)"
+    | _ => warn! "unsupported (impossible)"
   | some ⟨_, _, NotationKind.exprs f, _⟩, #[Arg.exprs es] => f $ ← es.mapM fun e => trExpr e.kind
-  | some ⟨_, _, NotationKind.exprs f, _⟩, _ => throw! "unsupported (impossible)"
+  | some ⟨_, _, NotationKind.exprs f, _⟩, _ => warn! "unsupported (impossible)"
   | some ⟨_, _, NotationKind.binder f, _⟩, #[Arg.binder bi, Arg.expr e] => do
     f (← trExplicitBinders #[Spanned.dummy bi]) (← trExpr e)
   | some ⟨_, _, NotationKind.binder f, _⟩, #[Arg.binders bis, Arg.expr e] => do
     if bis.isEmpty then trExpr e else f (← trExplicitBinders bis) (← trExpr e)
-  | some ⟨_, _, NotationKind.binder f, _⟩, _ => throw! "unsupported (impossible)"
+  | some ⟨_, _, NotationKind.binder f, _⟩, _ => warn! "unsupported (impossible)"
   | some ⟨_, _, NotationKind.fail, _⟩, args =>
-    dbg_trace "warning: unsupported notation {repr n}"
-    let args ← args.mapM fun | Arg.expr e => trExpr e | _ => throw! "unsupported notation {repr n}"
+    warn! "warning: unsupported notation {repr n}"
+    let args ← args.mapM fun | Arg.expr e => trExpr e | _ => warn! "unsupported notation {repr n}"
     mkNode ``Parser.Term.app #[mkIdent n, mkNullNode args]
   | none, args =>
-    dbg_trace "warning: unsupported notation {repr n}"
-    let args ← args.mapM fun | Arg.expr e => trExpr e | _ => throw! "unsupported notation {repr n}"
+    warn! "warning: unsupported notation {repr n}"
+    let args ← args.mapM fun | Arg.expr e => trExpr e | _ => warn! "unsupported notation {repr n}"
     mkNode ``Parser.Term.app #[mkIdent n, mkNullNode args]
 
 def trInfixFn (n : Choice) (e : Option (Spanned Expr)) : M Syntax := do
@@ -563,7 +606,7 @@ def trInfixFn (n : Choice) (e : Option (Spanned Expr)) : M Syntax := do
   | Choice.one n => n
   | Choice.many ns =>
     if ns[1:].all (ns[0] == ·) then ns[0] else
-      throw! "unsupported: ambiguous notation"
+      warn! "unsupported: ambiguous notation" | ns[0]
   trBinary n mkCDot $ ← match e with
   | none => mkCDot
   | some e => trExpr e.kind
@@ -640,7 +683,7 @@ def trExpr' : Expr → M Syntax
   | Expr.«`()» true false e => do `(ppquote $(← trExpr e.kind))
   | Expr.«%%» e => do `(%%ₓ$(← trExpr e.kind))
   | Expr.«`[]» tacs => do
-    dbg_trace "warning: unsupported (TODO): `[tacs]"
+    warn! "warning: unsupported (TODO): `[tacs]"
     `(sorry)
   | Expr.«`» false n => Quote.quote n
   | Expr.«`» true n => do `(``$(← mkIdentI n):ident)
@@ -650,8 +693,8 @@ def trExpr' : Expr → M Syntax
     `(($(← trExpr es[0].kind):term, $(← es[1:].toArray.mapM fun e => trExpr e.kind),*))
   | Expr.«.()» e => trExpr e.kind
   | Expr.«:» e ty => do `(($(← trExpr e.kind) : $(← trExpr ty.kind)))
-  | Expr.hole es => throw! "unsupported: \{! ... !}"
-  | Expr.«#[]» es => throw! "unsupported: #[...]"
+  | Expr.hole es => warn! "unsupported: \{! ... !}"
+  | Expr.«#[]» es => warn! "unsupported: #[...]"
   | Expr.by tac => do `(by $(← trTactic tac.kind TacticContext.seq):tacticSeq)
   | Expr.begin tacs => do `(by $(← trBlock tacs):tacticSeq)
   | Expr.let bis e => do
@@ -693,8 +736,8 @@ def trExpr' : Expr → M Syntax
   | Expr.notation n args => trNotation n args
   | Expr.userNotation n args => do
     match (← get).userNotas.find? n with
-    | some f => try f args catch e => throw! "in {n}: {← e.toMessageData.toString}"
-    | none => throw! "unsupported user notation {n}"
+    | some f => try f args catch e => warn! "in {n}: {← e.toMessageData.toString}"
+    | none => warn! "unsupported user notation {n}"
 
 def mkSimpleAttr (n : Name) (args : Array Syntax := #[]) :=
   mkNode ``Parser.Attr.simple #[mkIdent n, mkNullNode args]
@@ -702,7 +745,7 @@ def mkSimpleAttr (n : Name) (args : Array Syntax := #[]) :=
 def trDerive (e : AST3.Expr) : M Name :=
   match e.unparen with
   | Expr.ident n => renameIdent n
-  | e => throw! "unsupported derive handler {repr e}"
+  | e => warn! "unsupported derive handler {repr e}"
 
 inductive TrAttr
   | del : Syntax → TrAttr
@@ -722,7 +765,7 @@ def trAttr (prio : Option Expr) : Attribute → M (Option TrAttr)
     | `inline => `inline
     | `pattern => `matchPattern
     | _ =>
-      dbg_trace "warning: unsupported attr -{n}"
+      warn! "warning: unsupported attr -{n}"
       return none
     TrAttr.del (← `(Parser.Command.eraseAttr| -$(← mkIdentI n)))
   | AST3.Attribute.add `parsing_only none => TrAttr.parsingOnly
@@ -732,7 +775,7 @@ def trAttr (prio : Option Expr) : Attribute → M (Option TrAttr)
     | `class,         none => `(attr| class)
     | `instance,      none => `(attr| instance)
     | `simp,          none => `(attr| simp)
-    | `recursor,      some ⟨_, AttrArg.indices #[]⟩ => throw! "unsupported: @[recursor]"
+    | `recursor,      some ⟨_, AttrArg.indices #[]⟩ => warn! "unsupported: @[recursor]"
     | `recursor,      some ⟨_, AttrArg.indices #[⟨_, n⟩]⟩ =>
       `(attr| recursor $(Quote.quote n):numLit)
     | `intro,         none => `(attr| intro)
@@ -757,11 +800,11 @@ def trAttr (prio : Option Expr) : Attribute → M (Option TrAttr)
       match (← get).userAttrs.find? n, args with
       | some f, _ =>
         try f #[Spanned.dummy (AST3.Param.parse e args)]
-        catch e => throw! "in {n}: {← e.toMessageData.toString}"
+        catch e => warn! "in {n}: {← e.toMessageData.toString}"
       | none, #[] => mkSimpleAttr (← renameAttr n)
-      | none, _ => throw! "unsupported user attr {n}"
+      | none, _ => warn! "unsupported user attr {n}"
     | _, _ =>
-      dbg_trace "warning: suppressing unknown attr {n}"
+      warn! "warning: suppressing unknown attr {n}"
       return none
     TrAttr.add attr
 
@@ -782,7 +825,7 @@ def trAttrInstance (attr : Attribute) (allowDel := false)
   (kind : AttributeKind := AttributeKind.global) : StateT AttrState M Unit := do
   match ← trAttr (← get).1.prio attr with
   | some (TrAttr.del stx) => do
-    unless allowDel do throw! "unsupported (impossible)"
+    unless allowDel do warn! "unsupported (impossible)"
     modify fun s => { s with 2 := s.2.push stx }
   | some (TrAttr.add stx) => do
     let stx := mkNode ``Parser.Term.attrInstance #[← trAttrKind kind, stx]
@@ -883,8 +926,8 @@ def trOpenCmd (ops : Array Open) : M Unit := do
         | true, true, false =>
           let ns ← hides.mapM fun n => mkIdentF n.kind
           pushElab $ ← `(command| open $(← mkIdentN tgt.kind):ident hiding $ns*)
-        | _, _, _ => throw! "unsupported: advanced open style"
-    | _ => throw! "unsupported: unusual advanced open style"
+        | _, _, _ => warn! "unsupported: advanced open style"
+    | _ => warn! "unsupported: unusual advanced open style"
   pushSimple simple
 
 def trExportCmd : Open → M Unit
@@ -894,9 +937,9 @@ def trExportCmd : Open → M Unit
       match c.kind with
       | OpenClause.explicit ns =>
         for n in ns do args := args.push (← mkIdentF n.kind)
-      | _ => throw! "unsupported: advanced export style"
+      | _ => warn! "unsupported: advanced export style"
     pushElab $ ← `(export $(← mkIdentN tgt.kind):ident ($args*))
-  | _ => throw! "unsupported: advanced export style"
+  | _ => warn! "unsupported: advanced export style"
 
 def trDeclId (n : Name) (us : LevelDecl) : M Syntax := do
   let us := us.map $ Array.map fun u => mkIdent u.kind
@@ -912,7 +955,7 @@ def trDeclSig (req : Bool) (bis : Binders) (ty : Option (Spanned Expr)) : M Synt
 def trAxiom (mods : Modifiers) (n : Name)
   (us : LevelDecl) (bis : Binders) (ty : Option (Spanned Expr)) : M Unit := do
   let (s, mods) ← trModifiers mods
-  unless s.derive.isEmpty do throw! "unsupported: @[derive] axiom"
+  unless s.derive.isEmpty do warn! "unsupported: @[derive] axiom"
   pushM `(command| $mods:declModifiers axiom $(← trDeclId n us) $(← trDeclSig true bis ty))
 
 def trDecl (dk : DeclKind) (mods : Modifiers) (n : Option (Spanned Name)) (us : LevelDecl)
@@ -925,24 +968,24 @@ def trDecl (dk : DeclKind) (mods : Modifiers) (n : Option (Spanned Name)) (us : 
   | DeclVal.eqns #[] => `(Parser.Command.declValSimple| := fun.)
   | DeclVal.eqns arms => do `(Parser.Command.declValEqns| $[$(← arms.mapM trArm):matchAlt]*)
   if s.irreducible then
-    unless dk matches DeclKind.def do throw! "unsupported irreducible non-definition"
-    unless s.derive.isEmpty do throw! "unsupported: @[derive, irreducible] def"
+    unless dk matches DeclKind.def do warn! "unsupported irreducible non-definition"
+    unless s.derive.isEmpty do warn! "unsupported: @[derive, irreducible] def"
     return ← `(command| $mods:declModifiers irreducible_def $id.get! $(← sig false) $val)
   match dk with
   | DeclKind.abbrev => do
-    unless s.derive.isEmpty do throw! "unsupported: @[derive] abbrev"
+    unless s.derive.isEmpty do warn! "unsupported: @[derive] abbrev"
     `(command| $mods:declModifiers abbrev $id.get! $(← sig false) $val)
   | DeclKind.def => do
     let ds := match s.derive with | #[] => none | ds => some (ds.map mkIdent)
     `(command| $mods:declModifiers def $id.get! $(← sig false) $val $[deriving $ds,*]?)
   | DeclKind.example => do
-    unless s.derive.isEmpty do throw! "unsupported: @[derive] example"
+    unless s.derive.isEmpty do warn! "unsupported: @[derive] example"
     `(command| $mods:declModifiers example $(← sig true) $val)
   | DeclKind.theorem => do
-    unless s.derive.isEmpty do throw! "unsupported: @[derive] theorem"
+    unless s.derive.isEmpty do warn! "unsupported: @[derive] theorem"
     `(command| $mods:declModifiers theorem $id.get! $(← sig true) $val)
   | DeclKind.instance => do
-    unless s.derive.isEmpty do throw! "unsupported: @[derive] instance"
+    unless s.derive.isEmpty do warn! "unsupported: @[derive] instance"
     let prio ← s.prio.mapM fun prio => do
       `(Parser.Command.namedPrio| (priority := $(← trPrio prio)))
     `(command| $mods:declModifiers instance $[$prio:namedPrio]? $[$id:declId]? $(← sig true) $val)
@@ -996,7 +1039,7 @@ def trField : Field → Array Syntax → M (Array Syntax)
         `(Parser.Command.structSimpleBinder| $(ns[0]):ident $[$im]? $sig:optDeclSig $[$dflt]?)
       else
         `(Parser.Command.structExplicitBinder| ($ns* $[$im]? $sig:optDeclSig $[$dflt]?))
-  | Field.notation _, out => throw! "unsupported: (notation) in structure"
+  | Field.notation _, out => warn! "unsupported: (notation) in structure"
 
 def trFields (flds : Array (Spanned Field)) : M Syntax := do
   let flds ← flds.foldlM (fun out fld => trField fld.kind out) #[]
@@ -1010,7 +1053,7 @@ def trStructure (cl : Bool) (mods : Modifiers) (n : Spanned Name) (us : LevelDec
   let bis := mkNullNode $ ← trBinders {} bis
   let exts ← exts.mapM fun
     | ⟨_, false, none, ty, #[]⟩ => trExpr ty.kind
-    | _ => throw! "unsupported: advanced extends in structure"
+    | _ => warn! "unsupported: advanced extends in structure"
   let exts ← mkOpt (if exts.isEmpty then none else some exts) fun exts =>
     `(Parser.Command.extends| extends $exts,*)
   let ty ← mkOptionalNode <$> trOptType (ty.map Spanned.kind)
@@ -1089,7 +1132,7 @@ private def trNotation4 (kind : Syntax) (prio p : Option Syntax)
     `(Parser.Command.identPrec| $(mkIdent x.kind):ident)
   | ⟨_, AST3.Literal.var x (some ⟨_, Action.prec p⟩)⟩ => do
     `(Parser.Command.identPrec| $(mkIdent x.kind):ident : $((← trPrec p).toSyntax))
-  | _ => throw! "unsupported (impossible)"
+  | _ => warn! "unsupported (impossible)"
   pure fun n e => `(command|
     $kind:attrKind notation$[:$p]? $[$n:namedName]? $[$prio:namedPrio]? $lits* => $e)
 
@@ -1102,7 +1145,7 @@ private def trNotation3Item (lit : AST3.Literal) : M Syntax := do
   | AST3.Literal.var x (some ⟨_, Action.prec _⟩) => var x
   | AST3.Literal.var x (some ⟨_, Action.prev⟩) => var x
   | AST3.Literal.var x (some ⟨_, Action.scoped _ sc⟩) => scope x sc
-  | _ => throw! "unsupported: advanced notation ({repr lit})"
+  | _ => warn! "unsupported: advanced notation ({repr lit})"
   mkNode ``Parser.Command.notation3Item stxs
 where
   sym tk := #[Syntax.mkStrLit tk.1.kind.toString]
@@ -1126,13 +1169,13 @@ private def trNotation3 (kind : Syntax) (prio p : Option Syntax)
 def trNotationCmd (loc : LocalReserve) (attrs : Attributes) (nota : Notation)
   (f : Syntax → M Unit) : M Unit := do
   let (s, attrs) := (← trAttributes attrs false AttributeKind.global |>.run ({}, #[])).2
-  unless s.derive.isEmpty do throw! "unsupported: @[derive] notation"
-  unless attrs.isEmpty do throw! "unsupported (impossible)"
+  unless s.derive.isEmpty do warn! "unsupported: @[derive] notation"
+  unless attrs.isEmpty do warn! "unsupported (impossible)"
   if loc.2 then
     match nota with
     | Notation.mixfix m (tk, some prec) _ =>
       registerPrecedenceEntry tk.kind.toString m (← trPrec prec.kind)
-    | _ => dbg_trace "warning: suppressing unsupported reserve notation"
+    | _ => warn! "warning: suppressing unsupported reserve notation"
     return
   let kind ← if loc.1 then `(Parser.Term.attrKind| local) else `(Parser.Term.attrKind|)
   let n := nota.name3
@@ -1162,7 +1205,7 @@ def trNotationCmd (loc : LocalReserve) (attrs : Attributes) (nota : Notation)
     | true => trNotation4 kind prio p lits
     | false => trNotation3 kind prio p lits
     (e, desc, cmd)
-  | _ => throw! "unsupported (impossible)"
+  | _ => warn! "unsupported (impossible)"
   let e ← trExpr e.kind
   let n4 ← Elab.Command.withWeakNamespace (← getEnv).mainModule $ do
     let n4 ← mkUnusedName nota.name4
@@ -1216,8 +1259,8 @@ def trCommand' : Command → M Unit
   | Command.axioms _ mods bis => bis.forM fun
     | ⟨_, Binder.binder _ (some ns) bis (some ty) none⟩ => ns.forM fun
       | ⟨_, BinderName.ident n⟩ => trAxiom mods n none bis ty
-      | _ => throw! "unsupported (impossible)"
-    | _ => throw! "unsupported (impossible)"
+      | _ => warn! "unsupported (impossible)"
+    | _ => warn! "unsupported (impossible)"
   | Command.decl dk mods n us bis ty val => do
     pushM $ trDecl dk mods n us bis ty val.kind
   | Command.mutualDecl dk mods us bis arms =>
@@ -1227,7 +1270,7 @@ def trCommand' : Command → M Unit
   | Command.structure cl mods n us bis exts ty m flds =>
     trStructure cl mods n us bis exts ty m flds
   | Command.attribute loc _ attrs ns => trAttributeCmd loc attrs ns push
-  | Command.precedence sym prec => do dbg_trace "warning: unsupported: precedence command"
+  | Command.precedence sym prec => warn! "warning: unsupported: precedence command"
   | Command.notation loc attrs n => trNotationCmd loc attrs n push
   | Command.open true ops => ops.forM trExportCmd
   | Command.open false ops => trOpenCmd ops
@@ -1236,13 +1279,13 @@ def trCommand' : Command → M Unit
   | Command.include false ops => unless ops.isEmpty do
       pushM `(omit $(ops.map fun n => mkIdent n.kind)*)
   | Command.hide ops => unless ops.isEmpty do
-      throw! "unsupported: hide command"
+      warn! "unsupported: hide command"
       -- pushM `(hide $(ops.map fun n => mkIdent n.kind)*)
   | Command.theory #[⟨_, Modifier.noncomputable⟩] =>
     pushM `(command| noncomputable theory)
   | Command.theory #[⟨_, Modifier.doc doc⟩, ⟨_, Modifier.noncomputable⟩] =>
     pushM `(command| $(trDocComment doc):docComment noncomputable theory)
-  | Command.theory _ => throw! "unsupported (impossible)"
+  | Command.theory _ => warn! "unsupported (impossible)"
   | Command.setOption o val => match o.kind, val.kind with
     | `old_structure_cmd, OptionVal.bool b =>
       modifyScope fun s => { s with oldStructureCmd := b }
@@ -1254,23 +1297,23 @@ def trCommand' : Command → M Unit
       pushM `(command| set_option $(← mkIdentO o) $(Syntax.mkStrLit s):strLit)
     | o, OptionVal.nat n => do
       pushM `(command| set_option $(← mkIdentO o) $(Quote.quote n):numLit)
-    | o, OptionVal.decimal _ _ => throw! "unsupported: float-valued option"
+    | o, OptionVal.decimal _ _ => warn! "unsupported: float-valued option"
   | Command.declareTrace n => do
     let n ← renameIdent n.kind
     pushM `(command| initialize registerTraceClass $(Quote.quote n))
-  | Command.addKeyEquivalence a b => throw! "unsupported: add_key_equivalence"
+  | Command.addKeyEquivalence a b => warn! "unsupported: add_key_equivalence"
   | Command.runCmd e => do let e ← trExpr e.kind; pushM `(run_cmd $e:term)
   | Command.check e => do pushM `(#check $(← trExpr e.kind))
   | Command.reduce _ e => do pushM `(#reduce $(← trExpr e.kind))
   | Command.eval e => do pushM `(#eval $(← trExpr e.kind))
-  | Command.unify e₁ e₂ => throw! "unsupported: #unify"
-  | Command.compile n => throw! "unsupported: #compile"
-  | Command.help n => throw! "unsupported: #help"
+  | Command.unify e₁ e₂ => warn! "unsupported: #unify"
+  | Command.compile n => warn! "unsupported: #compile"
+  | Command.help n => warn! "unsupported: #help"
   | Command.print (PrintCmd.str s) => pushM `(#print $(Syntax.mkStrLit s))
   | Command.print (PrintCmd.ident n) => do pushM `(#print $(← mkIdentI n.kind))
   | Command.print (PrintCmd.axioms (some n)) => do pushM `(#print axioms $(← mkIdentI n.kind))
-  | Command.print _ => throw! "unsupported: advanced #print"
+  | Command.print _ => warn! "unsupported: advanced #print"
   | Command.userCommand n mods args => do
     match (← get).userCmds.find? n with
-    | some f => try f mods args catch e => throw! "in {n}: {← e.toMessageData.toString}"
-    | none => throw! "unsupported user command {n}"
+    | some f => try f mods args catch e => warn! "in {n}: {← e.toMessageData.toString}"
+    | none => warn! "unsupported user command {n}"

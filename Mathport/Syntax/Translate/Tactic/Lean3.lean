@@ -15,7 +15,7 @@ def trLoc (loc : Location) : M (Option Syntax) := do
   let loc : Option Syntax ← match loc with
     | Location.wildcard =>
       some $ mkNode ``Parser.Tactic.locationWildcard #[mkAtom "*"]
-    | Location.targets #[] false => throw! "unsupported"
+    | Location.targets #[] false => warn! "unsupported"
     | Location.targets #[] true => none
     | Location.targets hs goal =>
       some $ mkNode ``Parser.Tactic.locationHyp #[
@@ -95,7 +95,7 @@ def trRwArgs : TacM (Array Syntax × Option Syntax) := do
   let q ← liftM $ (← parse rwRules).mapM trRwRule
   let loc ← trLoc (← parse location)
   if let some cfg ← expr? then
-    dbg_trace "warning: unsupported: rw with cfg"
+    warn! "warning: unsupported: rw with cfg: {repr cfg}"
   (q, loc)
 
 @[trTactic rewrite rw] def trRw : TacM Syntax := do
@@ -217,8 +217,8 @@ where
     let ty ← trDArrow bis ty.kind
     vars.foldlM (init := out) fun out v => do
       out.push $ ← `(($(trBinderName v.kind) : $ty))
-  | Binder.collection _ _ _ _, out => throw! "unsupported: assume with binder collection"
-  | Binder.notation _, out => throw! "unsupported: assume notation"
+  | Binder.collection _ _ _ _, out => warn! "unsupported: assume with binder collection"
+  | Binder.notation _, out => warn! "unsupported: assume notation"
 
   trIntroBinders (bis : Array (Spanned Binder)) : M (Array Syntax) := do
     bis.foldlM (fun out bi => trIntroBinder bi.kind out) #[]
@@ -364,9 +364,9 @@ def trSimpAttrs (attrs : Array Name) : Syntax :=
 
 @[trTactic simp] def trSimp : TacM Syntax := do
   let iota ← parse (tk "!")?
-  if iota.isSome then dbg_trace "warning: unsupported simp config option: iota_eqn"
+  if iota.isSome then warn! "warning: unsupported simp config option: iota_eqn"
   let trace ← parse (tk "?")?
-  if trace.isSome then dbg_trace "warning: unsupported simp config option: trace_lemmas"
+  if trace.isSome then warn! "warning: unsupported simp config option: trace_lemmas"
   let o := if ← parse onlyFlag then mkNullNode #[mkAtom "only"] else mkNullNode
   let (hs, all) ← filterSimpStar (← trSimpArgs (← parse simpArgList))
   let hs := trSimpList hs
@@ -387,7 +387,7 @@ def trSimpAttrs (attrs : Array Name) : Syntax :=
   let o ← parse onlyFlag
   let hs ← parse simpArgList
   let attrs ← parse withIdentList
-  throw! "unsupported: trace_simp_set"
+  warn! "unsupported: trace_simp_set"
 
 @[trTactic simp_intros] def trSimpIntros : TacM Syntax := do
   let ids ← parse ident_*
@@ -423,7 +423,7 @@ def trSimpAttrs (attrs : Array Name) : Syntax :=
 @[trTactic subst] def trSubst : TacM Syntax := do
   let n ← match (← parse pExpr).unparen with
   | AST3.Expr.ident n => n
-  | _ => throw! "unsupported"
+  | _ => warn! "unsupported: subst (term)"
   `(tactic| subst $(mkIdent n):ident)
 
 @[trTactic subst_vars] def trSubstVars : TacM Syntax := `(tactic| substVars)
@@ -485,7 +485,7 @@ def trSimpAttrs (attrs : Array Name) : Syntax :=
 @[trTactic match_target] def trMatchTarget : TacM Syntax := do
   let t ← trExpr (← parse pExpr)
   let m ← expr?
-  if m.isSome then dbg_trace "warning: unsupported: match_target reducibility"
+  if m.isSome then warn! "warning: unsupported: match_target reducibility"
   `(tactic| matchTarget $t)
 
 @[trTactic by_cases] def trByCases : TacM Syntax := do
@@ -511,9 +511,8 @@ def trSimpAttrs (attrs : Array Name) : Syntax :=
     match e.unparen with
     | Expr.ident h => h
     | Expr.«@» false ⟨_, Expr.ident h⟩ =>
-      dbg_trace "unsupported: specialize @hyp"
-      h
-    | _ => throw! "unsupported: specialize non-hyp"
+      warn! "unsupported: specialize @hyp" | h
+    | _ => warn! "unsupported: specialize non-hyp"
   `(tactic| specialize $(Syntax.mkApp (mkIdent head) args))
 
 @[trTactic congr] def trCongr : TacM Syntax := do `(tactic| congr)
@@ -583,7 +582,7 @@ def trSimpAttrs (attrs : Array Name) : Syntax :=
 @[trConv rewrite rw] def trRwConv : TacM Syntax := do
   let q ← liftM $ (← parse rwRules).mapM trRwRule
   if let some cfg ← expr? then
-    dbg_trace "warning: unsupported: rw with cfg"
+    warn! "warning: unsupported: rw with cfg: {repr cfg}"
   `(conv| rw [$q,*])
 
 section
@@ -618,8 +617,8 @@ private partial def getStr : AST3.Expr → M String
   | Expr.notation n #[⟨_, Arg.expr s1⟩, ⟨_, Arg.expr s2⟩] => do
     if n.name == `«expr ++ » then
       pure $ (← getStr s1.unparen) ++ (← getStr s2.unparen)
-    else throw! "unsupported"
-  | _ => throw! "unsupported"
+    else warn! "unsupported: interpolated non string literal"
+  | _ => warn! "unsupported: interpolated non string literal"
 
 def trInterpolatedStr (f : Syntax → TacM Syntax := pure) : TacM Syntax := do
   let s ← getStr (← expr!).unparen
