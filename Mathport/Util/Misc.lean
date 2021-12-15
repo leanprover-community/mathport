@@ -91,17 +91,19 @@ def Subarray.getOp {α : Type u} [Inhabited α] (self : Subarray α) (idx : Nat)
 
 instance : Coe (Array α) (Subarray α) := ⟨(·[0:])⟩
 
-/-- Run action with `stdin` emptied and `stdout+stderr` captured into a `String`. -/
-def IO.FS.withIsolatedStreams' [Monad m] [MonadFinally m] [MonadLiftT IO m] (x : m α) : m (String × α) := do
-  let bIn ← mkRef { : Stream.Buffer }
-  let bOut ← mkRef { : Stream.Buffer }
-  let r ← withStdin (Stream.ofBuffer bIn) <|
-    withStdout (Stream.ofBuffer bOut) <|
-      withStderr (Stream.ofBuffer bOut) <|
-        x
-  let bOut ← liftM (m := IO) bOut.get
-  let out := String.fromUTF8Unchecked bOut.data
-  pure (out, r)
+-- TODO: This broke when bumping Lean 4 to nightly-2021-12-15.
+-- However it is not actually used in `mathport`, so I've just commented it out for now.
+-- /-- Run action with `stdin` emptied and `stdout+stderr` captured into a `String`. -/
+-- def IO.FS.withIsolatedStreams' [Monad m] [MonadFinally m] [MonadLiftT IO m] (x : m α) : m (String × α) := do
+--   let bIn ← mkRef { : Stream.Buffer }
+--   let bOut ← mkRef { : Stream.Buffer }
+--   let r ← withStdin (Stream.ofBuffer bIn) <|
+--     withStdout (Stream.ofBuffer bOut) <|
+--       withStderr (Stream.ofBuffer bOut) <|
+--         x
+--   let bOut ← liftM (m := IO) bOut.get
+--   let out := String.fromUTF8Unchecked bOut.data
+--   pure (out, r)
 
 def Lean.Syntax.mkCharLit (val : Char) (info := SourceInfo.none) : Syntax :=
   mkLit charLitKind (Char.quote val) info
