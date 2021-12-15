@@ -16,8 +16,6 @@ def mathport1 (config : Config) (path : Path) : IO Unit := do
   let pcfg := config.pathConfig
 
   println! s!"\n[mathport] START {path.mod3}\n"
-  createDirectoriesIfNotExists (path.toLean4olean pcfg).toString
-  createDirectoriesIfNotExists (path.toLean4src pcfg).toString
 
   let mut imports : Array Import ← (← parseTLeanImports (path.toLean3 pcfg ".tlean")).mapM fun mod3 => do
     let ipath : Path ← resolveMod3 pcfg mod3
@@ -44,7 +42,7 @@ def mathport1 (config : Config) (path : Path) : IO Unit := do
     throw $ IO.userError s!"failed to import environment for {path.package}:{path.mod4} with imports {imports.toList}: {err}"
 
 def bindTasks (deps : Array Task) (k? : Option (Unit → IO Task)) : IO Task := do
-  if deps.isEmpty then k?.get! () else
+  if deps.isEmpty then k?.getD (fun _ => Task.pure (Except.ok ())) () else
   let mut task := deps[0]
   for i in [1:deps.size] do
     task ← bindTaskThrowing task fun () => pure deps[i]
@@ -65,18 +63,18 @@ partial def visit (config : Config) (path : Path) : StateRefT (HashMap Path Task
   | none     => do
     if ← path.toLean4olean pcfg |>.pathExists then
       println! "[visit] {repr path} already exists"
-      IO.asTask (pure ())
+      Task.pure (Except.ok ())
     else
       let mut deps := #[]
       for mod3 in ← parseTLeanImports (path.toLean3 pcfg ".tlean") do
         let importPath ← resolveMod3 pcfg mod3
-        if config.parallel then
-          deps := deps.push (← visit config importPath)
-        else
-          match ← IO.wait (← visit config importPath) with
-          | Except.error err => throw err
-          | Except.ok result => deps := deps.push (← IO.asTask $ pure result)
+        deps := deps.push (← visit config importPath)
+      createDirectoriesIfNotExists (path.toLean4olean pcfg).toString
+      createDirectoriesIfNotExists (path.toLean4src pcfg).toString
       let task ← bindTasks deps (some fun () => IO.asTask (mathport1 config path))
+      unless config.parallel do
+        if let Except.error err ← IO.wait task then
+          throw err
       modify λ path2task => path2task.insert path task
       pure task
 
