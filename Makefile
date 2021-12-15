@@ -20,7 +20,7 @@
 # This is useful if you are testing a change to mathport.
 
 ## Prerequisites:
-# curl, git, cmake, elan, python3
+# curl, git, cmake, elan
 
 # We make the following assumptions about versions:
 #

@@ -1282,9 +1282,17 @@ def trCommand' : Command → M Unit
       warn! "unsupported: hide command"
       -- pushM `(hide $(ops.map fun n => mkIdent n.kind)*)
   | Command.theory #[⟨_, Modifier.noncomputable⟩] =>
-    pushM `(command| noncomputable theory)
-  | Command.theory #[⟨_, Modifier.doc doc⟩, ⟨_, Modifier.noncomputable⟩] =>
-    pushM `(command| $(trDocComment doc):docComment noncomputable theory)
+    pushM `(command| noncomputable section)
+  -- FIXME: Lean 4 does not currently allow a doc comment on
+  -- `noncomputable section`.
+  -- In any case, mathlib does not put doc comments on `noncomputable theory`
+  -- (there are many module docs before `noncomputable theory`,
+  -- but no doc comments).
+  -- For now, I've just commented out handling this case.
+  -- I would be happy to actually delete this case,
+  -- but will leave it in place for now.
+  -- | Command.theory #[⟨_, Modifier.doc doc⟩, ⟨_, Modifier.noncomputable⟩] =>
+  --   pushM `(command| $(trDocComment doc):docComment noncomputable section)
   | Command.theory _ => warn! "unsupported (impossible)"
   | Command.setOption o val => match o.kind, val.kind with
     | `old_structure_cmd, OptionVal.bool b =>
