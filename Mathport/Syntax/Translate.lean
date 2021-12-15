@@ -26,7 +26,7 @@ partial def M.run' (m : M α) (notations : Array Notation) (commands : Array Com
   let s ← ST.mkRef {}
   let rec ctx := {
     pcfg, notations, commands
-    transform := fun stx => Transform.transform stx ctx s
+    transform := Transform.transform
     trExpr := fun e => trExpr' e ctx s
     trCommand := fun c => trCommand' c ctx s }
   m ctx s

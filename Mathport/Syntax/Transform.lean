@@ -13,14 +13,5 @@ namespace Transform
 
 open Lean Elab Term
 
-local elab "mathportTransformerList%" : term => do
-  let decls := transformerAttr.getDecls (← getEnv) |>.map mkCIdent
-  Elab.Term.elabTerm (← `((#[$[$decls:term],*] : Array Transformer))) none
-
-partial def transform (stx : Syntax) : M Syntax :=
-  let transformers := mathportTransformerList%
-  stx.rewriteBottomUpM fun stx => do
-    for tr in transformers do
-      if let some stx' ← catchUnsupportedSyntax do tr stx then
-        return ← transform stx'
-    return stx
+partial def transform : Syntax → M Syntax :=
+  applyTransformers mathportTransformerList%
