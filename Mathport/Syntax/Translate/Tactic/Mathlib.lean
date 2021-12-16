@@ -454,7 +454,7 @@ attribute [trTactic subst'] trSubst
   let hs := trSimpList (← trSimpArgs (← parse simpArgList))
   let attrs := (← parse (tk "with" *> ident*)?).getD #[]
   let cfg ← liftM $ (← expr?).mapM trExpr
-  mkNode ``Lean.Meta.solveByElim #[mkAtom "solveByElim",
+  mkNode ``Lean.Tactic.solveByElim #[mkAtom "solveByElim",
     star, mkConfigStx cfg, o, hs, trSimpAttrs attrs]
 
 -- # tactic.hint
