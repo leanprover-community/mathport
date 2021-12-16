@@ -8,6 +8,7 @@ import Mathport.Syntax.Translate.Attributes
 import Mathport.Syntax.Translate.Notation
 import Mathport.Syntax.Translate.Parser
 import Mathport.Syntax.Translate.Tactic
+import Mathport.Syntax.Transform
 
 namespace Mathport
 
@@ -25,6 +26,7 @@ partial def M.run' (m : M α) (notations : Array Notation) (commands : Array Com
   let s ← ST.mkRef {}
   let rec ctx := {
     pcfg, notations, commands
+    transform := Transform.transform
     trExpr := fun e => trExpr' e ctx s
     trCommand := fun c => trCommand' c ctx s }
   m ctx s

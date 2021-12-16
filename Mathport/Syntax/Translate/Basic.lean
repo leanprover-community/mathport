@@ -123,6 +123,7 @@ structure Context where
   commands : Array Command
   trExpr : Expr → CommandElabM Syntax
   trCommand : Command → CommandElabM Unit
+  transform : Syntax → CommandElabM Syntax
   deriving Inhabited
 
 abbrev M := ReaderT Context $ StateRefT State CommandElabM
@@ -212,6 +213,8 @@ def reprint (stx : Syntax) : Format :=
   reprintCore stx |>.getD ""
 
 def push (stx : Syntax) : M Unit := do
+  let stx ← try (← read).transform stx catch ex =>
+    warn! "failed to transform: {← ex.toMessageData.toString}" | stx
   let fmt ← liftCoreM $ do
     let (stx, parenthesizerErr) ←
       try (← Lean.PrettyPrinter.parenthesizeCommand stx, f!"")
