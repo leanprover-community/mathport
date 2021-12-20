@@ -505,9 +505,6 @@ mutual
     | _, _, _, _, _ => none
 
   partial def trBinders (bc : BinderContext) (bis : Array (Spanned Binder)) : M (Array Syntax) := do
-    let bc := if bis.size > 1 && bc.allowSimple == some false then
-      { bc with allowSimple := some true }
-    else bc
     bis.foldlM (fun out bi => trBinder bc bi.kind out) #[]
 
 end
