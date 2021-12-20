@@ -1,3 +1,4 @@
+#!/bin/sh
 # Script to download artifacts from a release.
 # Usage: `./download-release.sh nightly-2021-11-30`
 
