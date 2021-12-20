@@ -376,8 +376,8 @@ mutual
       | none =>
         -- warn! "unsupported non-interactive tactic {repr e}"
         match ← trExpr e.kind with
-        | `(do $[$els]*) => `(tactic| runTac $[$els:doSeqItem]*)
-        | stx => `(tactic| runTac $stx:term)
+        | `(do $[$els]*) => `(tactic| run_tac $[$els:doSeqItem]*)
+        | stx => `(tactic| run_tac $stx:term)
       | some n =>
         match (← get).niTactics.find? n with
         | some f => try f e.kind catch e => warn! "in {n}: {← e.toMessageData.toString}"
@@ -424,8 +424,8 @@ mutual
     | Tactic.exact_shortcut _, _ => warn! "unsupported (impossible)"
     | Tactic.expr e, TacticContext.one => do
       match ← trExpr e.kind with
-      | `(do $[$els]*) => `(conv| runConv $[$els:doSeqItem]*)
-      | stx => `(conv| runConv $stx:term)
+      | `(do $[$els]*) => `(conv| run_conv $[$els:doSeqItem]*)
+      | stx => `(conv| run_conv $stx:term)
     | Tactic.interactive n args, TacticContext.one => do
       match (← get).convs.find? n with
       | some f => try f args catch e => warn! "in {n}: {← e.toMessageData.toString}"
@@ -505,6 +505,9 @@ mutual
     | _, _, _, _, _ => none
 
   partial def trBinders (bc : BinderContext) (bis : Array (Spanned Binder)) : M (Array Syntax) := do
+    let bc := if bis.size > 1 && bc.allowSimple == some false then
+      { bc with allowSimple := some true }
+    else bc
     bis.foldlM (fun out bi => trBinder bc bi.kind out) #[]
 
 end

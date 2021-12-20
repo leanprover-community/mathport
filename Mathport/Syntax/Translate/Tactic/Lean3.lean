@@ -24,7 +24,7 @@ def trLoc (loc : Location) : M (Option Syntax) := do
   loc.map fun stx => mkNode ``Parser.Tactic.location #[mkAtom "at", stx]
 
 @[trTactic propagate_tags] def trPropagateTags : TacM Syntax := do
-  `(tactic| propagateTags $(← trBlock (← itactic)):tacticSeq)
+  `(tactic| propagate_tags $(← trBlock (← itactic)):tacticSeq)
 
 @[trTactic intro] def trIntro : TacM Syntax := do
   match ← parse (ident_)? with
@@ -84,7 +84,7 @@ def trLoc (loc : Location) : M (Option Syntax) := do
   `(tactic| revert $[$((← parse ident*).map mkIdent)]*)
 
 @[trTactic to_expr'] def trToExpr' : TacM Syntax := do
-  `(tactic| toExpr' $(← trExpr (← parse pExpr)))
+  `(tactic| to_expr' $(← trExpr (← parse pExpr)))
 
 def trRwRule (r : RwRule) : M Syntax := do
   mkNode ``Parser.Tactic.rwRule #[
@@ -108,7 +108,7 @@ def trRwArgs : TacM (Array Syntax × Option Syntax) := do
   let (q, loc) ← trRwArgs; `(tactic| erw [$q,*] $(loc)?)
 
 @[trTactic with_cases] def trWithCases : TacM Syntax := do
-  `(tactic| withCases $(← trBlock (← itactic)):tacticSeq)
+  `(tactic| with_cases $(← trBlock (← itactic)):tacticSeq)
 
 @[trTactic generalize] def trGeneralize : TacM Syntax := do
   let h ← parse (ident)? <* parse (tk ":")
@@ -160,13 +160,13 @@ def trRwArgs : TacM (Array Syntax × Option Syntax) := do
   let _rec ← parse (tk "*")?
   let ps ← liftM $ (← parse pExprListOrTExpr).mapM trExpr
   match _rec with
-  | none => `(tactic| casesM $ps,*)
-  | some () => `(tactic| casesM* $ps,*)
+  | none => `(tactic| casesm $ps,*)
+  | some () => `(tactic| casesm* $ps,*)
 
 @[trTactic cases_type] def trCasesType : TacM Syntax := do
   let (tac, s) := match ← parse (tk "!")? with
-  | none => (``Parser.Tactic.casesType, "casesType")
-  | some _ => (``Parser.Tactic.casesType!, "casesType!")
+  | none => (``Parser.Tactic.casesType, "cases_type")
+  | some _ => (``Parser.Tactic.casesType!, "cases_type!")
   mkNode tac #[mkAtom s,
     mkOptionalNode $ (← parse (tk "*")?).map fun () => mkAtom "*",
     mkNullNode $ (← parse ident*).map mkIdent]
@@ -269,8 +269,8 @@ where
   let _rec ← parse (tk "*")?
   let ps ← liftM $ (← parse pExprListOrTExpr).mapM trExpr
   match _rec with
-  | none => `(tactic| constructorM $ps,*)
-  | some () => `(tactic| constructorM* $ps,*)
+  | none => `(tactic| constructorm $ps,*)
+  | some () => `(tactic| constructorm* $ps,*)
 
 @[trTactic exfalso] def trExfalso : TacM Syntax := `(tactic| exfalso)
 
@@ -396,7 +396,7 @@ def trSimpAttrs (attrs : Array Name) : Syntax :=
   let attrs := (← parse (tk "with" *> ident*)?).getD #[]
   let cfg := mkConfigStx $ parseSimpConfig (← expr?) |>.bind quoteSimpConfig
   let ids := mkNullNode $ ids.map trIdent_
-  mkNode ``Parser.Tactic.simpIntro #[mkAtom "simpIntro",
+  mkNode ``Parser.Tactic.simpIntro #[mkAtom "simp_intro",
     cfg, ids, o, trSimpList hs, trSimpAttrs attrs]
 
 @[trTactic dsimp] def trDSimp : TacM Syntax := do
@@ -416,7 +416,7 @@ def trSimpAttrs (attrs : Array Name) : Syntax :=
 @[trTactic transitivity] def trTransitivity : TacM Syntax := do
   `(tactic| trans $[$(← liftM $ (← parse (pExpr)?).mapM trExpr)]?)
 
-@[trTactic ac_reflexivity ac_refl] def trACRefl : TacM Syntax := `(tactic| acRfl)
+@[trTactic ac_reflexivity ac_refl] def trACRefl : TacM Syntax := `(tactic| ac_rfl)
 
 @[trTactic cc] def trCC : TacM Syntax := `(tactic| cc)
 
@@ -426,7 +426,7 @@ def trSimpAttrs (attrs : Array Name) : Syntax :=
   | _ => warn! "unsupported: subst (term)"
   `(tactic| subst $(mkIdent n):ident)
 
-@[trTactic subst_vars] def trSubstVars : TacM Syntax := `(tactic| substVars)
+@[trTactic subst_vars] def trSubstVars : TacM Syntax := `(tactic| subst_vars)
 
 @[trTactic clear] def trClear : TacM Syntax := do
   match ← parse ident* with
@@ -448,7 +448,7 @@ def trSimpAttrs (attrs : Array Name) : Syntax :=
 @[trTactic unfold_projs] def trUnfoldProjs : TacM Syntax := do
   let loc ← parse location
   let cfg := mkConfigStx $ (parseSimpConfig (← expr?)).bind quoteSimpConfig
-  mkNode ``Parser.Tactic.unfoldProjs #[mkAtom "unfoldProjs", cfg, mkOptionalNode $ ← trLoc loc]
+  mkNode ``Parser.Tactic.unfoldProjs #[mkAtom "unfold_projs", cfg, mkOptionalNode $ ← trLoc loc]
 
 @[trTactic unfold] def trUnfold : TacM Syntax := do
   let cs ← parse ident*
@@ -464,21 +464,21 @@ def trSimpAttrs (attrs : Array Name) : Syntax :=
   mkNode ``Parser.Tactic.unfold1 #[mkAtom "unfold1", cfg,
     mkNullNode $ ← liftM $ cs.mapM mkIdentI, mkOptionalNode $ ← trLoc loc]
 
-@[trTactic apply_opt_param] def trApplyOptParam : TacM Syntax := `(tactic| inferOptParam)
+@[trTactic apply_opt_param] def trApplyOptParam : TacM Syntax := `(tactic| infer_opt_param)
 
-@[trTactic apply_auto_param] def trApplyAutoParam : TacM Syntax := `(tactic| inferAutoParam)
+@[trTactic apply_auto_param] def trApplyAutoParam : TacM Syntax := `(tactic| infer_auto_param)
 
 @[trTactic fail_if_success success_if_fail] def trFailIfSuccess : TacM Syntax := do
   `(tactic| fail_if_success $(← trBlock (← itactic)):tacticSeq)
 
 @[trTactic guard_expr_eq] def trGuardExprEq : TacM Syntax := do
-  `(tactic| guardExpr $(← trExpr (← expr!)) =ₐ $(← trExpr (← parse (tk ":=" *> pExpr))))
+  `(tactic| guard_expr $(← trExpr (← expr!)) =ₐ $(← trExpr (← parse (tk ":=" *> pExpr))))
 
 @[trTactic guard_target] def trGuardTarget : TacM Syntax := do
-  `(tactic| guardTarget =ₐ $(← trExpr (← parse pExpr)))
+  `(tactic| guard_target =ₐ $(← trExpr (← parse pExpr)))
 
 @[trTactic guard_hyp] def trGuardHyp : TacM Syntax := do
-  `(tactic| guardHyp $(mkIdent (← parse ident))
+  `(tactic| guard_hyp $(mkIdent (← parse ident))
     $[:ₐ $(← liftM $ (← parse (tk ":" *> pExpr)?).mapM trExpr)]?
     $[:=ₐ $(← liftM $ (← parse (tk ":=" *> pExpr)?).mapM trExpr)]?)
 
@@ -486,21 +486,21 @@ def trSimpAttrs (attrs : Array Name) : Syntax :=
   let t ← trExpr (← parse pExpr)
   let m ← expr?
   if m.isSome then warn! "warning: unsupported: match_target reducibility"
-  `(tactic| matchTarget $t)
+  `(tactic| match_target $t)
 
 @[trTactic by_cases] def trByCases : TacM Syntax := do
   let (n, q) ← parse casesArg
   let q ← trExpr q
-  `(tactic| byCases' $[$(n.map mkIdent) :]? $q)
+  `(tactic| by_cases' $[$(n.map mkIdent) :]? $q)
 
 @[trTactic funext] def trFunext : TacM Syntax := do
   `(tactic| funext $[$((← parse ident_*).map trBinderName)]*)
 
 @[trTactic by_contradiction by_contra] def trByContra : TacM Syntax := do
-  `(tactic| byContra $((← parse (ident)?).map mkIdent)?)
+  `(tactic| by_contra $((← parse (ident)?).map mkIdent)?)
 
 @[trTactic type_check] def trTypeCheck : TacM Syntax := do
-  `(tactic| typeCheck $(← trExpr (← parse pExpr)))
+  `(tactic| type_check $(← trExpr (← parse pExpr)))
 
 @[trTactic done] def trDone : TacM Syntax := do `(tactic| done)
 
@@ -519,7 +519,7 @@ def trSimpAttrs (attrs : Array Name) : Syntax :=
 
 @[trTactic rsimp] def trRSimp : TacM Syntax := do `(tactic| rsimp)
 
-@[trTactic comp_val] def trCompVal : TacM Syntax := do `(tactic| compVal)
+@[trTactic comp_val] def trCompVal : TacM Syntax := do `(tactic| comp_val)
 
 @[trTactic async] def trAsync : TacM Syntax := do
   `(tactic| async $(← trBlock (← itactic)):tacticSeq)
@@ -544,7 +544,7 @@ def trSimpAttrs (attrs : Array Name) : Syntax :=
   let cfg := mkConfigStx $ parseSimpConfig (← expr?) |>.bind quoteSimpConfig
   mkNode ``Parser.Tactic.Conv.dsimp #[mkAtom "dsimp", cfg, o, trSimpList hs, trSimpAttrs attrs]
 
-@[trConv trace_lhs] def trTraceLHSConv : TacM Syntax := `(conv| traceLHS)
+@[trConv trace_lhs] def trTraceLHSConv : TacM Syntax := `(conv| trace_lhs)
 
 @[trConv change] def trChangeConv : TacM Syntax := do
   `(conv| change $(← trExpr (← parse pExpr)))
@@ -577,7 +577,7 @@ def trSimpAttrs (attrs : Array Name) : Syntax :=
   mkNode ``Parser.Tactic.Conv.simp #[mkAtom "simp", cfg, o, trSimpList hs, trSimpAttrs attrs]
 
 @[trConv guard_lhs] def trGuardLHSConv : TacM Syntax := do
-  `(conv| guardLHS =ₐ $(← trExpr (← parse pExpr)))
+  `(conv| guard_lhs =ₐ $(← trExpr (← parse pExpr)))
 
 @[trConv rewrite rw] def trRwConv : TacM Syntax := do
   let q ← liftM $ (← parse rwRules).mapM trRwRule
@@ -639,4 +639,4 @@ end
 @[trNITactic control_laws_tac] def trControlLawsTac (_ : AST3.Expr) : M Syntax :=
   `(tactic| (intros; rfl))
 
-@[trTactic blast_disjs] def trBlastDisjs : TacM Syntax := `(tactic| casesType* or)
+@[trTactic blast_disjs] def trBlastDisjs : TacM Syntax := `(tactic| cases_type* or)
