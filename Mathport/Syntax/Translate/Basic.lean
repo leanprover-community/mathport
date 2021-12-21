@@ -212,13 +212,30 @@ partial def reprintCore : Syntax → Option Format
 def reprint (stx : Syntax) : Format :=
   reprintCore stx |>.getD ""
 
+def captureTraces [Monad m] [MonadTrace m] [MonadFinally m] (k : m α) : m (α × Std.PersistentArray TraceElem) := do
+  let old ← getTraces
+  try
+    modifyTraces fun _ => {}
+    let res ← k
+    (res, ← getTraces)
+  finally
+    modifyTraces fun _ => old
+
+private def tryParenthesizeCommand (stx : Syntax) : CoreM <| Syntax × Format := do
+  try
+    (← Lean.PrettyPrinter.parenthesizeCommand stx, f!"")
+  catch e =>
+    let (_, traces) ← captureTraces do
+      withOptions (·.setBool `trace.PrettyPrinter.parenthesize true) do
+        try Lean.PrettyPrinter.parenthesizeCommand stx catch _ => stx
+    let traces ← traces.toList.mapM (·.msg.format)
+    (stx, f!"/- failed to parenthesize: {← e.toMessageData.toString}\n{Format.joinSep traces "\n"}-/")
+
 def push (stx : Syntax) : M Unit := do
   let stx ← try (← read).transform stx catch ex =>
     warn! "failed to transform: {← ex.toMessageData.toString}" | stx
   let fmt ← liftCoreM $ do
-    let (stx, parenthesizerErr) ←
-      try (← Lean.PrettyPrinter.parenthesizeCommand stx, f!"")
-      catch e => (stx, f!"-- failed to parenthesize: {← e.toMessageData.toString}\n")
+    let (stx, parenthesizerErr) ← tryParenthesizeCommand stx
     parenthesizerErr ++ (←
       try Lean.PrettyPrinter.formatCommand stx
       catch e =>
