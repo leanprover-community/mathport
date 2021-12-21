@@ -7,6 +7,8 @@ import Std.Data.HashMap
 import Mathport.Util.Json
 import Mathport.Util.Misc
 import Mathlib.Mathport.Syntax
+import Mathlib.Init.ExtendedBinder
+import Mathlib.Init.SetNotation
 
 open Std (HashMap)
 open Lean
@@ -21,7 +23,8 @@ inductive NotationKind
   | binary : (Syntax → Syntax → Syntax) → NotationKind
   | nary : (Array Syntax → Syntax) → NotationKind
   | exprs : (Array Syntax → Syntax) → NotationKind
-  | binder : (Syntax → Syntax → Syntax) → NotationKind
+  | binder : (Syntax → Syntax → Syntax) →
+      (extended : Option (Syntax → Syntax → Syntax → Syntax) := none) → NotationKind
   deriving Inhabited
 
 inductive Literal
@@ -106,8 +109,8 @@ def predefinedNotations : HashMap String NotationEntry := [
     ("expr ++ ", binary fun f x => Id.run `($f ++ $x)),
     ("expr :: ", binary fun f x => Id.run `($f :: $x)),
     ("expr[ , ]", exprs fun stxs => Id.run `([$stxs,*])),
-    ("exprexists , ", binder fun bis e => Id.run `(∃ $bis, $e)),
-    ("expr∃ , ", binder fun bis e => Id.run `(∃ $bis, $e)),
+    ("exprexists , ", exist),
+    ("expr∃ , ", exist),
     ("exprℕ", const <| Id.run `(ℕ)),
     ("exprℤ", const <| Id.run `(ℤ)),
     ("expr‹ ›", unary fun x => Id.run `(‹$x›)),
@@ -118,3 +121,17 @@ def predefinedNotations : HashMap String NotationEntry := [
     ("exprfail! ", unary id),
     ("exprtrace! ", unary id)
   ].foldl (fun m (a, k) => m.insert a ⟨Name.anonymous, NotationDesc.builtin, k, true⟩) ∅
+where
+  exist := binder
+    (fun bis e => Id.run `(∃ $bis, $e))
+    (fun x pred e => Id.run `(∃ $x:ident $pred:binderPred, $e))
+
+def predefinedBinderPreds : NameMap (Syntax → Syntax) := [
+    ("expr <= ", fun x => Id.run `(binderPred| ≤ $x)),
+    ("expr ≤ ", fun x => Id.run `(binderPred| ≤ $x)),
+    ("expr < ", fun x => Id.run `(binderPred| < $x)),
+    ("expr >= ", fun x => Id.run `(binderPred| ≥ $x)),
+    ("expr ≥ ", fun x => Id.run `(binderPred| ≥ $x)),
+    ("expr > ", fun x => Id.run `(binderPred| > $x)),
+    ("expr ∈ ", fun x => Id.run `(binderPred| ∈ $x))
+  ].foldl (fun m (a, k) => m.insert a k) ∅

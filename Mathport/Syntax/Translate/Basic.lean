@@ -285,6 +285,11 @@ structure BinderContext where
   allowSimple : Option Bool := none
   requireType := false
 
+inductive Binder'
+  | basic : Syntax → Binder'
+  | collection : BinderInfo →
+    Array (Spanned BinderName) → (nota : Name) → (rhs : Spanned Expr) → Binder'
+
 partial def trLevel : Level → M Syntax
   | Level.«_» => `(level| _)
   | Level.nat n => Quote.quote n
@@ -449,87 +454,142 @@ def trBinary (n : Name) (lhs rhs : Syntax) : M Syntax := do
     mkNode ``Parser.Term.app #[mkIdent n, mkNullNode #[lhs, rhs]]
 
 def expandBinderCollection
-  (trBinder : AST3.Binder → Array Syntax → M (Array Syntax)) :
-  AST3.Binder → Array Syntax → M (Array Syntax)
-| bic@(Binder.collection bi vars n e), out => do
-  warn! "warning: expanding binder collection {repr bic}"
+  (trBinder : Array (Spanned BinderName) → Option (Spanned Expr) → Array Syntax → M (Array Syntax))
+  (bi : BinderInfo) (vars : Array (Spanned BinderName))
+  (n : Name) (e : Spanned Expr) (out : Array Syntax) : M (Array Syntax) := do
+  warn! "warning: expanding binder collection {
+    bi.bracket true $ spaced repr vars ++ " " ++ n.toString ++ " " ++ repr e}"
   let vars := vars.map $ Spanned.map fun | BinderName.ident v => v | _ => `_x
   let vars1 := vars.map $ Spanned.map BinderName.ident
-  let mut out ← trBinder (Binder.binder bi (some vars1) #[] none none) out
+  let mut out ← trBinder vars1 none out
   let H := #[Spanned.dummy BinderName._]
   for v in vars do
     let ty := Expr.notation (Choice.one n) #[v.map $ Arg.expr ∘ Expr.ident, e.map Arg.expr]
-    out ← trBinder (Binder.binder bi (some H) #[] (some (Spanned.dummy ty)) none) out
+    out ← trBinder H (some (Spanned.dummy ty)) out
   out
-| _, _ => unreachable!
 
-mutual
+def trBasicBinder : BinderContext → BinderInfo → Option (Array (Spanned BinderName)) →
+    Binders → Option (Spanned Expr) → Option Default → M Syntax
+  | _, BinderInfo.instImplicit, vars, _, some ty, none => do
+    let var ← match vars with
+    | none => #[]
+    | some #[v] => pure #[trBinderName v.kind, mkAtom ":"]
+    | some _ => warn! "unsupported (impossible)"
+    mkNode ``Parser.Term.instBinder
+      #[mkAtom "[", mkNullNode var, ← trExpr ty.kind, mkAtom "]"]
+  | ⟨allowSimp, req⟩, bi, some vars, bis, ty, dflt => do
+    let ty := match req || !bis.isEmpty, ty with
+    | true, none => some (Spanned.dummy Expr.«_»)
+    | _, _ => ty
+    let ty ← ty.mapM fun ty => trExpr (Expr.Pi bis ty)
+    let vars := mkNullNode $ vars.map fun v => trBinderName v.kind
+    if let some stx ← trSimple allowSimp bi vars ty dflt then
+      return stx
+    let ty := mkOptionalNode' ty fun ty => #[mkAtom ":", ty]
+    match bi with
+    | BinderInfo.implicit =>
+      mkNode ``Parser.Term.implicitBinder #[mkAtom "{", vars, ty, mkAtom "}"]
+    | BinderInfo.strictImplicit =>
+      mkNode ``Parser.Term.strictImplicitBinder #[mkAtom "⦃", vars, ty, mkAtom "⦄"]
+    | _ => do
+      let dflt ← mkOptionalNode <$> dflt.mapM trBinderDefault
+      mkNode ``Parser.Term.explicitBinder #[mkAtom "(", vars, ty, dflt, mkAtom ")"]
+  | _, _, _, _, _, _ => warn! "unsupported (impossible)"
+where
+  trSimple
+  | some b, BinderInfo.default, vars, ty, none => do
+    if b && ty.isSome then return none
+    mkNode ``Parser.Term.simpleBinder #[vars, mkOptionalNode (← optTy ty)]
+  | _, _, _, _, _ => none
 
-  partial def trDArrow (bis : Array (Spanned Binder)) (ty : Expr) : M Syntax := do
-    let bis ← trBinders { requireType := true } bis
-    pure $ bis.foldr (init := ← trExpr ty) fun bi ty =>
-      mkNode ``Parser.Term.depArrow #[bi, mkAtom "→", ty]
+def trBinder' : BinderContext → Binder → Array Binder' → M (Array Binder')
+  | bc, Binder.binder bi vars bis ty dflt, out => do
+    out.push $ Binder'.basic $ ← trBasicBinder bc bi vars bis ty dflt
+  | bc, Binder.collection bi vars n e, out =>
+    out.push $ Binder'.collection bi vars n e
+  | _, Binder.notation _, _ => warn! "unsupported: (notation) binder"
 
-  partial def trBinder : BinderContext → Binder → Array Syntax → M (Array Syntax)
-    | _, Binder.binder BinderInfo.instImplicit vars _ (some ty) none, out => do
-      let var ← match vars with
-      | none => #[]
-      | some #[v] => pure #[trBinderName v.kind, mkAtom ":"]
-      | some _ => warn! "unsupported (impossible)"
-      out.push $ mkNode ``Parser.Term.instBinder
-        #[mkAtom "[", mkNullNode var, ← trExpr ty.kind, mkAtom "]"]
-    | ⟨allowSimp, req⟩, Binder.binder bi (some vars) bis ty dflt, out => do
-      let ty := match req || !bis.isEmpty, ty with
-      | true, none => some Expr.«_»
-      | _, _ => ty.map (·.kind)
-      let ty ← ty.mapM (trDArrow bis)
-      let vars := mkNullNode $ vars.map fun v => trBinderName v.kind
-      if let some stx ← trSimple allowSimp bi vars ty dflt then return out.push stx
-      let ty := mkOptionalNode' ty fun ty => #[mkAtom ":", ty]
-      out.push $ ← match bi with
-      | BinderInfo.implicit =>
-        mkNode ``Parser.Term.implicitBinder #[mkAtom "{", vars, ty, mkAtom "}"]
-      | BinderInfo.strictImplicit =>
-        mkNode ``Parser.Term.strictImplicitBinder #[mkAtom "⦃", vars, ty, mkAtom "⦄"]
-      | _ => do
-        let dflt ← mkOptionalNode <$> dflt.mapM trBinderDefault
-        mkNode ``Parser.Term.explicitBinder #[mkAtom "(", vars, ty, dflt, mkAtom ")"]
-    | bc, bic@(Binder.collection _ _ _ _), out => expandBinderCollection (trBinder bc) bic out
-    | _, Binder.notation _, _ => warn! "unsupported: (notation) binder"
-    | _, _, _ => warn! "unsupported (impossible)"
-  where
-    trSimple
-    | some b, BinderInfo.default, vars, ty, none => do
-      if b && ty.isSome then return none
-      mkNode ``Parser.Term.simpleBinder #[vars, mkOptionalNode (← optTy ty)]
-    | _, _, _, _, _ => none
+def trBinders' (bc : BinderContext)
+  (bis : Array (Spanned Binder)) : M (Array Binder') := do
+  bis.foldlM (fun out bi => trBinder' bc bi.kind out) #[]
 
-  partial def trBinders (bc : BinderContext) (bis : Array (Spanned Binder)) : M (Array Syntax) := do
-    bis.foldlM (fun out bi => trBinder bc bi.kind out) #[]
+def expandBinder : BinderContext → Binder' → Array Syntax → M (Array Syntax)
+  | bc, Binder'.basic bi, out => out.push bi
+  | bc, Binder'.collection bi vars n rhs, out =>
+    expandBinderCollection
+      (fun vars ty out => out.push <$> trBasicBinder bc bi (some vars) #[] ty none)
+      bi vars n rhs out
 
-end
+def expandBinders (bc : BinderContext) (bis : Array Binder') : M (Array Syntax) := do
+  bis.foldlM (fun out bi => expandBinder bc bi out) #[]
 
-partial def trExplicitBinders : Array (Spanned Binder) → M Syntax
+def trBinders (bc : BinderContext)
+  (bis : Array (Spanned Binder)) : M (Array Syntax) := do
+  expandBinders bc (← trBinders' bc bis)
+
+def trDArrow (bis : Array (Spanned Binder)) (ty : Expr) : M Syntax := do
+  let bis ← trBinders { requireType := true } bis
+  pure $ bis.foldr (init := ← trExpr ty) fun bi ty =>
+    mkNode ``Parser.Term.depArrow #[bi, mkAtom "→", ty]
+
+def trExtendedBinders
+  (reg : Array Syntax → Syntax → Syntax) (ext : Syntax → Syntax → Syntax → Syntax)
+  (bc : BinderContext) (bis : Array Binder') (e : Expr) : M Syntax := do
+  let tr1 : Array Syntax × (Syntax → Syntax) → Binder' → M (Array Syntax × (Syntax → Syntax))
+  | (args, f), Binder'.basic stx => (args.push stx, f)
+  | (args, f), bic@(Binder'.collection bi vars n rhs) => do
+    match vars, predefinedBinderPreds.find? n.getString! with
+    | #[v], some g =>
+      let v ← trBinderName v.kind
+      let pred := g (← trExpr rhs.kind)
+      (#[], fun e => f $ reg args $ ext v pred e)
+    | _, _ => (← expandBinder bc bic args, f)
+  let (args, f) ← bis.foldlM tr1 (#[], id)
+  f $ reg args (← trExpr e)
+
+def trExplicitBinders : Array (Spanned Binder) → M Syntax
   | #[⟨_, Binder.binder _ (some vars) _ ty none⟩] => do
     let ty ← match ty with | none => #[] | some ty => do #[mkAtom ":", ← trExpr ty.kind]
     mkNode ``explicitBinders #[mkNode ``unbracketedExplicitBinders #[
       mkNullNode $ vars.map fun n => trBinderIdent n.kind, mkNullNode ty]]
   | bis => do
-    let rec trBinder : AST3.Binder → Array Syntax → M (Array Syntax)
-    | Binder.binder _ vars _ ty none, bis => do
+    let trBasicBinder (vars : Option (Array (Spanned BinderName)))
+      (ty : Option (Spanned Expr)) : M Syntax := do
       let vars ← match vars with
       | some vars => vars.mapM fun n => trBinderIdent n.kind
       | none => #[mkNode ``binderIdent #[mkAtom "_"]]
       let ty ← match ty with | none => `(_) | some ty => trExpr ty.kind
-      bis.push $ mkNode ``bracketedExplicitBinders #[mkAtom "(", mkNullNode vars, mkAtom ":", ty, mkAtom ")"]
-    | bic@(Binder.collection _ _ _ _), bis => expandBinderCollection trBinder bic bis
+      mkNode ``bracketedExplicitBinders #[mkAtom "(", mkNullNode vars, mkAtom ":", ty, mkAtom ")"]
+    let rec trBinder : AST3.Binder → Array Syntax → M (Array Syntax)
+    | Binder.binder _ vars _ ty none, bis => bis.push <$> trBasicBinder vars ty
+    | Binder.collection bi vars n rhs, bis =>
+      expandBinderCollection (fun vars ty out => out.push <$> trBasicBinder vars ty)
+        bi vars n rhs bis
     | Binder.notation _, _ => warn! "unsupported: (notation) binder"
     | _, _ => warn! "unsupported (impossible)"
     let bis ← bis.foldlM (fun out bi => trBinder bi.kind out) #[]
     mkNode ``explicitBinders #[mkNullNode bis]
 
+def trExplicitBindersExt
+  (reg : Syntax → Syntax → Syntax) (ext : Option (Syntax → Syntax → Syntax → Syntax))
+  (bis : Array (Spanned Binder)) (e : Expr) : M Syntax := do
+  let reg' (bis) : M (Syntax → Syntax) := do
+    if bis.isEmpty then pure id else reg (← trExplicitBinders bis)
+  match ext with
+  | none => (← reg' bis) (← trExpr e)
+  | some ext => do
+    let (left, f) ← bis.foldlM (init := (#[], id)) fun (left, f) bi => do
+      if let Binder.collection _ #[v] n rhs := bi.kind then
+        if let some g := predefinedBinderPreds.find? n.getString! then
+          (#[], f ∘ (← reg' left) ∘ ext (← trBinderName v.kind) (g (← trExpr rhs.kind)))
+        else (left.push bi, f)
+      else (left.push bi, f)
+    pure $ f ((← reg' left) (← trExpr e))
+
 def trLambdaBinder : LambdaBinder → Array Syntax → M (Array Syntax)
-  | LambdaBinder.reg bi, out => trBinder { allowSimple := some false } bi out
+  | LambdaBinder.reg bi, out => do
+    let bc := { allowSimple := some false }
+    (← trBinder' bc bi #[]).foldlM (fun out bi => expandBinder bc bi out) out
   | LambdaBinder.«⟨⟩» args, out => do out.push $ ← trExpr (Expr.«⟨⟩» args)
 
 def trOptType (ty : Option Expr) : M (Option Syntax) := ty.mapM trExpr >>= optTy
@@ -590,11 +650,11 @@ def trNotation (n : Choice) (args : Array (Spanned Arg)) : M Syntax := do
     | _ => warn! "unsupported (impossible)"
   | some ⟨_, _, NotationKind.exprs f, _⟩, #[Arg.exprs es] => f $ ← es.mapM fun e => trExpr e.kind
   | some ⟨_, _, NotationKind.exprs f, _⟩, _ => warn! "unsupported (impossible)"
-  | some ⟨_, _, NotationKind.binder f, _⟩, #[Arg.binder bi, Arg.expr e] => do
-    f (← trExplicitBinders #[Spanned.dummy bi]) (← trExpr e)
-  | some ⟨_, _, NotationKind.binder f, _⟩, #[Arg.binders bis, Arg.expr e] => do
-    if bis.isEmpty then trExpr e else f (← trExplicitBinders bis) (← trExpr e)
-  | some ⟨_, _, NotationKind.binder f, _⟩, _ => warn! "unsupported (impossible)"
+  | some ⟨_, _, NotationKind.binder f g, _⟩, #[Arg.binder bi, Arg.expr e] =>
+    trExplicitBindersExt f g #[Spanned.dummy bi] e
+  | some ⟨_, _, NotationKind.binder f g, _⟩, #[Arg.binders bis, Arg.expr e] =>
+    trExplicitBindersExt f g bis e
+  | some ⟨_, _, NotationKind.binder .., _⟩, _ => warn! "unsupported (impossible)"
   | some ⟨_, _, NotationKind.fail, _⟩, args =>
     warn! "warning: unsupported notation {repr n}"
     let args ← args.mapM fun | Arg.expr e => trExpr e | _ => warn! "unsupported notation {repr n}"
@@ -647,11 +707,16 @@ def trExpr' : Expr → M Syntax
   | Expr.fun _ bis e => do
     let bis ← bis.foldlM (fun out bi => trLambdaBinder bi.kind out) #[]
     `(fun $bis* => $(← trExpr e.kind))
+  | Expr.Pi #[] e => trExpr e.kind
   | Expr.Pi bis e => do
     -- let dArrowHeuristic := !bis.any fun | ⟨_, Binder.binder _ _ _ none _⟩ => true | _ => false
     let dArrowHeuristic := false
     if dArrowHeuristic then trDArrow bis e.kind else
-      `(∀ $(← trBinders { allowSimple := some false } bis)*, $(← trExpr e.kind))
+      let bc := { allowSimple := some false }
+      trExtendedBinders
+        (fun args e => Id.run `(∀ $args*, $e))
+        (fun v pred e => Id.run `(∀ $v:ident $pred:binderPred, $e))
+        bc (← trBinders' bc bis) e.kind
   | e@(Expr.app _ _) => do
     let (f, args) ← trAppArgs e trExpr
     mkNode ``Parser.Term.app #[f, mkNullNode args]
