@@ -549,7 +549,7 @@ def trDArrow (bis : Array (Spanned Binder)) (ty : Expr) : M Syntax := do
   pure $ bis.foldr (init := ← trExpr ty) fun bi ty =>
     mkNode ``Parser.Term.depArrow #[bi, mkAtom "→", ty]
 
-def trExtendedBinders
+def trExtendedBindersGrouped
   (reg : Array Syntax → Syntax → Syntax) (ext : Syntax → Syntax → Syntax → Syntax)
   (bc : BinderContext) (bis : Array Binder') (e : Expr) : M Syntax := do
   let tr1 : Array Syntax × (Syntax → Syntax) → Binder' → M (Array Syntax × (Syntax → Syntax))
@@ -602,6 +602,30 @@ def trExplicitBindersExt
         else (left.push bi, f)
       else (left.push bi, f)
     pure $ f ((← reg' left) (← trExpr e))
+
+def trExtBinders (args : Array (Spanned Binder)) : M Syntax := do
+  let out ← args.foldlM (init := #[]) fun
+  | out, ⟨_, Binder.binder _ vars _ ty _⟩ =>
+    trBasicBinder (vars.getD #[Spanned.dummy BinderName._]) ty out
+  | out, ⟨_, Binder.collection bi vars n rhs⟩ =>
+    if let some g := predefinedBinderPreds.find? n.getString! then
+      onVars vars out fun v out => do
+        out.push $ ← `(Mathlib.ExtendedBinder.extBinder|
+          $(trBinderIdent v):binderIdent $(g (← trExpr rhs.kind)):binderPred)
+    else
+      expandBinderCollection trBasicBinder bi vars n rhs out
+  | out, ⟨_, Binder.notation _⟩ => warn! "unsupported: (notation) binder" | out
+  if let #[bi] := out then `(Mathlib.ExtendedBinder.extBinders| $bi:extBinder)
+  else `(Mathlib.ExtendedBinder.extBinders| $[($out:extBinder)]*)
+where
+  onVars {α} (vars) (out : α) (f : BinderName → α → M α) : M α := do
+    if vars.size > 1 then
+      warn! "warning: expanding binder group ({spaced repr vars})"
+    vars.foldlM (fun out ⟨_, v⟩ => f v out) out
+  trBasicBinder (vars ty out) :=
+    onVars vars out fun v out => do
+      out.push $ ← `(Mathlib.ExtendedBinder.extBinder|
+        $(trBinderIdent v):binderIdent $[: $(← ty.mapM fun ty => trExpr ty.kind)]?)
 
 def trLambdaBinder : LambdaBinder → Array Syntax → M (Array Syntax)
   | LambdaBinder.reg bi, out => do
@@ -662,8 +686,8 @@ def trNotation (n : Choice) (args : Array (Spanned Arg)) : M Syntax := do
   | some ⟨_, _, NotationKind.binary f, _⟩, _ => warn! "unsupported (impossible)"
   | some ⟨_, _, NotationKind.nary f, _⟩, args => f <$> args.mapM fun
     | Arg.expr e => trExpr e
-    | Arg.binder bi => trExplicitBinders #[Spanned.dummy bi]
-    | Arg.binders bis => trExplicitBinders bis
+    | Arg.binder bi => trExtBinders #[Spanned.dummy bi]
+    | Arg.binders bis => trExtBinders bis
     | _ => warn! "unsupported (impossible)"
   | some ⟨_, _, NotationKind.exprs f, _⟩, #[Arg.exprs es] => f $ ← es.mapM fun e => trExpr e.kind
   | some ⟨_, _, NotationKind.exprs f, _⟩, _ => warn! "unsupported (impossible)"
@@ -730,7 +754,7 @@ def trExpr' : Expr → M Syntax
     let dArrowHeuristic := false
     if dArrowHeuristic then trDArrow bis e.kind else
       let bc := { allowSimple := some false }
-      trExtendedBinders
+      trExtendedBindersGrouped
         (fun args e => Id.run `(∀ $args*, $e))
         (fun v pred e => Id.run `(∀ $v:ident $pred:binderPred, $e))
         bc (← trBinders' bc bis) e.kind
