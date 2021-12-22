@@ -15,6 +15,8 @@ abbrev Task := _root_.Task (Except IO.Error Unit)
 def mathport1 (config : Config) (path : Path) : IO Unit := do
   let pcfg := config.pathConfig
 
+  IO.eprintln s!"porting {path.mod4}"
+
   println! s!"\n[mathport] START {path.mod3}\n"
 
   let mut imports : Array Import ← (← parseTLeanImports (path.toLean3 pcfg ".tlean")).mapM fun mod3 => do
