@@ -153,7 +153,6 @@ elab:max "warn!" interpStr:interpolatedStr(term) or:(checkColGt "|" term)? : ter
   let or ← if or.getNumArgs == 2 then or.getArg 1 else `(Warnable.warn str)
   (Term.elabTerm · ty) <|<- `(do
     let str : String := $head ++ $str
-    dbg_trace str
     logComment str
     $or:term)
 
