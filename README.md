@@ -50,7 +50,7 @@ The script `./download-release.sh nightly-YYYY-MM-DD` downloads one of these,
 after which you can skip the `make predata` and/or `make port` steps
 (you will still need to run `make build` and `make source`).
 
-You can also use the `make TARGET=data.bat.bitwise port-mathbin-single` target
+You can also use the `make TARGET=data.nat.bitwise port-mathbin-single` target
 (similarly for `port-lean-single`) to run mathport on a single file.
 This is useful if you are testing a change to mathport.
 
