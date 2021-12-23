@@ -15,7 +15,8 @@ mathport_rules
     `($mods:declModifiers def $id:declId $sig:optDeclSig where
         $[$fieldName:ident := $fieldVal:term]*)
 
-open Lean.Parser.Command in
-mathport_rules
-  | `(whereStructField| $id:ident := fun $xs:ident* => $val:term) =>
-    `(whereStructField| $id:ident $xs:ident* := $val:term)
+-- TODO: this seems to break with mathport-generated lambdas
+-- open Lean.Parser.Command in
+-- mathport_rules
+--   | `(whereStructField| $id:ident := fun $xs:ident* => $val:term) =>
+--     `(whereStructField| $id:ident $xs:ident* := $val:term)
