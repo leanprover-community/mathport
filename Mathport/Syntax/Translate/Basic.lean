@@ -21,11 +21,6 @@ namespace Translate
 open Std (HashMap)
 open AST3
 
-structure Scope where
-  curNamespace : Name := Name.anonymous
-  oldStructureCmd : Bool := false
-  deriving Inhabited
-
 structure NotationData where
   n3 : String
   n4 : Name
@@ -36,6 +31,12 @@ def NotationData.unpack : NotationData → NotationEntry
   | ⟨n3, n4, desc⟩ => ⟨n4, desc, desc.toKind n4, false⟩
 
 abbrev NotationEntries := HashMap String NotationData
+
+structure Scope where
+  curNamespace : Name := Name.anonymous
+  oldStructureCmd : Bool := false
+  localNotations : NotationEntries := {}
+  deriving Inhabited
 
 structure State where
   output : Format := ""
@@ -60,12 +61,12 @@ initialize synportNotationExtension : SimplePersistentEnvExtension NotationData 
     addImportedFn := fun es => mkStateFromImportedEntries NotationEntries.insert {} es
   }
 
-def getNotationEntry? (s : String) : CommandElabM (Option NotationEntry) := do
+def getGlobalNotationEntry? (s : String) : CommandElabM (Option NotationEntry) := do
   match synportNotationExtension.getState (← getEnv) |>.find? s with
   | none => predefinedNotations.find? s
   | some d => d.unpack
 
-def registerNotationEntry (d : NotationData) : CommandElabM Unit := do
+def registerGlobalNotationEntry (d : NotationData) : CommandElabM Unit := do
   modifyEnv fun env => synportNotationExtension.addEntry env d
 
 -- Note: the PrecedenceExtension may be unnecessary once
@@ -261,6 +262,15 @@ def popScope : M Unit :=
   modify fun s => match s.scopes.back? with
   | none => s
   | some c => { s with current := c, scopes := s.scopes.pop }
+
+def getNotationEntry? (s : String) : M (Option NotationEntry) := do
+  match (← get).current.localNotations.find? s with
+  | none => getGlobalNotationEntry? s
+  | some d => d.unpack
+
+def registerNotationEntry (loc : Bool) (d : NotationData) : M Unit :=
+  if loc then modifyScope fun sc => { sc with localNotations := sc.localNotations.insert d }
+  else registerGlobalNotationEntry d
 
 def mkOptionalNode' (x : Option α) (f : α → Array Syntax) : Syntax :=
   mkNullNode $ match x with
@@ -1332,7 +1342,7 @@ def trNotationCmd (loc : LocalReserve) (attrs : Attributes) (nota : Notation)
     catch e => dbg_trace "warning: failed to add syntax {repr n4}: {← e.toMessageData.toString}"
     pure $ (← getCurrNamespace) ++ n4
   f $ cmd none e
-  registerNotationEntry ⟨n, n4, desc⟩
+  registerNotationEntry loc.1 ⟨n, n4, desc⟩
 
 end
 
