@@ -111,7 +111,7 @@ port: port-lean port-mathbin
 # You can use the next two targets to recompile a single file
 # (e.g. if you are testing a modification of mathport)
 # You'll need to have either run all the steps: `make build source predata port`,
-# or run `make build source` and `./download-re=lease.sh nightly-YYYY-MM-DD`.
+# or run `make build source` and `./download-release.sh nightly-YYYY-MM-DD`.
 
 port-lean-single:
 	rm -f Outputs/src/leanbin/Leanbin/$(subst .,/,$(TARGET)).lean

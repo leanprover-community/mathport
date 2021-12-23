@@ -11,7 +11,7 @@ unsafe def main (args : List String) : IO Unit := do
     let path := match ← IO.getEnv "LEAN_PATH" with
     | none => []
     | some path => System.SearchPath.parse path
-    searchPathRef.set (leanDir! :: "build" :: path)
+    searchPathRef.set (leanDir! :: path)
     mathport config paths.toArray
 
   | _ => throw $ IO.userError "usage: mathport <path-to-config> [pkg::mod3]+"
