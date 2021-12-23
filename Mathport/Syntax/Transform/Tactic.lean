@@ -41,3 +41,5 @@ mathport_rules
 
 -- used in Lean 3 to postpone elaboration, now happens by default
 mathport_rules | `(by exact $t) => t
+
+mathport_rules | `(by · $seq:tacticSeq) => `(by $seq:tacticSeq)
