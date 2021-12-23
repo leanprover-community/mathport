@@ -17,6 +17,10 @@ def transformConsecutiveTactics : Syntax → Syntax → M Syntax
     `(tactic| have $[$id:ident]? $[: $ty:term]? := by $seq:tacticSeq)
   | `(tactic| have $[$id:ident]? $[: $ty:term]?), `(tactic|exact $t) =>
     `(tactic| have $[$id:ident]? $[: $ty:term]? := $t)
+  | `(tactic| let $id:ident $[: $ty:term]?), `(tactic|· $seq:tacticSeq) =>
+    `(tactic| let $id:ident $[: $ty:term]? := by $seq:tacticSeq)
+  | `(tactic| suffices : $ty:term), `(tactic|· $seq:tacticSeq) =>
+    `(tactic| suffices $ty:term by $seq:tacticSeq)
   | `(tactic| obtain $[$pat]? $[: $ty]?), `(tactic|· $seq:tacticSeq) =>
     `(tactic| obtain $[$pat]? $[: $ty]? := by $seq:tacticSeq)
   | _, _ => throwUnsupported
