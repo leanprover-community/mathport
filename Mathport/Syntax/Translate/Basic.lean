@@ -283,7 +283,7 @@ def mkOptionalNodeM [Monad m] (x : Option α) (f : α → m (Array Syntax)) : m 
   | some a => f a
 
 def trDocComment (doc : String) : Syntax :=
-  mkNode ``Parser.Command.docComment #[mkAtom "/--", mkAtom (doc ++ "-/")]
+  mkNode ``Parser.Command.docComment #[mkAtom "/--", mkAtom (doc.trimLeft ++ "-/")]
 
 partial def scientificLitOfDecimal (num den : Nat) : Option Syntax :=
   findExp num den 0 |>.map fun (m, e) =>
