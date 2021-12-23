@@ -43,3 +43,19 @@ mathport_rules
 mathport_rules | `(by exact $t) => t
 
 mathport_rules | `(by · $seq:tacticSeq) => `(by $seq:tacticSeq)
+
+-- expand `by (skip; skip)` to `by skip; skip`
+mathport_rules
+  | Syntax.node info ``Parser.Tactic.tacticSeq1Indented #[Syntax.node info2 `null tacs] => do
+    let mut tacs' := #[]
+    let mut modified := false
+    for tac in tacs do
+      match tac[0] with
+      | `(tactic| ($seq:tacticSeq1Indented)) =>
+        tacs' := tacs' ++ seq[0].getArgs
+        modified := true
+      | _ => tacs' := tacs'.push tac
+    if modified then
+      Syntax.node info ``Parser.Tactic.tacticSeq1Indented #[Syntax.node info2 `null tacs']
+    else
+      throwUnsupported
