@@ -863,6 +863,7 @@ def mkSimpleAttr (n : Name) (args : Array Syntax := #[]) :=
 def trDerive (e : AST3.Expr) : M Name :=
   match e.unparen with
   | Expr.ident n => renameIdent n
+  | Expr.const _ ⟨_, n⟩ _ => renameIdent n
   | e => warn! "unsupported derive handler {repr e}"
 
 inductive TrAttr
