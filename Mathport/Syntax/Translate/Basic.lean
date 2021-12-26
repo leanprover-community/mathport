@@ -359,8 +359,6 @@ def trBinderIdentI : BinderName → M Syntax
   | BinderName.ident n => do mkNode ``binderIdent #[← mkIdentI n]
   | BinderName.«_» => mkNode ``binderIdent #[mkAtom "_"]
 
-inductive TacticContext | seq | one
-
 def optTy (ty : Option Syntax) : M (Option Syntax) :=
   ty.mapM fun stx => do `(Parser.Term.typeSpec| : $stx)
 
@@ -370,19 +368,17 @@ def trCalcArgs (args : Array (Spanned Expr × Spanned Expr)) : M (Array Syntax) 
 
 mutual
 
-  partial def trBlock : Block → (c :_:= TacticContext.seq) → M Syntax
-    | ⟨_, none, none, #[]⟩, TacticContext.seq => do `(Parser.Tactic.tacticSeq| {})
-    | ⟨_, none, none, tacs⟩, TacticContext.seq => do
+  partial def trBlock : Block → M Syntax
+    | ⟨_, none, none, #[]⟩ => do `(Parser.Tactic.tacticSeq| {})
+    | ⟨_, none, none, tacs⟩ => do
       mkNode ``Parser.Tactic.tacticSeq #[mkNode ``Parser.Tactic.tacticSeq1Indented #[
         mkNullNode $ ← tacs.mapM fun tac => do mkGroupNode #[← trTactic tac.kind, mkNullNode]]]
-    | bl, TacticContext.one => do `(tactic| · $(← trBlock bl):tacticSeq)
-    | ⟨_, cl, cfg, tacs⟩, _ => warn! "unsupported (TODO): block with cfg"
+    | ⟨_, cl, cfg, tacs⟩ => warn! "unsupported (TODO): block with cfg"
 
-  partial def trTactic : Tactic → (c :_:= TacticContext.one) → M Syntax
-    | Tactic.block bl, c => trBlock bl c
-    | Tactic.by tac, c => trBlock ⟨true, none, none, #[tac]⟩ c
-    | tac, TacticContext.seq => trBlock ⟨true, none, none, #[Spanned.dummy tac]⟩
-    | Tactic.«;» tacs, TacticContext.one => do
+  partial def trTactic : Tactic → M Syntax
+    | Tactic.block bl => do `(tactic| · $(← trBlock bl):tacticSeq)
+    | Tactic.by tac => do `(tactic| · $(← trTactic tac.kind):tactic)
+    | Tactic.«;» tacs => do
       let rec build (i : Nat) (lhs : Syntax) : M Syntax :=
         if h : i < tacs.size then do
           match ← trTacticOrList (tacs.get ⟨i, h⟩).kind with
@@ -390,14 +386,13 @@ mutual
           | Sum.inr tacs => build (i+1) (← `(tactic| $lhs <;> [$tacs,*]))
         else lhs
       build 1 (← trTactic tacs[0].kind)
-    | Tactic.«<|>» tacs, TacticContext.one => do
-      let tacs ← tacs.mapM fun tac => trTactic tac.kind TacticContext.seq
-      `(tactic| first $[| $tacs:tacticSeq]*)
-    | Tactic.«[]» tacs, _ => warn! "unsupported (impossible)"
-    | Tactic.exact_shortcut ⟨_, Expr.calc args⟩, TacticContext.one => do
+    | Tactic.«<|>» tacs => do
+      `(tactic| first $[| $(← tacs.mapM fun tac => trTactic tac.kind):tactic]*)
+    | Tactic.«[]» tacs => warn! "unsupported (impossible)"
+    | Tactic.exact_shortcut ⟨_, Expr.calc args⟩ => do
       `(tactic| calc $(← trCalcArgs args)*)
-    | Tactic.exact_shortcut e, TacticContext.one => do `(tactic| exact $(← trExpr e.kind))
-    | Tactic.expr e, TacticContext.one => do
+    | Tactic.exact_shortcut e => do `(tactic| exact $(← trExpr e.kind))
+    | Tactic.expr e => do
       let rec head
       | Expr.ident x => x
       | Expr.paren e => head e.kind
@@ -413,7 +408,7 @@ mutual
         match (← get).niTactics.find? n with
         | some f => try f e.kind catch e => warn! "in {n}: {← e.toMessageData.toString}"
         | none => warn! "unsupported non-interactive tactic {n}"
-    | Tactic.interactive n args, TacticContext.one => do
+    | Tactic.interactive n args => do
       match (← get).tactics.find? n with
       | some f => try f args catch e => warn! "in {n}: {← e.toMessageData.toString}"
       | none => warn! "unsupported tactic {repr n}"
@@ -424,11 +419,10 @@ mutual
 
 end
 
-def trIdTactic : Block → (c :_:= TacticContext.one) → M Syntax
-  | bl, TacticContext.seq => trBlock bl
-  | ⟨_, none, none, #[]⟩, _ => do `(tactic| skip)
-  | ⟨_, none, none, #[tac]⟩, _ => trTactic tac.kind
-  | bl, _ => do `(tactic| ($(← trBlock bl):tacticSeq))
+def trIdTactic : Block → M Syntax
+  | ⟨_, none, none, #[]⟩ => do `(tactic| skip)
+  | ⟨_, none, none, #[tac]⟩ => trTactic tac.kind
+  | bl => do `(tactic| ($(← trBlock bl):tacticSeq))
 
 def mkConvBlock (args : Array Syntax) : Syntax :=
   mkNode ``Parser.Tactic.Conv.convSeq #[mkNode ``Parser.Tactic.Conv.convSeq1Indented #[
@@ -436,28 +430,25 @@ def mkConvBlock (args : Array Syntax) : Syntax :=
 
 mutual
 
-  partial def trConvBlock : Block → (c :_:= TacticContext.seq) → M Syntax
-    | ⟨_, none, none, #[]⟩, TacticContext.seq => do mkConvBlock #[← `(conv| skip)]
-    | ⟨_, none, none, tacs⟩, TacticContext.seq => do
+  partial def trConvBlock : Block → M Syntax
+    | ⟨_, none, none, #[]⟩ => do mkConvBlock #[← `(conv| skip)]
+    | ⟨_, none, none, tacs⟩ => do
       mkConvBlock $ ← tacs.mapM fun tac => trConv tac.kind
-    | bl, TacticContext.one => do `(conv| · $(← trConvBlock bl):convSeq)
-    | ⟨_, cl, cfg, tacs⟩, _ => warn! "unsupported (TODO): conv block with cfg"
+    | ⟨_, cl, cfg, tacs⟩ => warn! "unsupported (TODO): conv block with cfg"
 
-  partial def trConv : Tactic → (c :_:= TacticContext.one) → M Syntax
-    | Tactic.block bl, c => trConvBlock bl c
-    | Tactic.by tac, c => trConvBlock ⟨true, none, none, #[tac]⟩ c
-    | tac, TacticContext.seq => trConvBlock ⟨true, none, none, #[Spanned.dummy tac]⟩
-    | Tactic.«;» tacs, _ => warn! "unsupported (impossible)"
-    | Tactic.«<|>» tacs, TacticContext.one => do
-      let tacs ← tacs.mapM fun tac => trConv tac.kind TacticContext.seq
-      `(conv| first $[| $tacs:convSeq]*)
-    | Tactic.«[]» tacs, _ => warn! "unsupported (impossible)"
-    | Tactic.exact_shortcut _, _ => warn! "unsupported (impossible)"
-    | Tactic.expr e, TacticContext.one => do
+  partial def trConv : Tactic → M Syntax
+    | Tactic.block bl => do `(conv| · $(← trConvBlock bl):convSeq)
+    | Tactic.by tac => do `(conv| · $(← trConv tac.kind):conv)
+    | Tactic.«;» tacs => warn! "unsupported (impossible)"
+    | Tactic.«<|>» tacs => do
+      `(conv| first $[| $(← tacs.mapM fun tac => trConv tac.kind):conv]*)
+    | Tactic.«[]» tacs => warn! "unsupported (impossible)"
+    | Tactic.exact_shortcut _ => warn! "unsupported (impossible)"
+    | Tactic.expr e => do
       match ← trExpr e.kind with
       | `(do $[$els]*) => `(conv| run_conv $[$els:doSeqItem]*)
       | stx => `(conv| run_conv $stx:term)
-    | Tactic.interactive n args, TacticContext.one => do
+    | Tactic.interactive n args => do
       match (← get).convs.find? n with
       | some f => try f args catch e => warn! "in {n}: {← e.toMessageData.toString}"
       | none => warn! "unsupported conv tactic {repr n}"
@@ -468,7 +459,7 @@ def trBinderDefault : Default → M Syntax
   | Default.«:=» e => do `(Parser.Term.binderDefault| := $(← trExpr e.kind))
   | Default.«.» e => do
     `(Parser.Term.binderTactic| := by
-      $(← trTactic (Tactic.expr $ e.map Expr.ident) TacticContext.seq):tacticSeq)
+      $(← trTactic (Tactic.expr $ e.map Expr.ident)):tactic)
 
 def trBinary (n : Name) (lhs rhs : Syntax) : M Syntax := do
   match ← getNotationEntry? n.getString! with
@@ -678,7 +669,7 @@ def trProof : Proof → (useFrom : Bool := true) → M Syntax
     let e ← trExpr e.kind
     if useFrom then `(Parser.Term.fromTerm| from $e) else e
   | Proof.block bl, _ => do `(by $(← trBlock bl):tacticSeq)
-  | Proof.by tac, _ => do `(by $(← trTactic tac.kind TacticContext.seq):tacticSeq)
+  | Proof.by tac, _ => do `(by $(← trTactic tac.kind):tactic)
 
 def trNotation (n : Choice) (args : Array (Spanned Arg)) : M Syntax := do
   let n ← match n with
@@ -813,7 +804,7 @@ def trExpr' : Expr → M Syntax
   | Expr.«:» e ty => do `(($(← trExpr e.kind) : $(← trExpr ty.kind)))
   | Expr.hole es => warn! "unsupported: \{! ... !}"
   | Expr.«#[]» es => warn! "unsupported: #[...]"
-  | Expr.by tac => do `(by $(← trTactic tac.kind TacticContext.seq):tacticSeq)
+  | Expr.by tac => do `(by $(← trTactic tac.kind):tactic)
   | Expr.begin tacs => do `(by $(← trBlock tacs):tacticSeq)
   | Expr.let bis e => do
     bis.foldrM (init := ← trExpr e.kind) fun bi stx => do

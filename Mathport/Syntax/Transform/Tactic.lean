@@ -36,13 +36,51 @@ mathport_rules
 
 -- common obsolete patterns from haveI
 mathport_rules
-  | `(by have $hd:haveDecl; exact $t) => `(have $hd:haveDecl; $t)
-  | `(by have $hd:haveDecl <;> exact $t) => `(have $hd:haveDecl; $t)
+  | `(by have $hd:haveDecl
+         exact $t) =>
+    `(have $hd:haveDecl
+      $t)
+  | `(by have $hd:haveDecl <;> exact $t) =>
+    `(have $hd:haveDecl
+      $t)
 
 -- used in Lean 3 to postpone elaboration, now happens by default
 mathport_rules | `(by exact $t) => t
 
+mathport_rules
+  | `(tactic| · · $seq:tacticSeq) => `(tactic| · $seq:tacticSeq)
+  | `(conv| · · $seq:convSeq) => `(conv| · $seq:convSeq)
+
 mathport_rules | `(by · $seq:tacticSeq) => `(by $seq:tacticSeq)
+
+mathport_rules
+  | `(Parser.Term.binderTactic| := by · $seq:tacticSeq) =>
+    `(Parser.Term.binderTactic| := by $seq:tacticSeq)
+
+mathport_rules
+  | `(show $ty:term from by $seq:tacticSeq) =>
+    `(show $ty:term by $seq:tacticSeq)
+  | `(suffices $ty:term from by $seq:tacticSeq
+      $t) =>
+    `(suffices $ty:term by $seq:tacticSeq
+      $t)
+  | `(tactic| suffices $ty:term from by $seq:tacticSeq) =>
+    `(tactic| suffices $ty:term by $seq:tacticSeq)
+
+-- push `by` before `have`, `let`, `suffices` so that it can be formatted at the end of a line
+mathport_rules
+  | `(have $hd:haveDecl
+      by $[$seq:tactic]*) =>
+    `(by have $hd:haveDecl
+        $[$seq:tactic]*)
+  | `(let $ld:letDecl
+      by $[$seq:tactic]*) =>
+    `(by let $ld:letDecl
+        $[$seq:tactic]*)
+  | `(suffices $sd:sufficesDecl
+      by $[$seq:tactic]*) =>
+    `(by suffices $sd:sufficesDecl
+        $[$seq:tactic]*)
 
 -- expand `by (skip; skip)` to `by skip; skip`
 mathport_rules
