@@ -817,19 +817,19 @@ def trSimpsRule : Sum (Name × Name) Name × Bool → M Syntax
   | (arg, pfx) => do
     let stx ← match arg with
     | Sum.inl (a, b) => do
-      mkNode ``Command.simpsRule.rename #[← mkIdentF a, mkAtom "→", ← mkIdentF b]
+      mkNode ``Parser.Command.simpsRule.rename #[← mkIdentF a, mkAtom "→", ← mkIdentF b]
     | Sum.inr a => do
-      mkNode ``Command.simpsRule.erase #[mkAtom "-", ← mkIdentF a]
-    mkNode ``Command.simpsRule #[stx,
+      mkNode ``Parser.Command.simpsRule.erase #[mkAtom "-", ← mkIdentF a]
+    mkNode ``Parser.Command.simpsRule #[stx,
       @mkNullNode $ if pfx then #[mkAtom "as_prefix"] else #[]]
 
 @[trUserCmd «initialize_simps_projections»] def trInitializeSimpsProjections : TacM Syntax := do
   let (trc, args) ← parse $ do (← (tk "?")?, ← (do (← ident, ← simpsRules))*)
   let (tac, s) := match trc with
-  | none => (``Command.initializeSimpsProjections, "initialize_simps_projections")
-  | some _ => (``Command.initializeSimpsProjections?, "initialize_simps_projections?")
+  | none => (``Parser.Command.initializeSimpsProjections, "initialize_simps_projections")
+  | some _ => (``Parser.Command.initializeSimpsProjections?, "initialize_simps_projections?")
   mkNode tac #[mkAtom s, mkNullNode $ ← liftM (m := M) $ args.mapM fun (n, rules) => do
-    mkNode ``Command.simpsProj #[← mkIdentF n,
+    mkNode ``Parser.Command.simpsProj #[← mkIdentF n,
       mkNullNode $ ← match rules with
       | #[] => #[]
       | _ => do #[mkAtom "(", (mkAtom ",").mkSep $ ← rules.mapM trSimpsRule, mkAtom ")"]]]

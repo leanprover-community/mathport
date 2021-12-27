@@ -156,14 +156,6 @@ def CommandElabM.toIO (x : CommandElabM α) (ctx : Context) (s : State) : IO α 
 def CommandElabM.toIO' (x : CommandElabM α) (ctx : Context) (env : Environment) : IO α := do
   toIO x ctx (mkState env)
 
-/-- Changes the current namespace without causing scoped things to go out of scope -/
-def withWeakNamespace (ns : Name) (m : CommandElabM α) : CommandElabM α := do
-  let old ← getCurrNamespace
-  modifyScope fun s => { s with currNamespace := old ++ ns }
-  let a ← m
-  modifyScope fun s => { s with currNamespace := old }
-  a
-
 end Lean.Elab.Command
 
 section -- for debugging

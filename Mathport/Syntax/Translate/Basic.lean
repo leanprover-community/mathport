@@ -376,7 +376,7 @@ mutual
     | ⟨_, cl, cfg, tacs⟩ => warn! "unsupported (TODO): block with cfg"
 
   partial def trTactic : Tactic → M Syntax
-    | Tactic.block bl => do `(tactic| · $(← trBlock bl):tacticSeq)
+    | Tactic.block bl => do `(tactic| · ($(← trBlock bl):tacticSeq))
     | Tactic.by tac => do `(tactic| · $(← trTactic tac.kind):tactic)
     | Tactic.«;» tacs => do
       let rec build (i : Nat) (lhs : Syntax) : M Syntax :=
