@@ -189,7 +189,7 @@ def trRwArgs : TacM (Array Syntax × Option Syntax) := do
 
 @[trTactic skip] def trSkip : TacM Syntax := `(tactic| skip)
 
-@[trTactic solve1] def trSolve1 : TacM Syntax := do `(tactic| · $(← trBlock (← itactic)):tacticSeq)
+@[trTactic solve1] def trSolve1 : TacM Syntax := do `(tactic| · ($(← trBlock (← itactic)):tacticSeq))
 
 @[trTactic abstract] def trAbstract : TacM Syntax := do
   `(tactic| abstract $(← liftM $ (← parse (ident)?).mapM mkIdentF)?

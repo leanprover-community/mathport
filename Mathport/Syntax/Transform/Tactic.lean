@@ -11,28 +11,52 @@ namespace Transform
 open Lean Elab
 
 def transformConsecutiveTactics : Syntax → Syntax → M Syntax
-  | `(tactic| suffices : $ty:term), `(tactic|· $seq:tacticSeq) =>
-    `(tactic| suffices $ty:term by $seq:tacticSeq)
-  | `(tactic| have $[$id:ident]? $[: $ty:term]?), `(tactic|· $seq:tacticSeq) =>
-    `(tactic| have $[$id:ident]? $[: $ty:term]? := by $seq:tacticSeq)
+  | `(tactic| suffices : $ty:term), `(tactic|· $[$tacs:tactic $[;]?]*) =>
+    `(tactic| suffices $ty:term by $[$tacs:tactic]*)
+  | `(tactic| have $[$id:ident]? $[: $ty:term]?), `(tactic|· $[$tacs:tactic $[;]?]*) =>
+    `(tactic| have $[$id:ident]? $[: $ty:term]? := by $[$tacs:tactic]*)
   | `(tactic| have $[$id:ident]? $[: $ty:term]?), `(tactic|exact $t) =>
     `(tactic| have $[$id:ident]? $[: $ty:term]? := $t)
-  | `(tactic| let $id:ident $[: $ty:term]?), `(tactic|· $seq:tacticSeq) =>
-    `(tactic| let $id:ident $[: $ty:term]? := by $seq:tacticSeq)
-  | `(tactic| suffices : $ty:term), `(tactic|· $seq:tacticSeq) =>
+  | `(tactic| let $id:ident $[: $ty:term]?), `(tactic|· $[$tacs:tactic $[;]?]*) =>
+    `(tactic| let $id:ident $[: $ty:term]? := by $[$tacs:tactic]*)
+  | `(tactic| suffices : $ty:term), `(tactic|· $[$tacs:tactic $[;]?]*) =>
     `(tactic| suffices $ty:term by $seq:tacticSeq)
-  | `(tactic| obtain $[$pat]? $[: $ty]?), `(tactic|· $seq:tacticSeq) =>
-    `(tactic| obtain $[$pat]? $[: $ty]? := by $seq:tacticSeq)
+  | `(tactic| obtain $[$pat]? $[: $ty]?), `(tactic|· $[$tacs:tactic $[;]?]*) =>
+    `(tactic| obtain $[$pat]? $[: $ty]? := by $[$tacs:tactic]*)
   | _, _ => throwUnsupported
 
+def transformConsecutiveTacticsArray (tacs : Array Syntax) : M (Array Syntax) := do
+  for i in [1:tacs.size] do
+    if let some tac' ← catchUnsupportedSyntax do
+        transformConsecutiveTactics tacs[i-1] tacs[i] then
+      return tacs[0:i-1] ++ #[tac'] ++ tacs[i+1:tacs.size]
+  throwUnsupported
+
+-- expand `by (skip; skip)` to `by skip; skip`
+def transformInlineTactics (tacs : Array Syntax) : M (Array Syntax) := do
+  let mut tacs' := #[]
+  let mut modified := false
+  for tac in tacs do
+    match tac with
+    | `(tactic| ($[$seq:tactic $[;]?]*)) =>
+      tacs' := tacs' ++ seq
+      modified := true
+    | _ => tacs' := tacs'.push tac
+  unless modified do throwUnsupported
+  tacs'
+
+def transformTacticsArray (tacs : Array Syntax) : M (Array Syntax) := do
+  for fn in #[transformConsecutiveTacticsArray, transformInlineTactics] do
+    if let some tacs' ← catchUnsupportedSyntax <| fn tacs then
+      return tacs'
+  throwUnsupported
+
+open Parser.Tactic in
 mathport_rules
-  | Syntax.node info ``Parser.Tactic.tacticSeq1Indented #[Syntax.node info2 `null tacs] => do
-    for i in [1:tacs.size] do
-      if let some tac' ← catchUnsupportedSyntax do
-          transformConsecutiveTactics tacs[i-1][0] tacs[i][0] then
-        let tacs' := tacs[0:i-1] ++ #[tacs[i].setArg 0 tac'] ++ tacs[i+1:tacs.size]
-        return Syntax.node info ``Parser.Tactic.tacticSeq1Indented #[Syntax.node info2 `null tacs']
-    throwUnsupported
+  | `(tacticSeq1Indented| $[$tac:tactic $[;]?]*) => do
+    `(tacticSeq1Indented| $[$(← transformTacticsArray tac):tactic]*)
+  | `(tactic| · $[$tac:tactic $[;]?]*) => do
+    `(tactic| · $[$(← transformTacticsArray tac):tactic]*)
 
 -- common obsolete patterns from haveI
 mathport_rules
@@ -48,14 +72,14 @@ mathport_rules
 mathport_rules | `(by exact $t) => t
 
 mathport_rules
-  | `(tactic| · · $seq:tacticSeq) => `(tactic| · $seq:tacticSeq)
+  | `(tactic| · · $[$seq:tactic $[;]?]*) => `(tactic| · $[$seq:tactic]*)
   | `(conv| · · $seq:convSeq) => `(conv| · $seq:convSeq)
 
-mathport_rules | `(by · $seq:tacticSeq) => `(by $seq:tacticSeq)
+mathport_rules | `(by · $[$seq:tactic $[;]?]*) => `(by $[$seq:tactic]*)
 
 mathport_rules
-  | `(Parser.Term.binderTactic| := by · $seq:tacticSeq) =>
-    `(Parser.Term.binderTactic| := by $seq:tacticSeq)
+  | `(Parser.Term.binderTactic| := by · $[$seq:tactic $[;]?]*) =>
+    `(Parser.Term.binderTactic| := by $[$seq:tactic]*)
 
 mathport_rules
   | `(show $ty:term from by $seq:tacticSeq) =>
@@ -81,19 +105,3 @@ mathport_rules
       by $[$seq:tactic]*) =>
     `(by suffices $sd:sufficesDecl
         $[$seq:tactic]*)
-
--- expand `by (skip; skip)` to `by skip; skip`
-mathport_rules
-  | Syntax.node info ``Parser.Tactic.tacticSeq1Indented #[Syntax.node info2 `null tacs] => do
-    let mut tacs' := #[]
-    let mut modified := false
-    for tac in tacs do
-      match tac[0] with
-      | `(tactic| ($seq:tacticSeq1Indented)) =>
-        tacs' := tacs' ++ seq[0].getArgs
-        modified := true
-      | _ => tacs' := tacs'.push tac
-    if modified then
-      Syntax.node info ``Parser.Tactic.tacticSeq1Indented #[Syntax.node info2 `null tacs']
-    else
-      throwUnsupported
