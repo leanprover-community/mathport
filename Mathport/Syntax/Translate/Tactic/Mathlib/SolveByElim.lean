@@ -25,4 +25,4 @@ open AST3 Parser
   let attrs := (← parse (tk "with" *> ident*)?).getD #[]
   let cfg ← liftM $ (← expr?).mapM trExpr
   mkNode ``Lean.Tactic.solveByElim #[mkAtom "solve_by_elim",
-    star, mkConfigStx cfg, o, hs, trSimpAttrs attrs]
+    star, ← mkConfigStx cfg, o, hs, trSimpAttrs attrs]

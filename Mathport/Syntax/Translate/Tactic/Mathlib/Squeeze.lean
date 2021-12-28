@@ -26,8 +26,9 @@ open Parser
   let hs := trSimpList (← trSimpArgs (← parse simpArgList))
   let attrs := (← parse (tk "with" *> ident*)?).getD #[]
   let loc := mkOptionalNode $ ← trLoc (← parse location)
-  let cfg := mkConfigStx $ parseSimpConfig (← parse (structInst)?) |>.bind quoteSimpConfig
-  mkNode tac #[mkAtom s, cfg, o, hs, trSimpAttrs attrs, loc]
+  let (cfg, disch) ← parseSimpConfig (← parse (structInst)?)
+  let cfg ← mkConfigStx $ cfg.bind quoteSimpConfig
+  mkNode tac #[mkAtom s, cfg, disch, o, hs, trSimpAttrs attrs, loc]
 
 @[trTactic squeeze_simpa] def trSqueezeSimpa : TacM Syntax := do
   let (tac, s) := match ← parse () *> parse (tk "?")?, ← parse (tk "!")? with
@@ -39,8 +40,9 @@ open Parser
   let hs := trSimpList (← trSimpArgs (← parse simpArgList))
   let attrs := (← parse (tk "with" *> ident*)?).getD #[]
   let e ← liftM $ (← parse (tk "using" *> pExpr)?).mapM trExpr
-  let cfg := mkConfigStx $ parseSimpConfig (← parse (structInst)?) |>.bind quoteSimpConfig
-  mkNode tac #[mkAtom s, cfg, o, hs, trSimpAttrs attrs,
+  let (cfg, disch) ← parseSimpConfig (← parse (structInst)?)
+  let cfg ← mkConfigStx $ cfg.bind quoteSimpConfig
+  mkNode tac #[mkAtom s, cfg, disch, o, hs, trSimpAttrs attrs,
     mkOptionalNode' e fun e => #[mkAtom "using", e]]
 
 @[trTactic squeeze_dsimp] def trSqueezeDSimp : TacM Syntax := do
@@ -53,5 +55,6 @@ open Parser
   let hs := trSimpList (← trSimpArgs (← parse simpArgList))
   let attrs := (← parse (tk "with" *> ident*)?).getD #[]
   let loc := mkOptionalNode $ ← trLoc (← parse location)
-  let cfg := mkConfigStx $ parseSimpConfig (← parse (structInst)?) |>.bind quoteSimpConfig
+  let (cfg, _) ← parseSimpConfig (← parse (structInst)?)
+  let cfg ← mkConfigStx $ cfg.bind quoteSimpConfig
   mkNode tac #[mkAtom s, cfg, o, hs, trSimpAttrs attrs, loc]

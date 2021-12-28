@@ -44,5 +44,5 @@ open Parser
     (tk "^" *> do #[mkAtom "^", Quote.quote (← smallNat)]) <|> pure #[]
   let arg ← parse ((tk ":=" *> do (":=", ← pExpr)) <|> (tk ":" *> do (":", ← pExpr)))?
   let arg ← mkOptionalNodeM arg fun (s, e) => do #[mkAtom s, ← trExpr e]
-  let cfg := mkConfigStx $ ← liftM $ (← expr?).mapM trExpr
+  let cfg ← mkConfigStx $ ← liftM $ (← expr?).mapM trExpr
   mkNode ``Parser.Tactic.acMono #[mkAtom "ac_mono", mkNullNode arity, cfg, arg]

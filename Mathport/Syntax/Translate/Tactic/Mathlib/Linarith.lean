@@ -20,7 +20,7 @@ open AST3 Parser
   let args := mkNullNode $ ← match ← parse optPExprList with
   | #[] => #[]
   | args => do #[mkAtom "[", (mkAtom ",").mkSep $ ← liftM $ args.mapM trExpr, mkAtom "]"]
-  let cfg := mkConfigStx $ ← liftM $ (← expr?).mapM trExpr
+  let cfg ← mkConfigStx $ ← liftM $ (← expr?).mapM trExpr
   mkNode tac #[mkAtom s, cfg, o, args]
 
 @[trTactic nlinarith] def trNLinarith : TacM Syntax := do
@@ -31,7 +31,7 @@ open AST3 Parser
   let args := mkNullNode $ ← match ← parse optPExprList with
   | #[] => #[]
   | args => do #[mkAtom "[", (mkAtom ",").mkSep $ ← liftM $ args.mapM trExpr, mkAtom "]"]
-  let cfg := mkConfigStx $ ← liftM $ (← expr?).mapM trExpr
+  let cfg ← mkConfigStx $ ← liftM $ (← expr?).mapM trExpr
   mkNode tac #[mkAtom s, cfg, o, args]
 
 -- # tactic.zify

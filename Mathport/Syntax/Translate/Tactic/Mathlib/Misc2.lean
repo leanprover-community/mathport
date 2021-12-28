@@ -89,8 +89,10 @@ open AST3 Parser
   let hs := trSimpList (← trSimpArgs (← parse simpArgList))
   let attrs := (← parse (tk "with" *> ident*)?).getD #[]
   let loc := mkOptionalNode $ ← trLoc (← parse location)
-  let cfg := mkConfigStx $ parseSimpConfig (← expr?) |>.bind quoteSimpConfig
-  mkNode ``Parser.Tactic.fieldSimp #[mkAtom "field_simp", cfg, o, hs, trSimpAttrs attrs, loc]
+  let (cfg, disch) ← parseSimpConfig (← expr?)
+  let cfg ← mkConfigStx $ cfg.bind quoteSimpConfig
+  mkNode ``Parser.Tactic.fieldSimp #[mkAtom "field_simp", cfg, disch,
+    o, hs, trSimpAttrs attrs, loc]
 
 -- # tactic.equiv_rw
 
