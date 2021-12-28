@@ -19,8 +19,6 @@ def transformConsecutiveTactics : Syntax → Syntax → M Syntax
     `(tactic| have $[$id:ident]? $[: $ty:term]? := $t)
   | `(tactic| let $id:ident $[: $ty:term]?), `(tactic|· $[$tacs:tactic $[;]?]*) =>
     `(tactic| let $id:ident $[: $ty:term]? := by $[$tacs:tactic]*)
-  | `(tactic| suffices : $ty:term), `(tactic|· $[$tacs:tactic $[;]?]*) =>
-    `(tactic| suffices $ty:term by $seq:tacticSeq)
   | `(tactic| obtain $[$pat]? $[: $ty]?), `(tactic|· $[$tacs:tactic $[;]?]*) =>
     `(tactic| obtain $[$pat]? $[: $ty]? := by $[$tacs:tactic]*)
   | _, _ => throwUnsupported
@@ -67,6 +65,18 @@ mathport_rules
   | `(by have $hd:haveDecl <;> exact $t) =>
     `(have $hd:haveDecl
       $t)
+
+mathport_rules -- FIXME: workaround for lean4#917
+  | Syntax.node info ``Parser.Term.sufficesDecl args => do
+    let t := args[2]
+    if t.isOfKind ``Parser.Term.fromTerm || t.isOfKind ``Parser.Term.byTactic then
+      throwUnsupported
+    Syntax.node info ``Parser.Term.sufficesDecl $ args.set! 2 $ ← `(Parser.Term.fromTerm| from $t)
+  | Syntax.node info ``Parser.Term.show args => do
+    let t := args[2]
+    if t.isOfKind ``Parser.Term.fromTerm || t.isOfKind ``Parser.Term.byTactic then
+      throwUnsupported
+    Syntax.node info ``Parser.Term.show $ args.set! 2 $ ← `(Parser.Term.fromTerm| from $t)
 
 -- used in Lean 3 to postpone elaboration, now happens by default
 mathport_rules | `(by exact $t) => t

@@ -43,7 +43,7 @@ def trLoc (loc : Location) : M (Option Syntax) := do
   let renames ← parse renameArgs
   let as := renames.map fun (a, b) => mkIdent a
   let bs := renames.map fun (a, b) => mkIdent b
-  `(tactic| rename' $[$as => $bs],*)
+  `(tactic| rename' $[$as:ident => $bs],*)
 
 @[trTactic apply] def trApply : TacM Syntax := do `(tactic| apply $(← trExpr (← parse pExpr)))
 
@@ -320,23 +320,25 @@ where
 def quoteSimpConfig (cfg : Meta.Simp.Config) : Option Syntax := Id.run do
   if cfg == {} then return none
   let a := #[]
-    |> push cfg {} `maxSteps (·.maxSteps)
-    |> push cfg {} `maxDischargeDepth (·.maxDischargeDepth)
-    |> push cfg {} `contextual (·.contextual)
-    |> push cfg {} `memoize (·.memoize)
-    |> push cfg {} `singlePass (·.singlePass)
-    |> push cfg {} `zeta (·.zeta)
-    |> push cfg {} `beta (·.beta)
-    |> push cfg {} `eta (·.eta)
-    |> push cfg {} `iota (·.iota)
-    |> push cfg {} `proj (·.proj)
-    |> push cfg {} `decide (·.decide)
+    |> push cfg {} qnat `maxSteps (·.maxSteps)
+    |> push cfg {} qnat `maxDischargeDepth (·.maxDischargeDepth)
+    |> push cfg {} qbool `contextual (·.contextual)
+    |> push cfg {} qbool `memoize (·.memoize)
+    |> push cfg {} qbool `singlePass (·.singlePass)
+    |> push cfg {} qbool `zeta (·.zeta)
+    |> push cfg {} qbool `beta (·.beta)
+    |> push cfg {} qbool `eta (·.eta)
+    |> push cfg {} qbool `iota (·.iota)
+    |> push cfg {} qbool `proj (·.proj)
+    |> push cfg {} qbool `decide (·.decide)
   `({ $[$(a.pop):structInstField ,]* $(a.back):structInstField })
 where
-  push {β} [BEq β] [Quote β]
-    {α} (a b : α) (n : Name) (f : α → β) (args : Array Syntax) : Array Syntax := Id.run do
+  qbool (b : Bool) : Syntax := mkIdent $ cond b `true `false
+  qnat : ℕ → Syntax := Quote.quote
+  push {β} [BEq β] {α} (a b : α) (q : β → Syntax)
+    (n : Name) (f : α → β) (args : Array Syntax) : Array Syntax := Id.run do
     if f a == f b then args else
-      args.push <| Id.run `(Parser.Term.structInstField| $(mkIdent n):ident := $(Quote.quote (f a)))
+      args.push <| Id.run `(Parser.Term.structInstField| $(mkIdent n):ident := $(q (f a)))
 
 def trSimpLemma (e : AST3.Expr) : M Syntax := do
   mkNode ``Parser.Tactic.simpLemma #[mkNullNode, ← trExpr e]
@@ -373,21 +375,23 @@ def trSimpAttrs (attrs : Array Name) : Syntax :=
   let trace ← parse (tk "?")?
   if trace.isSome then warn! "warning: unsupported simp config option: trace_lemmas"
   let o := if ← parse onlyFlag then mkNullNode #[mkAtom "only"] else mkNullNode
-  let (hs, all) ← filterSimpStar (← trSimpArgs (← parse simpArgList))
-  let hs := trSimpList hs
+  let hs ← trSimpArgs (← parse simpArgList)
+  let (hs', all) ← filterSimpStar hs
   let attrs := (← parse (tk "with" *> ident*)?).getD #[]
   let loc ← parse location
   let (cfg, disch) ← parseSimpConfig (← expr?)
   let cfg ← mkConfigStx $ cfg.bind quoteSimpConfig
   let simpAll := match all, loc with | true, Location.wildcard => true | _, _ => false
   match simpAll, attrs with
-  | true, #[] => mkNode ``Parser.Tactic.simpAll #[mkAtom "simp_all", cfg, o, hs]
+  | true, #[] =>
+    mkNode ``Parser.Tactic.simpAll #[mkAtom "simp_all", cfg, disch, o, trSimpList hs']
   | false, #[] =>
-    mkNode ``Parser.Tactic.simp #[mkAtom "simp", cfg, disch, o, hs, mkOptionalNode $ ← trLoc loc]
+    mkNode ``Parser.Tactic.simp #[mkAtom "simp",
+      cfg, disch, o, trSimpList hs, mkOptionalNode $ ← trLoc loc]
   | _, _ =>
     mkNode ``Parser.Tactic.simp' #[mkAtom "simp'",
       mkNullNode $ if simpAll then #[mkAtom "*"] else #[],
-      cfg, disch, o, hs, trSimpAttrs attrs, mkOptionalNode $ ← trLoc loc]
+      cfg, disch, o, trSimpList hs, trSimpAttrs attrs, mkOptionalNode $ ← trLoc loc]
 
 @[trTactic trace_simp_set] def trTraceSimpSet : TacM Syntax := do
   let o ← parse onlyFlag
@@ -585,8 +589,10 @@ def trSimpAttrs (attrs : Array Name) : Syntax :=
   let attrs := (← parse (tk "with" *> ident*)?).getD #[]
   let (cfg, disch) ← parseSimpConfig (← expr?)
   let cfg ← mkConfigStx $ cfg.bind quoteSimpConfig
-  mkNode ``Parser.Tactic.Conv.simp #[mkAtom "simp", cfg, disch,
-    o, trSimpList hs, trSimpAttrs attrs]
+  match attrs with
+  | #[] => mkNode ``Parser.Tactic.Conv.simp #[mkAtom "simp", cfg, disch, o, trSimpList hs]
+  | _ => mkNode ``Parser.Tactic.Conv.simp' #[mkAtom "simp'", cfg, disch, o, trSimpList hs,
+    trSimpAttrs attrs]
 
 @[trConv guard_lhs] def trGuardLHSConv : TacM Syntax := do
   `(conv| guard_lhs =ₐ $(← trExpr (← parse pExpr)))
