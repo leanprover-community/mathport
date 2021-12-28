@@ -199,8 +199,9 @@ open AST3 Parser
   let hs := trSimpList (← trSimpArgs (← parse simpArgList))
   let attrs := (← parse (tk "with" *> ident*)?).getD #[]
   let e ← liftM $ (← parse (tk "using" *> pExpr)?).mapM trExpr
-  let cfg := mkConfigStx $ parseSimpConfig (← expr?) |>.bind quoteSimpConfig
-  mkNode tac #[mkAtom s, cfg, o, hs, trSimpAttrs attrs,
+  let (cfg, disch) ← parseSimpConfig (← expr?)
+  let cfg ← mkConfigStx $ cfg.bind quoteSimpConfig
+  mkNode tac #[mkAtom s, cfg, disch, o, hs, trSimpAttrs attrs,
     mkOptionalNode' e fun e => #[mkAtom "using", e]]
 
 -- # tactic.split_ifs

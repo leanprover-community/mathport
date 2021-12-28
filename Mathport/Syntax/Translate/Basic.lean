@@ -392,22 +392,25 @@ mutual
     | Tactic.exact_shortcut ⟨_, Expr.calc args⟩ => do
       `(tactic| calc $(← trCalcArgs args)*)
     | Tactic.exact_shortcut e => do `(tactic| exact $(← trExpr e.kind))
-    | Tactic.expr e => do
-      let rec head
-      | Expr.ident x => x
-      | Expr.paren e => head e.kind
-      | Expr.app e _ => head e.kind
-      | _ => Name.anonymous
-      match Rename.resolveIdent? (← getEnv) (head e.kind) with
-      | none =>
-        -- warn! "unsupported non-interactive tactic {repr e}"
-        match ← trExpr e.kind with
-        | `(do $[$els]*) => `(tactic| run_tac $[$els:doSeqItem]*)
-        | stx => `(tactic| run_tac $stx:term)
-      | some n =>
-        match (← get).niTactics.find? n with
-        | some f => try f e.kind catch e => warn! "in {n}: {← e.toMessageData.toString}"
-        | none => warn! "unsupported non-interactive tactic {n}"
+    | Tactic.expr e =>
+      match e.kind.unparen with
+      | Expr.«`[]» tacs => trIdTactic ⟨true, none, none, tacs⟩
+      | e => do
+        let rec head
+        | Expr.ident x => x
+        | Expr.paren e => head e.kind
+        | Expr.app e _ => head e.kind
+        | _ => Name.anonymous
+        match Rename.resolveIdent? (← getEnv) (head e) with
+        | none =>
+          -- warn! "unsupported non-interactive tactic {repr e}"
+          match ← trExpr e with
+          | `(do $[$els]*) => `(tactic| run_tac $[$els:doSeqItem]*)
+          | stx => `(tactic| run_tac $stx:term)
+        | some n =>
+          match (← get).niTactics.find? n with
+          | some f => try f e catch e => warn! "in {n}: {← e.toMessageData.toString}"
+          | none => warn! "unsupported non-interactive tactic {n}"
     | Tactic.interactive n args => do
       match (← get).tactics.find? n with
       | some f => try f args catch e => warn! "in {n}: {← e.toMessageData.toString}"
@@ -417,12 +420,12 @@ mutual
     | Tactic.«[]» args => Sum.inr <$> args.mapM fun arg => trTactic arg.kind
     | tac => Sum.inl <$> trTactic tac
 
-end
+  partial def trIdTactic : Block → M Syntax
+    | ⟨_, none, none, #[]⟩ => do `(tactic| skip)
+    | ⟨_, none, none, #[tac]⟩ => trTactic tac.kind
+    | bl => do `(tactic| ($(← trBlock bl):tacticSeq))
 
-def trIdTactic : Block → M Syntax
-  | ⟨_, none, none, #[]⟩ => do `(tactic| skip)
-  | ⟨_, none, none, #[tac]⟩ => trTactic tac.kind
-  | bl => do `(tactic| ($(← trBlock bl):tacticSeq))
+end
 
 def mkConvBlock (args : Array Syntax) : Syntax :=
   mkNode ``Parser.Tactic.Conv.convSeq #[mkNode ``Parser.Tactic.Conv.convSeq1Indented #[

@@ -287,13 +287,14 @@ where
   | hs => some $ hs.map trIdent_
   `(tactic| injections $[with $hs*]?)
 
-def parseSimpConfig : Option AST3.Expr → Option Meta.Simp.Config
-  | none => none
-  | some (AST3.Expr.«{}») => none
-  | some (AST3.Expr.structInst _ none flds #[] false) => Id.run do
+def parseSimpConfig : Option AST3.Expr → M (Option Meta.Simp.Config × Syntax)
+  | none => (none, mkNullNode)
+  | some (AST3.Expr.«{}») => (none, mkNullNode)
+  | some (AST3.Expr.structInst _ none flds #[] false) => do
     let mut cfg : Meta.Simp.Config := {}
-    for (⟨_, n⟩, ⟨_, e⟩) in flds do
-      match n, e with
+    let mut discharger := #[]
+    for (⟨_, n⟩, e) in flds do
+      match n, e.kind with
       | `max_steps, Expr.nat n => cfg := {cfg with maxSteps := n}
       | `contextual, e => cfg := asBool e cfg fun cfg b => {cfg with contextual := b}
       | `zeta, e => cfg := asBool e cfg fun cfg b => {cfg with zeta := b}
@@ -303,9 +304,13 @@ def parseSimpConfig : Option AST3.Expr → Option Meta.Simp.Config
       | `proj, e => cfg := asBool e cfg fun cfg b => {cfg with proj := b}
       | `single_pass, e => cfg := asBool e cfg fun cfg b => {cfg with singlePass := b}
       | `memoize, e => cfg := asBool e cfg fun cfg b => {cfg with memoize := b}
-      | _, _ => dbg_trace "warning: unsupported simp config option: {n}"
-    cfg
-  | some _ => dbg_trace "warning: unsupported simp config syntax"; none
+      | `discharger, _ =>
+          let stx ← `(Lean.Parser.Tactic.discharger|
+            (disch := $(← Translate.trTactic (Tactic.expr e)):tactic))
+          discharger := #[stx]
+      | _, _ => warn! "warning: unsupported simp config option: {n}"
+    pure (cfg, mkNullNode discharger)
+  | some _ => warn! "warning: unsupported simp config syntax" | (none, mkNullNode)
 where
   asBool {α} : AST3.Expr → α → (α → Bool → α) → α
   | AST3.Expr.const _ ⟨_, `tt⟩ _, a, f => f a true
@@ -336,8 +341,8 @@ where
 def trSimpLemma (e : AST3.Expr) : M Syntax := do
   mkNode ``Parser.Tactic.simpLemma #[mkNullNode, ← trExpr e]
 
-def mkConfigStx (stx : Option Syntax) : Syntax :=
-  mkOptionalNode' stx fun stx => #[mkAtom "(", mkAtom "config", mkAtom ":=", stx, mkAtom ")"]
+def mkConfigStx (stx : Option Syntax) : M Syntax :=
+  mkOpt stx fun stx => `(Lean.Parser.Tactic.config| (config := $stx))
 
 def trSimpArg : Parser.SimpArg → M Syntax
   | SimpArg.allHyps => mkNode ``Parser.Tactic.simpStar #[mkAtom "*"]
@@ -372,16 +377,17 @@ def trSimpAttrs (attrs : Array Name) : Syntax :=
   let hs := trSimpList hs
   let attrs := (← parse (tk "with" *> ident*)?).getD #[]
   let loc ← parse location
-  let cfg := mkConfigStx $ parseSimpConfig (← expr?) |>.bind quoteSimpConfig
+  let (cfg, disch) ← parseSimpConfig (← expr?)
+  let cfg ← mkConfigStx $ cfg.bind quoteSimpConfig
   let simpAll := match all, loc with | true, Location.wildcard => true | _, _ => false
   match simpAll, attrs with
   | true, #[] => mkNode ``Parser.Tactic.simpAll #[mkAtom "simp_all", cfg, o, hs]
   | false, #[] =>
-    mkNode ``Parser.Tactic.simp #[mkAtom "simp", cfg, o, hs, mkOptionalNode $ ← trLoc loc]
+    mkNode ``Parser.Tactic.simp #[mkAtom "simp", cfg, disch, o, hs, mkOptionalNode $ ← trLoc loc]
   | _, _ =>
     mkNode ``Parser.Tactic.simp' #[mkAtom "simp'",
       mkNullNode $ if simpAll then #[mkAtom "*"] else #[],
-      cfg, o, hs, trSimpAttrs attrs, mkOptionalNode $ ← trLoc loc]
+      cfg, disch, o, hs, trSimpAttrs attrs, mkOptionalNode $ ← trLoc loc]
 
 @[trTactic trace_simp_set] def trTraceSimpSet : TacM Syntax := do
   let o ← parse onlyFlag
@@ -394,7 +400,8 @@ def trSimpAttrs (attrs : Array Name) : Syntax :=
   let o := if ← parse onlyFlag then mkNullNode #[mkAtom "only"] else mkNullNode
   let hs ← trSimpArgs (← parse simpArgList)
   let attrs := (← parse (tk "with" *> ident*)?).getD #[]
-  let cfg := mkConfigStx $ parseSimpConfig (← expr?) |>.bind quoteSimpConfig
+  let (cfg, _) ← parseSimpConfig (← expr?)
+  let cfg ← mkConfigStx $ cfg.bind quoteSimpConfig
   let ids := mkNullNode $ ids.map trIdent_
   mkNode ``Parser.Tactic.simpIntro #[mkAtom "simp_intro",
     cfg, ids, o, trSimpList hs, trSimpAttrs attrs]
@@ -404,7 +411,8 @@ def trSimpAttrs (attrs : Array Name) : Syntax :=
   let hs ← trSimpArgs (← parse simpArgList)
   let attrs := (← parse (tk "with" *> ident*)?).getD #[]
   let loc := mkOptionalNode $ ← trLoc (← parse location)
-  let cfg := mkConfigStx $ parseSimpConfig (← expr?) |>.bind quoteSimpConfig
+  let (cfg, _) ← parseSimpConfig (← expr?)
+  let cfg ← mkConfigStx $ cfg.bind quoteSimpConfig
   mkNode ``Parser.Tactic.dsimp #[mkAtom "dsimp",
     cfg, o, trSimpList hs, trSimpAttrs attrs, loc]
 
@@ -436,9 +444,8 @@ def trSimpAttrs (attrs : Array Name) : Syntax :=
 @[trTactic dunfold] def trDUnfold : TacM Syntax := do
   let cs ← parse ident*
   let loc ← parse location
-  let cfg := match (parseSimpConfig (← expr?)).bind quoteSimpConfig with
-  | none => mkNullNode
-  | some stx => mkNullNode #[mkAtom "(", mkAtom "config", mkAtom ":=", stx, mkAtom ")"]
+  let (cfg, _) ← parseSimpConfig (← expr?)
+  let cfg ← mkConfigStx $ cfg.bind quoteSimpConfig
   mkNode ``Parser.Tactic.dUnfold #[mkAtom "dunfold", cfg,
     mkNullNode $ ← liftM $ cs.mapM mkIdentI, mkOptionalNode $ ← trLoc loc]
 
@@ -447,20 +454,23 @@ def trSimpAttrs (attrs : Array Name) : Syntax :=
 
 @[trTactic unfold_projs] def trUnfoldProjs : TacM Syntax := do
   let loc ← parse location
-  let cfg := mkConfigStx $ (parseSimpConfig (← expr?)).bind quoteSimpConfig
+  let (cfg, _) ← parseSimpConfig (← expr?)
+  let cfg ← mkConfigStx $ cfg.bind quoteSimpConfig
   mkNode ``Parser.Tactic.unfoldProjs #[mkAtom "unfold_projs", cfg, mkOptionalNode $ ← trLoc loc]
 
 @[trTactic unfold] def trUnfold : TacM Syntax := do
   let cs ← parse ident*
   let loc ← parse location
-  let cfg := mkConfigStx $ (parseSimpConfig (← expr?)).bind quoteSimpConfig
+  let (cfg, _) ← parseSimpConfig (← expr?)
+  let cfg ← mkConfigStx $ cfg.bind quoteSimpConfig
   mkNode ``Parser.Tactic.unfold #[mkAtom "unfold", cfg,
     mkNullNode $ ← liftM $ cs.mapM mkIdentI, mkOptionalNode $ ← trLoc loc]
 
 @[trTactic unfold1] def trUnfold1 : TacM Syntax := do
   let cs ← parse ident*
   let loc ← parse location
-  let cfg := mkConfigStx $ (parseSimpConfig (← expr?)).bind quoteSimpConfig
+  let (cfg, _) ← parseSimpConfig (← expr?)
+  let cfg ← mkConfigStx $ cfg.bind quoteSimpConfig
   mkNode ``Parser.Tactic.unfold1 #[mkAtom "unfold1", cfg,
     mkNullNode $ ← liftM $ cs.mapM mkIdentI, mkOptionalNode $ ← trLoc loc]
 
@@ -541,7 +551,8 @@ def trSimpAttrs (attrs : Array Name) : Syntax :=
   let o := if ← parse onlyFlag then mkNullNode #[mkAtom "only"] else mkNullNode
   let hs ← trSimpArgs (← parse simpArgList)
   let attrs := (← parse (tk "with" *> ident*)?).getD #[]
-  let cfg := mkConfigStx $ parseSimpConfig (← expr?) |>.bind quoteSimpConfig
+  let (cfg, _) ← parseSimpConfig (← expr?)
+  let cfg ← mkConfigStx $ cfg.bind quoteSimpConfig
   mkNode ``Parser.Tactic.Conv.dsimp #[mkAtom "dsimp", cfg, o, trSimpList hs, trSimpAttrs attrs]
 
 @[trConv trace_lhs] def trTraceLHSConv : TacM Syntax := `(conv| trace_lhs)
@@ -572,9 +583,10 @@ def trSimpAttrs (attrs : Array Name) : Syntax :=
   let o := if ← parse onlyFlag then mkNullNode #[mkAtom "only"] else mkNullNode
   let hs ← trSimpArgs (← parse simpArgList)
   let attrs := (← parse (tk "with" *> ident*)?).getD #[]
-  let cfg := mkConfigStx $ parseSimpConfig (← expr?) |>.bind quoteSimpConfig
-  -- FIXME TODO: probably very very wrong
-  mkNode ``Parser.Tactic.Conv.simp #[mkAtom "simp", cfg, o, trSimpList hs, trSimpAttrs attrs]
+  let (cfg, disch) ← parseSimpConfig (← expr?)
+  let cfg ← mkConfigStx $ cfg.bind quoteSimpConfig
+  mkNode ``Parser.Tactic.Conv.simp #[mkAtom "simp", cfg, disch,
+    o, trSimpList hs, trSimpAttrs attrs]
 
 @[trConv guard_lhs] def trGuardLHSConv : TacM Syntax := do
   `(conv| guard_lhs =ₐ $(← trExpr (← parse pExpr)))

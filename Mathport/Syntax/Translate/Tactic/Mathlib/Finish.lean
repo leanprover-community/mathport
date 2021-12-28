@@ -22,16 +22,16 @@ def trUsingList (args : Array AST3.Expr) : M Syntax :=
   let hs := trSimpList (← trSimpArgs (← parse simpArgList))
   let ps ← trUsingList $ (← parse (tk "using" *> pExprListOrTExpr)?).getD #[]
   let cfg ← liftM $ (← expr?).mapM trExpr
-  mkNode ``Parser.Tactic.clarify #[mkAtom "clarify", mkConfigStx cfg, hs, ps]
+  mkNode ``Parser.Tactic.clarify #[mkAtom "clarify", ← mkConfigStx cfg, hs, ps]
 
 @[trTactic safe] def trSafe : TacM Syntax := do
   let hs := trSimpList (← trSimpArgs (← parse simpArgList))
   let ps ← trUsingList $ (← parse (tk "using" *> pExprListOrTExpr)?).getD #[]
   let cfg ← liftM $ (← expr?).mapM trExpr
-  mkNode ``Parser.Tactic.safe #[mkAtom "safe", mkConfigStx cfg, hs, ps]
+  mkNode ``Parser.Tactic.safe #[mkAtom "safe", ← mkConfigStx cfg, hs, ps]
 
 @[trTactic finish] def trFinish : TacM Syntax := do
   let hs := trSimpList (← trSimpArgs (← parse simpArgList))
   let ps ← trUsingList $ (← parse (tk "using" *> pExprListOrTExpr)?).getD #[]
   let cfg ← liftM $ (← expr?).mapM trExpr
-  mkNode ``Parser.Tactic.finish #[mkAtom "finish", mkConfigStx cfg, hs, ps]
+  mkNode ``Parser.Tactic.finish #[mkAtom "finish", ← mkConfigStx cfg, hs, ps]

@@ -25,7 +25,7 @@ def trSuggestUsing (args : Array BinderName) : M Syntax := do
   let hs := trSimpList (← trSimpArgs (← parse simpArgList))
   let attrs := (← parse (tk "with" *> ident*)?).getD #[]
   let use ← trSuggestUsing ((← parse (tk "using" *> ident_*)?).getD #[])
-  let cfg := mkConfigStx $ ← liftM $ (← expr?).mapM trExpr
+  let cfg ← mkConfigStx $ ← liftM $ (← expr?).mapM trExpr
   mkNode ``Parser.Tactic.suggest #[mkAtom "suggest", cfg, hs, trSimpAttrs attrs, use]
 
 @[trTactic library_search] def trLibrarySearch : TacM Syntax := do
@@ -35,5 +35,5 @@ def trSuggestUsing (args : Array BinderName) : M Syntax := do
   let hs := trSimpList (← trSimpArgs (← parse simpArgList))
   let attrs := (← parse (tk "with" *> ident*)?).getD #[]
   let use ← trSuggestUsing ((← parse (tk "using" *> ident_*)?).getD #[])
-  let cfg := mkConfigStx $ ← liftM $ (← expr?).mapM trExpr
+  let cfg ← mkConfigStx $ ← liftM $ (← expr?).mapM trExpr
   mkNode tac #[mkAtom s, cfg, hs, trSimpAttrs attrs, use]
