@@ -820,11 +820,11 @@ def trExpr' : Expr → M Syntax
   | Expr.«{,}» es => do `({$(← es.mapM fun e => trExpr e.kind),*})
   | Expr.subtype false x ty p => do
     `({$(mkIdent x.kind) $[: $(← ty.mapM fun e => trExpr e.kind)]? // $(← trExpr p.kind)})
-  | Expr.subtype true x none p => do `({$(mkIdent x.kind) | $(← trExpr p.kind)})
+  | Expr.subtype true x none p => do `({$(mkIdent x.kind):ident | $(← trExpr p.kind)})
   | Expr.subtype true x (some ty) p => do
     `({ $(mkIdent x.kind):ident : $(← trExpr ty.kind):term | $(← trExpr p.kind):term })
   | Expr.sep x ty p => do
-    `({$(mkIdent x.kind) ∈ $(← trExpr ty.kind) | $(← trExpr p.kind)})
+    `({$(mkIdent x.kind):ident ∈ $(← trExpr ty.kind) | $(← trExpr p.kind)})
   | stx@(Expr.setReplacement e bis) => do
     warn!"unsupported set replacement {repr stx}"
     -- `({$(← trExpr e.kind) | $[$(← trBinders {} bis):bracketedBinder]*})
