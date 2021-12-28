@@ -23,7 +23,9 @@ open AST3 Parser
   `(tactic| eapply' $(← trExpr (← parse pExpr)))
 
 @[trTactic apply_with'] def trApplyWith' : TacM Syntax := do
-  `(tactic| apply_with' $(← trExpr (← parse pExpr)))
+  let e ← trExpr (← parse pExpr)
+  let cfg ← liftM $ (← expr?).mapM trExpr
+  `(tactic| apply_with' $[(config := $cfg)]? $e)
 
 @[trTactic mapply'] def trMApply' : TacM Syntax := do
   `(tactic| mapply' $(← trExpr (← parse pExpr)))
