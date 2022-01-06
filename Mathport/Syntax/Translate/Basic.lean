@@ -667,12 +667,10 @@ def trDoElem : DoElem → M Syntax
       let els ← els.mapM fun e => trExpr e.kind
       `(doElem| let $(← trExpr lhs.kind):term ← $rhs:term $[| $els:term]?)
 
-def trProof : Proof → (useFrom : Bool := true) → M Syntax
-  | Proof.«from» _ e, useFrom => do
-    let e ← trExpr e.kind
-    if useFrom then `(Parser.Term.fromTerm| from $e) else e
-  | Proof.block bl, _ => do `(by $(← trBlock bl):tacticSeq)
-  | Proof.by tac, _ => do `(by $(← trTactic tac.kind):tactic)
+def trProof : Proof → M Syntax
+  | Proof.«from» _ e => trExpr e.kind
+  | Proof.block bl => do `(by $(← trBlock bl):tacticSeq)
+  | Proof.by tac => do `(by $(← trTactic tac.kind):tactic)
 
 def trNotation (n : Choice) (args : Array (Spanned Arg)) : M Syntax := do
   let n ← match n with
@@ -765,18 +763,16 @@ def trExpr' : Expr → M Syntax
     let (f, args) ← trAppArgs e trExpr
     mkNode ``Parser.Term.app #[f, mkNullNode args]
   | Expr.show t pr => do
-    mkNode ``Parser.Term.show #[mkAtom "show", ← trExpr t.kind, ← trProof pr.kind]
+    `(show $(← trExpr t.kind) from $(← trProof pr.kind))
   | Expr.have true h t pr e => do
-    let decl := mkNode ``Parser.Term.sufficesDecl #[
-      mkOptionalNode' h fun h => #[mkIdent h.kind, mkAtom ":"], ← trExpr t.kind, ← trProof pr.kind]
-    mkNode ``Parser.Term.suffices #[mkAtom "suffices", decl, mkNullNode, ← trExpr e.kind]
+    let h := h.map (mkIdent ·.kind)
+    `(suffices $[$h:ident :]? $(← trExpr t.kind) from $(← trProof pr.kind)
+      $(← trExpr e.kind))
   | Expr.have false h t pr e => do
-    let t := match t.kind with | Expr._ => none | t => some t
-    let haveId := mkNode ``Parser.Term.haveIdDecl #[
-      mkOptionalNode' h fun h => #[mkIdent h.kind, mkNullNode],
-      mkOptionalNode $ ← trOptType t, mkAtom ":=", ← trProof pr.kind false]
-    mkNode ``Parser.Term.have #[mkAtom "have",
-      mkNode ``Parser.Term.haveDecl #[haveId], mkNullNode, ← trExpr e.kind]
+    let t ← match t.kind with | Expr._ => none | t => some (← trExpr t)
+    let h := h.map (mkIdent ·.kind)
+    `(have $[$h:ident]? $[: $t:term]? := $(← trProof pr.kind)
+      $(← trExpr e.kind))
   | Expr.«.» _ e pr => do
     let pr ← match pr.kind with
     | Lean3.Proj.ident e => mkIdentF e
