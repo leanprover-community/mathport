@@ -66,18 +66,6 @@ mathport_rules
     `(have $hd:haveDecl
       $t)
 
-mathport_rules -- FIXME: workaround for lean4#917
-  | Syntax.node info ``Parser.Term.sufficesDecl args => do
-    let t := args[2]
-    if t.isOfKind ``Parser.Term.fromTerm || t.isOfKind ``Parser.Term.byTactic then
-      throwUnsupported
-    Syntax.node info ``Parser.Term.sufficesDecl $ args.set! 2 $ ← `(Parser.Term.fromTerm| from $t)
-  | Syntax.node info ``Parser.Term.show args => do
-    let t := args[2]
-    if t.isOfKind ``Parser.Term.fromTerm || t.isOfKind ``Parser.Term.byTactic then
-      throwUnsupported
-    Syntax.node info ``Parser.Term.show $ args.set! 2 $ ← `(Parser.Term.fromTerm| from $t)
-
 -- used in Lean 3 to postpone elaboration, now happens by default
 mathport_rules | `(by exact $t) => t
 
