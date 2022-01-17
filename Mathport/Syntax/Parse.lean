@@ -82,12 +82,12 @@ def RawNode3.map (i : AstId) (n : RawNode3)
 
 def RawNode3.pexpr' (n : RawNode3) : M Lean3.Expr :=
   match n.pexpr with
-  | none => arbitrary
+  | none => default
   | some e => do (← read).expr[e]
 
 def RawNode3.expr' (n : RawNode3) : M Lean3.Expr :=
   match n.expr with
-  | none => arbitrary
+  | none => default
   | some e => do (← read).expr[e]
 
 def opt (f : AstId → M α) (i : AstId) : M (Option α) :=
@@ -976,7 +976,7 @@ def buildExprs (es : Array (Option RawExpr)) : Array Expr := Id.run do
   for e in es do
     let e' : Expr := match e with
     | some e => e.build lvls out
-    | none => arbitrary
+    | none => default
     out := out.push e'
   out
 

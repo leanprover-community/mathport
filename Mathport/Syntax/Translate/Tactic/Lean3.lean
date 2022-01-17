@@ -343,6 +343,9 @@ where
 def trSimpLemma (e : AST3.Expr) : M Syntax := do
   mkNode ``Parser.Tactic.simpLemma #[mkNullNode, ← trExpr e]
 
+def mkConfigStx? (stx : Option Syntax) : M (Option Syntax) :=
+  stx.mapM fun stx => `(Lean.Parser.Tactic.config| (config := $stx))
+
 def mkConfigStx (stx : Option Syntax) : M Syntax :=
   mkOpt stx fun stx => `(Lean.Parser.Tactic.config| (config := $stx))
 
@@ -449,9 +452,9 @@ def trSimpAttrs (attrs : Array Name) : Syntax :=
   let cs ← parse ident*
   let loc ← parse location
   let (cfg, _) ← parseSimpConfig (← expr?)
-  let cfg ← mkConfigStx $ cfg.bind quoteSimpConfig
-  mkNode ``Parser.Tactic.dUnfold #[mkAtom "dunfold", cfg,
-    mkNullNode $ ← liftM $ cs.mapM mkIdentI, mkOptionalNode $ ← trLoc loc]
+  let cs ← liftM $ cs.mapM mkIdentI
+  let cfg ← mkConfigStx? $ cfg.bind quoteSimpConfig
+  `(tactic| dunfold $[$cfg:config]? $[$cs:ident]* $[$(← trLoc loc):location]?)
 
 @[trTactic delta] def trDelta : TacM Syntax := do
   `(tactic| delta' $(← liftM $ (← parse ident*).mapM mkIdentI)* $[$(← trLoc (← parse location))]?)
@@ -459,24 +462,24 @@ def trSimpAttrs (attrs : Array Name) : Syntax :=
 @[trTactic unfold_projs] def trUnfoldProjs : TacM Syntax := do
   let loc ← parse location
   let (cfg, _) ← parseSimpConfig (← expr?)
-  let cfg ← mkConfigStx $ cfg.bind quoteSimpConfig
-  mkNode ``Parser.Tactic.unfoldProjs #[mkAtom "unfold_projs", cfg, mkOptionalNode $ ← trLoc loc]
+  let cfg ← mkConfigStx? $ cfg.bind quoteSimpConfig
+  `(tactic| unfold_projs $[$cfg:config]? $[$(← trLoc loc):location]?)
 
 @[trTactic unfold] def trUnfold : TacM Syntax := do
   let cs ← parse ident*
   let loc ← parse location
   let (cfg, _) ← parseSimpConfig (← expr?)
-  let cfg ← mkConfigStx $ cfg.bind quoteSimpConfig
-  mkNode ``Parser.Tactic.unfold #[mkAtom "unfold", cfg,
-    mkNullNode $ ← liftM $ cs.mapM mkIdentI, mkOptionalNode $ ← trLoc loc]
+  let cs ← liftM $ cs.mapM mkIdentI
+  let cfg ← mkConfigStx? $ cfg.bind quoteSimpConfig
+  `(tactic| unfold $[$cfg:config]? $[$cs:ident]* $[$(← trLoc loc):location]?)
 
 @[trTactic unfold1] def trUnfold1 : TacM Syntax := do
   let cs ← parse ident*
   let loc ← parse location
   let (cfg, _) ← parseSimpConfig (← expr?)
-  let cfg ← mkConfigStx $ cfg.bind quoteSimpConfig
-  mkNode ``Parser.Tactic.unfold1 #[mkAtom "unfold1", cfg,
-    mkNullNode $ ← liftM $ cs.mapM mkIdentI, mkOptionalNode $ ← trLoc loc]
+  let cs ← liftM $ cs.mapM mkIdentI
+  let cfg ← mkConfigStx? $ cfg.bind quoteSimpConfig
+  `(tactic| unfold1 $[$cfg:config]? $[$cs:ident]* $[$(← trLoc loc):location]?)
 
 @[trTactic apply_opt_param] def trApplyOptParam : TacM Syntax := `(tactic| infer_opt_param)
 

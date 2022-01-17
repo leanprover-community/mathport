@@ -133,7 +133,7 @@ instance [Repr α] : Repr (Spanned α) := ⟨fun n p => reprPrec n.kind p⟩
 def Spanned.map (f : α → β) : Spanned α → Spanned β
   | ⟨m, a⟩ => ⟨m, f a⟩
 
-def Spanned.dummy (a : α) : Spanned α := ⟨arbitrary, a⟩
+def Spanned.dummy (a : α) : Spanned α := ⟨default, a⟩
 
 local prefix:max "#" => Spanned
 
@@ -236,7 +236,7 @@ inductive Choice
 def Choice.name : Choice → Name
   | Choice.one n => n
   | Choice.many #[n] => n
-  | _ => arbitrary
+  | _ => default
 
 instance : Repr Choice where
   reprPrec

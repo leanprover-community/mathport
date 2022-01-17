@@ -141,7 +141,7 @@ class Warnable (α) where
   warn : String → α
 
 instance [Inhabited α] : Warnable α where
-  warn := arbitrary
+  warn := default
 
 instance (priority := high) [Monad m] : Warnable <| m Syntax where
   warn s := Syntax.mkStrLit s
@@ -347,7 +347,7 @@ def trPrec : AST3.Precedence → M Precedence
 
 def trBinderName : BinderName → Syntax
   | BinderName.ident n => mkIdent n
-  | BinderName.«_» => mkHole arbitrary
+  | BinderName.«_» => mkHole default
 
 def trIdent_ : BinderName → Syntax
   | BinderName.ident n => mkIdent n
