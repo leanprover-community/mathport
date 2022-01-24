@@ -55,6 +55,11 @@ jobs:
       - name: prepare predata for mathlib
         run: make mathbin-predata
 
+      - name: clean up a bit
+        run: |
+          find sources/ -name "*.tlean" -delete
+          find sources/ -name "*.ast.json" -delete
+
       - name: run mathport on mathlib
         run: env LEAN_NUM_THREADS=4 time -v make port-mathbin
 
