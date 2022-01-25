@@ -114,6 +114,7 @@ def predefinedNotations : HashMap String NotationEntry := [
     ("expr *> ", binary fun x y => Id.run `($x *> $y)),
     ("expr <*> ", binary fun x y => Id.run `($x <*> $y)),
     ("expr <$> ", binary fun x y => Id.run `($x <$> $y)),
+    ("expr; ", binary fun x y => Id.run `(andthen $x $y)),
     ("expr ∈ ", binary fun x y => Id.run `($x ∈ $y)),
     ("expr ⊆ ", binary fun x y => Id.run `($x ⊆ $y)),
     ("expr ∪ ", binary fun x y => Id.run `($x ∪ $y)),
