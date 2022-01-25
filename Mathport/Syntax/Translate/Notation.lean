@@ -96,6 +96,7 @@ def predefinedNotations : HashMap String NotationEntry := [
     ("expr % ", binary fun f x => Id.run `($f % $x)),
     ("expr- ", unary fun x => Id.run `(-$x)),
     ("expr⁻¹", unary fun x => Id.run `($x⁻¹)),
+    ("expr||", unary fun x => Id.run `(abs x)),
     ("expr -[1+ ]", unary fun x => Id.run `(-[1+ $x ])),
     ("expr ^ ", binary fun f x => Id.run `($f ^ $x)),
     ("expr ∘ ", binary fun f x => Id.run `($f ∘ $x)),
