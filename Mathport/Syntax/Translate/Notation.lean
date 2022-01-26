@@ -8,7 +8,7 @@ import Mathport.Util.Json
 import Mathport.Util.Misc
 import Mathlib.Mathport.Syntax
 import Mathlib.Init.ExtendedBinder
-import Mathlib.Init.SetNotation
+import Mathlib.Init.Set
 
 open Std (HashMap)
 open Lean
@@ -75,7 +75,7 @@ def NotationDesc.toKind (n4 : Name) : NotationDesc → NotationKind
 open NotationKind in set_option hygiene false in
 def predefinedNotations : HashMap String NotationEntry := [
     ("exprProp", const <| Id.run `(Prop)),
-    ("expr $ ", binary fun f x => Id.run `($f $ $x)),
+    ("expr $ ", binary fun f x => Id.run `($f <| $x)),
     ("expr¬ ", unary fun e => Id.run `(¬ $e)),
     ("expr ∧ ", binary fun f x => Id.run `($f ∧ $x)),
     ("expr ∨ ", binary fun f x => Id.run `($f ∨ $x)),
@@ -95,6 +95,9 @@ def predefinedNotations : HashMap String NotationEntry := [
     ("expr / ", binary fun f x => Id.run `($f / $x)),
     ("expr % ", binary fun f x => Id.run `($f % $x)),
     ("expr- ", unary fun x => Id.run `(-$x)),
+    ("expr ⁻¹", unary fun x => Id.run `($x⁻¹)),
+    ("expr| |", unary fun x => Id.run `(abs $x)), -- TODO: https://github.com/leanprover-community/mathport/issues/73
+    ("expr -[1+ ]", unary fun x => Id.run `(-[1+ $x ])),
     ("expr ^ ", binary fun f x => Id.run `($f ^ $x)),
     ("expr ∘ ", binary fun f x => Id.run `($f ∘ $x)),
     ("expr <= ", binary fun f x => Id.run `($f ≤ $x)),
@@ -105,6 +108,21 @@ def predefinedNotations : HashMap String NotationEntry := [
     ("expr > ", binary fun f x => Id.run `($f > $x)),
     ("expr && ", binary fun f x => Id.run `($f && $x)),
     ("expr || ", binary fun f x => Id.run `($f || $x)),
+    ("expr >>= ", binary fun f x => Id.run `($f >>= $x)),
+    ("expr >> ", binary fun x y => Id.run `($x >> $y)),
+    ("expr <* ", binary fun x y => Id.run `($x <* $y)),
+    ("expr *> ", binary fun x y => Id.run `($x *> $y)),
+    ("expr <*> ", binary fun x y => Id.run `($x <*> $y)),
+    ("expr <$> ", binary fun x y => Id.run `($x <$> $y)),
+    ("expr <|> ", binary fun x y => Id.run `($x <|> $y)),
+    ("expr ; ", binary fun x y => Id.run `(andthen $x $y)),
+    ("expr ∈ ", binary fun x y => Id.run `($x ∈ $y)),
+    ("expr ⊆ ", binary fun x y => Id.run `($x ⊆ $y)),
+    ("expr ∪ ", binary fun x y => Id.run `($x ∪ $y)),
+    ("expr ∩ ", binary fun x y => Id.run `($x ∩ $y)),
+    ("expr \\ ", binary fun x y => Id.run `($x \ $y)),
+    ("expr𝒫 ", unary fun x => Id.run `(𝒫 $x)),
+    ("expr⋃₀ ", unary fun x => Id.run `(⋃₀ $x)),
     ("expr∅", const <| Id.run `(∅)),
     ("expr ++ ", binary fun f x => Id.run `($f ++ $x)),
     ("expr :: ", binary fun f x => Id.run `($f :: $x)),
@@ -114,6 +132,11 @@ def predefinedNotations : HashMap String NotationEntry := [
     ("exprℕ", const <| Id.run `(ℕ)),
     ("exprℤ", const <| Id.run `(ℤ)),
     ("expr‹ ›", unary fun x => Id.run `(‹$x›)),
+    ("expr↑ ", unary fun x => Id.run `(↑ $x)),
+    ("expr <| ", binary fun x y => Id.run `(Option.lhoare $x $y)),
+    ("expr |> ", binary fun x y => Id.run `(Option.rhoare $x $y)),
+    ("exprcommand", const <| Id.run `(Tactic Unit)),
+    ("expr =ₐ ", binary fun x y => Id.run `(expr.alpha_eqv $x $y)),
     ("exprdec_trivial", const <| Id.run `(by decide)),
     ("exprformat! ", unary id),
     ("exprsformat! ", unary id),
