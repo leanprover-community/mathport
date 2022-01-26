@@ -192,9 +192,10 @@ attribute [trNITactic try_refl_tac] trControlLawsTac
 
 -- # order.filter.basic
 @[trTactic filter_upwards] def trFilterUpwards : TacM Syntax := do
-  `(tactic| filter_upwards
-    [$(← liftM $ (← parse pExprList).mapM trExpr),*]
-    $[$(← liftM $ (← parse (pExpr)?).mapM trExpr)]?)
+  let s ← (← parse pExprList).mapM (trExpr ·)
+  let wth := trWithIdentList (← parse withIdentList)
+  let tgt ← (← parse (tk "using" *> pExpr)?).mapM (trExpr ·)
+  `(tactic| filter_upwards [$s:term,*] $[with $[$wth:term]*]? $[using $tgt:term]?)
 
 -- # order.liminf_limsup
 @[trNITactic isBounded_default] def trIsBounded_default (_ : AST3.Expr) : M Syntax := do
