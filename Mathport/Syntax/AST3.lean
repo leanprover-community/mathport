@@ -320,7 +320,7 @@ mutual
     | «()» : Expr
     | «{}» : Expr
     | ident : Name → Expr
-    | const (ambiguous : Bool) : #Name → Levels → Expr
+    | const : #Name → Levels → Array Name → Expr
     | nat : Nat → Expr
     | decimal : Nat → Nat → Expr
     | string : String → Expr
@@ -690,7 +690,7 @@ mutual
     | Expr.«()», _ => "()"
     | Expr.«{}», _ => "{}"
     | Expr.ident n, _ => n.toString
-    | Expr.const _ n l, _ => n.kind.toString ++ repr l
+    | Expr.const n l _, _ => n.kind.toString ++ repr l
     | Expr.nat n, _ => repr n
     | Expr.decimal n d, _ => repr n ++ "/" ++ repr d
     | Expr.string s, _ => repr s

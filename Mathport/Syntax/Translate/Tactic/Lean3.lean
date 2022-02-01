@@ -313,8 +313,8 @@ def parseSimpConfig : Option AST3.Expr → M (Option Meta.Simp.Config × Syntax)
   | some _ => warn! "warning: unsupported simp config syntax" | (none, mkNullNode)
 where
   asBool {α} : AST3.Expr → α → (α → Bool → α) → α
-  | AST3.Expr.const _ ⟨_, `tt⟩ _, a, f => f a true
-  | AST3.Expr.const _ ⟨_, `ff⟩ _, a, f => f a false
+  | AST3.Expr.const ⟨_, `tt⟩ _ _, a, f => f a true 
+  | AST3.Expr.const ⟨_, `ff⟩ _ _, a, f => f a false
   | _, a, _ => a
 
 def quoteSimpConfig (cfg : Meta.Simp.Config) : Option Syntax := Id.run do

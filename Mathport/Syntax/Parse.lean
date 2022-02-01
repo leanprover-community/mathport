@@ -106,6 +106,10 @@ def withNode (f : String → Name → Array AstId → M α) (i : AstId) : M (Spa
   let r ← getRaw i
   pure { meta := ⟨i, r.start, r.end'⟩, kind := ← f r.kind r.value r.children' }
 
+def withNodeP (f : String → Name → Array AstId → Option ExprId → M α) (i : AstId) : M (Spanned α) := do
+  let r ← getRaw i
+  pure { meta := ⟨i, r.start, r.end'⟩, kind := ← f r.kind r.value r.children' r.pexpr }
+
 def withNodeR (f : RawNode3 → M α) (i : AstId) : M (Spanned α) := do
   let r ← getRaw i
   pure { meta := ⟨i, r.start, r.end'⟩, kind := ← f r }
@@ -295,79 +299,95 @@ mutual
     | "binders", _, args => Arg.binders <$> args.mapM getBinder
     | k, v, args => if k.startsWith "binder"
       then Arg.binder <$> getBinder_aux k v args
-      else Arg.expr <$> getExpr_aux k v args
+      else Arg.expr <$> getExpr_aux k v args none
 
-  partial def getExpr_aux : String → Name → Array AstId → M Expr
-    | "notation", v, args => match v with
+  partial def getExpr_aux : String → Name → Array AstId → Option ExprId → M Expr
+    | "notation", v, args, _ => match v with
       | `«->» => do Expr.«→» (← getExpr args[0]) (← getExpr args[1])
       | `Pi => do Expr.«Pi» (← getBinders args[0]) (← getExpr args[1])
       | _ => if wrapperNotations.contains v
         then Spanned.kind <$> getExpr args[0]
         else Expr.notation (Choice.one v) <$> args.mapM getArg
-    | "sorry", _, _ => Expr.«sorry»
-    | "_", _, _ => Expr.«_»
-    | "()", _, _ => Expr.«()»
-    | "{}", _, _ => Expr.«{}»
-    | "ident", v, _ => Expr.ident v
-    | "const", _, #[n, us] => do Expr.const false (← getName n) (← opt (arr getLevel) us)
-    | "choice_const", _, #[n, us] => do Expr.const true (← getName n) (← opt (arr getLevel) us)
-    | "nat", v, _ => Expr.nat $ decodeNat! v
-    | "decimal", v, _ => let (n, d) := decodeDecimal! v; Expr.decimal n d
-    | "string", v, _ => Expr.string v.getString!
-    | "char", v, _ => Expr.char v.getString!.front
-    | "(", _, #[e] => Expr.paren <$> getExpr e
-    | "Sort*", _, _ => Expr.sort false true none
-    | "Type*", _, _ => Expr.sort true true none
-    | "Sort", _, #[l] => Expr.sort false false <$> opt getLevel l
-    | "Type", _, #[l] => Expr.sort true false <$> opt getLevel l
-    | "app", _, #[f, x] => do Expr.app (← getExpr f) (← getExpr x)
-    | "fun", _, #[bis, e] => do Expr.fun false (← arr getLambdaBinder bis) (← getExpr e)
-    | "assume", _, #[bis, e] => do Expr.fun true (← arr getLambdaBinder bis) (← getExpr e)
-    | "show", _, #[ty, e] => do Expr.show (← getExpr ty) (← getProof e)
-    | "have", _, args => getHave false args
-    | "suffices", _, args => getHave true args
-    | "field", _, #[e, pr] => do Expr.«.» true (← getExpr e) (← getProj pr)
-    | "^.", _, #[e, pr] => do Expr.«.» false (← getExpr e) (← getProj pr)
-    | "if", _, #[h, c, t, e] => do
+    | "sorry", _, _, _ => Expr.«sorry»
+    | "_", _, _, _ => Expr.«_»
+    | "()", _, _, _ => Expr.«()»
+    | "{}", _, _, _ => Expr.«{}»
+    | "ident", v, _, _ => Expr.ident v
+    | "const", _, #[n, us], none => do Expr.const (← getName n) (← opt (arr getLevel) us) #[]
+    | "const", _, #[n, us], some pexprId => do
+      match (← read).expr[pexprId] with
+      | Lean3.Expr.const resolved _ => Expr.const (← getName n) (← opt (arr getLevel) us) #[resolved]
+      | pexpr => throw s!"[const.pexpr] not a const: {repr pexpr}"
+
+    | "choice_const", _, #[n, us], none => do
+        dbg_trace "[getExpr_aux.warn] choice_const {(← getName n).kind} has no choices"
+        Expr.const (← getName n) (← opt (arr getLevel) us) #[]
+    | "choice_const", _, #[n, us], some pexprId => do
+      match (← read).expr[pexprId] with 
+      | Lean3.Expr.choice args => 
+        let choices ← args.mapM fun
+          | Lean3.Expr.const n _ => n
+          | choice => do throw s!"[getExpr_aux.error] choice_const {(← getName n).kind} expecting constants, found {repr choice}"
+        Expr.const (← getName n) (← opt (arr getLevel) us) choices
+      | _ => throw s!"choice_const: expecting choice"
+
+    | "nat", v, _, _ => Expr.nat $ decodeNat! v
+    | "decimal", v, _, _ => let (n, d) := decodeDecimal! v; Expr.decimal n d
+    | "string", v, _, _ => Expr.string v.getString!
+    | "char", v, _, _ => Expr.char v.getString!.front
+    | "(", _, #[e], _ => Expr.paren <$> getExpr e
+    | "Sort*", _, _, _ => Expr.sort false true none
+    | "Type*", _, _, _ => Expr.sort true true none
+    | "Sort", _, #[l], _ => Expr.sort false false <$> opt getLevel l
+    | "Type", _, #[l], _ => Expr.sort true false <$> opt getLevel l
+    | "app", _, #[f, x], _ => do Expr.app (← getExpr f) (← getExpr x)
+    | "fun", _, #[bis, e], _ => do Expr.fun false (← arr getLambdaBinder bis) (← getExpr e)
+    | "assume", _, #[bis, e], _ => do Expr.fun true (← arr getLambdaBinder bis) (← getExpr e)
+    | "show", _, #[ty, e], _ => do Expr.show (← getExpr ty) (← getProof e)
+    | "have", _, args, _ => getHave false args
+    | "suffices", _, args, _ => getHave true args
+    | "field", _, #[e, pr], _ => do Expr.«.» true (← getExpr e) (← getProj pr)
+    | "^.", _, #[e, pr], _ => do Expr.«.» false (← getExpr e) (← getProj pr)
+    | "if", _, #[h, c, t, e], _ => do
       Expr.if (← opt getName h) (← getExpr c) (← getExpr t) (← getExpr e)
-    | "calc", _, args => Expr.calc <$> args.mapM getStep
-    | "@", _, #[e] => Expr.«@» false <$> getExpr e
-    | "@@", _, #[e] => Expr.«@» true <$> getExpr e
-    | "(:", _, #[e] => Expr.pattern <$> getExpr e
-    | "```()", _, #[e] => Expr.«`()» true false <$> getExpr e
-    | "``()", _, #[e] => Expr.«`()» false false <$> getExpr e
-    | "`()", _, #[e] => Expr.«`()» false true <$> getExpr e
-    | "%%", _, #[e] => Expr.«%%» <$> getExpr e
-    | "`[", _, args => Expr.«`[]» <$> args.mapM getTactic
-    | "`", v, _ => Expr.«`» false v
-    | "``", v, _ => Expr.«`» true v
-    | "⟨", _, args => Expr.«⟨⟩» <$> args.mapM getExpr
-    | "infix_fn", _, #[f, e] => do Expr.infix_fn (← getChoice f) (← opt getExpr e)
-    | "tuple", _, args => Expr.«(,)» <$> args.mapM getExpr
-    | ":", _, #[e, ty] => do Expr.«:» (← getExpr e) (← getExpr ty)
-    | "{!", _, args => Expr.hole <$> args.mapM getExpr
-    | "#[", _, args => Expr.«#[]» <$> args.mapM getExpr
-    | "by", _, #[tac] => Expr.by <$> getTactic tac
-    | "begin", _, args => Expr.begin <$> getBlock false args
-    | "let", _, #[decls, e] => do Expr.let (← arr getLetDecl decls) (← getExpr e)
-    | "match", _, #[e, ty, arms] => do
+    | "calc", _, args, _ => Expr.calc <$> args.mapM getStep
+    | "@", _, #[e], _ => Expr.«@» false <$> getExpr e
+    | "@@", _, #[e], _ => Expr.«@» true <$> getExpr e
+    | "(:", _, #[e], _ => Expr.pattern <$> getExpr e
+    | "```()", _, #[e], _ => Expr.«`()» true false <$> getExpr e
+    | "``()", _, #[e], _ => Expr.«`()» false false <$> getExpr e
+    | "`()", _, #[e], _ => Expr.«`()» false true <$> getExpr e
+    | "%%", _, #[e], _ => Expr.«%%» <$> getExpr e
+    | "`[", _, args, _ => Expr.«`[]» <$> args.mapM getTactic
+    | "`", v, _, _ => Expr.«`» false v
+    | "``", v, _, _ => Expr.«`» true v
+    | "⟨", _, args, _ => Expr.«⟨⟩» <$> args.mapM getExpr
+    | "infix_fn", _, #[f, e], _ => do Expr.infix_fn (← getChoice f) (← opt getExpr e)
+    | "tuple", _, args, _ => Expr.«(,)» <$> args.mapM getExpr
+    | ":", _, #[e, ty], _ => do Expr.«:» (← getExpr e) (← getExpr ty)
+    | "{!", _, args, _ => Expr.hole <$> args.mapM getExpr
+    | "#[", _, args, _ => Expr.«#[]» <$> args.mapM getExpr
+    | "by", _, #[tac], _ => Expr.by <$> getTactic tac
+    | "begin", _, args, _ => Expr.begin <$> getBlock false args
+    | "let", _, #[decls, e], _ => do Expr.let (← arr getLetDecl decls) (← getExpr e)
+    | "match", _, #[e, ty, arms], _ => do
       Expr.match (← arr getExpr e) (← opt getExpr ty) (← arr getArm arms)
-    | "do", v, args => Expr.do (!v.isAnonymous) <$> args.mapM getDoElem
-    | "fin_set", _, args => Expr.«{,}» <$> args.mapM getExpr
-    | "subtype", _, args => getSubtype false args
-    | "set_of", _, args => getSubtype true args
-    | "sep", _, #[x, S, p] => do Expr.sep (← getName x) (← getExpr S) (← getExpr p)
-    | "set_replacement", _, #[e, bis] => do Expr.setReplacement (← getExpr e) (← getBinders bis)
-    | "structinst", _, #[S, src, flds, srcs, catchall] => do
+    | "do", v, args, _ => Expr.do (!v.isAnonymous) <$> args.mapM getDoElem
+    | "fin_set", _, args, _ => Expr.«{,}» <$> args.mapM getExpr
+    | "subtype", _, args, _ => getSubtype false args
+    | "set_of", _, args, _ => getSubtype true args
+    | "sep", _, #[x, S, p], _ => do Expr.sep (← getName x) (← getExpr S) (← getExpr p)
+    | "set_replacement", _, #[e, bis], _ => do Expr.setReplacement (← getExpr e) (← getBinders bis)
+    | "structinst", _, #[S, src, flds, srcs, catchall], _ => do
       Expr.structInst (← opt getName S) (← opt getExpr src)
         (← arr getField flds) (← arr getExpr srcs) (catchall ≠ 0)
-    | "at_pat", _, #[n, pat] => do Expr.atPat (← getName n) (← getExpr pat)
-    | ".(", _, #[e] => Expr.«.()» <$> getExpr e
-    | "...", _, _ => Expr.«...»
-    | "choice", _, args => do
+    | "at_pat", _, #[n, pat], _ => do Expr.atPat (← getName n) (← getExpr pat)
+    | ".(", _, #[e], _ => Expr.«.()» <$> getExpr e
+    | "...", _, _, _ => Expr.«...»
+    | "choice", _, args, _ => do
       Expr.notation (Choice.many (← arr getNameK args[0])) (← args[1:].toArray.mapM getArg)
-    | "user_notation", v, args => Expr.userNotation v <$> args.mapM getParam
-    | k, v, args => do
+    | "user_notation", v, args, _ => Expr.userNotation v <$> args.mapM getParam
+    | k, v, args, _ => do
       throw s!"getExpr parse error, unknown kind {k}" -- at\n {repr (← Expr.other <$> mkNodeK k v args)}"
   where
     getHave (suff : Bool) (args) : M _ := do
@@ -378,7 +398,7 @@ mutual
     getSubtype (setOf : Bool) (args) : M _ := do
       Expr.subtype setOf (← getName args[0]) (← opt getExpr args[1]) (← getExpr args[2])
 
-  partial def getExpr : AstId → M (Spanned Expr) := withNode getExpr_aux
+  partial def getExpr : AstId → M (Spanned Expr) := withNodeP getExpr_aux
 
   partial def getArm : AstId → M Arm := withNodeK fun _ _ args => do
     pure ⟨← arr getExpr args[0], ← getExpr args[1]⟩
@@ -528,7 +548,7 @@ open DeclVal in
 def getDeclVal : AstId → M (Spanned DeclVal) :=
   withNode fun
   | "eqns", _, args => eqns <$> args.mapM getArm
-  | k, v, args => expr <$> getExpr_aux k v args
+  | k, v, args => expr <$> getExpr_aux k v args none
 
 open Modifier in
 def getModifier : AstId → M (Spanned Modifier) := withNode fun

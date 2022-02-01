@@ -160,7 +160,7 @@ elab:max "warn!" interpStr:interpolatedStr(term) or:(checkColGt "|" term)? : ter
 def trExpr (e : Expr) : M Syntax := do (← read).trExpr e
 def trCommand (e : Command) : M Unit := do (← read).trCommand e
 
-def renameIdent (n : Name) : M Name := do Rename.resolveIdent! (← getEnv) n
+def renameIdent (n : Name) (choices : Array Name := #[]) : M Name := do Rename.resolveIdent! (← getEnv) n choices
 def renameNamespace (n : Name) : M Name := do Rename.renameNamespace (← getEnv) n
 def renameAttr (n : Name) : M Name := do Rename.renameAttr n
 def renameModule (n : Name) : M Name := do Rename.renameModule (← read).pcfg n
@@ -168,7 +168,7 @@ def renameField (n : Name) : M Name := do Rename.renameField? (← getEnv) n |>.
 def renameOption : Name → M Name
   | n => warn! "warning: unsupported option {n}" | n
 
-def mkIdentI (n : Name) : M Syntax := do mkIdent (← renameIdent n)
+def mkIdentI (n : Name) (choices : Array Name := #[]) : M Syntax := do mkIdent (← renameIdent n choices)
 def mkIdentA (n : Name) : M Syntax := do mkIdent (← renameAttr n)
 def mkIdentN (n : Name) : M Syntax := do mkIdent (← renameNamespace n)
 def mkIdentF (n : Name) : M Syntax := do mkIdent (← renameField n)
@@ -727,10 +727,10 @@ def trExpr' : Expr → M Syntax
   | Expr.«()» => `(())
   | Expr.«{}» => `({})
   | Expr.ident n => mkIdentI n
-  | Expr.const _ n none => mkIdentI n.kind
-  | Expr.const _ n (some #[]) => mkIdentI n.kind
-  | Expr.const _ n (some l) => do
-    mkNode ``Parser.Term.explicitUniv #[← mkIdentI n.kind,
+  | Expr.const n none choices => mkIdentI n.kind choices
+  | Expr.const n (some #[]) choices => mkIdentI n.kind choices
+  | Expr.const n (some l) choices => do 
+    mkNode ``Parser.Term.explicitUniv #[← mkIdentI n.kind choices,
       mkAtom ".{", (mkAtom ",").mkSep $ ← l.mapM fun e => trLevel e.kind, mkAtom "}"]
   | Expr.nat n => Quote.quote n
   | Expr.decimal n d => (scientificLitOfDecimal n d).get!
@@ -853,7 +853,7 @@ def mkSimpleAttr (n : Name) (args : Array Syntax := #[]) :=
 def trDerive (e : AST3.Expr) : M Name :=
   match e.unparen with
   | Expr.ident n => renameIdent n
-  | Expr.const _ ⟨_, n⟩ _ => renameIdent n
+  | Expr.const ⟨_, n⟩ _ choices => renameIdent n choices
   | e => warn! "unsupported derive handler {repr e}"
 
 inductive TrAttr
