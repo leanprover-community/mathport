@@ -73,7 +73,7 @@ lean3-predata: lean3-source
 	find sources/lean/library -name "*.olean" -delete # ast only exported when oleans not present
 	cd sources/lean && elan override set `cat ../mathlib/leanpkg.toml | grep lean_version | cut -d '"' -f2`
 	cd sources/lean && lean --make --recursive --ast --tlean library
-	cp -rl sources/lean/library PreData/Leanbin
+	cp -r sources/lean/library PreData/Leanbin
 	find PreData/ -name "*.lean" -delete
 	find PreData/ -name "*.olean" -delete
 
@@ -83,7 +83,7 @@ mathbin-predata: mathbin-source
 	find sources/mathlib -name "*.olean" -delete # ast only exported when oleans not present
 	# By changing into the directory, `elan` automatically dispatches to the correct binary.
 	cd sources/mathlib && lean --make --recursive --ast --tlean src
-	cp -rl sources/mathlib PreData/Mathbin
+	cp -r sources/mathlib PreData/Mathbin
 	find PreData/ -name "*.lean" -delete
 	find PreData/ -name "*.olean" -delete
 
