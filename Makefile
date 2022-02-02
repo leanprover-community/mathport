@@ -68,24 +68,15 @@ source: mathbin-source lean3-source
 
 # Build .ast and .tlean files for Lean 3
 lean3-predata: lean3-source
-	mkdir -p PreData
-	rm -rf PreData/Leanbin
 	find sources/lean/library -name "*.olean" -delete # ast only exported when oleans not present
 	cd sources/lean && elan override set `cat ../mathlib/leanpkg.toml | grep lean_version | cut -d '"' -f2`
 	cd sources/lean && lean --make --recursive --ast --tlean library
-	cp -r sources/lean/library PreData/Leanbin
-	find PreData/ -name "*.lean" -delete
-	find PreData/ -name "*.olean" -delete
 
 # Build .ast and .tlean files for Mathlib 3.
 mathbin-predata: mathbin-source
-	rm -rf PreData/Mathbin
 	find sources/mathlib -name "*.olean" -delete # ast only exported when oleans not present
 	# By changing into the directory, `elan` automatically dispatches to the correct binary.
 	cd sources/mathlib && lean --make --recursive --ast --tlean src
-	cp -r sources/mathlib PreData/Mathbin
-	find PreData/ -name "*.lean" -delete
-	find PreData/ -name "*.olean" -delete
 
 predata: lean3-predata mathbin-predata
 
@@ -131,10 +122,10 @@ test-import-mathbin:
 
 tarballs:
 	mkdir -p Outputs/src/leanbin Outputs/src/mathbin Outputs/oleans/leanbin Outputs/oleans/mathbin
-	tar -czvf lean3-predata.tar.gz -C PreData/Leanbin .
+	find sources/lean/library/ -name "*.ast.json" -o -name "*.tlean" | tar -czvf lean3-predata.tar.gz -T -
 	tar -czvf lean3-synport.tar.gz -C Outputs/src/leanbin .
 	tar -czvf lean3-binport.tar.gz -C Outputs/oleans/leanbin .
-	tar -czvf mathlib3-predata.tar.gz -C PreData/Mathbin .
+	find sources/mathlib/ -name "*.ast.json" -o -name "*.tlean" | tar -czvf mathlib3-predata.tar.gz -T -
 	tar -czvf mathlib3-synport.tar.gz -C Outputs/src/mathbin .
 	tar -czvf mathlib3-binport.tar.gz -C Outputs/oleans/mathbin .
 

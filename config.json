@@ -2,8 +2,8 @@
     "pathConfig": {
         "outRoot": "Outputs",
         "packages": {
-            "Leanbin": "PreData/Leanbin",
-            "Mathbin": "PreData/Mathbin/src"
+            "Leanbin": "sources/lean/library",
+            "Mathbin": "sources/mathlib/src"
         }
     },
     "stringsToKeep": [
