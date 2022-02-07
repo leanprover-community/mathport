@@ -41,8 +41,8 @@ private def nat2name (i : Nat) : ParseM Name := do
 
 private def parseHints (s : String) : ParseM ReducibilityHints := do
   match s with
-  | "A" => ReducibilityHints.abbrev
-  | "O" => ReducibilityHints.opaque
+  | "A" => pure ReducibilityHints.abbrev
+  | "O" => pure ReducibilityHints.opaque
   | _   =>
     match s.splitOn "." with
     | [height, selfOpt] =>
@@ -50,9 +50,9 @@ private def parseHints (s : String) : ParseM ReducibilityHints := do
       let selfOpt ← parseBool selfOpt
       -- Lean4 does not have reducibility hints, and so we mark these
       -- as abbrev to avoid tryHeuristic
-      if !selfOpt then ReducibilityHints.abbrev
-      else if h : height < UInt32.size then ReducibilityHints.regular ⟨⟨height, h⟩⟩
-      else throw $ IO.userError s!"Reducibility hint too large {height}"
+      if !selfOpt then return ReducibilityHints.abbrev
+      if h : height < UInt32.size then return ReducibilityHints.regular ⟨⟨height, h⟩⟩
+      throw $ IO.userError s!"Reducibility hint too large {height}"
     | _ => throw $ IO.userError s!"failed to parse reducibility hint: {s}"
 
 private def parseMixfixKind (kind : String) : ParseM MixfixKind :=
@@ -85,9 +85,9 @@ private def writeExpr (i : String) (e : Expr) : ParseM Unit := do
   modify $ λ s => { s with exprs := s.exprs.push e }
 
 private def parseReducibilityStatus : String → ParseM ReducibilityStatus
-| "Reducible"     => ReducibilityStatus.reducible
-| "Semireducible" => ReducibilityStatus.semireducible
-| "Irreducible"   => ReducibilityStatus.irreducible
+| "Reducible"     => pure ReducibilityStatus.reducible
+| "Semireducible" => pure ReducibilityStatus.semireducible
+| "Irreducible"   => pure ReducibilityStatus.irreducible
 | s               => throw $ IO.userError s!"unknown reducibility status {s}"
 
 def emit (envModification : EnvModification) : ParseM Unit := do
@@ -118,14 +118,15 @@ def parseLine (line : String) : ParseM Unit := do
       | [i, "#SORRY_MACRO", j]     => writeExpr  i $ mkSorryPlaceholder (← str2expr j)
       | [i, "#PROJ_MACRO", iName, cName, pName, idx, arg] =>
         let (iName, idx, arg) := (← str2name iName, ← parseNat idx, ← str2expr arg)
-        let some numParams ← (← get).ind2params.find? iName | throw $ IO.userError "projection type {iName} not found"
+        let some numParams := (← get).ind2params.find? iName
+          | throw $ IO.userError "projection type {iName} not found"
         writeExpr i $ mkProj iName (idx - numParams) arg
       | _                          => throw $ IO.userError s!"[parseTerm] unexpected '{tokens}'"
 
     parseMisc (tokens : List String) : ParseM Unit := do
       match tokens with
       | ("#AX" :: n :: t :: ups) =>
-        let (n, t, ups) ← ((← str2name n), (← str2expr t), (← ups.mapM str2name))
+        let (n, t, ups) := (← str2name n, ← str2expr t, ← ups.mapM str2name)
         emit $ EnvModification.decl $ Declaration.axiomDecl {
           name        := n,
           levelParams := ups,
@@ -134,7 +135,7 @@ def parseLine (line : String) : ParseM Unit := do
         }
 
       | ("#DEF" :: n :: thm :: h :: t :: v :: ups) =>
-        let (n, h, t, v, ups) ← ((← str2name n), (← parseHints h), (← str2expr t), (← str2expr v), (← ups.mapM str2name))
+        let (n, h, t, v, ups) := (← str2name n, ← parseHints h, ← str2expr t, ← str2expr v, ← ups.mapM str2name)
         let thm ← parseNat thm
         -- TODO: why can't I synthesize `thm > 0` any more?
         if Nat.ble 1 thm then
@@ -155,7 +156,7 @@ def parseLine (line : String) : ParseM Unit := do
           }
 
       | ("#IND" :: nps :: n :: t :: nis :: rest) =>
-        let (nps, n, t, nis) ← ((← parseNat nps), (← str2name n), (← str2expr t), (← parseNat nis))
+        let (nps, n, t, nis) := (← parseNat nps, ← str2name n, ← str2expr t, ← parseNat nis)
         let (is, ups) := rest.splitAt' (2 * nis)
         let lparams ← ups.mapM str2name
         let ctors ← parseIntros is
@@ -239,13 +240,13 @@ def parseLine (line : String) : ParseM Unit := do
         let rest ← parseIntros is
         pure $ { name := (← str2name n), type := ← str2expr t } :: rest
 
-      | _              => []
+      | _              => pure []
 
     parseBinderInfo : String → ParseM BinderInfo
-      | "#BD" => BinderInfo.default
-      | "#BI" => BinderInfo.implicit
-      | "#BS" => BinderInfo.strictImplicit
-      | "#BC" => BinderInfo.instImplicit
+      | "#BD" => pure BinderInfo.default
+      | "#BI" => pure BinderInfo.implicit
+      | "#BS" => pure BinderInfo.strictImplicit
+      | "#BC" => pure BinderInfo.instImplicit
       | s     => throw $ IO.userError s!"[parseBinderInfo] unexpected: {s}"
 
 
@@ -258,6 +259,6 @@ where
     while (not (← h.isEof)) do
       let line := (← h.getLine).dropRightWhile λ c => c == '\n'
       if !line.isEmpty then parseLine line
-    (← get).envModifications
+    pure (← get).envModifications
 
 end Mathport.Binary

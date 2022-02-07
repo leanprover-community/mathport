@@ -58,7 +58,7 @@ partial def isNumber? (e : Expr) : OptionM NumInfo := do
   else none
 
 def translateNumbers (e : Expr) : MetaM Expr := Meta.transform e (pre := core) where
-  core e : MetaM TransformStep := do
+  core e : MetaM TransformStep := pure <|
     match isConcreteNat? e with
     | some n => TransformStep.done $ mkNatLit n
     | none   =>

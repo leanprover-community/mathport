@@ -17,7 +17,7 @@ open Parser
   `(tactic| squeeze_scope $(← trBlock (← itactic)):tacticSeq)
 
 @[trTactic squeeze_simp] def trSqueezeSimp : TacM Syntax := do
-  let (tac, s) := match ← parse () *> parse (tk "?")?, ← parse (tk "!")? with
+  let (tac, s) := match ← parse_0 $ parse (tk "?")?, ← parse (tk "!")? with
   | none, none => (``Parser.Tactic.squeezeSimp, "squeeze_simp")
   | none, some _ => (``Parser.Tactic.squeezeSimp?, "squeeze_simp?")
   | some _, none => (``Parser.Tactic.squeezeSimp!, "squeeze_simp!")
@@ -28,10 +28,10 @@ open Parser
   let loc := mkOptionalNode $ ← trLoc (← parse location)
   let (cfg, disch) ← parseSimpConfig (← parse (structInst)?)
   let cfg ← mkConfigStx $ cfg.bind quoteSimpConfig
-  mkNode tac #[mkAtom s, cfg, disch, o, hs, trSimpAttrs attrs, loc]
+  pure $ mkNode tac #[mkAtom s, cfg, disch, o, hs, trSimpAttrs attrs, loc]
 
 @[trTactic squeeze_simpa] def trSqueezeSimpa : TacM Syntax := do
-  let (tac, s) := match ← parse () *> parse (tk "?")?, ← parse (tk "!")? with
+  let (tac, s) := match ← parse_0 $ parse (tk "?")?, ← parse (tk "!")? with
   | none, none => (``Parser.Tactic.squeezeSimpa, "squeeze_simpa")
   | none, some _ => (``Parser.Tactic.squeezeSimpa?, "squeeze_simpa?")
   | some _, none => (``Parser.Tactic.squeezeSimpa!, "squeeze_simpa!")
@@ -42,11 +42,11 @@ open Parser
   let e ← liftM $ (← parse (tk "using" *> pExpr)?).mapM trExpr
   let (cfg, disch) ← parseSimpConfig (← parse (structInst)?)
   let cfg ← mkConfigStx $ cfg.bind quoteSimpConfig
-  mkNode tac #[mkAtom s, cfg, disch, o, hs, trSimpAttrs attrs,
+  pure $ mkNode tac #[mkAtom s, cfg, disch, o, hs, trSimpAttrs attrs,
     mkOptionalNode' e fun e => #[mkAtom "using", e]]
 
 @[trTactic squeeze_dsimp] def trSqueezeDSimp : TacM Syntax := do
-  let (tac, s) := match ← parse () *> parse (tk "?")?, ← parse (tk "!")? with
+  let (tac, s) := match ← parse_0 $ parse (tk "?")?, ← parse (tk "!")? with
   | none, none => (``Parser.Tactic.squeezeDSimp, "squeeze_dsimp")
   | none, some _ => (``Parser.Tactic.squeezeDSimp?, "squeeze_dsimp?")
   | some _, none => (``Parser.Tactic.squeezeDSimp!, "squeeze_dsimp!")
@@ -57,4 +57,4 @@ open Parser
   let loc := mkOptionalNode $ ← trLoc (← parse location)
   let (cfg, _) ← parseSimpConfig (← parse (structInst)?)
   let cfg ← mkConfigStx $ cfg.bind quoteSimpConfig
-  mkNode tac #[mkAtom s, cfg, o, hs, trSimpAttrs attrs, loc]
+  pure $ mkNode tac #[mkAtom s, cfg, o, hs, trSimpAttrs attrs, loc]

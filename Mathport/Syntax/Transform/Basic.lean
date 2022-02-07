@@ -18,7 +18,7 @@ def throwUnsupported : M α := Elab.throwUnsupportedSyntax
 
 open Elab in
 def catchUnsupportedSyntax (k : M α) : M (Option α) :=
-  catchInternalId unsupportedSyntaxExceptionId (some <$> k) (fun _ => none)
+  catchInternalId unsupportedSyntaxExceptionId (some <$> k) (fun _ => pure none)
 
 initialize transformerAttr : TagAttribute ←
   registerTagAttribute `mathportTransformer "Lean 4 → 4 syntax transformation for prettification"

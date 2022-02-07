@@ -14,11 +14,11 @@ open AST3 Parser
 -- # tactic.suggest
 def trSuggestUsing (args : Array BinderName) : M Syntax := do
   let args ← args.mapM fun
-  | BinderName.ident n => mkIdent n
+  | BinderName.ident n => pure $ mkIdent n
   | BinderName._ => warn! "unsupported: using _ in suggest/library_search"
-  mkNullNode $ ← match args with
+  pure $ mkNullNode $ match args with
   | #[] => #[]
-  | _ => do #[mkAtom "using", mkNullNode args]
+  | _ => #[mkAtom "using", mkNullNode args]
 
 @[trTactic suggest] def trSuggest : TacM Syntax := do
   let n := (← parse (smallNat)?).map Quote.quote
@@ -26,7 +26,7 @@ def trSuggestUsing (args : Array BinderName) : M Syntax := do
   let attrs := (← parse (tk "with" *> ident*)?).getD #[]
   let use ← trSuggestUsing ((← parse (tk "using" *> ident_*)?).getD #[])
   let cfg ← mkConfigStx $ ← liftM $ (← expr?).mapM trExpr
-  mkNode ``Parser.Tactic.suggest #[mkAtom "suggest", cfg, hs, trSimpAttrs attrs, use]
+  pure $ mkNode ``Parser.Tactic.suggest #[mkAtom "suggest", cfg, hs, trSimpAttrs attrs, use]
 
 @[trTactic library_search] def trLibrarySearch : TacM Syntax := do
   let (tac, s) := match ← parse (tk "!")? with
@@ -36,4 +36,4 @@ def trSuggestUsing (args : Array BinderName) : M Syntax := do
   let attrs := (← parse (tk "with" *> ident*)?).getD #[]
   let use ← trSuggestUsing ((← parse (tk "using" *> ident_*)?).getD #[])
   let cfg ← mkConfigStx $ ← liftM $ (← expr?).mapM trExpr
-  mkNode tac #[mkAtom s, cfg, hs, trSimpAttrs attrs, use]
+  pure $ mkNode tac #[mkAtom s, cfg, hs, trSimpAttrs attrs, use]

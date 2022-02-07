@@ -15,11 +15,9 @@ def parseNat (s : String) : IO Nat :=
 
 def parseBool (s : String) : IO Bool :=
   match s.toNat? with
-  | some k =>
-    if k == 1 then true
-    else if k == 0 then false
-    else throw $ IO.userError s!"String '{s}' cannot be converted to Bool"
-  | none => throw $ IO.userError s!"String '{s}' cannot be converted to Bool"
+  | some 1 => pure true
+  | some 0 => pure false
+  | _ => throw $ IO.userError s!"String '{s}' cannot be converted to Bool"
 
 open Lean.Json in
 def parseJsonFile (α : Type) [FromJson α] (filePath : FilePath) : IO α := do

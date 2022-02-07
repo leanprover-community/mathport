@@ -41,7 +41,7 @@ def transformInlineTactics (tacs : Array Syntax) : M (Array Syntax) := do
       modified := true
     | _ => tacs' := tacs'.push tac
   unless modified do throwUnsupported
-  tacs'
+  pure tacs'
 
 def transformTacticsArray (tacs : Array Syntax) : M (Array Syntax) := do
   for fn in #[transformConsecutiveTacticsArray, transformInlineTactics] do
@@ -67,7 +67,7 @@ mathport_rules
       $t)
 
 -- used in Lean 3 to postpone elaboration, now happens by default
-mathport_rules | `(by exact $t) => t
+mathport_rules | `(by exact $t) => pure t
 
 mathport_rules
   | `(tactic| · · $[$seq:tactic $[;]?]*) => `(tactic| · $[$seq:tactic]*)

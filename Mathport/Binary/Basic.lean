@@ -50,8 +50,8 @@ def addNameAlignment (n3 n4 : Name) : BinportM Unit := do
 def addPossibleFieldName (n3 n4 : Name) : BinportM Unit := do
   liftCoreM $ Mathport.addPossibleFieldName n3 n4
 
-def lookupNameExt (n3 : Name) : BinportM (Option Name) := do
-  Rename.resolveIdent? (← getEnv) n3
+def lookupNameExt (n3 : Name) : BinportM (Option Name) :=
+  return Rename.resolveIdent? (← getEnv) n3
 
 def lookupNameExt! (n3 : Name) : BinportM Name := do
   match ← lookupNameExt n3 with

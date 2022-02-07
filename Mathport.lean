@@ -21,7 +21,7 @@ def mathport1 (config : Config) (path : Path) : IO Unit := do
 
   let mut imports : Array Import ← (← parseTLeanImports (path.toLean3 pcfg ".tlean")).mapM fun mod3 => do
     let ipath : Path ← resolveMod3 pcfg mod3
-    { module := ipath.package ++ ipath.mod4 : Import }
+    pure { module := ipath.package ++ ipath.mod4 : Import }
 
   if imports.isEmpty then imports := #[{ module := `Mathlib : Import }]
 
@@ -44,12 +44,12 @@ def mathport1 (config : Config) (path : Path) : IO Unit := do
     throw $ IO.userError s!"failed to import environment for {path.package}:{path.mod4} with imports {imports.toList}: {err}"
 
 def bindTasks (deps : Array Task) (k? : Option (Unit → IO Task)) : IO Task := do
-  if deps.isEmpty then k?.getD (fun _ => Task.pure (Except.ok ())) () else
+  if deps.isEmpty then k?.getD (fun _ => pure $ Task.pure (Except.ok ())) () else
   let mut task := deps[0]
   for i in [1:deps.size] do
     task ← bindTaskThrowing task fun () => pure deps[i]
   match k? with
-  | none => task
+  | none => pure task
   | some k => bindTaskThrowing task fun () => k ()
 where
   bindTaskThrowing (task : Task) (k : Unit → IO Task) : IO Task :=
@@ -64,8 +64,7 @@ partial def visit (config : Config) (path : Path) : StateRefT (HashMap Path Task
   | some task => pure task
   | none     => do
     if ← path.toLean4olean pcfg |>.pathExists then
-      println! "[visit] {repr path} already exists"
-      Task.pure (Except.ok ())
+      pure $ Task.pure (Except.ok ())
     else
       let mut deps := #[]
       for mod3 in ← parseTLeanImports (path.toLean3 pcfg ".tlean") do

@@ -22,7 +22,7 @@ instance : FromJson Position where
     pure ⟨← fromJson? a[0], ← fromJson? a[1]⟩
   | _ => throw "JSON array expected"
 
-instance : FromJson Unit := ⟨fun _ => ()⟩
+instance : FromJson Unit := ⟨fun _ => pure ()⟩
 
 instance {α : Type u} {β : Type v} [FromJson α] [FromJson β] : FromJson (Sum α β) :=
   ⟨fun j => (fromJson? j).map Sum.inl <|> (@fromJson? β _ j).map Sum.inr⟩
@@ -31,10 +31,11 @@ open Lean.Json in
 instance [FromJson α] [BEq α] [Hashable α] : FromJson (Std.HashSet α) where
   fromJson? json := do
     let Structured.arr elems ← fromJson? json | throw "JSON array expected"
-    elems.foldlM (init := {}) fun acc x => do acc.insert (← fromJson? x)
+    elems.foldlM (init := {}) fun acc x => return acc.insert (← fromJson? x)
 
 open Lean.Json in
 instance [FromJson α] [BEq α] [Hashable α] [FromJson β] : FromJson (Std.HashMap α β) where
    fromJson? json := do
     let Structured.obj kvs ← fromJson? json | throw "JSON obj expected"
-    kvs.foldM (init := {}) fun acc (k : String) v => do acc.insert (← fromJson? k) (← fromJson? v)
+    kvs.foldM (init := {}) fun acc (k : String) v =>
+      return acc.insert (← fromJson? k) (← fromJson? v)

@@ -34,7 +34,7 @@ def trExprCore (ctx : Context) (cmdCtx : Elab.Command.Context) (cmdState : Elab.
         if e == x then some (mkConst indName $ lps.map mkLevelParam)
         else if !e.hasFVar then (some e)
         else none
-      e
+      pure e
 where
   core e := do
     let mut e := e
@@ -46,13 +46,12 @@ where
     | none     => pure ()
     | some ap4 => e ← Meta.transform e (pre := translateAutoParams ap4)
     e ← heterogenize e
-    e ← reflToRfl e
-    e
+    reflToRfl e
 
-  replaceConstNames (e : Expr) : MetaM Expr := do
+  replaceConstNames (e : Expr) : MetaM Expr := pure <|
     e.replaceConstNames fun n => (Mathlib.Prelude.Rename.getRenameMap cmdState.env).find? n
 
-  reflToRfl (e : Expr) : MetaM Expr := do
+  reflToRfl (e : Expr) : MetaM Expr := pure <|
     e.replace fun e =>
       if e.isAppOfArity `Eq.refl 2 then
         some $ e.withApp fun f args => mkAppN (mkConst `rfl f.constLevels!) args
@@ -80,14 +79,14 @@ where
         let tacSyntax := mkAppN (mkConst `Lean.Syntax.ident) #[mkConst `Lean.SourceInfo.none, substr, toExpr tacName, toExpr ([] : List (Prod Name (List String)))]
         let e' := mkAppN (mkConst `autoParam [level]) #[type, tacSyntax]
         unless ← Meta.isDefEq e e' do throwError "[translateAutoParams] introduced non-defeq, {e} != {e'}"
-        TransformStep.done e'
+        pure $ TransformStep.done e'
       catch ex => do
         -- they prove theorems about auto_param!
         println! "[decode] {(← ex.toMessageData.toString)}"
         -- strip the auto_param?
-        TransformStep.visit e
+        pure $ TransformStep.visit e
     else
-      TransformStep.visit e
+      pure $ TransformStep.visit e
 
   mkCandidateLean4NameForKindIO (n3 : Name) (eKind : ExprKind) : IO Name := do
     (mkCandidateLean4NameForKind n3 eKind).toIO ctx {} cmdCtx cmdState

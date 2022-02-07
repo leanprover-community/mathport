@@ -24,16 +24,16 @@ open Parser
 @[trTactic mono] def trMono : TacM Syntax := do
   let star := mkOptionalNode' (← parse (tk "*")?) fun _ => #[mkAtom "*"]
   let side ← match ← parse (ident)? with
-  | some `left => some (mkAtom "left")
-  | some `right => some (mkAtom "right")
-  | some `both => none
-  | none => none
+  | some `left => pure $ some (mkAtom "left")
+  | some `right => pure $ some (mkAtom "right")
+  | some `both => pure none
+  | none => pure none
   | _ => warn! "unsupported (impossible)"
   let w ← match ← parse ((tk "with" *> pExprListOrTExpr) <|> pure #[]) with
-  | #[] => none
+  | #[] => pure none
   | w => liftM $ some <$> w.mapM trExpr
   let hs ← trSimpArgs (← parse ((tk "using" *> simpArgList) <|> pure #[]))
-  mkNode ``Parser.Tactic.mono #[mkAtom "mono", star,
+  pure $ mkNode ``Parser.Tactic.mono #[mkAtom "mono", star,
     mkOptionalNode' side fun side => #[mkNode ``Parser.Tactic.mono.side #[side]],
     mkOptionalNode' w fun w => #[mkAtom "with", (mkAtom ",").mkSep w],
     mkNullNode $ if hs.isEmpty then #[] else #[mkAtom "using", (mkAtom ",").mkSep hs]]
@@ -41,8 +41,8 @@ open Parser
 @[trTactic ac_mono] def trAcMono : TacM Syntax := do
   let arity ← parse $
     (tk "*" *> pure #[mkAtom "*"]) <|>
-    (tk "^" *> do #[mkAtom "^", Quote.quote (← smallNat)]) <|> pure #[]
-  let arg ← parse ((tk ":=" *> do (":=", ← pExpr)) <|> (tk ":" *> do (":", ← pExpr)))?
-  let arg ← mkOptionalNodeM arg fun (s, e) => do #[mkAtom s, ← trExpr e]
+    (tk "^" *> return #[mkAtom "^", Quote.quote (← smallNat)]) <|> pure #[]
+  let arg ← parse ((tk ":=" *> return (":=", ← pExpr)) <|> (tk ":" *> return (":", ← pExpr)))?
+  let arg ← mkOptionalNodeM arg fun (s, e) => return #[mkAtom s, ← trExpr e]
   let cfg ← mkConfigStx $ ← liftM $ (← expr?).mapM trExpr
-  mkNode ``Parser.Tactic.acMono #[mkAtom "ac_mono", mkNullNode arity, cfg, arg]
+  pure $ mkNode ``Parser.Tactic.acMono #[mkAtom "ac_mono", mkNullNode arity, cfg, arg]

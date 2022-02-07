@@ -20,7 +20,7 @@ open Parser
 @[trTactic norm_num] def trNormNum : TacM Syntax := do
   let hs := trSimpList (← trSimpArgs (← parse simpArgList))
   let loc := mkOptionalNode $ ← trLoc (← parse location)
-  mkNode ``Tactic.normNum #[mkAtom "norm_num", hs, loc]
+  pure $ mkNode ``Tactic.normNum #[mkAtom "norm_num", hs, loc]
 
 @[trTactic apply_normed] def trApplyNormed : TacM Syntax := do
   `(tactic| apply_normed $(← trExpr (← parse pExpr)))
@@ -29,4 +29,4 @@ open Parser
 
 @[trConv norm_num] def trNormNumConv : TacM Syntax := do
   let hs := trSimpList (← trSimpArgs (← parse simpArgList))
-  mkNode ``Parser.Tactic.Conv.normNum #[mkAtom "norm_num", hs]
+  pure $ mkNode ``Parser.Tactic.Conv.normNum #[mkAtom "norm_num", hs]

@@ -19,7 +19,7 @@ open Parser
 
 def trRingMode (n : Name) : M Syntax :=
   if [`SOP, `raw, `horner].contains n then
-    mkNode ``Parser.Tactic.ringMode #[mkIdent n]
+    pure $ mkNode ``Parser.Tactic.ringMode #[mkIdent n]
   else warn! "bad ring mode"
 
 @[trTactic ring_nf] def trRingNF : TacM Syntax := do

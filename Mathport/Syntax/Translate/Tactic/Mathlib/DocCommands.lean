@@ -14,7 +14,7 @@ open AST3 Parser
 -- # tactic.doc_commands
 
 @[trUserCmd «copy_doc_string»] def trCopyDocString : TacM Syntax := do
-  let (fr, to_) ← parse $ do (← ident, ← tk "->" *> ident*)
+  let (fr, to_) ← parse $ return (← ident, ← tk "->" *> ident*)
   `(command| copy_doc_string $(← mkIdentI fr) → $(← liftM $ to_.mapM mkIdentI)*)
 
 @[trUserCmd «library_note»] def trLibraryNote (doc : Option String) : TacM Syntax := do
