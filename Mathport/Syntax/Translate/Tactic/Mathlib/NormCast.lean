@@ -23,7 +23,7 @@ open Parser
 
 @[trTactic push_cast] def trPushCast : TacM Syntax := do
   let hs := trSimpList (← trSimpArgs (← parse simpArgList))
-  mkNode ``Parser.Tactic.pushCast #[mkAtom "push_cast",
+  pure $ mkNode ``Parser.Tactic.pushCast #[mkAtom "push_cast",
     hs, mkOptionalNode $ ← trLoc (← parse location)]
 
 @[trTactic norm_cast] def trNormCast : TacM Syntax := do

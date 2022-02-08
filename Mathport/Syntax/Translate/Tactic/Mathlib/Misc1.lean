@@ -45,13 +45,13 @@ open AST3 Parser
 @[trUserAttr main_declaration] def trMainDeclaration := tagAttr `main_declaration
 
 @[trUserCmd «#list_unused_decls»] def trListUnusedDecls : TacM Syntax :=
-  parse () *> `(command| #list_unused_decls)
+  parse_0 `(command| #list_unused_decls)
 
 -- # tactic.generalizes
 
 @[trTactic generalizes] def trGeneralizes : TacM Syntax := do
-  let args ← (← parse (listOf generalizesArg)).mapM fun (h, t, x) => do
-    mkNode ``Parser.Tactic.generalizesArg #[
+  let args ← (← parse (listOf generalizesArg)).mapM fun (h, t, x) =>
+    return mkNode ``Parser.Tactic.generalizesArg #[
       mkOptionalNode' h fun h => #[mkIdent h, mkAtom ":"],
       ← trExpr t, mkAtom "=", mkIdent x]
   `(tactic| generalizes [$args,*])
@@ -80,7 +80,7 @@ open AST3 Parser
   `(command| open_locale $(← liftM $ (← parse (ident* <* skipAll)).mapM mkIdentN)*)
 
 @[trUserCmd «localized»] def trLocalized : TacM Unit := do
-  let (#[cmd], loc) ← parse $ do (← pExpr *> emittedCodeHere, ← tk "in" *> ident)
+  let (#[cmd], loc) ← parse $ return (← pExpr *> emittedCodeHere, ← tk "in" *> ident)
     | warn! "unsupported: multiple localized"
   let loc ← mkIdentN loc
   let pushL stx := pushM `(command| localized [$loc] $stx)
@@ -91,7 +91,7 @@ open AST3 Parser
 
 -- # tactic.mk_iff_of_inductive_prop
 @[trUserCmd «mk_iff_of_inductive_prop»] def trMkIffOfInductiveProp : TacM Syntax := do
-  let (i, r) ← parse $ do (← ident, ← ident)
+  let (i, r) ← parse $ return (← ident, ← ident)
   `(command| mk_iff_of_inductive_prop $(← mkIdentI i) $(← mkIdentI r))
 
 @[trUserAttr mk_iff] def trMkIffAttr : TacM Syntax := do
@@ -100,7 +100,7 @@ open AST3 Parser
 -- # tactic.replacer
 
 @[trUserCmd «def_replacer»] def trDefReplacer : TacM Syntax := do
-  let (n, ty) ← parse $ do (← ident, ← (tk ":" *> pExpr)?)
+  let (n, ty) ← parse $ return (← ident, ← (tk ":" *> pExpr)?)
   `(command| def_replacer $(← mkIdentI n) $[$(← trOptType ty):typeSpec]?)
 
 @[trUserAttr replaceable] def trReplaceableAttr := tagAttr `replaceable
@@ -121,7 +121,7 @@ open AST3 Parser
 
 @[trUserAttr protect_proj] def trProtectProjAttr : TacM Syntax := do
   let ids ← match ← parse withoutIdentList with
-  | #[] => none
+  | #[] => pure none
   | ids => some <$> liftM (ids.mapM mkIdentF)
   `(attr| protect_proj $[without $ids*]?)
 
@@ -134,8 +134,8 @@ open AST3 Parser
   let (tac, s) := match ← parse (tk "!")? with
   | none => (``Parser.Tactic.contrapose, "contrapose")
   | some _ => (``Parser.Tactic.contrapose!, "contrapose!")
-  let n ← parse (do (← ident, ← (tk "with" *> ident)?))?
-  mkNode tac #[mkAtom s, mkOptionalNode' n fun (a, b) =>
+  let n ← parse (return (← ident, ← (tk "with" *> ident)?))?
+  pure $ mkNode tac #[mkAtom s, mkOptionalNode' n fun (a, b) =>
     #[mkIdent a, mkOptionalNode' b fun b => #[mkAtom "with", mkIdent b]]]
 
 -- # tactic.rename_var
@@ -145,7 +145,7 @@ open AST3 Parser
 
 -- # tactic.restate_axiom
 @[trUserCmd «restate_axiom»] def trRestateAxiom : TacM Syntax := do
-  let (a, b) ← parse $ do (← ident, ← (ident)?)
+  let (a, b) ← parse $ return (← ident, ← (ident)?)
   `(command| restate_axiom $(← mkIdentI a) $(← liftM $ b.mapM mkIdentI)?)
 
 -- # tactic.rewrite
@@ -166,25 +166,26 @@ open AST3 Parser
 
 -- # tactic.simp_command
 @[trUserCmd «#simp»] def trSimpCmd : TacM Syntax := do
-  let (o, args, attrs, e) ← parse $ do
-    (← onlyFlag, ← simpArgList, (← (tk "with" *> ident*)?).getD #[], ← (tk ":")? *> pExpr)
+  let (o, args, attrs, e) ← parse $
+    return (← onlyFlag, ← simpArgList, (← (tk "with" *> ident*)?).getD #[], ← (tk ":")? *> pExpr)
   let hs := trSimpList (← trSimpArgs args)
   let o := if o then mkNullNode #[mkAtom "only"] else mkNullNode
   let colon := if attrs.isEmpty then mkNullNode else mkNullNode #[mkAtom ":"]
-  mkNode ``Parser.Command.simp #[mkAtom "#simp", o, hs, trSimpAttrs attrs, colon, ← trExpr e]
+  pure $ mkNode ``Parser.Command.simp #[mkAtom "#simp",
+    o, hs, trSimpAttrs attrs, colon, ← trExpr e]
 
 -- # tactic.simp_result
 @[trTactic dsimp_result] def trDSimpResult : TacM Syntax := do
   let o := if ← parse onlyFlag then mkNullNode #[mkAtom "only"] else mkNullNode
   let hs := trSimpList (← trSimpArgs (← parse simpArgList))
-  mkNode ``Parser.Tactic.dsimpResult #[mkAtom "dsimp_result", o, hs,
+  pure $ mkNode ``Parser.Tactic.dsimpResult #[mkAtom "dsimp_result", o, hs,
     trSimpAttrs $ (← parse (tk "with" *> ident*)?).getD #[],
     mkAtom "=>", ← trBlock (← itactic)]
 
 @[trTactic simp_result] def trSimpResult : TacM Syntax := do
   let o := if ← parse onlyFlag then mkNullNode #[mkAtom "only"] else mkNullNode
   let hs := trSimpList (← trSimpArgs (← parse simpArgList))
-  mkNode ``Parser.Tactic.simpResult #[mkAtom "simp_result", o, hs,
+  pure $ mkNode ``Parser.Tactic.simpResult #[mkAtom "simp_result", o, hs,
     trSimpAttrs $ (← parse (tk "with" *> ident*)?).getD #[],
     mkAtom "=>", ← trBlock (← itactic)]
 
@@ -201,7 +202,7 @@ open AST3 Parser
   let e ← liftM $ (← parse (tk "using" *> pExpr)?).mapM trExpr
   let (cfg, disch) ← parseSimpConfig (← expr?)
   let cfg ← mkConfigStx $ cfg.bind quoteSimpConfig
-  mkNode tac #[mkAtom s, cfg, disch, o, hs, trSimpAttrs attrs,
+  pure $ mkNode tac #[mkAtom s, cfg, disch, o, hs, trSimpAttrs attrs,
     mkOptionalNode' e fun e => #[mkAtom "using", e]]
 
 -- # tactic.split_ifs
@@ -225,8 +226,8 @@ open AST3 Parser
 @[trUserCmd «#where»] def trWhereCmd : TacM Syntax := parse skipAll *> `(command| #where)
 
 -- # tactic.tfae
-@[trTactic tfae_have] def trTfaeHave : TacM Syntax := do
-  mkNode ``Parser.Tactic.tfaeHave #[mkAtom "tfae_have",
+@[trTactic tfae_have] def trTfaeHave : TacM Syntax :=
+  return mkNode ``Parser.Tactic.tfaeHave #[mkAtom "tfae_have",
     mkOptionalNode' (← parse ((ident)? <* tk ":")) fun h => #[mkIdent h, mkAtom ":"],
     Quote.quote (← parse smallNat),
     mkAtom (← parse ((tk "->" *> pure "→") <|> (tk "↔" *> pure "↔") <|> (tk "<-" *> pure "←"))),
@@ -300,7 +301,7 @@ open AST3 Parser
   let h := (← parse (ident)?).map mkIdent
   let pat ← liftM $ (← parse (tk ":" *> pExpr)?).mapM trExpr
   let cases ← liftM $ (← parse (tk ":=" *> pExpr)?).mapM trExpr
-  let perms ← parse (tk "using" *> (listOf ident* <|> do #[← ident*]))?
+  let perms ← parse (tk "using" *> (listOf ident* <|> return #[← ident*]))?
   let perms := match perms.getD #[] with
   | #[] => none
   | perms => some (perms.map (·.map mkIdent))

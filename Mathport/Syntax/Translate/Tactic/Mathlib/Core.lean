@@ -31,7 +31,7 @@ open AST3 Parser
   `(attr| higher_order $(← liftM $ (← parse (ident)?).mapM mkIdentI)?)
 
 @[trUserAttr interactive] def trInteractiveAttr : TacM Syntax :=
-  parse () *> `(attr| interactive)
+  parse_0 `(attr| interactive)
 
 @[trUserCmd «setup_tactic_parser»] def trSetupTacticParser : TacM Syntax :=
   parse emittedCodeHere *> `(command| setup_tactic_parser)
@@ -48,11 +48,11 @@ def trInterpolatedStr' := trInterpolatedStr fun stx => `(← $stx)
   let stx ← trInterpolatedStr'; `(← do dbg_trace $stx)
 
 @[trUserCmd «import_private»] def trImportPrivate : TacM Syntax := do
-  let (n, fr) ← parse $ do (← ident, ← (tk "from" *> ident)?)
+  let (n, fr) ← parse $ return (← ident, ← (tk "from" *> ident)?)
   `(open private $(← mkIdentF n) $[from $(← liftM $ fr.mapM mkIdentI)]?)
 
 @[trUserCmd «mk_simp_attribute»] def trMkSimpAttribute : TacM Syntax := do
-  let (n, d, withList) ← parse $ do (← ident, ← pExpr, ← (tk "with" *> ident*)?)
+  let (n, d, withList) ← parse $ return (← ident, ← pExpr, ← (tk "with" *> ident*)?)
   let d ← match d.unparen with
   | AST3.Expr.ident `none => pure $ none
   | AST3.Expr.string s => pure $ some (Syntax.mkStrLit s)

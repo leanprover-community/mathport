@@ -25,13 +25,13 @@ partial def trRCasesPat : RCasesPat → M Syntax
 
 partial def trRCasesPatMed (pat : RCasesPat) : M Syntax := do
   let pats := match pat with | RCasesPat.alts pats => pats | pat => #[pat]
-  mkNode ``Parser.Tactic.rcasesPatMed #[(mkAtom "|").mkSep $ ← pats.mapM trRCasesPat]
+  pure $ mkNode ``Parser.Tactic.rcasesPatMed #[(mkAtom "|").mkSep $ ← pats.mapM trRCasesPat]
 
 partial def trRCasesPatLo (pat : RCasesPat) : M Syntax := do
   let (pat, ty) ← match pat with
-  | RCasesPat.typed pat ty => (pat, mkNullNode #[mkAtom ":", ← trExpr ty])
-  | _ => (pat, mkNullNode)
-  Syntax.node SourceInfo.none ``Parser.Tactic.rcasesPatLo #[← trRCasesPatMed pat, ty]
+  | RCasesPat.typed pat ty => pure (pat, mkNullNode #[mkAtom ":", ← trExpr ty])
+  | _ => pure (pat, mkNullNode)
+  pure $ Syntax.node SourceInfo.none ``Parser.Tactic.rcasesPatLo #[← trRCasesPatMed pat, ty]
 
 end
 
@@ -49,12 +49,12 @@ end
 
 @[trTactic obtain] def trObtain : TacM Syntax := do
   let ((pat, ty), vals) ← parse obtainArg
-  liftM $ show M _ from do
-    mkNode ``Parser.Tactic.obtain #[mkAtom "obtain",
+  liftM $ show M _ from
+    return mkNode ``Parser.Tactic.obtain #[mkAtom "obtain",
       mkOptionalNode (← pat.mapM trRCasesPatMed),
-      ← mkOptionalNodeM ty fun ty => do #[mkAtom ":", ← trExpr ty],
-      ← mkOptionalNodeM vals fun vals => do
-        #[mkAtom ":=", (mkAtom ",").mkSep $ ← vals.mapM trExpr]]
+      ← mkOptionalNodeM ty fun ty => return #[mkAtom ":", ← trExpr ty],
+      ← mkOptionalNodeM vals fun vals =>
+        return #[mkAtom ":=", (mkAtom ",").mkSep $ ← vals.mapM trExpr]]
 
 partial def trRIntroPat : RIntroPat → M Syntax
   | RIntroPat.one pat => do `(rintroPat| $(← trRCasesPat pat):rcasesPat)

@@ -27,41 +27,43 @@ abbrev TacM := ReaderT Context $ StateT State M
 def TacM.run (m : TacM α) (args : Array (Spanned Param)) : M α := do
   let (a, ⟨n⟩) ← (m ⟨args⟩).run {}
   unless args.size = n do warn! "unsupported: too many args"
-  a
+  pure a
 
 def next? : TacM (Option Param) := do
   let args := (← read).args
   let i := (← get).pos
   if h : i < args.size then
     modify fun s => { s with pos := i+1 }
-    (args.get ⟨i, h⟩).kind
-  else none
+    pure (args.get ⟨i, h⟩).kind
+  else pure none
 
 def next! : TacM Param := do
-  match ← next? with | some p => p | none => warn! "missing argument"
+  match ← next? with | some p => pure p | none => warn! "missing argument"
 
 def parse (p : Parser.ParserM α) : TacM α := do
   let Param.parse _ args ← next! | throw! "expecting parse arg"
   p.run' args
 
+def parse_0 (t : TacM α) := parse (pure ()) *> t
+
 def expr? : TacM (Option AST3.Expr) := do
   match ← next? with
-  | none => none
-  | some (Param.expr e) => some e.kind
+  | none => pure none
+  | some (Param.expr e) => pure $ some e.kind
   | _ => warn! "parse error"
 
 def expr! : TacM AST3.Expr := do
-  match ← expr? with | some p => p | none => warn! "missing argument"
+  match ← expr? with | some p => pure p | none => warn! "missing argument"
 
 def itactic : TacM AST3.Block := do
   let Param.block bl ← next! | warn! "expecting tactic arg"
-  bl
+  pure bl
 
 def withNoMods (tac : TacM α) : Modifiers → TacM α
   | #[] => tac
   | _ => warn! "expecting no modifiers" | tac
 
-def tagAttr (n : Name) : TacM Syntax := parse () *> mkSimpleAttr n
+def tagAttr (n : Name) : TacM Syntax := parse_0 $ pure (mkSimpleAttr n)
 
 scoped instance : Coe (TacM α) (Modifiers → TacM α) := ⟨withNoMods⟩
 
@@ -93,7 +95,7 @@ private def mkExt (name attr : Name) (descr : String) : IO NameExt := do
       modifyEnv $ ns.foldl fun env n =>
         ext.addEntry env (n, declName)
   }
-  ext
+  pure ext
 
 private def mkElab (ext : NameExt) (ty : Lean.Expr) : Elab.Term.TermElabM Lean.Expr := do
   let mut stx := #[]

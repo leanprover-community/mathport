@@ -19,14 +19,14 @@ structure HBinInfo where
   hName    : Name
   instName : Name
 
-def hBinMap : HashMap Name HBinInfo := Id.run do
-  let mut m : HashMap Name HBinInfo := {}
-  m := m.insert `Add.add ⟨`HAdd.hAdd, `instHAdd⟩
-  m := m.insert `Sub.sub ⟨`HSub.hSub, `instHSub⟩
-  m := m.insert `Mul.mul ⟨`HMul.hMul, `instHMul⟩
-  m := m.insert `Div.div ⟨`HDiv.hDiv, `instHDiv⟩
-  m := m.insert `Mod.mod ⟨`HMod.hMod, `instHMod⟩
-  pure m
+def hBinMap : HashMap Name HBinInfo :=
+  let m : HashMap Name HBinInfo := {}
+  let m := m.insert `Add.add ⟨`HAdd.hAdd, `instHAdd⟩
+  let m := m.insert `Sub.sub ⟨`HSub.hSub, `instHSub⟩
+  let m := m.insert `Mul.mul ⟨`HMul.hMul, `instHMul⟩
+  let m := m.insert `Div.div ⟨`HDiv.hDiv, `instHDiv⟩
+  let m := m.insert `Mod.mod ⟨`HMod.hMod, `instHMod⟩
+  m
 
 def heterogenize (e : Expr) : MetaM Expr := Meta.transform e (post := core)
 /-
@@ -53,7 +53,7 @@ where
 
       | none =>
         if f.isConstOf `Pow.pow && args.size ≥ 3 then
-          let [lvl1, lvl2] ← pure f.constLevels! | throwError "Pow.pow should have 2 levels"
+          let [lvl1, lvl2] := f.constLevels! | throwError "Pow.pow should have 2 levels"
           -- (@instHPow.{0, 0} Nat Nat instPowNatNat)
           let instName := `instHPow
           let (type1, type2) := (args[0], args[1])

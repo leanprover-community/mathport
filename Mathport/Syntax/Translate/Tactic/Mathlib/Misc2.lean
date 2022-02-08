@@ -38,7 +38,7 @@ open AST3 Parser
 -- # tactic.omega
 @[trTactic omega] def trOmega : TacM Syntax := do
   let args ← parse ident*
-  mkNode ``Parser.Tactic.omega #[mkAtom "omega",
+  pure $ mkNode ``Parser.Tactic.omega #[mkAtom "omega",
     mkNullNode $ if args.contains `manual then #[mkAtom "manual"] else #[],
     mkNullNode $
       if args.contains `int then #[mkAtom "int"] else
@@ -46,18 +46,18 @@ open AST3 Parser
 
 -- # tactic.fin_cases
 @[trTactic fin_cases] def trFinCases : TacM Syntax := do
-  let hyp ← parse $ (tk "*" *> none) <|> (some <$> ident)
+  let hyp ← parse $ (tk "*" *> pure none) <|> (some <$> ident)
   let w ← liftM $ (← parse (tk "with" *> pExpr)?).mapM trExpr
   match hyp with
   | none => `(tactic| fin_cases * $[with $w]?)
   | some h => `(tactic| fin_cases $(mkIdent h):ident $[with $w]?)
 
 -- # tactic.interval_cases
-@[trTactic interval_cases] def trIntervalCases : TacM Syntax := do
-  mkNode ``Parser.Tactic.intervalCases #[mkAtom "interval_cases",
+@[trTactic interval_cases] def trIntervalCases : TacM Syntax :=
+  return mkNode ``Parser.Tactic.intervalCases #[mkAtom "interval_cases",
     ← mkOpt (← parse (pExpr)?) trExpr,
-    ← mkOptionalNodeM (← parse (tk "using" *> do (← ident, ← ident))?) fun (x, y) => do
-      #[mkAtom "using", mkIdent x, mkAtom ",", mkIdent y],
+    ← mkOptionalNodeM (← parse (tk "using" *> return (← ident, ← ident))?) fun (x, y) =>
+      return #[mkAtom "using", mkIdent x, mkAtom ",", mkIdent y],
     mkOptionalNode' (← parse (tk "with" *> ident)?) fun h => #[mkAtom "with", mkIdent h]]
 
 -- # tactic.subtype_instance
@@ -91,7 +91,7 @@ open AST3 Parser
   let loc := mkOptionalNode $ ← trLoc (← parse location)
   let (cfg, disch) ← parseSimpConfig (← expr?)
   let cfg ← mkConfigStx $ cfg.bind quoteSimpConfig
-  mkNode ``Parser.Tactic.fieldSimp #[mkAtom "field_simp", cfg, disch,
+  pure $ mkNode ``Parser.Tactic.fieldSimp #[mkAtom "field_simp", cfg, disch,
     o, hs, trSimpAttrs attrs, loc]
 
 -- # tactic.equiv_rw
@@ -155,10 +155,10 @@ attribute [trNITactic try_refl_tac] trControlLawsTac
   `(attr| to_additive_reorder $((← parse smallNat*).map Quote.quote)*)
 
 @[trUserAttr to_additive] def trToAdditiveAttr : TacM Syntax := do
-  let (bang, ques, tgt, doc) ← parse $ do (← (tk "!")?, ← (tk "?")?, ← (ident)?, ← (pExpr)?)
+  let (bang, ques, tgt, doc) ← parse $ return (← (tk "!")?, ← (tk "?")?, ← (ident)?, ← (pExpr)?)
   let tgt ← liftM $ tgt.mapM mkIdentI
   let doc ← doc.mapM fun doc => match doc.unparen with
-  | Expr.string s => Syntax.mkStrLit s
+  | Expr.string s => pure $ Syntax.mkStrLit s
   | _ => warn! "to_additive: weird doc string"
   match bang, ques with
   | none, none => `(attr| to_additive $(tgt)? $(doc)?)
@@ -169,8 +169,8 @@ attribute [trNITactic try_refl_tac] trControlLawsTac
 -- # meta.coinductive_predicates
 @[trUserAttr monotonicity] def trMonotonicityAttr := tagAttr `monotonicity
 
-@[trUserCmd «coinductive»] def trCoinductivePredicate (mods : Modifiers) : TacM Syntax := do
-  parse () *> warn! "unsupported user cmd coinductive" -- unattested
+@[trUserCmd «coinductive»] def trCoinductivePredicate (mods : Modifiers) : TacM Syntax :=
+  parse_0 warn! "unsupported user cmd coinductive" -- unattested
 
 -- # testing.slim_check.sampleable
 @[trUserCmd «#sample»] def trSampleCmd : TacM Syntax := do

@@ -27,17 +27,17 @@ inductive ExprKind
 
 partial def translatePrefix (pfix3 : Name) : BinportM Name := do
   match ← lookupNameExt pfix3 with
-  | some pfix4 => pfix4
+  | some pfix4 => pure pfix4
   | none =>
     match pfix3 with
-    | Name.anonymous  ..  => Name.anonymous
-    | Name.num pfix3 k .. => Name.mkNum (← translatePrefix pfix3) k
+    | Name.anonymous  ..  => pure Name.anonymous
+    | Name.num pfix3 k .. => pure $ Name.mkNum (← translatePrefix pfix3) k
     | Name.str pfix3 s .. =>
       let s := if (← read).config.stringsToKeep.contains s then s else s.snake2pascal
-      Name.mkStr (← translatePrefix pfix3) s
+      pure $ Name.mkStr (← translatePrefix pfix3) s
 
-def translateSuffix (s : String) (eKind : ExprKind) : BinportM String := do
-  if (← read).config.stringsToKeep.contains s then s else
+def translateSuffix (s : String) (eKind : ExprKind) : BinportM String :=
+  return if (← read).config.stringsToKeep.contains s then s else
     match eKind with
     | ExprKind.eSort  =>
       -- TODO: consider re-enabling this, but be warned you will need to propagate elsewhere
@@ -50,20 +50,17 @@ partial def mkCandidateLean4NameForKind (n3 : Name) (eKind : ExprKind) : Binport
   if n3.isStr && n3.getString! == `_main then mkCandidateLean4NameForKind n3.getPrefix eKind else
     let pfix4 ← translatePrefix n3.getPrefix
     match n3 with
-    | Name.num _ k ..  => Name.mkNum pfix4 k
-    | Name.str _ s ..  => Name.mkStr pfix4 (← translateSuffix s eKind)
-    | _                => Name.anonymous
+    | Name.num _ k ..  => pure $ Name.mkNum pfix4 k
+    | Name.str _ s ..  => pure $ Name.mkStr pfix4 (← translateSuffix s eKind)
+    | _                => pure Name.anonymous
 
 def getExprKind (type : Expr) : MetaM ExprKind := do
-  if ← isProp type then ExprKind.eProof
-  else if ← returnsSort type then ExprKind.eSort
-  else ExprKind.eDef
+  if ← isProp type then return ExprKind.eProof
+  if ← returnsSort type then return ExprKind.eSort
+  return ExprKind.eDef
 where
   returnsSort (type : Expr) : MetaM Bool := withTransparency TransparencyMode.all do
-    forallTelescopeReducing type fun xs b =>
-      match b with
-      | Expr.sort .. => true
-      | _ => false
+    forallTelescopeReducing type fun xs b => pure $ b matches Expr.sort ..
 
 def mkCandidateLean4Name (n3 : Name) (type : Expr) : BinportM Name := do
   match ← lookupNameExt n3 with
@@ -85,7 +82,7 @@ partial def refineLean4Names (decl : Declaration) : BinportM (Declaration × Cla
   | Declaration.thmDecl thm                 =>
     refineThm { thm with name := ← mkCandidateLean4Name thm.name thm.type}
   | Declaration.defnDecl defn               =>
-    let name ← ← mkCandidateLean4Name defn.name defn.type
+    let name ← mkCandidateLean4Name defn.name defn.type
     -- Optimization: don't bother def-eq checking constructions that we know will be def-eq
     if name.isStr && (← read).config.defEqConstructions.contains name.getString! then
       let clashKind := if (← getEnv).contains name then ClashKind.foundDefEq else ClashKind.freshDecl
@@ -150,7 +147,8 @@ where
       else
         let ctors := indType3.ctors.zip indVal.ctors
         let ctorsDefEq (ctor3 : Constructor) (name4 : Name) : BinportM Bool := do
-          let some (ConstantInfo.ctorInfo ctor4) ← (← getEnv).find? name4 | throwError "constructor '{name4}' not found"
+          let some (ConstantInfo.ctorInfo ctor4) := (← getEnv).find? name4
+            | throwError "constructor '{name4}' not found"
           isDefEqUpto lps ctor3.type ctor4.levelParams ctor4.type
         if ← ctors.allM (fun (x, y) => ctorsDefEq x y) then
           pure (Declaration.inductDecl lps numParams [indType3] isUnsafe, ClashKind.foundDefEq, indVal.ctors)
@@ -159,8 +157,9 @@ where
     | _ => println! "[refineInd] not an IND"
            recurse
 
-  isDefEqUpto (lvls₁ : List Name) (t₁ : Expr) (lvls₂ : List Name) (t₂ : Expr) : BinportM Bool := do
-    Kernel.isDefEq (← getEnv) {} t₁ (t₂.instantiateLevelParams lvls₂ $ lvls₁.map mkLevelParam)
+  isDefEqUpto (lvls₁ : List Name) (t₁ : Expr) (lvls₂ : List Name) (t₂ : Expr) : BinportM Bool :=
+    return Kernel.isDefEq (← getEnv) {} t₁ $
+      t₂.instantiateLevelParams lvls₂ $ lvls₁.map mkLevelParam
 
   -- Note: "'" does not work any more, since there are many "'" suffixes in mathlib
   -- and the extended names may clash.
@@ -181,8 +180,11 @@ def refineLean4NamesAndUpdateMap (decl : Declaration) : BinportM (Declaration ×
   match decl, decl' with
   | Declaration.inductDecl _ _ [indType3] _, Declaration.inductDecl _ _ [indType4] _ =>
     tr (indType3.name ++ `rec) (indType4.name ++ `rec)
-    let ctors3 := indType3.ctors.map fun ctor => { ctor with name := ctor.name.replacePrefix InductiveType.selfPlaceholder indType3.name }
-    for (ctor3, ctor4) in List.zip ctors3 (if ctors.isEmpty then indType4.ctors.map Constructor.name else ctors) do
+    let ctors3 := indType3.ctors.map fun ctor =>
+      { ctor with name := ctor.name.replacePrefix InductiveType.selfPlaceholder indType3.name }
+    for (ctor3, ctor4) in
+      ctors3.zip (if ctors.isEmpty then indType4.ctors.map Constructor.name else ctors)
+    do
       tr ctor3.name ctor4
   | _, _ => pure ()
 

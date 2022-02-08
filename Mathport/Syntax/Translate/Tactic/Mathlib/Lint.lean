@@ -34,4 +34,4 @@ open AST3 Parser
   `(#lint all)
 
 @[trUserCmd «#list_linters»] def trListLintersCmd : TacM Syntax :=
-  parse () *> `(command| #list_linters)
+  parse_0 `(command| #list_linters)

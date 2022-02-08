@@ -18,10 +18,10 @@ open AST3 Parser
   | some _ => (``Parser.Tactic.linarith!, "linarith!")
   let o := if ← parse onlyFlag then mkNullNode #[mkAtom "only"] else mkNullNode
   let args := mkNullNode $ ← match ← parse optPExprList with
-  | #[] => #[]
-  | args => do #[mkAtom "[", (mkAtom ",").mkSep $ ← liftM $ args.mapM trExpr, mkAtom "]"]
+  | #[] => pure #[]
+  | args => return #[mkAtom "[", (mkAtom ",").mkSep $ ← liftM $ args.mapM trExpr, mkAtom "]"]
   let cfg ← mkConfigStx $ ← liftM $ (← expr?).mapM trExpr
-  mkNode tac #[mkAtom s, cfg, o, args]
+  pure $ mkNode tac #[mkAtom s, cfg, o, args]
 
 @[trTactic nlinarith] def trNLinarith : TacM Syntax := do
   let (tac, s) := match ← parse (tk "!")? with
@@ -29,10 +29,10 @@ open AST3 Parser
   | some _ => (``Parser.Tactic.nlinarith!, "nlinarith!")
   let o := if ← parse onlyFlag then mkNullNode #[mkAtom "only"] else mkNullNode
   let args := mkNullNode $ ← match ← parse optPExprList with
-  | #[] => #[]
-  | args => do #[mkAtom "[", (mkAtom ",").mkSep $ ← liftM $ args.mapM trExpr, mkAtom "]"]
+  | #[] => pure #[]
+  | args => return #[mkAtom "[", (mkAtom ",").mkSep $ ← liftM $ args.mapM trExpr, mkAtom "]"]
   let cfg ← mkConfigStx $ ← liftM $ (← expr?).mapM trExpr
-  mkNode tac #[mkAtom s, cfg, o, args]
+  pure $ mkNode tac #[mkAtom s, cfg, o, args]
 
 -- # tactic.zify
 @[trUserAttr zify] def trZifyAttr := tagAttr `zify
@@ -40,4 +40,4 @@ open AST3 Parser
 @[trTactic zify] def trZify : TacM Syntax := do
   let hs := trSimpList (← trSimpArgs (← parse simpArgList))
   let loc := mkOptionalNode $ ← trLoc (← parse location)
-  mkNode ``Parser.Tactic.zify #[mkAtom "zify", hs, loc]
+  pure $ mkNode ``Parser.Tactic.zify #[mkAtom "zify", hs, loc]

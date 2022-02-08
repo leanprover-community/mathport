@@ -27,8 +27,8 @@ open Parser
 @[trTactic init_ring] def trInitRing : TacM Syntax := do
   `(tactic| init_ring $[using $(← liftM $ (← parse (tk "using" *> pExpr)?).mapM trExpr)]?)
 
-@[trTactic ghost_simp] def trGhostSimp : TacM Syntax := do
-  mkNode ``Parser.Tactic.ghostSimp #[mkAtom "ghost_simp",
+@[trTactic ghost_simp] def trGhostSimp : TacM Syntax :=
+  return mkNode ``Parser.Tactic.ghostSimp #[mkAtom "ghost_simp",
     trSimpList (← trSimpArgs (← parse simpArgList))]
 
 @[trTactic witt_truncate_fun_tac] def trWittTruncateFunTac : TacM Syntax :=

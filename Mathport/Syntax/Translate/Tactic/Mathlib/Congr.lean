@@ -16,11 +16,11 @@ open AST3 Parser
 -- # tactic.congr
 @[trTactic congr'] def trCongr' : TacM Syntax := do
   let n := mkOptionalNode $ (← parse (smallNat)?).map Quote.quote
-  let args ← parse (tk "with" *> do (← (rcasesPat true)*, ← (tk ":" *> smallNat)?))?
-  let args ← mkOptionalNodeM args fun (pats, n) => do
-    #[mkAtom "with", mkNullNode $ ← liftM $ pats.mapM trRCasesPat,
+  let args ← parse (tk "with" *> return (← (rcasesPat true)*, ← (tk ":" *> smallNat)?))?
+  let args ← mkOptionalNodeM args fun (pats, n) =>
+    return #[mkAtom "with", mkNullNode $ ← liftM $ pats.mapM trRCasesPat,
       mkOptionalNode' n fun n => #[mkAtom ":", Quote.quote n]]
-  mkNode ``Parser.Tactic.congr #[mkAtom "congr", n, args]
+  pure $ mkNode ``Parser.Tactic.congr #[mkAtom "congr", n, args]
 
 @[trTactic rcongr] def trRCongr : TacM Syntax := do
   let pats ← liftM $ (← parse (rcasesPat true)*).mapM trRCasesPat
@@ -31,7 +31,7 @@ open AST3 Parser
   let r ← trExpr (← parse pExpr)
   let n := mkOptionalNode' (← parse (tk "using" *> smallNat)?) fun n =>
     #[mkAtom "using", Quote.quote n]
-  mkNode ``Parser.Tactic.convert #[mkAtom "convert", sym, r, n]
+  pure $ mkNode ``Parser.Tactic.convert #[mkAtom "convert", sym, r, n]
 
 @[trTactic convert_to] def trConvertTo : TacM Syntax := do
   `(tactic| convert_to $(← trExpr (← parse pExpr))

@@ -13,11 +13,10 @@ open AST3 Parser
 -- # tactic.alias
 
 @[trUserCmd «alias»] def trAlias (doc : Option String) : TacM Syntax := do
-  let (old, args) ← parse $ do (← ident, ←
-    do { tk "<-"; Sum.inl $ ← ident* } <|>
-    do { tk "↔" <|> tk "<->"; Sum.inr $ ←
-      (tk "." *> tk "." *> pure none) <|>
-      do some (← ident_, ← ident_) })
+  let (old, args) ← parse $ return (← ident, ←
+    (tk "<-" *> Sum.inl <$> ident*) <|>
+    ((tk "↔" <|> tk "<->") *> Sum.inr <$>
+      ((tk "." *> tk "." *> pure none) <|> return some (← ident_, ← ident_))))
   let old ← mkIdentI old
   match args with
   | Sum.inl ns => `(command| alias $old ← $(← liftM $ ns.mapM mkIdentI)*)

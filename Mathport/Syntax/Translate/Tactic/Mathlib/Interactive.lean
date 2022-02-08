@@ -36,21 +36,26 @@ open AST3 Parser
 @[trTactic id] def trId : TacM Syntax := do trIdTactic (← itactic)
 
 @[trTactic work_on_goal] def trWorkOnGoal : TacM Syntax := do
-  `(tactic| work_on_goal
-    $(Quote.quote (← parse smallNat))
+  `(tactic| on_goal $(Quote.quote (← parse smallNat)) =>
     $(← trBlock (← itactic)):tacticSeq)
 
 @[trTactic swap] def trSwap : TacM Syntax := do
-  let e ← (← expr?).mapM fun
-  | AST3.Expr.nat n => Quote.quote n
+  let n ← (← expr?).mapM fun
+  | AST3.Expr.nat n => pure n
   | _ => warn! "unsupported: weird nat"
-  `(tactic| swap $(e)?)
+  match n.getD 2 with
+  | 1 => `(tactic| skip)
+  | 2 => `(tactic| swap)
+  | n => `(tactic| pick_goal $(Quote.quote n))
 
 @[trTactic rotate] def trRotate : TacM Syntax := do
-  let e ← (← expr?).mapM fun
-  | AST3.Expr.nat n => Quote.quote n
+  let n ← (← expr?).mapM fun
+  | AST3.Expr.nat n => pure n
   | _ => warn! "unsupported: weird nat"
-  `(tactic| rotate $(e)?)
+  match n.getD 1 with
+  | 0 => `(tactic| skip)
+  | 1 => `(tactic| rotate_left)
+  | n => `(tactic| rotate_left $(Quote.quote n))
 
 @[trTactic clear_] def trClear_ : TacM Syntax := `(tactic| clear_)
 
@@ -62,7 +67,7 @@ open AST3 Parser
   | some pr =>
     let haveId := mkNode ``Parser.Term.haveIdDecl #[h, ty, mkAtom ":=", ← trExpr pr]
     `(tactic| replace $haveId:haveIdDecl)
-  | none => mkNode ``Parser.Tactic.replace' #[mkAtom "replace", h, ty]
+  | none => pure $ mkNode ``Parser.Tactic.replace' #[mkAtom "replace", h, ty]
 
 @[trTactic classical] def trClassical : TacM Syntax := `(tactic| classical)
 
@@ -128,7 +133,7 @@ open AST3 Parser
 @[trTactic apply_rules] def trApplyRules : TacM Syntax := do
   let hs ← liftM $ (← parse pExprListOrTExpr).mapM trExpr
   let n ← (← expr?).mapM fun
-  | AST3.Expr.nat n => Quote.quote n
+  | AST3.Expr.nat n => pure $ Quote.quote n
   | _ => warn! "unsupported: weird nat"
   let cfg ← liftM $ (← expr?).mapM trExpr
   `(tactic| apply_rules $[(config := $cfg)]? [$hs,*] $(n)?)
@@ -163,12 +168,12 @@ attribute [trTactic change'] trChange
   let a ← parse ident
   let ty ← parse (tk ":" *> pExpr)?
   let val ← parse (tk ":=") *> parse pExpr
-  let revName ← parse (tk "with" *> do (← (tk "<-")?, ← ident))?
+  let revName ← parse (tk "with" *> return (← (tk "<-")?, ← ident))?
   let revName := mkOptionalNode' revName fun (flip, id) =>
     #[mkAtom "with", mkOptionalNode' flip fun _ => #[mkAtom "←"], mkIdent id]
   let (tac, s) := if hSimp then (``Parser.Tactic.set!, "set!") else (``Parser.Tactic.set, "set")
-  mkNode tac #[mkAtom s, mkIdent a,
-    ← mkOptionalNodeM ty fun ty => do #[mkAtom ":", ← trExpr ty],
+  pure $ mkNode tac #[mkAtom s, mkIdent a,
+    ← mkOptionalNodeM ty fun ty => return #[mkAtom ":", ← trExpr ty],
     mkAtom ":=", ← trExpr val, revName]
 
 @[trTactic clear_except] def trClearExcept : TacM Syntax := do

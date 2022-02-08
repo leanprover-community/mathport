@@ -53,7 +53,7 @@ def refineAddDecl (decl : Declaration) : BinportM (Declaration × ClashKind) := 
       match (← getEnv).compileDecl {} decl with
       | Except.ok env    => println! "[compile] {decl.toName} SUCCESS!"
                             setEnv env
-      | Except.error err => let msg ← err.toMessageData (← getOptions)
+      | Except.error err => let msg := err.toMessageData (← getOptions)
                             let msg ← msg.toString
                             println! "[compile] {decl.toName} {msg}"
   pure (decl, clashKind)
@@ -129,7 +129,7 @@ try
       let correctPrec : Option Syntax := Quote.quote Parser.maxPrec
       `(notation $[: $correctPrec]? $[(name := $stxName)]? $[(priority := $stxPrio)]? $stxOp => $stxFun)
 
-  let nextIdx : Nat ← (← get).nNotations
+  let nextIdx : Nat := (← get).nNotations
   modify λ s => { s with nNotations := nextIdx + 1 }
   let ns : Syntax := mkIdent $ s!"{"__".intercalate ((← read).path.mod4.components.map Name.getString!)}_{nextIdx}"
   let stx ← `(namespace $ns:ident $stx end $ns:ident)
@@ -267,7 +267,8 @@ where
     | some cinfo =>
       match cinfo.value? with
       -- bad means the original function isn't actually recursive
-      | some v => Option.isNone $ v.find? fun e => e.isConst && e.constName!.isStr && e.constName!.getString! == "brec_on"
+      | some v => pure $ Option.isNone $ v.find? fun e =>
+        e.isConst && e.constName!.isStr && e.constName!.getString! == "brec_on"
       | _ => throwError "should have value"
     | _ => return false /- this can happen when e.g. `nat.add._main -> Nat.add` (which may be needed due to eqn lemmas) -/
 
