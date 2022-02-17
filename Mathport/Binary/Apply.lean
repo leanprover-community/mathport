@@ -147,7 +147,7 @@ def applySimpLemma (n : Name) (prio : Nat) : BinportM Unit := do
 where
   tryAddSimpLemma (n : Name) (prio : Nat) : BinportM Unit :=
     try
-      liftMetaM $ addSimpLemma (ext := simpExtension) (declName := n) (post := True) (inv := False) (attrKind := AttributeKind.global) (prio := prio)
+      liftMetaM $ addSimpTheorem (ext := simpExtension) (declName := n) (post := True) (inv := False) (attrKind := AttributeKind.global) (prio := prio)
       println! "[simp] {n} {prio}"
     catch ex => warn ex
 
