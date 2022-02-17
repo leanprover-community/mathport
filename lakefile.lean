@@ -9,7 +9,7 @@ package mathport {
     -- as changes to tactics in mathlib4 may cause breakages here.
     -- Please ensure that `lean-toolchain` points to the same release of Lean 4
     -- as this commit of mathlib4 uses.
-    src := Source.git "https://github.com/leanprover-community/mathlib4.git" "2331f95dc1d5821d684fa6fb9490b1a68d0decff"
+    src := Source.git "https://github.com/leanprover-community/mathlib4.git" "b6afb0dfcaeee607ddd20f38373d2f1419b517c8"
   }],
   binRoot := `MathportApp
   moreLinkArgs := if Platform.isWindows then #[] else #["-rdynamic"]

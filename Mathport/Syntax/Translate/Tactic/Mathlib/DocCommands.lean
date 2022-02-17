@@ -19,7 +19,7 @@ open AST3 Parser
 
 @[trUserCmd «library_note»] def trLibraryNote (doc : Option String) : TacM Syntax := do
   let Expr.string s ← parse pExpr | warn! "unsupported: weird string"
-  `(command| $(trDocComment doc.get!):docComment library_note $(Syntax.mkStrLit s))
+  `(command| library_note $(Syntax.mkStrLit s) $(trDocComment doc.get!):docComment)
 
 @[trUserCmd «add_tactic_doc»] def trAddTacticDoc (doc : Option String) : TacM Syntax := do
   `(command| $[$(doc.map trDocComment)]? add_tactic_doc $(← trExpr (← parse pExpr)))
