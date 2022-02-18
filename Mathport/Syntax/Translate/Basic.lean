@@ -714,9 +714,10 @@ def trInfixFn (n : Choice) (e : Option (Spanned Expr)) : M Syntax := do
   | Choice.many ns =>
     if ns[1:].all (ns[0] == ·) then pure ns[0] else
       warn! "unsupported: ambiguous notation" | pure ns[0]
-  trBinary n mkCDot $ ← match e with
+  let stx ← trBinary n mkCDot $ ← match e with
   | none => pure mkCDot
   | some e => trExpr e.kind
+  `(($stx))
 
 partial def trAppArgs [Inhabited α] : (e : Expr) → (m : Expr → M α) → M (α × Array Syntax)
   | Expr.app f x, m => do let (f, args) ← trAppArgs f.kind m; pure (f, args.push (← trExpr x.kind))
