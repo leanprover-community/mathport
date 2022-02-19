@@ -944,11 +944,13 @@ def trExpr' : Expr → M Syntax
     let srcs := match src with | none => srcs | some src => #[src] ++ srcs
     let srcs : Array _ ← srcs.mapM fun s => trExpr s
     let srcs := if srcs.isEmpty then none else some srcs
-    let flds ← flds.mapM fun (⟨_, lhs⟩, rhs) => do
-      if (match rhs with | ⟨_, Expr.ident rhs⟩ => rhs == lhs | _ => false : Bool) then
-        `(Parser.Term.structInstFieldAbbrev| $(← mkIdentF lhs):ident)
+    let flds ← flds.mapM fun (lhs, rhs) => do
+      let lhsId ← spanningS mkIdentF lhs
+      withSpanS (lhs.meta.map fun m => {m with end_ := (rhs.meta.getD m).end_}) do
+      if (match rhs with | ⟨_, Expr.ident rhs⟩ => rhs == lhs.kind | _ => false : Bool) then
+        `(Parser.Term.structInstFieldAbbrev| $lhsId:ident)
       else
-        `(Parser.Term.structInstField| $(← mkIdentF lhs):ident := $(← trExpr rhs))
+        `(Parser.Term.structInstField| $lhsId:ident := $(← trExpr rhs))
     -- TODO(Mario): formatter has trouble if you omit the commas
     if catchall then
       `({ $[$srcs,* with]? $[$flds:structInstField, ]* .. })
