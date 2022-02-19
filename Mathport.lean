@@ -57,13 +57,13 @@ where
       | Except.ok () => k ()
       | Except.error err => throw err
 
-partial def visit (config : Config) (path : Path) : StateRefT (HashMap Path Task) IO Task := do
+partial def visit (config : Config) (path : Path) (topLevel := false) : StateRefT (HashMap Path Task) IO Task := do
   println! "[visit] {repr path}"
   let pcfg := config.pathConfig
   match (← get).find? path with
   | some task => pure task
   | none     => do
-    if ← path.toLean4olean pcfg |>.pathExists then
+    if !topLevel && (← path.toLean4olean pcfg |>.pathExists) then
       pure $ Task.pure (Except.ok ())
     else
       let mut deps := #[]
@@ -80,7 +80,7 @@ partial def visit (config : Config) (path : Path) : StateRefT (HashMap Path Task
       pure task
 
 def mathport (config : Config) (paths : Array Path) : IO Unit := do
-  let tasks ← (paths.mapM fun path => visit config path).run' {}
+  let tasks ← (paths.mapM fun path => visit config path (topLevel := true)).run' {}
   match ← IO.wait (← bindTasks tasks none) with
   | Except.ok () => println! "[mathport] DONE"
   | Except.error err => throw err

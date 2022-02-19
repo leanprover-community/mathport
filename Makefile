@@ -90,11 +90,11 @@ LEANBIN_LIB=./Outputs/oleans/leanbin
 MATHBIN_LIB=./Outputs/oleans/mathbin
 
 port-lean: init-logs build
-	LEAN_PATH=$(MATHPORT_LIB):$(MATHLIB4_LIB):$(LEANBIN_LIB) ./build/bin/mathport config.json Leanbin::all >> Logs/mathport.out 2> >(tee -a Logs/mathport.err >&2)
+	./build/bin/mathport config.json Leanbin::all >> Logs/mathport.out 2> >(tee -a Logs/mathport.err >&2)
 	cp lean-toolchain Lean4Packages/lean3port/
 
 port-mathbin: port-lean
-	LEAN_PATH=$(MATHPORT_LIB):$(MATHLIB4_LIB):$(LEANBIN_LIB):$(MATHBIN_LIB) ./build/bin/mathport config.json Leanbin::all Mathbin::all >> Logs/mathport.out 2> >(tee -a Logs/mathport.err >&2)
+	./build/bin/mathport config.json Leanbin::all Mathbin::all >> Logs/mathport.out 2> >(tee -a Logs/mathport.err >&2)
 	cp lean-toolchain Lean4Packages/mathlib3port/
 
 port: port-lean port-mathbin
@@ -105,14 +105,10 @@ port: port-lean port-mathbin
 # or run `make build source` and `./download-release.sh nightly-YYYY-MM-DD`.
 
 port-lean-single:
-	rm -f Outputs/src/leanbin/Leanbin/$(subst .,/,$(TARGET)).lean
-	rm -f Outputs/oleans/leanbin/Leanbin/$(subst .,/,$(TARGET)).olean
-	LEAN_PATH=$(MATHPORT_LIB):$(MATHLIB4_LIB):$(LEANBIN_LIB) ./build/bin/mathport config.json Leanbin::$(TARGET)
+	./build/bin/mathport config.json Leanbin::$(TARGET)
 
 port-mathbin-single:
-	rm -f Outputs/src/mathbin/Mathbin/$(subst .,/,$(TARGET)).lean
-	rm -f Outputs/oleans/mathbin/Mathbin/$(subst .,/,$(TARGET)).olean
-	LEAN_PATH=$(MATHPORT_LIB):$(MATHLIB4_LIB):$(LEANBIN_LIB):$(MATHBIN_LIB) ./build/bin/mathport config.json Mathbin::$(TARGET)
+	./build/bin/mathport config.json Mathbin::$(TARGET)
 
 test-import-leanbin:
 	cd Test/importLeanbin && rm -rf build lean_packages && lake build
