@@ -1160,6 +1160,12 @@ instance : Repr TacticInvocation where reprPrec
     "before:\n" ++ Goals_repr start ++
     (if success then "success" else "failed") ++ ", after:\n" ++ Goals_repr end_
 
+structure Comment where
+  start : Position
+  «end» : Position
+  text : String
+  deriving Repr
+
 end AST3
 
 structure AST3 where
@@ -1168,9 +1174,10 @@ structure AST3 where
   commands : Array (Spanned AST3.Command)
   indexed_nota : Array AST3.Notation
   indexed_cmds : Array AST3.Command
+  comments : Array AST3.Comment
 
 instance : Repr AST3 where reprPrec
-  | ⟨prel, imps, cmds, _, _⟩, _ =>
+  | ⟨prel, imps, cmds, _, _, _⟩, _ =>
     (match prel with | none => "" | some _ => "prelude\n") ++
     Format.join (imps.toList.map fun ns =>
       "import " ++ Format.joinSep (ns.toList.map fun a => a.kind.toString) " " ++ "\n") ++

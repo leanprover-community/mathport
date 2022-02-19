@@ -60,6 +60,7 @@ abbrev NotationKind := Option MixfixKind
 structure Context where
   ast : Array (Option RawNode3)
   expr : Array Lean3.Expr
+  comments : Array Comment
   getNotationId : NotationKind → Subarray AstId → StateT State (Except String) NotationId
   getInductiveId : Array AstId → StateT State (Except String) CommandId
   getCommandId : AstId → StateT State (Except String) CommandId
@@ -752,10 +753,10 @@ def getAST : AstId → M (AST3 × HashMap AstId (Spanned AST3.Tactic)) := withNo
     let imp ← arr (withNodeK fun _ _ args => args.mapM getName) imp
     let cmds ← arr getCommand cmds
     let ⟨inota, icmds, tacs⟩ ← get
-    pure (⟨prel, imp, cmds, inota, icmds⟩, tacs)
+    pure (⟨prel, imp, cmds, inota, icmds, (← read).comments⟩, tacs)
   | k, _, args => throw s!"getAST parse error, unknown kind {k}, {args}"
 
-partial def M.run (ast : Array (Option RawNode3)) (expr : Array Lean3.Expr) :
+partial def M.run (ast : Array (Option RawNode3)) (comments : Array Comment) (expr : Array Lean3.Expr) :
   M α → Except String α :=
   fun m => (m ctx).run' {}
 where
@@ -768,7 +769,7 @@ where
     modify fun s => { s with notations := s.notations.push nota }
     pure n
   ctx := {
-    ast, expr
+    ast, expr, comments
     getNotationId := fun nk args => do pushNota (← getNotationDef nk args ctx)
     getInductiveId := fun args => do pushCmd (Command.inductive (← getInductive false args ctx))
     getCommandId := fun i => do pushCmd (← getCommand i ctx).kind }
@@ -893,6 +894,8 @@ structure RawTacticState where
   goals : Array RawGoal
   deriving FromJson
 
+deriving instance FromJson for AST3.Comment
+
 structure RawAST3 where
   ast      : Array (Option RawNode3)
   file     : AstId
@@ -900,6 +903,7 @@ structure RawAST3 where
   expr     : Array (Option RawExpr)
   tactics  : Option (Array RawTacticInvocation)
   states   : Option (Array RawTacticState)
+  comments : Array AST3.Comment
   deriving FromJson
 
 section
@@ -1023,10 +1027,10 @@ def RawTacticInvocation.build
 end
 
 def RawAST3.build : RawAST3 → (invocs :_:= true) → Except String (AST3 × Array AST3.TacticInvocation)
-| ⟨ast, file, level, expr, tactics, states⟩, invocs => do
+| ⟨ast, file, level, expr, tactics, states, comments⟩, invocs => do
   let level := buildLevels level
   let expr := buildExprs level expr
-  M.run ast expr $ do
+  M.run ast comments expr $ do
     let (ast, tacs) ← getAST file
     let invocs :=
       if invocs then
