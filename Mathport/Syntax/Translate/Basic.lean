@@ -790,33 +790,33 @@ def trNotation (n : Choice) (args : Array (Spanned Arg)) : M Syntax := do
   | Choice.many ns =>
     if ns[1:].all (ns[0] == ·) then pure ns[0] else
       warn! "unsupported: ambiguous notation" | pure ns[0]
-  match ← getNotationEntry? n.getString!, args.map (·.kind) with
+  match ← getNotationEntry? n.getString!, args with
   | some ⟨_, _, NotationKind.const stx, _⟩, #[] => pure stx
   | some ⟨_, _, NotationKind.const stx, _⟩, _ => warn! "unsupported (impossible)"
-  | some ⟨_, _, NotationKind.unary f, _⟩, #[Arg.expr e] => f <$> trExprUnspanned e
+  | some ⟨_, _, NotationKind.unary f, _⟩, #[⟨m, Arg.expr e⟩] => f <$> trExpr ⟨m, e⟩
   | some ⟨_, _, NotationKind.unary f, _⟩, _ => warn! "unsupported (impossible)"
-  | some ⟨_, _, NotationKind.binary f, _⟩, #[Arg.expr e₁, Arg.expr e₂] =>
-    return f (← trExprUnspanned e₁) (← trExprUnspanned e₂)
+  | some ⟨_, _, NotationKind.binary f, _⟩, #[⟨m₁, Arg.expr e₁⟩, ⟨m₂, Arg.expr e₂⟩] =>
+    return f (← trExpr ⟨m₁, e₁⟩) (← trExpr ⟨m₂, e₂⟩)
   | some ⟨_, _, NotationKind.binary f, _⟩, _ => warn! "unsupported (impossible)"
   | some ⟨_, _, NotationKind.nary f, _⟩, args => f <$> args.mapM fun
-    | Arg.expr e => trExprUnspanned e
-    | Arg.binder bi => trExtBinders #[Spanned.dummy bi]
-    | Arg.binders bis => trExtBinders bis
+    | ⟨m, Arg.expr e⟩ => trExpr ⟨m, e⟩
+    | ⟨m, Arg.binder bi⟩ => trExtBinders #[⟨m, bi⟩]
+    | ⟨_, Arg.binders bis⟩ => trExtBinders bis
     | _ => warn! "unsupported (impossible)"
-  | some ⟨_, _, NotationKind.exprs f, _⟩, #[Arg.exprs es] => f <$> es.mapM fun e => trExpr e
+  | some ⟨_, _, NotationKind.exprs f, _⟩, #[⟨_, Arg.exprs es⟩] => f <$> es.mapM fun e => trExpr e
   | some ⟨_, _, NotationKind.exprs f, _⟩, _ => warn! "unsupported (impossible)"
-  | some ⟨_, _, NotationKind.binder f g, _⟩, #[Arg.binder bi, Arg.expr e] =>
-    trExplicitBindersExt f g #[Spanned.dummy bi] (Spanned.dummy e)
-  | some ⟨_, _, NotationKind.binder f g, _⟩, #[Arg.binders bis, Arg.expr e] =>
-    trExplicitBindersExt f g bis (Spanned.dummy e)
+  | some ⟨_, _, NotationKind.binder f g, _⟩, #[⟨mbi, Arg.binder bi⟩, ⟨me, Arg.expr e⟩] =>
+    trExplicitBindersExt f g #[⟨mbi, bi⟩] ⟨me, e⟩
+  | some ⟨_, _, NotationKind.binder f g, _⟩, #[⟨_, Arg.binders bis⟩, ⟨me, Arg.expr e⟩] =>
+    trExplicitBindersExt f g bis ⟨me, e⟩
   | some ⟨_, _, NotationKind.binder .., _⟩, _ => warn! "unsupported (impossible)"
   | some ⟨_, _, NotationKind.fail, _⟩, args =>
     warn! "warning: unsupported notation {repr n}"
-    let args ← args.mapM fun | Arg.expr e => trExprUnspanned e | _ => warn! "unsupported notation {repr n}"
+    let args ← args.mapM fun | ⟨m, Arg.expr e⟩ => trExpr ⟨m, e⟩ | _ => warn! "unsupported notation {repr n}"
     pure $ mkNode ``Parser.Term.app #[mkIdent n, mkNullNode args]
   | none, args =>
     warn! "warning: unsupported notation {repr n}"
-    let args ← args.mapM fun | Arg.expr e => trExprUnspanned e | _ => warn! "unsupported notation {repr n}"
+    let args ← args.mapM fun | ⟨m, Arg.expr e⟩ => trExpr ⟨m, e⟩ | _ => warn! "unsupported notation {repr n}"
     pure $ mkNode ``Parser.Term.app #[mkIdent n, mkNullNode args]
 
 def trInfixFn (n : Choice) (e : Option (Spanned Expr)) : M Syntax := do
