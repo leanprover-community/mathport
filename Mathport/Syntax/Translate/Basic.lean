@@ -190,9 +190,11 @@ def setInfo (meta : Option Meta) (stx : Syntax) : Syntax :=
     stx.setInfo (SourceInfo.synthetic (positionToStringPos start) (positionToStringPos end_))
   | _, _ => stx
 
+def withSpanS (m : Option Meta) (k : M Syntax) : M Syntax :=
+  setInfo m <$> withSpan m do k
+
 def spanning (k : β → M α) (x : Spanned β) : M α := withSpan x.meta do k x.kind
-def spanningS (k : β → M Syntax) (x : Spanned β) : M Syntax :=
-  setInfo x.meta <$> withSpan x.meta do k x.kind
+def spanningS (k : β → M Syntax) (x : Spanned β) : M Syntax := withSpanS x.meta do k x.kind
 
 def trExprUnspanned (e : Expr) : M Syntax := do (← read).trExpr e
 def trExpr := spanningS trExprUnspanned
@@ -633,16 +635,16 @@ where
     pure $ mkNode ``Parser.Term.simpleBinder #[vars, mkOptionalNode (← optTy ty)]
   | _, _, _, _, _ => pure none
 
-def trBinder' : BinderContext → Binder → M (Array Binder')
-  | bc, Binder.binder bi vars bis ty dflt =>
-    return #[Binder'.basic <|<- trBasicBinder bc bi vars bis ty dflt]
-  | bc, Binder.collection bi vars n e => do
+def trBinder' : BinderContext → Spanned Binder → M (Array Binder')
+  | bc, ⟨m, Binder.binder bi vars bis ty dflt⟩ =>
+    return #[Binder'.basic <|<- withSpanS m do trBasicBinder bc bi vars bis ty dflt]
+  | bc, ⟨_, Binder.collection bi vars n e⟩ => do
     return #[Binder'.collection bi vars n e]
-  | _, Binder.notation _ => warn! "unsupported: (notation) binder"
+  | _, ⟨_, Binder.notation _⟩ => warn! "unsupported: (notation) binder"
 
 def trBinders' (bc : BinderContext)
   (bis : Array (Spanned Binder)) : M (Array Binder') := do
-  bis.concatMapM (spanning fun bi => trBinder' bc bi)
+  bis.concatMapM (fun bi => trBinder' bc bi)
 
 def expandBinder : BinderContext → Binder' → M (Array Syntax)
   | bc, Binder'.basic bi => pure #[bi]
@@ -745,7 +747,7 @@ where
 def trLambdaBinder : LambdaBinder → Array Syntax → M (Array Syntax)
   | LambdaBinder.reg bi, out => do
     let bc := { allowSimple := some false }
-    (← trBinder' bc bi).concatMapM (fun bi => expandBinder bc bi)
+    (← trBinder' bc (Spanned.dummy bi)).concatMapM (fun bi => expandBinder bc bi)
   | LambdaBinder.«⟨⟩» args, out => out.push <$> trExprUnspanned (Expr.«⟨⟩» args)
 
 def trOptType (ty : Option (Spanned Expr)) : M (Option Syntax) := ty.mapM trExpr >>= optTy
