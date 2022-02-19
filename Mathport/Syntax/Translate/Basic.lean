@@ -184,13 +184,15 @@ def withSpan (m : Option Meta) (k : M α) : M α :=
     let sourceInfo := SourceInfo.synthetic (positionToStringPos start) (positionToStringPos end_)
     withRef (Syntax.atom sourceInfo "") k
 
-def unspanning (k : β → M α) (x : Spanned β) : M α := withSpan x.meta do k x.kind
-def unspanningS (k : β → M Syntax) (x : Spanned β) : M Syntax := do
-  let stx ← withSpan x.meta do k x.kind
-  return match stx.getInfo, x.meta with
+def setInfo (meta : Option Meta) (stx : Syntax) : Syntax :=
+  match stx.getInfo, meta with
   | SourceInfo.none, some { start, end_, .. } =>
     stx.setInfo (SourceInfo.synthetic (positionToStringPos start) (positionToStringPos end_))
   | _, _ => stx
+
+def unspanning (k : β → M α) (x : Spanned β) : M α := withSpan x.meta do k x.kind
+def unspanningS (k : β → M Syntax) (x : Spanned β) : M Syntax :=
+  setInfo x.meta <$> withSpan x.meta do k x.kind
 
 def trExprUnspanned (e : Expr) : M Syntax := do (← read).trExpr e
 def trExpr := unspanningS trExprUnspanned
@@ -503,9 +505,9 @@ mutual
       `(tactic| calc $(← trCalcArgs args)*)
     | Tactic.exact_shortcut e => do `(tactic| exact $(← trExpr e))
     | Tactic.expr e =>
-      match e.kind.unparen with
-      | Expr.«`[]» tacs => trIdTactic ⟨true, none, none, tacs⟩
-      | _ => do
+      match e.unparen with
+      | ⟨_, Expr.«`[]» tacs⟩ => trIdTactic ⟨true, none, none, tacs⟩
+      | e => do
         let rec head
         | Expr.ident x => x
         | Expr.paren e => head e.kind

@@ -1183,4 +1183,8 @@ instance : Repr AST3 where reprPrec
       "import " ++ Format.joinSep (ns.toList.map fun a => a.kind.toString) " " ++ "\n") ++
     "\n" ++ Format.join (cmds.toList.map fun c => repr c ++ "\n\n")
 
+partial def Spanned.unparen : #AST3.Expr → #AST3.Expr
+  | ⟨_, AST3.Expr.paren e⟩ => e.unparen
+  | e => e
+
 end Mathport
