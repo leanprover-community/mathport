@@ -1236,7 +1236,7 @@ def trInductive (cl : Bool) (mods : Modifiers) (n : Spanned Name) (us : LevelDec
   let (s, mods) ← trModifiers mods
   let id ← trDeclId n.kind us
   let sig ← trDeclSig false bis ty
-  let ctors ← intros.mapM fun ⟨_, ⟨doc, name, ik, bis, ty⟩⟩ => do
+  let ctors ← intros.mapM fun ⟨m, ⟨doc, name, ik, bis, ty⟩⟩ => withSpanS m do
     `(Parser.Command.ctor| |
       $[$(doc.map trDocComment):docComment]?
       $(← mkIdentI name.kind):ident
