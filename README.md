@@ -50,9 +50,12 @@ The script `./download-release.sh nightly-YYYY-MM-DD` downloads one of these,
 after which you can skip the `make predata` and/or `make port` steps
 (you will still need to run `make build` and `make source`).
 
-You can also use the `make TARGET=data.nat.bitwise port-mathbin-single` target
-(similarly for `port-lean-single`) to run mathport on a single file.
-This is useful if you are testing a change to mathport.
+To port a single file, then execute `mathport` as follows
+(depending on whether you want to port a core or a mathlib file):
+```
+./build/bin/mathport config.json Leanbin::init.data.nat.gcd
+./build/bin/mathport config.json Mathbin::field_theory.abel_ruffini
+```
 
 The directory `Test` contains subdirectories `importLeanBin` and `importMathbin`,
 each containing a `lakefile.lean` that depends on one of the projects

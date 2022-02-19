@@ -4,7 +4,12 @@
         "packages": {
             "Leanbin": "sources/lean/library",
             "Mathbin": "sources/mathlib/src"
-        }
+        },
+        "leanPath": [
+            "./lean_packages/mathlib/build/lib",
+            "./Outputs/oleans/leanbin",
+            "./Outputs/oleans/mathbin"
+        ]
     },
     "stringsToKeep": [
         "_sunfold",
