@@ -746,13 +746,13 @@ where
     let mods ← getModifiers args[0]
     pure $ «attribute» (args[1] ≠ 0) mods (← arr getAttr args[2]) (← args[3:].toArray.mapM getName)
 
-def getAST : AstId → M (AST3 × HashMap AstId (Spanned AST3.Tactic)) := withNodeK fun
+def getAST (comments : Array Comment) : AstId → M (AST3 × HashMap AstId (Spanned AST3.Tactic)) := withNodeK fun
   | "file", _, #[prel, imp, cmds] => do
     let prel ← opt (withNode fun _ _ _ => pure ()) prel
     let imp ← arr (withNodeK fun _ _ args => args.mapM getName) imp
     let cmds ← arr getCommand cmds
     let ⟨inota, icmds, tacs⟩ ← get
-    pure (⟨prel, imp, cmds, inota, icmds⟩, tacs)
+    pure (⟨prel, imp, cmds, inota, icmds, comments⟩, tacs)
   | k, _, args => throw s!"getAST parse error, unknown kind {k}, {args}"
 
 partial def M.run (ast : Array (Option RawNode3)) (expr : Array Lean3.Expr) :
@@ -893,6 +893,8 @@ structure RawTacticState where
   goals : Array RawGoal
   deriving FromJson
 
+deriving instance FromJson for AST3.Comment
+
 structure RawAST3 where
   ast      : Array (Option RawNode3)
   file     : AstId
@@ -900,6 +902,7 @@ structure RawAST3 where
   expr     : Array (Option RawExpr)
   tactics  : Option (Array RawTacticInvocation)
   states   : Option (Array RawTacticState)
+  comments : Array AST3.Comment
   deriving FromJson
 
 section
@@ -1023,11 +1026,11 @@ def RawTacticInvocation.build
 end
 
 def RawAST3.build : RawAST3 → (invocs :_:= true) → Except String (AST3 × Array AST3.TacticInvocation)
-| ⟨ast, file, level, expr, tactics, states⟩, invocs => do
+| ⟨ast, file, level, expr, tactics, states, comments⟩, invocs => do
   let level := buildLevels level
   let expr := buildExprs level expr
   M.run ast expr $ do
-    let (ast, tacs) ← getAST file
+    let (ast, tacs) ← getAST comments file
     let invocs :=
       if invocs then
         let states := (states.getD #[]).map (fun (s : RawTacticState) => s.build expr)
