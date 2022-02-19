@@ -124,7 +124,7 @@ structure Meta where
   deriving Inhabited
 
 structure Spanned (α : Type u) where
-  meta : Meta
+  meta : Option Meta
   kind  : α
   deriving Inhabited
 
@@ -133,7 +133,7 @@ instance [Repr α] : Repr (Spanned α) := ⟨fun n p => reprPrec n.kind p⟩
 def Spanned.map (f : α → β) : Spanned α → Spanned β
   | ⟨m, a⟩ => ⟨m, f a⟩
 
-def Spanned.dummy (a : α) : Spanned α := ⟨default, a⟩
+def Spanned.dummy (a : α) : Spanned α := ⟨none, a⟩
 
 local prefix:max "#" => Spanned
 

@@ -157,7 +157,7 @@ attribute [trNITactic try_refl_tac] trControlLawsTac
 @[trUserAttr to_additive] def trToAdditiveAttr : TacM Syntax := do
   let (bang, ques, tgt, doc) ← parse $ return (← (tk "!")?, ← (tk "?")?, ← (ident)?, ← (pExpr)?)
   let tgt ← liftM $ tgt.mapM mkIdentI
-  let doc ← doc.mapM fun doc => match doc.unparen with
+  let doc ← doc.mapM fun doc => match doc.kind.unparen with
   | Expr.string s => pure $ Syntax.mkStrLit s
   | _ => warn! "to_additive: weird doc string"
   match bang, ques with

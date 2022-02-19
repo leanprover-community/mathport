@@ -78,7 +78,7 @@ def getCommandId (i : AstId) : M NotationId :=
 
 def RawNode3.map (i : AstId) (n : RawNode3)
   (f : String → Name → Array AstId → M α) : M (Spanned α) := do
-  pure ⟨⟨i, n.start, n.end'⟩, ← f n.kind n.value n.children'⟩
+  pure ⟨some ⟨i, n.start, n.end'⟩, ← f n.kind n.value n.children'⟩
 
 def RawNode3.pexpr' (n : RawNode3) : M Lean3.Expr :=
   match n.pexpr with
@@ -104,15 +104,15 @@ def withNodeK (f : String → Name → Array AstId → M α) (i : AstId) : M α 
 
 def withNode (f : String → Name → Array AstId → M α) (i : AstId) : M (Spanned α) := do
   let r ← getRaw i
-  pure { meta := ⟨i, r.start, r.end'⟩, kind := ← f r.kind r.value r.children' }
+  pure { meta := some ⟨i, r.start, r.end'⟩, kind := ← f r.kind r.value r.children' }
 
 def withNodeP (f : String → Name → Array AstId → Option ExprId → M α) (i : AstId) : M (Spanned α) := do
   let r ← getRaw i
-  pure { meta := ⟨i, r.start, r.end'⟩, kind := ← f r.kind r.value r.children' r.pexpr }
+  pure { meta := some ⟨i, r.start, r.end'⟩, kind := ← f r.kind r.value r.children' r.pexpr }
 
 def withNodeR (f : RawNode3 → M α) (i : AstId) : M (Spanned α) := do
   let r ← getRaw i
-  pure { meta := ⟨i, r.start, r.end'⟩, kind := ← f r }
+  pure { meta := some ⟨i, r.start, r.end'⟩, kind := ← f r }
 
 def getRaw? : AstId → M (Option RawNode3) := opt getRaw
 

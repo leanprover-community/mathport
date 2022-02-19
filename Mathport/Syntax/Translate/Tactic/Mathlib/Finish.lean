@@ -13,7 +13,7 @@ open Parser
 
 -- # tactic.finish
 
-def trUsingList (args : Array AST3.Expr) : M Syntax :=
+def trUsingList (args : Array (Spanned AST3.Expr)) : M Syntax :=
   @mkNullNode <$> match args with
   | #[] => pure #[]
   | args => return #[mkAtom "using", (mkAtom ",").mkSep $ ← args.mapM trExpr]

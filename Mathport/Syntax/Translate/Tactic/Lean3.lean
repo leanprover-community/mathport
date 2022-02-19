@@ -214,7 +214,7 @@ where
   | Binder.binder _ (some vars) _ none _, out => pure $
     vars.foldl (fun out v => out.push $ trBinderName v.kind) out
   | Binder.binder _ (some vars) bis (some ty) _, out => do
-    let ty ← trDArrow bis ty.kind
+    let ty ← trDArrow bis ty
     vars.foldlM (init := out) fun out v =>
       out.push <$> `(($(trBinderName v.kind) : $ty))
   | Binder.collection _ _ _ _, out => warn! "unsupported: assume with binder collection"
@@ -287,10 +287,10 @@ where
   | hs => some $ hs.map trIdent_
   `(tactic| injections $[with $hs*]?)
 
-def parseSimpConfig : Option AST3.Expr → M (Option Meta.Simp.Config × Syntax)
+def parseSimpConfig : Option (Spanned AST3.Expr) → M (Option Meta.Simp.Config × Syntax)
   | none => pure (none, mkNullNode)
-  | some (AST3.Expr.«{}») => pure (none, mkNullNode)
-  | some (AST3.Expr.structInst _ none flds #[] false) => do
+  | some ⟨_, AST3.Expr.«{}»⟩ => pure (none, mkNullNode)
+  | some ⟨_, AST3.Expr.structInst _ none flds #[] false⟩ => do
     let mut cfg : Meta.Simp.Config := {}
     let mut discharger := #[]
     for (⟨_, n⟩, e) in flds do
@@ -306,7 +306,7 @@ def parseSimpConfig : Option AST3.Expr → M (Option Meta.Simp.Config × Syntax)
       | `memoize, e => cfg := asBool e cfg fun cfg b => {cfg with memoize := b}
       | `discharger, _ =>
           let stx ← `(Lean.Parser.Tactic.discharger|
-            (disch := $(← Translate.trTactic (Tactic.expr e)):tactic))
+            (disch := $(← Translate.trTactic (Spanned.dummy <| Tactic.expr e)):tactic))
           discharger := #[stx]
       | _, _ => warn! "warning: unsupported simp config option: {n}"
     pure (cfg, mkNullNode discharger)
@@ -340,7 +340,7 @@ where
     if f a == f b then args else
       args.push <| Id.run `(Parser.Term.structInstField| $(mkIdent n):ident := $(q (f a)))
 
-def trSimpLemma (e : AST3.Expr) : M Syntax :=
+def trSimpLemma (e : Spanned AST3.Expr) : M Syntax :=
   return mkNode ``Parser.Tactic.simpLemma #[mkNullNode, ← trExpr e]
 
 def mkConfigStx? (stx : Option Syntax) : M (Option Syntax) :=
@@ -436,7 +436,7 @@ def trSimpAttrs (attrs : Array Name) : Syntax :=
 @[trTactic cc] def trCC : TacM Syntax := `(tactic| cc)
 
 @[trTactic subst] def trSubst : TacM Syntax := do
-  let n ← match (← parse pExpr).unparen with
+  let n ← match (← parse pExpr).kind.unparen with
   | AST3.Expr.ident n => pure n
   | _ => warn! "unsupported: subst (term)"
   `(tactic| subst $(mkIdent n):ident)
@@ -525,7 +525,7 @@ def trSimpAttrs (attrs : Array Name) : Syntax :=
 
 @[trTactic specialize] def trSpecialize : TacM Syntax := do
   let (head, args) ← trAppArgs (← parse pExpr) fun e =>
-    match e.unparen with
+    match e.kind.unparen with
     | Expr.ident h => pure h
     | Expr.«@» false ⟨_, Expr.ident h⟩ =>
       warn! "unsupported: specialize @hyp" | pure h
@@ -643,7 +643,7 @@ private partial def getStr : AST3.Expr → M String
   | _ => warn! "unsupported: interpolated non string literal"
 
 def trInterpolatedStr (f : Syntax → TacM Syntax := pure) : TacM Syntax := do
-  let s ← getStr (← expr!).unparen
+  let s ← getStr (← expr!).kind.unparen
   let chunks ← parse $ parseChunks s pExpr "\"" 0 #[]
   mkNode interpolatedStrKind <$> chunks.mapM fun
     | Sum.inl s => pure $ Syntax.mkLit interpolatedStrLitKind s

@@ -261,8 +261,8 @@ open AST3 Parser
 -- # tactic.slice
 
 @[trConv slice] def trSliceConv : TacM Syntax := do
-  let AST3.Expr.nat a ← expr! | warn! "slice: weird nat"
-  let AST3.Expr.nat b ← expr! | warn! "slice: weird nat"
+  let ⟨_, AST3.Expr.nat a⟩ ← expr! | warn! "slice: weird nat"
+  let ⟨_, AST3.Expr.nat b⟩ ← expr! | warn! "slice: weird nat"
   `(conv| slice $(Quote.quote a) $(Quote.quote b))
 
 @[trTactic slice_lhs] def trSliceLHS : TacM Syntax := do

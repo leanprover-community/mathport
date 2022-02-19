@@ -53,7 +53,7 @@ def trInterpolatedStr' := trInterpolatedStr fun stx => `(← $stx)
 
 @[trUserCmd «mk_simp_attribute»] def trMkSimpAttribute : TacM Syntax := do
   let (n, d, withList) ← parse $ return (← ident, ← pExpr, ← (tk "with" *> ident*)?)
-  let d ← match d.unparen with
+  let d ← match d.kind.unparen with
   | AST3.Expr.ident `none => pure $ none
   | AST3.Expr.string s => pure $ some (Syntax.mkStrLit s)
   | _ => warn! "unsupported: weird string"
