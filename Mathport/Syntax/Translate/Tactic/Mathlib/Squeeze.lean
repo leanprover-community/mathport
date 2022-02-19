@@ -26,7 +26,7 @@ open Parser
   let hs := trSimpList (← trSimpArgs (← parse simpArgList))
   let attrs := (← parse (tk "with" *> ident*)?).getD #[]
   let loc := mkOptionalNode $ ← trLoc (← parse location)
-  let (cfg, disch) ← parseSimpConfig (← parse (structInst)?)
+  let (cfg, disch) ← parseSimpConfig <| (← parse (structInst)?).map Spanned.dummy
   let cfg ← mkConfigStx $ cfg.bind quoteSimpConfig
   pure $ mkNode tac #[mkAtom s, cfg, disch, o, hs, trSimpAttrs attrs, loc]
 
@@ -40,7 +40,7 @@ open Parser
   let hs := trSimpList (← trSimpArgs (← parse simpArgList))
   let attrs := (← parse (tk "with" *> ident*)?).getD #[]
   let e ← liftM $ (← parse (tk "using" *> pExpr)?).mapM trExpr
-  let (cfg, disch) ← parseSimpConfig (← parse (structInst)?)
+  let (cfg, disch) ← parseSimpConfig <| (← parse (structInst)?).map Spanned.dummy
   let cfg ← mkConfigStx $ cfg.bind quoteSimpConfig
   pure $ mkNode tac #[mkAtom s, cfg, disch, o, hs, trSimpAttrs attrs,
     mkOptionalNode' e fun e => #[mkAtom "using", e]]
@@ -55,6 +55,6 @@ open Parser
   let hs := trSimpList (← trSimpArgs (← parse simpArgList))
   let attrs := (← parse (tk "with" *> ident*)?).getD #[]
   let loc := mkOptionalNode $ ← trLoc (← parse location)
-  let (cfg, _) ← parseSimpConfig (← parse (structInst)?)
+  let (cfg, _) ← parseSimpConfig <| (← parse (structInst)?).map Spanned.dummy
   let cfg ← mkConfigStx $ cfg.bind quoteSimpConfig
   pure $ mkNode tac #[mkAtom s, cfg, o, hs, trSimpAttrs attrs, loc]

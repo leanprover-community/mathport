@@ -29,32 +29,32 @@ def ParserM.run (p : ParserM α) (ctx : Context) : Except String α := do
   | none => Except.error "parse error"
   | some (a, i) => if i = ctx.arr.size then Except.ok a else Except.error "too many args"
 
-def next : ParserM VMCall := fun s i =>
-  if h : i < s.arr.size then pure ((s.arr.get ⟨i, h⟩).kind, i+1) else failure
+def next : ParserM (Spanned VMCall) := fun s i =>
+  if h : i < s.arr.size then pure ((s.arr.get ⟨i, h⟩), i+1) else failure
 
-def ident : ParserM Name := do let VMCall.ident n ← next | failure; pure n
+def ident : ParserM Name := do let ⟨_, VMCall.ident n⟩ ← next | failure; pure n
 
-def smallNat : ParserM Nat := do let VMCall.nat n ← next | failure; pure n
+def smallNat : ParserM Nat := do let ⟨_, VMCall.nat n⟩ ← next | failure; pure n
 
-def pExpr : (pat :_:= false) → ParserM Expr
-  | false => do let VMCall.expr e ← next | failure; pure e
-  | true => do let VMCall.pat e ← next | failure; pure e
+def pExpr : (pat :_:= false) → ParserM (Spanned Expr)
+  | false => do let ⟨m, VMCall.expr e⟩ ← next | failure; pure ⟨m, e⟩
+  | true => do let ⟨m, VMCall.pat e⟩ ← next | failure; pure ⟨m, e⟩
 
-def itactic : ParserM AST3.Block := do let VMCall.block bl ← next | failure; pure bl
+def itactic : ParserM AST3.Block := do let ⟨_, VMCall.block bl⟩ ← next | failure; pure bl
 
-def commandLike? : ParserM (Option AST3.Command) := do
-  let VMCall.command i ← next | failure; i.mapM fun i => return (← read).cmds[i]
+def commandLike? : ParserM (Option (Spanned AST3.Command)) := do
+  let ⟨m, VMCall.command i⟩ ← next | failure; i.mapM fun i => return ⟨m, (← read).cmds[i]⟩
 
-def commandLike : ParserM AST3.Command := do
+def commandLike : ParserM (Spanned AST3.Command) := do
   let some i ← commandLike? | failure; pure i
 
 def skipAll : ParserM Unit := do set (← read).arr.size
 
 def withInput (p : ParserM α) : ParserM (α × Nat) := do
-  let VMCall.withInput arr n ← next | failure
+  let ⟨_, VMCall.withInput arr n⟩ ← next | failure
   fun c i => return ((← p { c with arr } |>.run' 0, n), i)
 
-def emittedCommandHere : ParserM (Option Command) := return (← withInput commandLike?).1
+def emittedCommandHere : ParserM (Option Command) := return (← withInput commandLike?).1.map (·.kind)
 
 partial def emittedCodeHere : ParserM (Array Command) := aux #[]
 where
@@ -64,7 +64,7 @@ where
     | some c => aux (out.push c)
 
 def tk (tk : String) : ParserM Unit := do
-  let VMCall.token t ← next | failure
+  let ⟨_, VMCall.token t⟩ ← next | failure
   guard (tk = t)
 
 partial def manyList (x : ParserM α) : ParserM (List α) :=
@@ -105,10 +105,10 @@ def optPExprList := listOf pExpr <|> pure #[]
 def pExprListOrTExpr := maybeListOf pExpr
 def onlyFlag := (tk "only" *> pure true) <|> pure false
 
-def parseBinders : ParserM Binders := do let VMCall.binders bis ← next | failure; pure bis
+def parseBinders : ParserM Binders := do let ⟨_, VMCall.binders bis⟩ ← next | failure; pure bis
 
 def inductiveDecl : ParserM InductiveCmd := do
-  let VMCall.inductive i ← next | failure
+  let ⟨_, VMCall.inductive i⟩ ← next | failure
   let Command.inductive c := (← read).cmds[i] | failure
   pure c
 
@@ -119,42 +119,42 @@ def renameArgs : ParserM (Array (Name × Name)) :=
 
 structure RwRule where
   symm : Bool
-  rule : Expr
+  rule : Spanned Expr
 
 def rwRule : ParserM RwRule := do
   pure ⟨Option.isSome (← (tk "<-")?), ← pExpr⟩
 
 def rwRules : ParserM (Array RwRule) := maybeListOf rwRule
 
-def generalizeArg : ParserM (Expr × Name) := do
-  let AST3.Expr.notation n args := (← pExpr).unparen | failure
-  let (`«expr = », #[⟨_, Arg.expr lhs⟩, ⟨_, Arg.expr rhs⟩]) := (n.name, args) | failure
+def generalizeArg : ParserM (Spanned Expr × Name) := do
+  let AST3.Expr.notation n args := (← pExpr).kind.unparen | failure
+  let (`«expr = », #[⟨mlhs, Arg.expr lhs⟩, ⟨_, Arg.expr rhs⟩]) := (n.name, args) | failure
   let AST3.Expr.ident x := rhs.unparen | failure
-  pure (lhs, x)
+  pure (⟨mlhs, lhs⟩, x)
 
-def hGeneralizeArg : ParserM (Expr × Name) := do
-  let AST3.Expr.notation n args := (← pExpr).unparen | failure
-  let (`«expr == », #[⟨_, Arg.expr lhs⟩, ⟨_, Arg.expr rhs⟩]) := (n.name, args) | failure
+def hGeneralizeArg : ParserM (Spanned Expr × Name) := do
+  let AST3.Expr.notation n args := (← pExpr).kind.unparen | failure
+  let (`«expr == », #[⟨mlhs, Arg.expr lhs⟩, ⟨_, Arg.expr rhs⟩]) := (n.name, args) | failure
   let AST3.Expr.ident x := rhs.unparen | failure
-  pure (lhs, x)
+  pure (⟨mlhs, lhs⟩, x)
 
-def generalizesArgEq (e : AST3.Expr) : ParserM (Expr × Name) := do
-  let AST3.Expr.notation n args := e.unparen | failure
+def generalizesArgEq (e : Spanned AST3.Expr) : ParserM (Spanned Expr × Name) := do
+  let AST3.Expr.notation n args := e.kind.unparen | failure
   match n.name with | `«expr = » => pure () | `«expr == » => pure () | _ => failure
-  let #[⟨_, Arg.expr lhs⟩, ⟨_, Arg.expr rhs⟩] := args | failure
+  let #[⟨mlhs, Arg.expr lhs⟩, ⟨_, Arg.expr rhs⟩] := args | failure
   let AST3.Expr.ident x := rhs.unparen | failure
-  pure (lhs, x)
+  pure (⟨mlhs, lhs⟩, x)
 
-def generalizesArg : ParserM (Option Name × Expr × Name) := do
+def generalizesArg : ParserM (Option Name × Spanned Expr × Name) := do
   let t ← pExpr
   (tk ":" *> do
-    let AST3.Expr.ident x := t.unparen | failure
+    let AST3.Expr.ident x := t.kind.unparen | failure
     pure (some x, ← generalizesArgEq (← pExpr))) <|>
   (return (none, ← generalizesArgEq t))
 
-def casesArg : ParserM (Option Name × Expr) := do
+def casesArg : ParserM (Option Name × Spanned Expr) := do
   let t ← pExpr
-  match t.unparen with
+  match t.kind.unparen with
   | AST3.Expr.ident x => (return (some x, ← tk ":" *> pExpr)) <|> return (none, t)
   | _ => pure (none, t)
 
@@ -166,7 +166,7 @@ def case : ParserM (Array (Array BinderName × Array BinderName)) := maybeListOf
 inductive SimpArg
 | allHyps
 | except (n : Name)
-| expr (sym : Bool) (e : Expr)
+| expr (sym : Bool) (e : Spanned Expr)
 
 def simpArg : ParserM SimpArg :=
   (tk "*" *> pure SimpArg.allHyps) <|>
@@ -180,7 +180,7 @@ def simpArgList : ParserM (Array SimpArg) :=
 inductive RCasesPat : Type
   | one : BinderName → RCasesPat
   | clear : RCasesPat
-  | typed : RCasesPat → AST3.Expr → RCasesPat
+  | typed : RCasesPat → Spanned AST3.Expr → RCasesPat
   | tuple : Array RCasesPat → RCasesPat
   | alts : Array RCasesPat → RCasesPat
   deriving Inhabited
@@ -213,9 +213,9 @@ partial def rcasesPatListRest (pats : Array RCasesPat) : ParserM (Array RCasesPa
 end
 
 inductive RCasesArgs
-  | hint (tgt : Sum AST3.Expr (Array AST3.Expr)) (depth : Option ℕ)
-  | rcases (name : Option Name) (tgt : AST3.Expr) (pat : RCasesPat)
-  | rcasesMany (tgt : Array AST3.Expr) (pat : RCasesPat)
+  | hint (tgt : Sum (Spanned AST3.Expr) (Array (Spanned AST3.Expr))) (depth : Option ℕ)
+  | rcases (name : Option Name) (tgt : Spanned AST3.Expr) (pat : RCasesPat)
+  | rcasesMany (tgt : Array (Spanned AST3.Expr)) (pat : RCasesPat)
 
 def rcasesArgs : ParserM RCasesArgs := do
   let hint ← (tk "?")?
@@ -225,7 +225,7 @@ def rcasesArgs : ParserM RCasesArgs := do
   | none => do
     let p ← (do
       let Sum.inl t := p | failure
-      let AST3.Expr.ident h := t.unparen | failure
+      let AST3.Expr.ident h := t.kind.unparen | failure
       return Sum.inl (h, ← tk ":" *> pExpr)) <|>
       pure (Sum.inr p)
     let ids ← (tk "with" *> rcasesPat false)?
@@ -241,7 +241,7 @@ def rcasesArgs : ParserM RCasesArgs := do
 
 inductive RIntroPat : Type
   | one : RCasesPat → RIntroPat
-  | binder : Array RIntroPat → Option AST3.Expr → RIntroPat
+  | binder : Array RIntroPat → Option (Spanned AST3.Expr) → RIntroPat
   deriving Inhabited
 
 mutual
@@ -262,7 +262,7 @@ partial def rintroPat : ParserM RIntroPat := do
 end
 
 /-- Syntax for a `rintro` patern: `('?' (: n)?) | rintro_pat`. -/
-def rintroArg : ParserM (Sum (Array RIntroPat × Option AST3.Expr) (Option ℕ)) :=
+def rintroArg : ParserM (Sum (Array RIntroPat × Option (Spanned AST3.Expr)) (Option ℕ)) :=
 (tk "?" *> Sum.inr <$> (tk ":" *> smallNat)?) <|>
 return Sum.inl (← rintroPatHi*, ← (tk ":" *> pExpr)?)
 
@@ -270,7 +270,7 @@ return Sum.inl (← rintroPatHi*, ← (tk ":" *> pExpr)?)
  (This is almost the same as `rcasesPat false`,
 but it allows the pattern part to be empty.) -/
 def obtainArg :
-  ParserM ((Option RCasesPat × Option AST3.Expr) × Option (Array AST3.Expr)) := do
+  ParserM ((Option RCasesPat × Option (Spanned AST3.Expr)) × Option (Array (Spanned AST3.Expr))) := do
   let (pat, tp) ←
     (return match ← rcasesPat false with
       | RCasesPat.typed pat tp => (some pat, some tp)
@@ -323,8 +323,8 @@ def structInst : ParserM Expr := do
   let mut fields := #[]
   for l in ls do
     match l with
-    | Sum.inl src => srcs := srcs.push (Spanned.dummy src)
-    | Sum.inr (n, v) => fields := fields.push (Spanned.dummy n, Spanned.dummy v)
+    | Sum.inl src => srcs := srcs.push src
+    | Sum.inr (n, v) => fields := fields.push (Spanned.dummy n, v)
   pure $ Expr.structInst none none fields srcs false
 
 end Parser
