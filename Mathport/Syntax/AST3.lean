@@ -1164,7 +1164,7 @@ structure Comment where
   start : Position
   «end» : Position
   text : String
-  deriving Repr
+  deriving Repr, Inhabited
 
 end AST3
 
