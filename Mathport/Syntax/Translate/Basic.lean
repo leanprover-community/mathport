@@ -271,12 +271,18 @@ def nextCommentIf (p : Comment → Bool) : M (Option Comment) := do
   modify ({ · with remainingComments })
   return firstComment
 
+def pushFrontComment (comment : Comment) : M Unit :=
+  modify fun s => { s with remainingComments := comment :: s.remainingComments }
+
 partial def insertComments (stx : Syntax) : M Syntax := do
   if let some headPos := stx.getInfo.getPos? then
     if let some comment ← nextCommentIf (positionToStringPos ·.«end» ≤ headPos) then
       let stx ← insertComments stx
-      let stx := (addLeadingComment comment stx).getD stx
-      return stx
+      if let some stx := addLeadingComment comment stx then
+        return stx
+      else
+        pushFrontComment comment
+        return stx
   match stx with
     | Syntax.node .. => pure <| stx.setArgs (← stx.getArgs.mapM insertComments)
     | _ => pure stx
