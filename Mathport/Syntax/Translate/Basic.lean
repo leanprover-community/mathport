@@ -190,15 +190,15 @@ def setInfo (meta : Option Meta) (stx : Syntax) : Syntax :=
     stx.setInfo (SourceInfo.synthetic (positionToStringPos start) (positionToStringPos end_))
   | _, _ => stx
 
-def unspanning (k : β → M α) (x : Spanned β) : M α := withSpan x.meta do k x.kind
-def unspanningS (k : β → M Syntax) (x : Spanned β) : M Syntax :=
+def spanning (k : β → M α) (x : Spanned β) : M α := withSpan x.meta do k x.kind
+def spanningS (k : β → M Syntax) (x : Spanned β) : M Syntax :=
   setInfo x.meta <$> withSpan x.meta do k x.kind
 
 def trExprUnspanned (e : Expr) : M Syntax := do (← read).trExpr e
-def trExpr := unspanningS trExprUnspanned
+def trExpr := spanningS trExprUnspanned
 
 def trCommandUnspanned (e : Command) : M Unit := do (← read).trCommand e
-def trCommand := unspanning trCommandUnspanned
+def trCommand := spanning trCommandUnspanned
 
 def renameIdent (n : Name) (choices : Array Name := #[]) : M Name :=
   return Rename.resolveIdent! (← getEnv) n choices
@@ -487,7 +487,7 @@ mutual
         mkNullNode $ ← tacs.mapM fun tac => return mkGroupNode #[← trTactic tac, mkNullNode]]]
     | ⟨_, cl, cfg, tacs⟩ => warn! "unsupported (TODO): block with cfg"
 
-  partial def trTactic : Spanned Tactic → M Syntax := unspanningS fun
+  partial def trTactic : Spanned Tactic → M Syntax := spanningS fun
     | Tactic.block bl => do `(tactic| · ($(← trBlock bl):tacticSeq))
     | Tactic.by tac => do `(tactic| · $(← trTactic tac):tactic)
     | Tactic.«;» tacs => do
@@ -550,7 +550,7 @@ mutual
     | ⟨_, none, none, tacs⟩ => mkConvBlock <$> tacs.mapM trConv
     | ⟨_, cl, cfg, tacs⟩ => warn! "unsupported (TODO): conv block with cfg"
 
-  partial def trConv : Spanned Tactic → M Syntax := unspanningS fun
+  partial def trConv : Spanned Tactic → M Syntax := spanningS fun
     | Tactic.block bl => do `(conv| · $(← trConvBlock bl):convSeq)
     | Tactic.by tac => do `(conv| · $(← trConv tac):conv)
     | Tactic.«;» tacs => warn! "unsupported (impossible)"
@@ -642,7 +642,7 @@ def trBinder' : BinderContext → Binder → M (Array Binder')
 
 def trBinders' (bc : BinderContext)
   (bis : Array (Spanned Binder)) : M (Array Binder') := do
-  bis.concatMapM (unspanning fun bi => trBinder' bc bi)
+  bis.concatMapM (spanning fun bi => trBinder' bc bi)
 
 def expandBinder : BinderContext → Binder' → M (Array Syntax)
   | bc, Binder'.basic bi => pure #[bi]
@@ -699,7 +699,7 @@ def trExplicitBinders : Array (Spanned Binder) → M Syntax
         bi vars n rhs
     | Binder.notation _ => warn! "unsupported: (notation) binder"
     | _ => warn! "unsupported (impossible)"
-    let bis ← bis.concatMapM (unspanning fun bi => trBinder bi)
+    let bis ← bis.concatMapM (spanning fun bi => trBinder bi)
     pure $ mkNode ``explicitBinders #[mkNullNode bis]
 
 def trExplicitBindersExt
@@ -768,7 +768,7 @@ def trArm : Arm → M Syntax
       | $(← lhs.mapM fun e => trExpr e),* => $(← trExpr rhs))
 
 def trDoElem : DoElem → M Syntax
-  | DoElem.let decl => do `(doElem| let $(← unspanningS trLetDecl decl):letDecl)
+  | DoElem.let decl => do `(doElem| let $(← spanningS trLetDecl decl):letDecl)
   | DoElem.eval e => do `(doElem| $(← trExpr e):term)
   | DoElem.«←» lhs ty rhs els => do
     let rhs ← trExpr rhs
@@ -1242,7 +1242,7 @@ def trInductive (cl : Bool) (mods : Modifiers) (n : Spanned Name) (us : LevelDec
 def trMutual (decls : Array (Mutual α)) (f : Mutual α → M Syntax) : M Unit := do
   pushM `(mutual $(← decls.mapM f)* end)
 
-def trField : Spanned Field → M (Array Syntax) := unspanning fun
+def trField : Spanned Field → M (Array Syntax) := spanning fun
   | Field.binder bi ns ik bis ty dflt => do
     let ns ← ns.mapM fun n => mkIdentF n.kind
     let im ← trInferKind ik
