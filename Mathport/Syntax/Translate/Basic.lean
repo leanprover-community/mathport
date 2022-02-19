@@ -571,9 +571,9 @@ end
 
 def trBinderDefault : Default → M Syntax
   | Default.«:=» e => do `(Parser.Term.binderDefault| := $(← trExpr e))
-  | Default.«.» e => do
+  | Default.«.» ⟨m, e⟩ => do
     `(Parser.Term.binderTactic| := by
-      $(← trTactic (Spanned.dummy $ Tactic.expr $ e.map Expr.ident)):tactic)
+      $(← trTactic ⟨m, Tactic.expr ⟨m, Expr.ident e⟩⟩):tactic)
 
 def trBinary (n : Name) (lhs rhs : Syntax) : M Syntax := do
   match ← getNotationEntry? n.getString! with
