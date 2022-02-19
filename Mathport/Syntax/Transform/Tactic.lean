@@ -25,7 +25,7 @@ def transformConsecutiveTactics : Syntax → Syntax → M Syntax
 
 def transformConsecutiveTacticsArray (tacs : Array Syntax) : M (Array Syntax) := do
   for i in [1:tacs.size] do
-    if let some tac' ← catchUnsupportedSyntax do
+    if let some tac' ← catchUnsupportedSyntax do withRef tacs[i-1] do
         transformConsecutiveTactics tacs[i-1] tacs[i] then
       return tacs[0:i-1] ++ #[tac'] ++ tacs[i+1:tacs.size]
   throwUnsupported
