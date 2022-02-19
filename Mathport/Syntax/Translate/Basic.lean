@@ -1053,7 +1053,8 @@ def trExportCmd : Open → M Unit
 
 def trDeclId (n : Name) (us : LevelDecl) : M Syntax := do
   let us := us.map $ Array.map fun u => mkIdent u.kind
-  `(Parser.Command.declId| $(← mkIdentI n):ident $[.{$us,*}]?)
+  let id ← mkIdentI n #[(← get).current.curNamespace ++ n]
+  `(Parser.Command.declId| $id:ident $[.{$us,*}]?)
 
 def trDeclSig (req : Bool) (bis : Binders) (ty : Option (Spanned Expr)) : M Syntax := do
   let bis := mkNullNode (← trBinders { allowSimple := some true } bis)
