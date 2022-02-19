@@ -8,7 +8,20 @@ import Mathport.Syntax.Data4
 import Mathport.Syntax.Translate.Notation
 import Mathport.Syntax.Translate.Attributes
 import Mathport.Syntax.Translate.Parser
+import Mathport.Util.While
 import Mathlib
+
+def Lean.Syntax.getInfo : Syntax → SourceInfo
+  | node info .. => info
+  | ident info .. => info
+  | atom info .. => info
+  | missing => SourceInfo.none
+
+def Lean.SourceInfo.getEndPos? (info : SourceInfo) (originalOnly := false) : Option String.Pos :=
+  match info, originalOnly with
+  | original (endPos := pos) .., _ => some pos
+  | synthetic (endPos := pos) .., false => some pos
+  | _, _ => none
 
 namespace Mathport
 
@@ -49,6 +62,7 @@ structure State where
   userNotas : NameMap (Array (Spanned AST3.Param) → CommandElabM Syntax) := {}
   userAttrs : NameMap (Array (Spanned AST3.Param) → CommandElabM Syntax) := {}
   userCmds : NameMap (AST3.Modifiers → Array (Spanned AST3.Param) → CommandElabM Unit) := {}
+  remainingComments : List Comment := {}
   deriving Inhabited
 
 def NotationEntries.insert (m : NotationEntries) : NotationData → NotationEntries
@@ -160,6 +174,9 @@ elab:max "warn!" interpStr:interpolatedStr(term) or:(checkColGt "|" term)? : ter
 def positionToStringPos (pos : Position) : String.Pos :=
   10000 * pos.line + pos.column -- moderately hacky
 
+def stringPosToLine (pos : String.Pos) : Nat :=
+  pos / 10000 -- slightly more hacky
+
 def withSpan (m : Option Meta) (k : M α) : M α :=
   match m with
   | none => k
@@ -168,12 +185,18 @@ def withSpan (m : Option Meta) (k : M α) : M α :=
     withRef (Syntax.atom sourceInfo "") k
 
 def unspanning (k : β → M α) (x : Spanned β) : M α := withSpan x.meta do k x.kind
+def unspanningS (k : β → M Syntax) (x : Spanned β) : M Syntax := do
+  let stx ← withSpan x.meta do k x.kind
+  return match stx.getInfo, x.meta with
+  | SourceInfo.none, some { start, end_, .. } =>
+    stx.setInfo (SourceInfo.synthetic (positionToStringPos start) (positionToStringPos end_))
+  | _, _ => stx
 
 def trExprUnspanned (e : Expr) : M Syntax := do (← read).trExpr e
-def trExpr (e : Spanned Expr) : M Syntax := unspanning trExprUnspanned e
+def trExpr := unspanningS trExprUnspanned
 
 def trCommandUnspanned (e : Command) : M Unit := do (← read).trCommand e
-def trCommand (e : Spanned Command) : M Unit := unspanning trCommandUnspanned e
+def trCommand := unspanning trCommandUnspanned
 
 def renameIdent (n : Name) (choices : Array Name := #[]) : M Name :=
   return Rename.resolveIdent! (← getEnv) n choices
@@ -183,17 +206,86 @@ def renameModule (n : Name) : M Name := do Rename.renameModule (← read).pcfg n
 def renameField (n : Name) : M Name := return Rename.renameField? (← getEnv) n |>.getD n
 def renameOption (n : Name) : M Name := warn! "warning: unsupported option {n}" | pure n
 
-def mkIdentI (n : Name) (choices : Array Name := #[]) : M Syntax :=
-  return mkIdent (← renameIdent n choices)
-def mkIdentA (n : Name) : M Syntax := mkIdent <$> renameAttr n
-def mkIdentN (n : Name) : M Syntax := mkIdent <$> renameNamespace n
-def mkIdentF (n : Name) : M Syntax := mkIdent <$> renameField n
-def mkIdentO (n : Name) : M Syntax := mkIdent <$> renameOption n
+def mkIdentR (n : Name) : M Syntax := return (mkIdent n).setInfo (← MonadRef.mkInfoFromRefPos)
+
+def mkIdentI (n : Name) (choices : Array Name := #[]) : M Syntax := do mkIdentR (← renameIdent n choices)
+def mkIdentA (n : Name) : M Syntax := do mkIdentR (← renameAttr n)
+def mkIdentN (n : Name) : M Syntax := do mkIdentR (← renameNamespace n)
+def mkIdentF (n : Name) : M Syntax := do mkIdentR (← renameField n)
+def mkIdentO (n : Name) : M Syntax := do mkIdentR (← renameOption n)
 
 def Parser.ParserM.run' (p : ParserM α) (args : Array (Spanned VMCall)) : M α := do
   match p.run ⟨(← read).commands, args⟩ with
   | Except.ok a => pure a
   | Except.error e => throw! "unsupported: {e}"
+
+def mkCommentString (comment : Comment) : String :=
+  if comment.text.contains '\n' then s!"/-{comment.text}-/\n" else s!"--{comment.text}\n"
+
+def addLeadingComment' (comment : Comment) (info : SourceInfo) : SourceInfo :=
+  let commentText := mkCommentString comment
+  match info with
+    | SourceInfo.none =>
+      SourceInfo.original commentText.toSubstring (positionToStringPos comment.start) "".toSubstring (positionToStringPos comment.end)
+    | SourceInfo.synthetic a b =>
+      SourceInfo.original commentText.toSubstring a "".toSubstring b
+    | SourceInfo.original leading a trailing b =>
+      SourceInfo.original (commentText ++ leading.toString).toSubstring a trailing b
+
+partial def addLeadingComment (comment : Comment) (stx : Syntax) : Option Syntax :=
+  if let Syntax.node i k args := stx then Id.run do
+    for j in [0:args.size] do
+      if let some a' := addLeadingComment comment args[j] then
+        return Syntax.node i k (args.set! j a')
+    pure none
+  else
+    stx.setInfo (addLeadingComment' comment stx.getInfo)
+
+def addTrailingComment' (comment : Comment) (info : SourceInfo) : SourceInfo :=
+  let commentText := mkCommentString comment
+  match info with
+    | SourceInfo.none =>
+      SourceInfo.original "".toSubstring (positionToStringPos comment.start) commentText.toSubstring (positionToStringPos comment.end)
+    | SourceInfo.synthetic a b =>
+      SourceInfo.original "".toSubstring a commentText.toSubstring b
+    | SourceInfo.original leading a trailing b =>
+      SourceInfo.original leading a (trailing.toString ++ commentText).toSubstring b
+
+partial def addTrailingComment (comment : Comment) (stx : Syntax) : Option Syntax :=
+  if let Syntax.node i k args := stx then Id.run do
+    for j in [0:args.size] do
+      let j := args.size - j - 1
+      if let some a' := addTrailingComment comment args[j] then
+        return Syntax.node i k (args.set! j a')
+    pure none
+  else
+    stx.setInfo (addTrailingComment' comment stx.getInfo)
+
+def nextCommentIf (p : Comment → Bool) : M (Option Comment) := do
+  let firstComment :: remainingComments := (← get).remainingComments | return none
+  unless p firstComment do return none
+  modify ({ · with remainingComments })
+  return firstComment
+
+partial def insertComments (stx : Syntax) : M Syntax := do
+  if let some headPos := stx.getInfo.getPos? then
+    if let some comment ← nextCommentIf (positionToStringPos ·.«end» ≤ headPos) then
+      let stx ← insertComments stx
+      let stx := (addLeadingComment comment stx).getD stx
+      return stx
+  match stx with
+    | Syntax.node .. => pure <| stx.setArgs (← stx.getArgs.mapM insertComments)
+    | _ => pure stx
+
+partial def printFirstLineComments : M Unit := do
+  if let some comment ← nextCommentIf (·.start.line ≤ 1) then
+    printOutput (mkCommentString comment)
+    printFirstLineComments
+
+def printRemainingComments : M Unit := do
+  for comment in (← get).remainingComments do
+    printOutput (mkCommentString comment)
+  modify ({ · with remainingComments := [] })
 
 def AST3toData4 : AST3 → M Data4
   | ⟨prel, imp, commands, _, _, _⟩ => do
@@ -204,7 +296,8 @@ def AST3toData4 : AST3 → M Data4
           mkNullNode, mkIdent (← renameModule n.kind)]
     let fmt ← liftCoreM $ PrettyPrinter.format Parser.Module.header.formatter $
       mkNode ``Parser.Module.header #[mkOptionalNode prel, mkNullNode imp]
-    modify fun s => { s with output := fmt }
+    printFirstLineComments
+    printOutput fmt
     commands.forM fun c => do
       try trCommand c
       catch e =>
@@ -212,8 +305,8 @@ def AST3toData4 : AST3 → M Data4
         println! e
         -- println! (repr c.kind)
         printOutput f!"/- {e}\nLean 3 AST:\n{(repr c.kind).group}-/\n\n"
-    let s ← get
-    pure ⟨s.output, HashMap.empty⟩
+    printRemainingComments
+    pure ⟨(← get).output, HashMap.empty⟩
 
 partial def reprintCore : Syntax → Option Format
   | Syntax.missing => none
@@ -250,6 +343,7 @@ private def tryParenthesizeCommand (stx : Syntax) : CoreM <| Syntax × Format :=
 def push (stx : Syntax) : M Unit := do
   let stx ← try (← read).transform stx catch ex =>
     warn! "failed to transform: {← ex.toMessageData.toString}" | pure stx
+  let stx ← insertComments stx
   let fmt ← liftCoreM $ do
     let (stx, parenthesizerErr) ← tryParenthesizeCommand stx
     pure $ parenthesizerErr ++ (←
@@ -391,7 +485,7 @@ mutual
         mkNullNode $ ← tacs.mapM fun tac => return mkGroupNode #[← trTactic tac, mkNullNode]]]
     | ⟨_, cl, cfg, tacs⟩ => warn! "unsupported (TODO): block with cfg"
 
-  partial def trTactic : Spanned Tactic → M Syntax := unspanning fun
+  partial def trTactic : Spanned Tactic → M Syntax := unspanningS fun
     | Tactic.block bl => do `(tactic| · ($(← trBlock bl):tacticSeq))
     | Tactic.by tac => do `(tactic| · $(← trTactic tac):tactic)
     | Tactic.«;» tacs => do
@@ -451,15 +545,15 @@ mutual
 
   partial def trConvBlock : Block → M Syntax
     | ⟨_, none, none, #[]⟩ => return mkConvBlock #[← `(conv| skip)]
-    | ⟨_, none, none, tacs⟩ => mkConvBlock <$> tacs.mapM fun tac => trConv tac.kind
+    | ⟨_, none, none, tacs⟩ => mkConvBlock <$> tacs.mapM trConv
     | ⟨_, cl, cfg, tacs⟩ => warn! "unsupported (TODO): conv block with cfg"
 
-  partial def trConv : Tactic → M Syntax
+  partial def trConv : Spanned Tactic → M Syntax := unspanningS fun
     | Tactic.block bl => do `(conv| · $(← trConvBlock bl):convSeq)
-    | Tactic.by tac => do `(conv| · $(← trConv tac.kind):conv)
+    | Tactic.by tac => do `(conv| · $(← trConv tac):conv)
     | Tactic.«;» tacs => warn! "unsupported (impossible)"
     | Tactic.«<|>» tacs => do
-      `(conv| first $[| $(← tacs.mapM fun tac => trConv tac.kind):conv]*)
+      `(conv| first $[| $(← tacs.mapM trConv):conv]*)
     | Tactic.«[]» tacs => warn! "unsupported (impossible)"
     | Tactic.exact_shortcut _ => warn! "unsupported (impossible)"
     | Tactic.expr e => do
@@ -546,7 +640,7 @@ def trBinder' : BinderContext → Binder → Array Binder' → M (Array Binder')
 
 def trBinders' (bc : BinderContext)
   (bis : Array (Spanned Binder)) : M (Array Binder') := do
-  bis.foldlM (fun out bi => trBinder' bc bi.kind out) #[]
+  bis.foldlM (fun out => unspanning fun bi => trBinder' bc bi out) #[]
 
 def expandBinder : BinderContext → Binder' → Array Syntax → M (Array Syntax)
   | bc, Binder'.basic bi, out => pure $ out.push bi
@@ -672,7 +766,7 @@ def trArm : Arm → M Syntax
       | $(← lhs.mapM fun e => trExpr e),* => $(← trExpr rhs))
 
 def trDoElem : DoElem → M Syntax
-  | DoElem.let decl => do `(doElem| let $(← trLetDecl decl.kind):letDecl)
+  | DoElem.let decl => do `(doElem| let $(← unspanningS trLetDecl decl):letDecl)
   | DoElem.eval e => do `(doElem| $(← trExpr e):term)
   | DoElem.«←» lhs ty rhs els => do
     let rhs ← trExpr rhs
@@ -1146,12 +1240,12 @@ def trInductive (cl : Bool) (mods : Modifiers) (n : Spanned Name) (us : LevelDec
 def trMutual (decls : Array (Mutual α)) (f : Mutual α → M Syntax) : M Unit := do
   pushM `(mutual $(← decls.mapM f)* end)
 
-def trField : Field → Array Syntax → M (Array Syntax)
-  | Field.binder bi ns ik bis ty dflt, out => do
+def trField : Spanned Field → M (Array Syntax) := unspanning fun
+  | Field.binder bi ns ik bis ty dflt => do
     let ns ← ns.mapM fun n => mkIdentF n.kind
     let im ← trInferKind ik
     let sig req := trDeclSig req bis ty
-    out.push <$> match bi with
+    (#[·]) <$> match bi with
     | BinderInfo.implicit => do
       `(Parser.Command.structImplicitBinder| {$ns* $[$im]? $(← sig true):declSig})
     | BinderInfo.instImplicit => do
@@ -1163,10 +1257,10 @@ def trField : Field → Array Syntax → M (Array Syntax)
         `(Parser.Command.structSimpleBinder| $(ns[0]):ident $[$im]? $sig:optDeclSig $[$dflt]?)
       else
         `(Parser.Command.structExplicitBinder| ($ns* $[$im]? $sig:optDeclSig $[$dflt]?))
-  | Field.notation _, out => warn! "unsupported: (notation) in structure"
+  | Field.notation _ => warn! "unsupported: (notation) in structure"
 
 def trFields (flds : Array (Spanned Field)) : M Syntax := do
-  let flds ← flds.foldlM (fun out fld => trField fld.kind out) #[]
+  let flds ← flds.concatMapM trField
   pure $ mkNode ``Parser.Command.structFields #[mkNullNode flds]
 
 def trStructure (cl : Bool) (mods : Modifiers) (n : Spanned Name) (us : LevelDecl)

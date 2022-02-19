@@ -182,7 +182,7 @@ def trRwArgs : TacM (Array Syntax × Option Syntax) := do
   | none, tac => `(tactic| repeat $tac:tacticSeq)
   | some n, tac => `(tactic| iterate $(Quote.quote n) $tac:tacticSeq)
 
-@[trTactic repeat] def trRepeat : TacM Syntax := do
+@[trTactic «repeat»] def trRepeat : TacM Syntax := do
   `(tactic| repeat' $(← trBlock (← itactic)):tacticSeq)
 
 @[trTactic «try»] def trTry : TacM Syntax := do `(tactic| try $(← trBlock (← itactic)):tacticSeq)
