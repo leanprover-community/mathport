@@ -37,9 +37,6 @@ feel free to commit new versions
 if you have updated the dependencies in the relevant lakefile
 and downloaded fresh `.lean` files.
 
-Currently these repositories are also available as submodules of this repository,
-under `Lean4Packages/`.
-
 ## Running mathport locally
 
 See the `Makefile` for usage (it takes several hours to rebuild the mathlib3 port from scratch).

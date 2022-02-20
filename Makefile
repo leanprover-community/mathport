@@ -91,11 +91,9 @@ MATHBIN_LIB=./Outputs/oleans/mathbin
 
 port-lean: init-logs build
 	./build/bin/mathport config.json Leanbin::all >> Logs/mathport.out 2> >(tee -a Logs/mathport.err >&2)
-	cp lean-toolchain Lean4Packages/lean3port/
 
 port-mathbin: port-lean
 	./build/bin/mathport config.json Leanbin::all Mathbin::all >> Logs/mathport.out 2> >(tee -a Logs/mathport.err >&2)
-	cp lean-toolchain Lean4Packages/mathlib3port/
 
 port: port-lean port-mathbin
 

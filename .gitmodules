@@ -1,6 +1,0 @@
-[submodule "Lean4Packages/mathlib3port"]
-	path = Lean4Packages/mathlib3port
-	url = git@github.com:leanprover-community/mathlib3port.git
-[submodule "Lean4Packages/lean3port"]
-	path = Lean4Packages/lean3port
-	url = git@github.com:leanprover-community/lean3port.git
