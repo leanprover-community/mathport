@@ -41,7 +41,7 @@ open AST3 Parser
 
 @[trTactic swap] def trSwap : TacM Syntax := do
   let n ← (← expr?).mapM fun
-  | AST3.Expr.nat n => pure n
+  | ⟨_, AST3.Expr.nat n⟩ => pure n
   | _ => warn! "unsupported: weird nat"
   match n.getD 2 with
   | 1 => `(tactic| skip)
@@ -50,7 +50,7 @@ open AST3 Parser
 
 @[trTactic rotate] def trRotate : TacM Syntax := do
   let n ← (← expr?).mapM fun
-  | AST3.Expr.nat n => pure n
+  | ⟨_, AST3.Expr.nat n⟩ => pure n
   | _ => warn! "unsupported: weird nat"
   match n.getD 1 with
   | 0 => `(tactic| skip)
@@ -107,7 +107,7 @@ open AST3 Parser
   `(tactic| guard_hyp $(mkIdent (← parse ident)) : $(← trExpr (← parse (tk ":" *> pExpr))))
 
 @[trTactic guard_hyp_nums] def trGuardHypNums : TacM Syntax := do
-  match (← expr!).unparen with
+  match (← expr!).kind.unparen with
   | AST3.Expr.nat n => `(tactic| guard_hyp_nums $(Quote.quote n))
   | _ => warn! "unsupported: weird nat"
 
@@ -119,7 +119,7 @@ open AST3 Parser
 
 @[trTactic success_if_fail_with_msg] def trSuccessIfFailWithMsg : TacM Syntax := do
   let t ← trBlock (← itactic)
-  match (← expr!).unparen with
+  match (← expr!).kind.unparen with
   | AST3.Expr.string s => `(tactic| fail_if_success? $(Syntax.mkStrLit s) $t:tacticSeq)
   | _ => warn! "unsupported: weird string"
 
@@ -133,7 +133,7 @@ open AST3 Parser
 @[trTactic apply_rules] def trApplyRules : TacM Syntax := do
   let hs ← liftM $ (← parse pExprListOrTExpr).mapM trExpr
   let n ← (← expr?).mapM fun
-  | AST3.Expr.nat n => pure $ Quote.quote n
+  | ⟨_, AST3.Expr.nat n⟩ => pure $ Quote.quote n
   | _ => warn! "unsupported: weird nat"
   let cfg ← liftM $ (← expr?).mapM trExpr
   `(tactic| apply_rules $[(config := $cfg)]? [$hs,*] $(n)?)

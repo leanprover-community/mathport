@@ -9,6 +9,7 @@ import Mathport.Syntax.Translate.Notation
 import Mathport.Syntax.Translate.Parser
 import Mathport.Syntax.Translate.Tactic
 import Mathport.Syntax.Transform
+import Init.Data.Array.QSort
 
 namespace Mathport
 
@@ -31,8 +32,9 @@ partial def M.run' (m : M α) (notations : Array Notation) (commands : Array Com
     trCommand := fun c => trCommand' c ctx s }
   m ctx s
 
-def M.run (m : M α) : (notations : Array Notation) → (commands : Array Command) →
-  (pcfg : Path.Config) → CommandElabM α :=
+def M.run (m : M α) (comments : Array Comment) :
+    (notations : Array Notation) → (commands : Array Command) →
+    (pcfg : Path.Config) → CommandElabM α :=
   M.run' $ do
     let tactics ← Tactic.builtinTactics
     let niTactics ← Tactic.builtinNITactics
@@ -40,13 +42,15 @@ def M.run (m : M α) : (notations : Array Notation) → (commands : Array Comman
     let userNotas ← Tactic.builtinUserNotation
     let userAttrs ← Tactic.builtinUserAttrs
     let userCmds ← Tactic.builtinUserCmds
-    modify fun s => { s with tactics, niTactics, convs, userNotas, userAttrs, userCmds }
+    modify fun s => { s with
+      tactics, niTactics, convs, userNotas, userAttrs, userCmds,
+      remainingComments := comments.qsort (positionToStringPos ·.start < positionToStringPos ·.start) |>.toList }
     m
 
 end Translate
 
 def AST3toData4 (ast : AST3) : (pcfg : Path.Config) → CommandElabM Data4 :=
-  (Translate.AST3toData4 ast).run ast.indexed_nota ast.indexed_cmds
+  (Translate.AST3toData4 ast).run ast.comments ast.indexed_nota ast.indexed_cmds
 
-def tactic3toSyntax (containingFile : AST3) (tac3 : AST3.Tactic) : (pcfg : Path.Config) → CommandElabM Syntax :=
-  (Translate.trTactic tac3).run containingFile.indexed_nota containingFile.indexed_cmds
+def tactic3toSyntax (containingFile : AST3) (tac3 : Spanned AST3.Tactic) : (pcfg : Path.Config) → CommandElabM Syntax :=
+  (Translate.trTactic tac3).run #[] containingFile.indexed_nota containingFile.indexed_cmds

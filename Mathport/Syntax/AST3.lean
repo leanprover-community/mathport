@@ -124,7 +124,7 @@ structure Meta where
   deriving Inhabited
 
 structure Spanned (α : Type u) where
-  meta : Meta
+  meta : Option Meta
   kind  : α
   deriving Inhabited
 
@@ -133,7 +133,7 @@ instance [Repr α] : Repr (Spanned α) := ⟨fun n p => reprPrec n.kind p⟩
 def Spanned.map (f : α → β) : Spanned α → Spanned β
   | ⟨m, a⟩ => ⟨m, f a⟩
 
-def Spanned.dummy (a : α) : Spanned α := ⟨default, a⟩
+def Spanned.dummy (a : α) : Spanned α := ⟨none, a⟩
 
 local prefix:max "#" => Spanned
 
@@ -1160,6 +1160,12 @@ instance : Repr TacticInvocation where reprPrec
     "before:\n" ++ Goals_repr start ++
     (if success then "success" else "failed") ++ ", after:\n" ++ Goals_repr end_
 
+structure Comment where
+  start : Position
+  «end» : Position
+  text : String
+  deriving Repr, Inhabited
+
 end AST3
 
 structure AST3 where
@@ -1168,12 +1174,17 @@ structure AST3 where
   commands : Array (Spanned AST3.Command)
   indexed_nota : Array AST3.Notation
   indexed_cmds : Array AST3.Command
+  comments : Array AST3.Comment
 
 instance : Repr AST3 where reprPrec
-  | ⟨prel, imps, cmds, _, _⟩, _ =>
+  | ⟨prel, imps, cmds, _, _, _⟩, _ =>
     (match prel with | none => "" | some _ => "prelude\n") ++
     Format.join (imps.toList.map fun ns =>
       "import " ++ Format.joinSep (ns.toList.map fun a => a.kind.toString) " " ++ "\n") ++
     "\n" ++ Format.join (cmds.toList.map fun c => repr c ++ "\n\n")
+
+partial def Spanned.unparen : #AST3.Expr → #AST3.Expr
+  | ⟨_, AST3.Expr.paren e⟩ => e.unparen
+  | e => e
 
 end Mathport

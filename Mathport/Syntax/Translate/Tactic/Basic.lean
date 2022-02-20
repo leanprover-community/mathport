@@ -46,13 +46,13 @@ def parse (p : Parser.ParserM α) : TacM α := do
 
 def parse_0 (t : TacM α) := parse (pure ()) *> t
 
-def expr? : TacM (Option AST3.Expr) := do
+def expr? : TacM (Option (Spanned AST3.Expr)) := do
   match ← next? with
   | none => pure none
-  | some (Param.expr e) => pure $ some e.kind
+  | some (Param.expr e) => pure e
   | _ => warn! "parse error"
 
-def expr! : TacM AST3.Expr := do
+def expr! : TacM (Spanned AST3.Expr) := do
   match ← expr? with | some p => pure p | none => warn! "missing argument"
 
 def itactic : TacM AST3.Block := do

@@ -18,7 +18,7 @@ open AST3 Parser
   `(command| copy_doc_string $(← mkIdentI fr) → $(← liftM $ to_.mapM mkIdentI)*)
 
 @[trUserCmd «library_note»] def trLibraryNote (doc : Option String) : TacM Syntax := do
-  let Expr.string s ← parse pExpr | warn! "unsupported: weird string"
+  let ⟨_, Expr.string s⟩ ← parse pExpr | warn! "unsupported: weird string"
   `(command| library_note $(Syntax.mkStrLit s) $(trDocComment doc.get!):docComment)
 
 @[trUserCmd «add_tactic_doc»] def trAddTacticDoc (doc : Option String) : TacM Syntax := do

@@ -16,7 +16,7 @@ open AST3 Parser
 
 @[trUserCmd «add_hint_tactic»] def trAddHintTactic : TacM Syntax := do
   let tac ← match (← parse $ pExpr *> withInput pExpr).1 with
-  | Expr.«`[]» tacs => trIdTactic ⟨false, none, none, tacs⟩
+  | ⟨_, Expr.«`[]» tacs⟩ => trIdTactic ⟨false, none, none, tacs⟩
   | _ => warn! "unsupported (impossible)"
   `(command| add_hint_tactic $tac)
 

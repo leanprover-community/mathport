@@ -43,7 +43,7 @@ scoped elab "mathportTransformerList%" : term => do
 partial def applyTransformers (transformers : Array Transformer) (stx : Syntax) : M Syntax :=
   stx.rewriteBottomUpM fun stx => do
     for tr in transformers do
-      if let some stx' ← catchUnsupportedSyntax do tr stx then
+      if let some stx' ← catchUnsupportedSyntax do withRef stx do tr stx then
         return ← applyTransformers transformers stx'
     return stx
 

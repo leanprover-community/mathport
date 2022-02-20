@@ -158,7 +158,7 @@ attribute [trNITactic try_refl_tac] trControlLawsTac
   let (bang, ques, tgt, doc) ← parse $ return (← (tk "!")?, ← (tk "?")?, ← (ident)?, ← (pExpr)?)
   let tgt ← liftM $ tgt.mapM mkIdentI
   let doc ← doc.mapM fun doc => match doc.unparen with
-  | Expr.string s => pure $ Syntax.mkStrLit s
+  | ⟨m, Expr.string s⟩ => pure $ setInfo m $ Syntax.mkStrLit s
   | _ => warn! "to_additive: weird doc string"
   match bang, ques with
   | none, none => `(attr| to_additive $(tgt)? $(doc)?)
