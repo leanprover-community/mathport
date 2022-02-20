@@ -55,6 +55,5 @@ To port a single file, then execute `mathport` as follows
 ```
 
 The directory `Test` contains subdirectories `importLeanBin` and `importMathbin`,
-each containing a `lakefile.lean` that depends on one of the projects
-from the `Lean4Packages` directory.
+each containing a `lakefile.lean` that depends on `lean3port` and `mathlib3port`, resp.
 
