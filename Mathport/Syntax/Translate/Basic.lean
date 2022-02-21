@@ -453,7 +453,7 @@ partial def trPrio : Expr → M Syntax
 partial def trPrecExpr : Expr → M Precedence
   | Expr.nat n => pure $ Precedence.nat n
   | Expr.paren e => trPrecExpr e.kind -- do `(prec| ($(← trPrecExpr e.kind)))
-  | Expr.ident `max => pure Precedence.max
+  | Expr.const ⟨_, `max⟩ _ _ => pure Precedence.max
   | Expr.const ⟨_, `std.prec.max_plus⟩ _ _ => pure Precedence.maxPlus
   | Expr.notation (Choice.one `«expr + ») #[
       ⟨_, Arg.expr (Expr.ident `max)⟩,
