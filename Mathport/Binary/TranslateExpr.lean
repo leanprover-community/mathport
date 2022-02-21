@@ -13,6 +13,7 @@ As of now, Lean4 uses:
 import Lean
 import Mathport.Util.Misc
 import Mathport.Util.String
+import Mathport.Util.While
 import Mathport.Binary.Basic
 import Mathport.Binary.Number
 import Mathport.Binary.Decode
@@ -22,6 +23,44 @@ import Mathport.Binary.Heterogenize
 namespace Mathport.Binary
 
 open Lean Lean.Meta
+
+/--
+  Return true iff `declName` is one of the auxiliary definitions/projections
+  used to implement coercions (also in Lean 3)
+-/
+def isCoeDecl (declName : Name) : Bool :=
+  declName == ``Coe.coe || declName == ``CoeTC.coe || declName == ``CoeHead.coe ||
+  declName == ``CoeTail.coe || declName == ``CoeHTCT.coe || declName == ``CoeDep.coe ||
+  declName == ``CoeT.coe || declName == ``CoeFun.coe || declName == ``CoeSort.coe ||
+  declName == ``Lean.Internal.liftCoeM || declName == ``Lean.Internal.coeM ||
+  declName == `CoeT.coeₓ || declName == `coeT || declName == `coeToLift || declName == `coeBaseₓ ||
+  declName == `coe || declName == `liftT || declName == `lift || declName == `HasLiftT.lift ||
+  declName == `coeB
+
+/-- Expand coercions occurring in `e` (+ Lean 3 defs) -/
+partial def expandCoe (e : Expr) : MetaM Expr :=
+  withReducibleAndInstances do
+    return (← transform e (pre := step))
+where
+  step (e : Expr) : MetaM TransformStep := do
+    let f := e.getAppFn
+    if !f.isConst then
+      return TransformStep.visit e
+    else
+      let declName := f.constName!
+      if isCoeDecl declName then
+        match (← unfoldDefinition? e) with
+        | none   => return TransformStep.visit e
+        | some e' =>
+          let mut e' := e'.headBeta
+          while e'.getAppFn.isProj do
+            if let some f ← reduceProj? e'.getAppFn then
+              e' := (mkAppN f e'.getAppArgs).headBeta
+            else
+              return TransformStep.visit e
+          step e'
+      else
+        return TransformStep.visit e
 
 def trExprCore (ctx : Context) (cmdCtx : Elab.Command.Context) (cmdState : Elab.Command.State) (e : Expr) (ind? : Option (Name × Expr × List Name)) : MetaM Expr := do
   match ind? with
@@ -40,7 +79,7 @@ where
     let mut e := e
     e ← replaceConstNames e
     e ← Meta.transform e (post := replaceSorryPlaceholders)
-    e ← Meta.expandCoe e
+    e ← expandCoe e
     e ← translateNumbers e
     match (Mathlib.Prelude.Rename.getRenameMap cmdState.env).find? `auto_param with
     | none     => pure ()
