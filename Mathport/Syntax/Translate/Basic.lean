@@ -454,12 +454,12 @@ partial def trPrecExpr : Expr → M Precedence
   | Expr.nat n => pure $ Precedence.nat n
   | Expr.paren e => trPrecExpr e.kind -- do `(prec| ($(← trPrecExpr e.kind)))
   | Expr.ident `max => pure Precedence.max
-  | Expr.ident `std.prec.max_plus => pure Precedence.maxPlus
+  | Expr.const ⟨_, `std.prec.max_plus⟩ _ _ => pure Precedence.maxPlus
   | Expr.notation (Choice.one `«expr + ») #[
       ⟨_, Arg.expr (Expr.ident `max)⟩,
       ⟨_, Arg.expr (Expr.nat 1)⟩
     ] => pure Precedence.maxPlus
-  | _ => warn! "unsupported: advanced prec syntax" | pure $ Precedence.nat 999
+  | e => warn! "unsupported: advanced prec syntax {repr e}" | pure $ Precedence.nat 999
 
 def trPrec : AST3.Precedence → M Precedence
   | AST3.Precedence.nat n => pure $ Precedence.nat n
