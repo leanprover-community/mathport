@@ -1533,7 +1533,7 @@ def trCommand' : Command → M Unit
   | Command.theory #[⟨_, Modifier.noncomputable⟩] =>
     pushM `(command| noncomputable section)
   | Command.theory #[⟨_, Modifier.doc doc⟩, ⟨_, Modifier.noncomputable⟩] => do
-    warn! "ignoring doc comment on noncomputable theory"
+    printOutput s!"/-!{doc}-/\n"
     pushM `(command| noncomputable section)
   | Command.theory _ => warn! "unsupported (impossible)"
   | Command.setOption o val => match o.kind, val.kind with
