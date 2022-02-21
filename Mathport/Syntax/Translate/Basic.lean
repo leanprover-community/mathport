@@ -1330,12 +1330,20 @@ private def isIdentPrec : AST3.Literal → Bool
   | AST3.Literal.var _ (some ⟨_, Action.prec _⟩) => true
   | _ => false
 
+private def truncatePrec (prec : Precedence) : Precedence := Id.run do
+  -- https://github.com/leanprover-community/mathport/issues/114#issuecomment-1046582957
+  if let Precedence.nat n := prec then
+    if n > 1024 then
+      return Precedence.nat 1024
+  return prec
+
 private def trMixfix (kind : Syntax) (prio : Option Syntax)
   (m : AST3.MixfixKind) (tk : String) (prec : Option (Spanned AST3.Precedence)) :
   M (NotationDesc × (Option Syntax → Syntax → Id Syntax)) := do
   let p ← match prec with
   | some p => trPrec p.kind
   | none => pure $ (← getPrecedence? tk m).getD (Precedence.nat 0)
+  let p := truncatePrec p
   let p := p.toSyntax
   let s := Syntax.mkStrLit tk
   pure $ match m with
