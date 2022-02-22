@@ -1457,7 +1457,10 @@ def trNotationCmd (loc : LocalReserve) (attrs : Attributes) (nota : Notation)
     | _ => none
     let p ← p.mapM fun p => return (← trPrec p.kind).toSyntax
     let desc := match lits with
-    | #[⟨_, AST3.Literal.sym tk⟩] => NotationDesc.const tk.1.kind.toString
+    | #[⟨_, AST3.Literal.sym tk⟩] => NotationDesc.const tk.1.kind.trim
+    | #[⟨_, AST3.Literal.sym left⟩,
+        ⟨_, AST3.Literal.var v (some ⟨_, Action.fold _ _ sep _ _ (some term)⟩)⟩] =>
+      NotationDesc.exprs left.1.kind.trim sep.1.kind.trim term.1.kind.trim
     | _ => match mkNAry lits with
       | some lits => NotationDesc.nary lits
       | none => NotationDesc.fail

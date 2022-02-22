@@ -40,6 +40,7 @@ inductive NotationDesc
   | «prefix» (tk : String)
   | «postfix» (tk : String)
   | nary (lits : Array Literal)
+  | exprs (left sep right : String)
   deriving FromJson, ToJson, Inhabited
 
 structure NotationEntry where
@@ -68,6 +69,9 @@ def NotationDesc.toKind (n4 : Name) : NotationDesc → NotationKind
   | NotationDesc.infix tk => NotationKind.binary fun a b => mkNode n4 #[a, mkAtom tk, b]
   | NotationDesc.prefix tk => NotationKind.unary fun a => mkNode n4 #[mkAtom tk, a]
   | NotationDesc.postfix tk => NotationKind.unary fun a => mkNode n4 #[a, mkAtom tk]
+  | NotationDesc.exprs left sep right =>
+    let left := mkAtom left; let sep := mkAtom sep; let right := mkAtom right
+    NotationKind.exprs fun as => mkNode n4 #[left, Syntax.mkSep as sep, right]
   | NotationDesc.nary lits => NotationKind.nary fun as => mkNode n4 $ lits.map fun
     | Literal.arg i => as.getD i Syntax.missing
     | Literal.tk tk => mkAtom tk
