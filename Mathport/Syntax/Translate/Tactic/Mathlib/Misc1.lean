@@ -15,6 +15,11 @@ open Lean.Elab.Tactic (Location)
 namespace Mathport.Translate.Tactic
 open AST3 Parser
 
+-- # tactic.by_contra
+@[trTactic by_contra'] def trByContra' : TacM Syntax := do
+  `(tactic| by_contra' $((← parse (ident)?).map mkIdent)?
+    $[: $(← liftM $ (← parse (tk ":" *> pExpr)?).mapM trExpr)]?)
+
 -- # tactic.dec_trivial
 @[trTactic dec_trivial] def trDecTrivial : TacM Syntax := do
   match ← parse (tk "!")? with
@@ -62,8 +67,23 @@ open AST3 Parser
     $((← parse (ident_)*).map trBinderIdent)*
     $[$(← trLoc (← parse location))]?)
 
+-- # tactic.induction
+
+@[trUserCmd cases'] def trCases' : TacM Syntax := do
+  warn! "unsupported: cases'" -- unattested
+
+@[trUserCmd induction'] def trInduction' : TacM Syntax := do
+  warn! "unsupported: induction'" -- unattested
+
 -- # tactic.itauto
-@[trTactic itauto] def trITauto : TacM Syntax := `(tactic| itauto)
+@[trTactic itauto] def trITauto : TacM Syntax := do
+  match ← parse (tk "!")?, ← parse ((return some (← pExprList)) <|> (tk "*" *> pure none))? with
+  | none,   none           => `(tactic| itauto)
+  | some _, none           => `(tactic| itauto!)
+  | none,   some none      => `(tactic| itauto *)
+  | some _, some none      => `(tactic| itauto! *)
+  | none,   some (some ls) => `(tactic| itauto [$(← ls.mapM trExpr),*])
+  | some _, some (some ls) => `(tactic| itauto! [$(← ls.mapM trExpr),*])
 
 -- # tactic.lift
 @[trTactic lift] def trLift : TacM Syntax := do
@@ -209,6 +229,14 @@ open AST3 Parser
 @[trTactic split_ifs] def trSplitIfs : TacM Syntax := do
   `(tactic| split_ifs $(← trLoc (← parse location))?
     $[with $(trWithIdentList (← parse withIdentList))*]?)
+
+-- # tactic.swap_var
+@[trTactic swap_var] def trSwapVar : TacM Syntax := do
+  let args ← parse $ maybeListOf $ return (← ident, ← (tk "↔" <|> tk "<->")? *> ident)
+  if args.isEmpty then `(tactic| skip) else
+  let args ← args.mapM fun (x, y) =>
+    `(Parser.Tactic.swapVarArg| $(mkIdent x):ident ↔ $(mkIdent y):ident)
+  `(tactic| swap_var $args,*)
 
 -- # tactic.tauto
 @[trTactic tauto tautology] def trTauto : TacM Syntax := do
