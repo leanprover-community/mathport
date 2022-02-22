@@ -19,6 +19,7 @@ def binport1 (config : Config) (path : Path) : CommandElabM Unit := do
   let ϕ : BinportM Unit := do
     let mods ← parseTLean (path.toLean3 config.pathConfig ".tlean")
     for mod in mods do applyModification mod
+    for mod in mods do applyModificationPost mod
     postprocessModule
   ϕ.run { config := config, path := path } |>.run' {}
 
