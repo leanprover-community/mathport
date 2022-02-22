@@ -1416,7 +1416,7 @@ private def trNotation3 (kind : Syntax) (prio p : Option Syntax)
     $kind:attrKind notation3$[:$p]? $[$n:namedName]? $[$prio:namedPrio]? $lits* => $e)
 
 def trNotationCmd (loc : LocalReserve) (attrs : Attributes) (nota : Notation)
-  (f : Syntax → Syntax) : M Unit := do
+  (ns : Name) : M Unit := do
   let (s, attrs) := (← trAttributes attrs false AttributeKind.global |>.run ({}, #[])).2
   unless s.derive.isEmpty do warn! "unsupported: @[derive] notation"
   unless attrs.isEmpty do warn! "unsupported (impossible)"
@@ -1456,14 +1456,15 @@ def trNotationCmd (loc : LocalReserve) (attrs : Attributes) (nota : Notation)
     pure (e, desc, cmd)
   | _ => warn! "unsupported (impossible)"
   let e ← trExpr e
-  let n4 ← Elab.Command.withWeakNamespace (← getEnv).mainModule $ do
+  let n4 ← Elab.Command.withWeakNamespace (ns ++ (← getEnv).mainModule) $ do
     let n4 ← mkUnusedName nota.name4
     let nn ← `(Parser.Command.namedName| (name := $(mkIdent n4)))
-    try elabCommand $ f $ cmd (some nn) e
+    try elabCommand $ cmd (some nn) e
     catch e => dbg_trace "warning: failed to add syntax {repr n4}: {← e.toMessageData.toString}"
     pure $ (← getCurrNamespace) ++ n4
   printOutput s!"-- mathport name: «{n}»\n"
-  push $ f $ cmd none e
+  if ns == default then push $ cmd none e
+  else pushM `(command| localized [$(← mkIdentR ns)] $(cmd none e))
   registerNotationEntry loc.1 ⟨n, n4, desc⟩
 
 end
@@ -1521,7 +1522,7 @@ def trCommand' : Command → M Unit
     trStructure cl mods n us bis exts ty m flds
   | Command.attribute loc _ attrs ns => trAttributeCmd loc attrs ns id
   | Command.precedence sym prec => warn! "warning: unsupported: precedence command"
-  | Command.notation loc attrs n => trNotationCmd loc attrs n id
+  | Command.notation loc attrs n => trNotationCmd loc attrs n default
   | Command.open true ops => ops.forM trExportCmd
   | Command.open false ops => trOpenCmd ops
   | Command.include true ops => unless ops.isEmpty do
