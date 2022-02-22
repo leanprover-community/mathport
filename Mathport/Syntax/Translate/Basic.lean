@@ -1375,17 +1375,20 @@ private def trNotation4 (kind : Syntax) (prio p : Option Syntax)
   pure fun n e => `(command|
     $kind:attrKind notation$[:$p]? $[$n:namedName]? $[$prio:namedPrio]? $lits* => $e)
 
-private def trNotation3Item (lit : AST3.Literal) : M Syntax := do
+private def trNotation3Item (lit : AST3.Literal) : M (Array Syntax) := do
   let stxs ← match lit with
-  | AST3.Literal.sym tk => pure $ sym tk
-  | AST3.Literal.binder _ => pure binders
-  | AST3.Literal.binders _ => pure binders
-  | AST3.Literal.var x none => pure $ var x
-  | AST3.Literal.var x (some ⟨_, Action.prec _⟩) => pure $ var x
-  | AST3.Literal.var x (some ⟨_, Action.prev⟩) => pure $ var x
+  | AST3.Literal.sym tk => pure #[sym tk]
+  | AST3.Literal.binder _ => pure #[binders]
+  | AST3.Literal.binders _ => pure #[binders]
+  | AST3.Literal.var x none => pure #[var x]
+  | AST3.Literal.var x (some ⟨_, Action.prec _⟩) => pure #[var x]
+  | AST3.Literal.var x (some ⟨_, Action.prev⟩) => pure #[var x]
   | AST3.Literal.var x (some ⟨_, Action.scoped _ sc⟩) => scope x sc
+  | AST3.Literal.var x (some ⟨_, Action.fold r _ sep «rec» (some ini) term⟩) => do
+    let f ← fold x r sep «rec» ini
+    pure $ match term.map sym with | none => #[f] | some a => #[f, a]
   | _ => warn! "unsupported: advanced notation ({repr lit})"
-  pure $ mkNode ``Parser.Command.notation3Item stxs
+  pure $ stxs.map $ mkNode ``Parser.Command.notation3Item
 where
   sym tk := #[Syntax.mkStrLit tk.1.kind.toString]
   var x := #[mkIdent x.kind, mkNullNode]
@@ -1394,10 +1397,18 @@ where
     let (p, e) := match sc with
     | none => (`x, Spanned.dummy $ Expr.ident `x)
     | some (p, e) => (p.kind, e)
-    pure #[mkIdent x.kind, mkNullNode #[
+    pure #[#[mkIdent x.kind, mkNullNode #[
       mkNode ``Parser.Command.identScope #[
         mkAtom ":", mkAtom "(", mkAtom "scoped",
-        mkIdent p, mkAtom "=>", ← trExpr e, mkAtom ")"]]]
+        mkIdent p, mkAtom "=>", ← trExpr e, mkAtom ")"]]]]
+  fold x r sep | (y, z, «rec»), ini => do
+    let sep := mkNode ``Parser.Command.foldRep $ match sep.1.kind.trim with
+    | "," => #[mkAtom ",*"]
+    | _ => #[Syntax.mkStrLit sep.1.kind.toString, mkAtom "*"]
+    pure #[mkNode ``Parser.Command.foldAction #[
+      mkAtom "(", mkIdent x.kind, sep, mkAtom "=>", mkAtom (if r then "foldr" else "foldl"),
+      mkAtom "(", mkIdent y.kind, mkIdent z.kind, mkAtom "=>", ← trExpr rec, mkAtom ")",
+      ← trExpr ini, mkAtom ")"]]
 
 private def addSpaceBeforeBinders (lits : Array AST3.Literal) : Array AST3.Literal := Id.run do
   let mut lits := lits
@@ -1411,7 +1422,7 @@ private def addSpaceBeforeBinders (lits : Array AST3.Literal) : Array AST3.Liter
 private def trNotation3 (kind : Syntax) (prio p : Option Syntax)
   (lits : Array (Spanned AST3.Literal)) : M (Option Syntax → Syntax → Id Syntax) := do
   let lits := addSpaceBeforeBinders <| lits.map (·.kind)
-  let lits ← lits.mapM trNotation3Item
+  let lits ← lits.concatMapM trNotation3Item
   pure fun n e => `(command|
     $kind:attrKind notation3$[:$p]? $[$n:namedName]? $[$prio:namedPrio]? $lits* => $e)
 
