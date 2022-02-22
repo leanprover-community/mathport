@@ -25,7 +25,7 @@ def mathport1 (config : Config) (path : Path) : IO Unit := do
 
   if imports.isEmpty then imports := #[{ module := `Mathlib : Import }]
 
-  let opts := ({} : Options) |>.setNat `maxRecDepth 2000 |>.setNat `maxHeartbeats 300000
+  let opts := ({} : Options) |>.setNat `maxRecDepth 2000 |>.setNat `maxHeartbeats 400000
 
   try
     withImportModulesConst imports.toList (opts := opts) (trustLevel := 0) $ λ env => do
