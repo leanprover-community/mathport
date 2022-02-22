@@ -83,10 +83,10 @@ open AST3 Parser
   let (#[cmd], loc) ← parse $ return (← pExpr *> emittedCodeHere, ← tk "in" *> ident)
     | warn! "unsupported: multiple localized"
   let loc ← mkIdentN loc
-  let pushL stx := pushM `(command| localized [$loc] $stx)
+  let localize stx := Id.run `(command| localized [$loc] $stx)
   let cmd ← match cmd with
-  | Command.attribute true mods attrs ns => trAttributeCmd false attrs ns pushL
-  | Command.notation (true, res) attrs n => trNotationCmd (false, res) attrs n pushL
+  | Command.attribute true mods attrs ns => trAttributeCmd false attrs ns localize
+  | Command.notation (true, res) attrs n => trNotationCmd (false, res) attrs n localize
   | _ => warn! "unsupported: unusual localized"
 
 -- # tactic.mk_iff_of_inductive_prop
