@@ -12,5 +12,5 @@ package mathport {
     src := Source.git "https://github.com/leanprover-community/mathlib4.git" "7a5aae87c88b62c84c34eadaeb19f8f753f2bafc"
   }],
   binRoot := `MathportApp
-  moreLinkArgs := if Platform.isWindows then #[] else #["-rdynamic", "-L/home/mario/.elan/toolchains/leanprover--lean4---nightly-2022-02-06/lib"]
+  moreLinkArgs := if Platform.isWindows then #[] else #["-rdynamic"]
 }
