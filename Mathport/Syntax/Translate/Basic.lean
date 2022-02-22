@@ -1148,7 +1148,7 @@ def trOpenCmd (ops : Array Open) : M Unit := do
         | true, true, true => pure ()
         | false, true, true =>
           let ns ← explicit.mapM fun n => mkIdentF n.kind
-          pushElab $ ← `(command| open $(mkIdent tgt.kind):ident ($ns*))
+          pushElab $ ← `(command| open $(← mkIdentN tgt.kind):ident ($ns*))
         | true, false, true =>
           let rs ← renames.mapM fun ⟨a, b⟩ => do
             `(Parser.Command.openRenamingItem|
