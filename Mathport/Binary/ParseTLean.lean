@@ -172,7 +172,7 @@ def parseLine (line : String) : ParseM Unit := do
       | ("#MIXFIX" :: kind :: n :: prec :: tok)  => emit $ EnvModification.mixfix (← parseMixfixKind kind) (← str2name n) (← parseNat prec) (" ".intercalate tok)
       | ["#PRIVATE", pretty, real]               => emit $ EnvModification.private (← str2name pretty) (← str2name real)
       | ["#PROTECTED", n]                        => emit $ EnvModification.protected (← str2name n)
-      | ("#POS_INFO" :: _)                       => pure ()
+      | ["#POS_INFO", n, line, col]              => emit $ EnvModification.position (← str2name n) (← parseNat line) (← parseNat col)
 
       -- TODO: look at the 'deleted' bit
       | ("#ATTR" :: a :: p :: n :: _ :: rest)    => do

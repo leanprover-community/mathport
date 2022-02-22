@@ -309,6 +309,17 @@ where
       mkBInductionOn name
     catch _ => pure ()
 
+def applyPosition (n : Name) (line col : Nat) : BinportM Unit := do
+  let range := DeclarationRanges.mk
+        { pos := { line := line, column := col },
+          charUtf16 := col,
+          endPos := { line := line, column := col },
+          endCharUtf16 := col }
+        { pos := { line := line, column := col },
+          charUtf16 := col,
+          endPos := { line := line, column := col },
+          endCharUtf16 := col}
+  Lean.addDeclarationRanges n range
 
 def applyModification (mod : EnvModification) : BinportM Unit := withReader (fun ctx => { ctx with currDecl := mod.toName }) do
   println! "[apply] {mod}"
@@ -322,6 +333,7 @@ def applyModification (mod : EnvModification) : BinportM Unit := withReader (fun
   | EnvModification.instance nc ni prio    => applyInstance nc ni prio
   | EnvModification.private _ _            => pure ()
   | EnvModification.protected n            => pure ()
+  | EnvModification.position n line col    => applyPosition n line col
   | EnvModification.decl d                 =>
     match d with
     | Declaration.axiomDecl ax                => applyAxiomVal ax

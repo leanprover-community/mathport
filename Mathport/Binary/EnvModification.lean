@@ -58,6 +58,7 @@ inductive EnvModification : Type
   | «mixfix»       : MixfixKind → Name → Nat → String → EnvModification
   | «export»       : ExportDecl → EnvModification
   | «projection»   : ProjectionInfo → EnvModification
+  | position       : (name : Name) → (line col : Nat) → EnvModification
 
 def EnvModification.toName : EnvModification → Name
   | EnvModification.decl d             => d.toName
@@ -70,6 +71,7 @@ def EnvModification.toName : EnvModification → Name
   | EnvModification.mixfix _ n _ _     => n
   | EnvModification.export _           => `inExport
   | EnvModification.projection p       => p.projName
+  | EnvModification.position n _ _     => n
 
 open EnvModification in
 instance : ToString EnvModification where
@@ -84,5 +86,6 @@ instance : ToString EnvModification where
     | «mixfix» _ _ _ _   => "mixfix"
     | «export» _         => "export"
     | «projection» _     => "projection"
+    | position n _ _     => s!"position {n}"
 
 end Mathport.Binary
