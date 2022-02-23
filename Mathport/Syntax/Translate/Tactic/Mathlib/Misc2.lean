@@ -20,7 +20,10 @@ open AST3 Parser
     $[with $(trWithIdentList (← parse withIdentList))*]?)
 
 -- # tactic.abel
-@[trTactic abel1] def trAbel1 : TacM Syntax := `(tactic| abel1)
+@[trTactic abel1] def trAbel1 : TacM Syntax := do
+  match ← parse (tk "!")? with
+  | none => `(tactic| abel1)
+  | some _ => `(tactic| abel1!)
 
 @[trTactic abel] def trAbel : TacM Syntax := do
   match ← parse (tk "!")?, ← parse (ident)?, ← trLoc (← parse location) with
@@ -31,6 +34,17 @@ open AST3 Parser
   | some _, some `raw, loc => `(tactic| abel! raw $(loc)?)
   | some _, some `term, loc => `(tactic| abel! term $(loc)?)
   | _, _, _ => warn! "bad abel mode"
+
+-- # tactic.linear_combination
+@[trTactic linear_combination] def trLinearCombination : TacM Syntax := do
+  let es ← parse (
+    (return (← tk "(" *> ident, some $ ← tk "," *> pExpr <* tk ")")) <|>
+    (return (← ident, none)))*
+  let es ← es.mapM fun
+  | (x, none) => pure $ mkIdent x
+  | (x, some n) => return mkNode ``Parser.Tactic.nameAndTerm #[mkIdent x, mkAtom "*", ← trExpr n]
+  pure $ mkNode ``Parser.Tactic.linearCombination #[mkAtom "linear_combination",
+    ← mkConfigStx (← liftM $ (← expr?).mapM trExpr), Syntax.mkSep es (mkAtom "+")]
 
 -- # tactic.noncomm_ring
 @[trTactic noncomm_ring] def trNoncommRing : TacM Syntax := `(tactic| noncomm_ring)
@@ -97,10 +111,12 @@ open AST3 Parser
 -- # tactic.equiv_rw
 
 @[trTactic equiv_rw] def trEquivRw : TacM Syntax := do
-  let e ← trExpr (← parse pExpr)
+  let es ← liftM $ (← parse pExprListOrTExpr).mapM trExpr
   let loc ← trLoc (← parse location)
   let cfg ← liftM $ (← expr?).mapM trExpr
-  `(tactic| equiv_rw $[(config := $cfg)]? $e $[$loc]?)
+  match es with
+  | #[e] => `(tactic| equiv_rw $[(config := $cfg)]? $e $[$loc]?)
+  | _ => `(tactic| equiv_rw $[(config := $cfg)]? [$es,*] $[$loc]?)
 
 @[trTactic equiv_rw_type] def trEquivRwType : TacM Syntax := do
   let e ← trExpr (← parse pExpr)
@@ -151,6 +167,9 @@ attribute [trNITactic try_refl_tac] trControlLawsTac
 @[trUserAttr to_additive_ignore_args] def trToAdditiveIgnoreArgsAttr : TacM Syntax := do
   `(attr| to_additive_ignore_args $((← parse smallNat*).map Quote.quote)*)
 
+@[trUserAttr to_additive_relevant_arg] def trToAdditiveRelevantArgAttr : TacM Syntax := do
+  `(attr| to_additive_relevant_arg $(Quote.quote (← parse smallNat)))
+
 @[trUserAttr to_additive_reorder] def trToAdditiveReorderAttr : TacM Syntax := do
   `(attr| to_additive_reorder $((← parse smallNat*).map Quote.quote)*)
 
@@ -192,10 +211,10 @@ attribute [trNITactic try_refl_tac] trControlLawsTac
 
 -- # order.filter.basic
 @[trTactic filter_upwards] def trFilterUpwards : TacM Syntax := do
-  let s ← (← parse pExprList).mapM (trExpr ·)
+  let s := match ← (← parse pExprList).mapM (trExpr ·) with | #[] => none | s => some s
   let wth := trWithIdentList (← parse withIdentList)
   let tgt ← (← parse (tk "using" *> pExpr)?).mapM (trExpr ·)
-  `(tactic| filter_upwards [$s:term,*] $[with $[$wth:term]*]? $[using $tgt:term]?)
+  `(tactic| filter_upwards $[[$s:term,*]]? $[with $[$wth:term]*]? $[using $tgt:term]?)
 
 -- # order.liminf_limsup
 @[trNITactic isBounded_default] def trIsBounded_default (_ : AST3.Expr) : M Syntax := do

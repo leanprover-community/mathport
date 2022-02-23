@@ -12,28 +12,25 @@ namespace Mathport.Translate.Tactic
 open AST3 Parser
 
 -- # tactic.suggest
-def trSuggestUsing (args : Array BinderName) : M Syntax := do
-  let args ← args.mapM fun
-  | BinderName.ident n => pure $ mkIdent n
-  | BinderName._ => warn! "unsupported: using _ in suggest/library_search"
-  pure $ mkNullNode $ match args with
+def trSuggestUsing (args : Array BinderName) : Syntax :=
+  mkNullNode $ match args with
   | #[] => #[]
-  | _ => #[mkAtom "using", mkNullNode args]
+  | _ => #[mkAtom "using", mkNullNode (args.map trBinderIdent)]
 
 @[trTactic suggest] def trSuggest : TacM Syntax := do
   let n := (← parse (smallNat)?).map Quote.quote
   let hs := trSimpList (← trSimpArgs (← parse simpArgList))
   let attrs := (← parse (tk "with" *> ident*)?).getD #[]
-  let use ← trSuggestUsing ((← parse (tk "using" *> ident_*)?).getD #[])
+  let use := trSuggestUsing ((← parse (tk "using" *> ident_*)?).getD #[])
   let cfg ← mkConfigStx $ ← liftM $ (← expr?).mapM trExpr
   pure $ mkNode ``Parser.Tactic.suggest #[mkAtom "suggest", cfg, hs, trSimpAttrs attrs, use]
 
 @[trTactic library_search] def trLibrarySearch : TacM Syntax := do
   let (tac, s) := match ← parse (tk "!")? with
   | none => (``Tactic.LibrarySearch.librarySearch', "library_search")
-  | some _ => (``Parser.Tactic.librarySearch!, "library_search!")
+  | some _ => (``Tactic.LibrarySearch.librarySearch!, "library_search!")
   let hs := trSimpList (← trSimpArgs (← parse simpArgList))
   let attrs := (← parse (tk "with" *> ident*)?).getD #[]
-  let use ← trSuggestUsing ((← parse (tk "using" *> ident_*)?).getD #[])
+  let use := trSuggestUsing ((← parse (tk "using" *> ident_*)?).getD #[])
   let cfg ← mkConfigStx $ ← liftM $ (← expr?).mapM trExpr
   pure $ mkNode tac #[mkAtom s, cfg, hs, trSimpAttrs attrs, use]
