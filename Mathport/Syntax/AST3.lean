@@ -1149,12 +1149,12 @@ def Goals_repr (gs : Array Goal) : Format :=
 structure TacticInvocation where
   declName : Name
   ast      : Option #Tactic
-  start    : Array Goal
-  «end»    : Array Goal
+  start    : Array Goal × Option String
+  «end»    : Array Goal × Option String
   success  : Bool
 
 instance : Repr TacticInvocation where reprPrec
-  | ⟨declName, tac, start, end_, success⟩, _ =>
+  | ⟨declName, tac, ⟨start, _⟩, ⟨end_, _⟩, success⟩, _ =>
     "in declaration " ++ toString declName ++ " " ++
     "invoking " ++ repr tac ++ ":\n" ++
     "before:\n" ++ Goals_repr start ++

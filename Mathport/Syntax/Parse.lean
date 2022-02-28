@@ -902,6 +902,7 @@ structure RawAST3 where
   expr     : Array (Option RawExpr)
   tactics  : Option (Array RawTacticInvocation)
   states   : Option (Array RawTacticState)
+  tspps    : Option (Array String)  
   comments : Array AST3.Comment
   deriving FromJson
 
@@ -1019,14 +1020,15 @@ def RawTacticState.build : RawTacticState → Name × Array AST3.Goal
 
 def RawTacticInvocation.build
   (states : Array (Name × Array AST3.Goal))
+  (statePPs : Array String)
   (tacs : HashMap AstId (Spanned AST3.Tactic)) :
   RawTacticInvocation → AST3.TacticInvocation
-  | ⟨ast, start, end_, success⟩ => ⟨states[start].1, tacs.find? ast, states[start].2, states[end_].2, success⟩
+  | ⟨ast, start, end_, success⟩ => ⟨states[start].1, tacs.find? ast, ⟨states[start].2, statePPs[start]⟩, ⟨states[end_].2, statePPs[end_]⟩, success⟩
 
 end
 
 def RawAST3.build : RawAST3 → (invocs :_:= true) → Except String (AST3 × Array AST3.TacticInvocation)
-| ⟨ast, file, level, expr, tactics, states, comments⟩, invocs => do
+| ⟨ast, file, level, expr, tactics, states, statePPs, comments⟩, invocs => do
   let level := buildLevels level
   let expr := buildExprs level expr
   M.run ast expr $ do
@@ -1034,7 +1036,7 @@ def RawAST3.build : RawAST3 → (invocs :_:= true) → Except String (AST3 × Ar
     let invocs :=
       if invocs then
         let states := (states.getD #[]).map (fun (s : RawTacticState) => s.build expr)
-        (tactics.getD #[]).map (·.build states tacs)
+        (tactics.getD #[]).map (·.build states (statePPs.getD #[]) tacs)
       else #[]
     pure (ast, invocs)
 
