@@ -319,7 +319,8 @@ def applyPosition (n : Name) (line col : Nat) : BinportM Unit := do
           charUtf16 := col,
           endPos := { line := line, column := col },
           endCharUtf16 := col}
-  Lean.addDeclarationRanges n range
+  if let some n ← lookupNameExt n then
+    Lean.addDeclarationRanges n range
 
 def applyModification (mod : EnvModification) : BinportM Unit := withReader (fun ctx => { ctx with currDecl := mod.toName }) do
   println! "[apply] {mod}"
@@ -333,7 +334,7 @@ def applyModification (mod : EnvModification) : BinportM Unit := withReader (fun
   | EnvModification.instance nc ni prio    => applyInstance nc ni prio
   | EnvModification.private _ _            => pure ()
   | EnvModification.protected n            => pure ()
-  | EnvModification.position n line col    => applyPosition n line col
+  | EnvModification.position n line col    => pure ()
   | EnvModification.decl d                 =>
     match d with
     | Declaration.axiomDecl ax                => applyAxiomVal ax
@@ -341,6 +342,11 @@ def applyModification (mod : EnvModification) : BinportM Unit := withReader (fun
     | Declaration.defnDecl defn               => applyDefinitionVal defn
     | Declaration.inductDecl lps nps [ind] iu => applyInductiveDecl lps nps ind iu
     | _                                       => throwError "unexpected declaration type"
+
+def applyModificationPost (mod : EnvModification) : BinportM Unit := do
+  match mod with
+  | EnvModification.position n line col => applyPosition n line col
+  | _ => pure ()
 
 def postprocessModule : BinportM Unit := do
   registerStructures
