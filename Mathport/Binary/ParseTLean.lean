@@ -6,7 +6,6 @@ Authors: Daniel Selsam, Gabriel Ebner
 import Lean
 import Std.Data.HashSet
 import Std.Data.HashMap
-import Mathport.Util.While
 import Mathport.Util.Parse
 import Mathport.Binary.Basic
 import Mathport.Binary.EnvModification

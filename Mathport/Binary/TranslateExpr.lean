@@ -13,7 +13,6 @@ As of now, Lean4 uses:
 import Lean
 import Mathport.Util.Misc
 import Mathport.Util.String
-import Mathport.Util.While
 import Mathport.Binary.Basic
 import Mathport.Binary.Number
 import Mathport.Binary.Decode

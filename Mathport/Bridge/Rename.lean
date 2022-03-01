@@ -54,14 +54,12 @@ def resolveIdent? (n3 : Name) (choices : Array Name := #[]) : Option Name :=
     | none => none
     | some target => clipLike target n3
 where
-  clipLike target n3 := 
+  clipLike target n3 :=
     some <| componentsToName <| target.components.drop (target.getNumParts - n3.getNumParts)
 
   componentsToName
     | [] => Name.anonymous
     | (c::cs) => c ++ componentsToName cs
-
-#check resolveIdent?
 
 -- For both binport and synport
 def resolveIdent! (n3 : Name) (choices : Array Name := #[]) : Name :=
