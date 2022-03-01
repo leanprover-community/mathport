@@ -1107,9 +1107,7 @@ def Notation.name (sp : Char) (f : PrecSymbol → String) (withTerm : Bool) (sta
     | Literal.var _ (some ⟨_, Action.prev⟩) => s := s.push sp
     | Literal.var _ (some ⟨_, Action.scoped _ _⟩) => s := s.push sp
     | Literal.var _ (some ⟨_, Action.fold _ _ sep _ _ term⟩) =>
-      -- TODO: restore after lean#687 lands
-      -- s := s.push sp ++ f sep
-      s := s.push sp ++ if withTerm then sep.1.kind.toString else f sep
+      s := s.push sp ++ f sep
       if withTerm then if let some term := term then s := s ++ f term
     | Literal.binder _ => s := s.push sp
     | Literal.binders _ => s := s.push sp
