@@ -5,7 +5,6 @@ Authors: Daniel Selsam
 -/
 import Lean
 import Mathport.Util.Misc
-import Mathport.Util.While
 import Mathport.Bridge.Config
 import Mathport.Binary.Basic
 import Mathport.Binary.NDRec

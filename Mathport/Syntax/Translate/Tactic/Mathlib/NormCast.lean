@@ -22,9 +22,10 @@ open Parser
   | _ => warn! "unsupported (impossible)"
 
 @[trTactic push_cast] def trPushCast : TacM Syntax := do
-  let hs := trSimpList (← trSimpArgs (← parse simpArgList))
-  pure $ mkNode ``Parser.Tactic.pushCast #[mkAtom "push_cast",
-    hs, mkOptionalNode $ ← trLoc (← parse location)]
+  let hs ← trSimpArgs (← parse simpArgList)
+  let hs := if hs.isEmpty then none else some hs
+  let loc ← trLoc (← parse location)
+  `(tactic| push_cast $[[$hs,*]]? $[$loc:location]?)
 
 @[trTactic norm_cast] def trNormCast : TacM Syntax := do
   `(tactic| norm_cast $(← trLoc (← parse location))?)

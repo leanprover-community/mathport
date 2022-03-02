@@ -8,7 +8,6 @@ import Mathport.Syntax.Data4
 import Mathport.Syntax.Translate.Notation
 import Mathport.Syntax.Translate.Attributes
 import Mathport.Syntax.Translate.Parser
-import Mathport.Util.While
 import Mathlib
 
 def Lean.Syntax.getInfo : Syntax → SourceInfo
