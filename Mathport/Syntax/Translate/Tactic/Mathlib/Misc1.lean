@@ -212,19 +212,16 @@ open AST3 Parser
 
 -- # tactic.simpa
 @[trTactic simpa] def trSimpa : TacM Syntax := do
-  let (tac, s) := match ← parse (tk "!")?, ← parse (tk "?")? with
-  | none, none => (``Parser.Tactic.simpa, "simpa")
-  | some _, none => (``Parser.Tactic.simpa!, "simpa!")
-  | none, some _ => (``Parser.Tactic.simpa?, "simpa?")
-  | some _, some _ => (``Parser.Tactic.simpa!?, "simpa!?")
-  let o := if ← parse onlyFlag then mkNullNode #[mkAtom "only"] else mkNullNode
-  let hs := trSimpList (← trSimpArgs (← parse simpArgList))
-  let attrs := (← parse (tk "with" *> ident*)?).getD #[]
+  let unfold := (← parse (tk "!")?).map fun _ => default
+  let squeeze := (← parse (tk "?")?).map fun _ => default
+  let o := if ← parse onlyFlag then some default else none
+  let hs := some (← trSimpArgs (← parse simpArgList)) |>.filter (!·.isEmpty)
+  let attrs := (← parse (tk "with" *> ident*)?).map (·.map mkIdent)
   let e ← liftM $ (← parse (tk "using" *> pExpr)?).mapM trExpr
-  let (cfg, disch) ← parseSimpConfig (← expr?)
-  let cfg ← mkConfigStx $ cfg.bind quoteSimpConfig
-  pure $ mkNode tac #[mkAtom s, cfg, disch, o, hs, trSimpAttrs attrs,
-    mkOptionalNode' e fun e => #[mkAtom "using", e]]
+  let (cfg, disch) ← parseSimpConfigCore (← expr?)
+  let cfg := cfg.bind quoteSimpConfig
+  `(tactic| simpa $[!%$unfold]? $[?%$squeeze]? $[(config := $cfg)]? $[(disch := $disch:tactic)]?
+      $[only%$o]? $[[$hs,*]]? $[with $attrs*]? $[using $e]?)
 
 -- # tactic.split_ifs
 @[trTactic split_ifs] def trSplitIfs : TacM Syntax := do
