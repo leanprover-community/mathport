@@ -287,12 +287,12 @@ where
   | hs => some $ hs.map trIdent_
   `(tactic| injections $[with $hs*]?)
 
-def parseSimpConfig : Option (Spanned AST3.Expr) → M (Option Meta.Simp.Config × Syntax)
-  | none => pure (none, mkNullNode)
-  | some ⟨_, AST3.Expr.«{}»⟩ => pure (none, mkNullNode)
+def parseSimpConfigCore : Option (Spanned AST3.Expr) → M (Option Meta.Simp.Config × Option Syntax)
+  | none => pure (none, none)
+  | some ⟨_, AST3.Expr.«{}»⟩ => pure (none, none)
   | some ⟨_, AST3.Expr.structInst _ none flds #[] false⟩ => do
     let mut cfg : Meta.Simp.Config := {}
-    let mut discharger := #[]
+    let mut discharger := none
     for (⟨_, n⟩, e) in flds do
       match n, e.kind with
       | `max_steps, Expr.nat n => cfg := {cfg with maxSteps := n}
@@ -305,17 +305,23 @@ def parseSimpConfig : Option (Spanned AST3.Expr) → M (Option Meta.Simp.Config 
       | `single_pass, e => cfg := asBool e cfg fun cfg b => {cfg with singlePass := b}
       | `memoize, e => cfg := asBool e cfg fun cfg b => {cfg with memoize := b}
       | `discharger, _ =>
-          let stx ← `(Lean.Parser.Tactic.discharger|
-            (disch := $(← Translate.trTactic (Spanned.dummy <| Tactic.expr e)):tactic))
-          discharger := #[stx]
+          discharger := some (← Translate.trTactic (Spanned.dummy <| Tactic.expr e))
       | _, _ => warn! "warning: unsupported simp config option: {n}"
-    pure (cfg, mkNullNode discharger)
-  | some _ => warn! "warning: unsupported simp config syntax" | pure (none, mkNullNode)
+    pure (cfg, discharger)
+  | some _ => warn! "warning: unsupported simp config syntax" | pure (none, none)
 where
   asBool {α} : AST3.Expr → α → (α → Bool → α) → α
   | AST3.Expr.const ⟨_, `tt⟩ _ _, a, f => f a true
   | AST3.Expr.const ⟨_, `ff⟩ _ _, a, f => f a false
   | _, a, _ => a
+
+def parseSimpConfig (cfg : Option (Spanned AST3.Expr)) : M (Option Meta.Simp.Config × Syntax) := do
+  let (cfg, disch) ← parseSimpConfigCore cfg
+  let disch ← match disch with
+    | none => pure (mkNullNode #[])
+    | some disch =>
+        pure (mkNullNode #[← `(Lean.Parser.Tactic.discharger| (disch := $disch:tactic))])
+  pure (cfg, disch)
 
 def quoteSimpConfig (cfg : Meta.Simp.Config) : Option Syntax := Id.run do
   if cfg == {} then return none
