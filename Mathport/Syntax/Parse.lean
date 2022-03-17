@@ -891,6 +891,7 @@ instance : FromJson RawGoal where
 structure RawTacticState where
   decl : Name
   goals : Array RawGoal
+  pp : Option String -- Note: we do not propagate this to AST3.TacticState
   deriving FromJson
 
 deriving instance FromJson for AST3.Comment
@@ -1015,7 +1016,7 @@ def RawGoal.build : RawGoal → AST3.Goal
   | ⟨hyps, target⟩ => ⟨hyps.map (·.build exprs), exprs[target]⟩
 
 def RawTacticState.build : RawTacticState → Name × Array AST3.Goal
-  | ⟨declName, goals⟩ => (declName, goals.map (·.build exprs))
+  | ⟨declName, goals, _⟩ => (declName, goals.map (·.build exprs))
 
 def RawTacticInvocation.build
   (states : Array (Name × Array AST3.Goal))
