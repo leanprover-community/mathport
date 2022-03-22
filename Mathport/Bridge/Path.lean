@@ -20,9 +20,9 @@ def dot2path (dot : String) : FilePath :=
   System.mkFilePath $ dot.splitOn "."
 
 structure Path.Config where
-  outRoot  : FilePath
-  packages : HashMap String FilePath -- "Mathlib" -> <mathlib3>/src
-  leanPath : List FilePath
+  outRoot  : FilePath := ""
+  packages : HashMap String FilePath := {} -- "Mathlib" -> <mathlib3>/src
+  leanPath : List FilePath := []
   deriving Inhabited, FromJson
 
 structure Path where

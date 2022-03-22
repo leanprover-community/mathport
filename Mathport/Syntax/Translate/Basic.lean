@@ -171,10 +171,10 @@ elab:max "warn!" interpStr:interpolatedStr(term) or:(checkColGt "|" term)? : ter
     $or:term)
 
 def positionToStringPos (pos : Position) : String.Pos :=
-  10000 * pos.line + pos.column -- moderately hacky
+  ⟨10000 * pos.line + pos.column⟩ -- moderately hacky
 
 def stringPosToLine (pos : String.Pos) : Nat :=
-  pos / 10000 -- slightly more hacky
+  pos.byteIdx / 10000 -- slightly more hacky
 
 def withSpan (m : Option Meta) (k : M α) : M α :=
   match m with
@@ -410,8 +410,8 @@ partial def scientificLitOfDecimal (num den : Nat) : Option Syntax :=
     if e == str.length then
       Syntax.mkScientificLit ("0." ++ str)
     else if e < str.length then
-      let mStr := str.extract 0 (str.length - e)
-      let eStr := str.extract (str.length - e) str.length
+      let mStr := str.extract 0 ⟨str.length - e⟩
+      let eStr := str.extract ⟨str.length - e⟩ ⟨str.length⟩
       Syntax.mkScientificLit (mStr ++ "." ++ eStr)
     else
       Syntax.mkScientificLit (str ++ "e-" ++ toString e)
@@ -947,8 +947,7 @@ def trExpr' : Expr → M Syntax
     -- `({$(← trExpr e) | $[$(← trBinders {} bis):bracketedBinder]*})
   | Expr.structInst _ src flds srcs catchall => do
     let srcs := match src with | none => srcs | some src => #[src] ++ srcs
-    let srcs : Array _ ← srcs.mapM fun s => trExpr s
-    let srcs := if srcs.isEmpty then none else some srcs
+    let srcs := (← srcs.mapM (trExpr ·)).asNonempty
     let flds ← flds.mapM fun (lhs, rhs) => do
       let lhsId ← spanningS mkIdentF lhs
       withSpanS (lhs.meta.map fun m => {m with end_ := (rhs.meta.getD m).end_}) do
@@ -1109,8 +1108,7 @@ where
   toSyntax : Modifiers4 → M (SpecialAttrs × Syntax)
   | ⟨doc, (s, attrs), vis, nc, safety⟩ => do
     let doc := mkOptionalNode $ doc.map trDocComment
-    let attrs ← mkOpt (if attrs.isEmpty then none else some attrs) fun attrs =>
-      `(Parser.Term.attributes| @[$attrs,*])
+    let attrs ← mkOpt attrs.asNonempty fun attrs => `(Parser.Term.attributes| @[$attrs,*])
     let vis := mkOptionalNode $ ← match vis with
     | Visibility.regular => pure none
     | Visibility.private => `(Parser.Command.visibility| private)
@@ -1206,7 +1204,7 @@ def trDecl (dk : DeclKind) (mods : Modifiers) (n : Option (Spanned Name)) (us : 
     unless s.derive.isEmpty do warn! "unsupported: @[derive] abbrev"
     `(command| $mods:declModifiers abbrev $id.get! $(← sig false) $val)
   | DeclKind.def => do
-    let ds := match s.derive with | #[] => none | ds => some (ds.map mkIdent)
+    let ds := s.derive.map mkIdent |>.asNonempty
     `(command| $mods:declModifiers def $id.get! $(← sig false) $val $[deriving $ds,*]?)
   | DeclKind.example => do
     unless s.derive.isEmpty do warn! "unsupported: @[derive] example"
@@ -1284,8 +1282,7 @@ def trStructure (cl : Bool) (mods : Modifiers) (n : Spanned Name) (us : LevelDec
   let exts ← exts.mapM fun
     | ⟨_, false, none, ty, #[]⟩ => trExpr ty
     | _ => warn! "unsupported: advanced extends in structure"
-  let exts ← mkOpt (if exts.isEmpty then none else some exts) fun exts =>
-    `(Parser.Command.extends| extends $exts,*)
+  let exts ← mkOpt exts.asNonempty fun exts => `(Parser.Command.extends| extends $exts,*)
   let ty ← mkOptionalNode <$> trOptType ty
   let flds ← @mkNullNode <$> match mk, flds with
   | none, #[] => pure #[]

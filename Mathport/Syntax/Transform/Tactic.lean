@@ -19,6 +19,8 @@ def transformConsecutiveTactics : Syntax → Syntax → M Syntax
     `(tactic| have $[$id:ident]? $[: $ty:term]? := $t)
   | `(tactic| let $id:ident $[: $ty:term]?), `(tactic|· $[$tacs:tactic $[;]?]*) =>
     `(tactic| let $id:ident $[: $ty:term]? := by $[$tacs:tactic]*)
+  | `(tactic| let $[: $ty:term]?), `(tactic|· $[$tacs:tactic $[;]?]*) =>
+    `(tactic| let this $[: $ty:term]? := by $[$tacs:tactic]*)
   | `(tactic| obtain $[$pat]? $[: $ty]?), `(tactic|· $[$tacs:tactic $[;]?]*) =>
     `(tactic| obtain $[$pat]? $[: $ty]? := by $[$tacs:tactic]*)
   | _, _ => throwUnsupported

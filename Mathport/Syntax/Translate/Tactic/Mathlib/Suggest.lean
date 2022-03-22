@@ -12,25 +12,23 @@ namespace Mathport.Translate.Tactic
 open AST3 Parser
 
 -- # tactic.suggest
-def trSuggestUsing (args : Array BinderName) : Syntax :=
-  mkNullNode $ match args with
-  | #[] => #[]
-  | _ => #[mkAtom "using", mkNullNode (args.map trBinderIdent)]
 
 @[trTactic suggest] def trSuggest : TacM Syntax := do
   let n := (← parse (smallNat)?).map Quote.quote
-  let hs := trSimpList (← trSimpArgs (← parse simpArgList))
-  let attrs := (← parse (tk "with" *> ident*)?).getD #[]
-  let use := trSuggestUsing ((← parse (tk "using" *> ident_*)?).getD #[])
-  let cfg ← mkConfigStx $ ← liftM $ (← expr?).mapM trExpr
-  pure $ mkNode ``Parser.Tactic.suggest #[mkAtom "suggest", cfg, hs, trSimpAttrs attrs, use]
+  let hs := (← trSimpArgs (← parse simpArgList)).asNonempty
+  let attrs := (← parse (tk "with" *> ident*)?).getD #[] |>.map mkIdent |>.asNonempty
+  let use := (← parse (tk "using" *> ident_*)?).getD #[] |>.map trBinderIdent |>.asNonempty
+  let cfg ← liftM $ (← expr?).mapM trExpr
+  `(tactic| suggest $[(config := $cfg)]? $(n)? $[[$hs,*]]? $[with $attrs*]? $[using $use*]?)
 
 @[trTactic library_search] def trLibrarySearch : TacM Syntax := do
-  let (tac, s) := match ← parse (tk "!")? with
-  | none => (``Tactic.LibrarySearch.librarySearch', "library_search")
-  | some _ => (``Tactic.LibrarySearch.librarySearch!, "library_search!")
-  let hs := trSimpList (← trSimpArgs (← parse simpArgList))
-  let attrs := (← parse (tk "with" *> ident*)?).getD #[]
-  let use := trSuggestUsing ((← parse (tk "using" *> ident_*)?).getD #[])
-  let cfg ← mkConfigStx $ ← liftM $ (← expr?).mapM trExpr
-  pure $ mkNode tac #[mkAtom s, cfg, hs, trSimpAttrs attrs, use]
+  let bang ← parse (tk "!")?
+  let hs := (← trSimpArgs (← parse simpArgList)).asNonempty
+  let attrs := (← parse (tk "with" *> ident*)?).getD #[] |>.map mkIdent |>.asNonempty
+  let use := (← parse (tk "using" *> ident_*)?).getD #[] |>.map trBinderIdent |>.asNonempty
+  let cfg ← liftM $ (← expr?).mapM trExpr
+  match bang with
+  | none => `(tactic| library_search
+    $[(config := $cfg)]? $[[$hs,*]]? $[with $attrs*]? $[using $use*]?)
+  | some _ => `(tactic| library_search!
+    $[(config := $cfg)]? $[[$hs,*]]? $[with $attrs*]? $[using $use*]?)
