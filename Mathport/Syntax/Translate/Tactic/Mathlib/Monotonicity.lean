@@ -22,21 +22,16 @@ open Parser
   | _ => warn! "unsupported (impossible)"
 
 @[trTactic mono] def trMono : TacM Syntax := do
-  let star := mkOptionalNode' (← parse (tk "*")?) fun _ => #[mkAtom "*"]
+  let star := optTk (← parse (tk "*")?).isSome
   let side ← match ← parse (ident)? with
-  | some `left => pure $ some (mkAtom "left")
-  | some `right => pure $ some (mkAtom "right")
+  | some `left => some <$> `(Lean.Parser.Tactic.mono.side| left)
+  | some `right => some <$> `(Lean.Parser.Tactic.mono.side| right)
   | some `both => pure none
   | none => pure none
   | _ => warn! "unsupported (impossible)"
-  let w ← match ← parse ((tk "with" *> pExprListOrTExpr) <|> pure #[]) with
-  | #[] => pure none
-  | w => liftM $ some <$> w.mapM trExpr
-  let hs ← trSimpArgs (← parse ((tk "using" *> simpArgList) <|> pure #[]))
-  pure $ mkNode ``Parser.Tactic.mono #[mkAtom "mono", star,
-    mkOptionalNode' side fun side => #[mkNode ``Parser.Tactic.mono.side #[side]],
-    mkOptionalNode' w fun w => #[mkAtom "with", (mkAtom ",").mkSep w],
-    mkNullNode $ if hs.isEmpty then #[] else #[mkAtom "using", (mkAtom ",").mkSep hs]]
+  let w := (← (← parse ((tk "with" *> pExprListOrTExpr) <|> pure #[])).mapM (trExpr ·)).asNonempty
+  let hs := (← trSimpArgs (← parse ((tk "using" *> simpArgList) <|> pure #[]))).asNonempty
+  `(tactic| mono $[*%$star]? $(side)? $[with $w,*]? $[using $hs,*]?)
 
 @[trTactic ac_mono] def trAcMono : TacM Syntax := do
   let arity ← parse $

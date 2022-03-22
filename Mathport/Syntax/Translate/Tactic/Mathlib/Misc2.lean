@@ -17,7 +17,7 @@ open AST3 Parser
 -- # tactic.trunc_cases
 @[trTactic trunc_cases] def trTruncCases : TacM Syntax := do
   `(tactic| trunc_cases $(← trExpr (← parse pExpr))
-    $[with $(trWithIdentList (← parse withIdentList))*]?)
+    $[with $(((← parse withIdentList).map trBinderIdent).asNonempty)*]?)
 
 -- # tactic.abel
 @[trTactic abel1] def trAbel1 : TacM Syntax := do
@@ -99,14 +99,13 @@ open AST3 Parser
 
 -- # tactic.field_simp
 @[trTactic field_simp] def trFieldSimp : TacM Syntax := do
-  let o := if ← parse onlyFlag then mkNullNode #[mkAtom "only"] else mkNullNode
-  let hs := trSimpList (← trSimpArgs (← parse simpArgList))
-  let attrs := (← parse (tk "with" *> ident*)?).getD #[]
-  let loc := mkOptionalNode $ ← trLoc (← parse location)
+  let o := optTk (← parse onlyFlag)
+  let hs := (← trSimpArgs (← parse simpArgList)).asNonempty
+  let attrs := (← parse (tk "with" *> ident*)?).getD #[] |>.map mkIdent |>.asNonempty
+  let loc ← trLoc (← parse location)
   let (cfg, disch) ← parseSimpConfig (← expr?)
-  let cfg ← mkConfigStx $ cfg.bind quoteSimpConfig
-  pure $ mkNode ``Parser.Tactic.fieldSimp #[mkAtom "field_simp", cfg, disch,
-    o, hs, trSimpAttrs attrs, loc]
+  let cfg ← mkConfigStx? $ cfg.bind quoteSimpConfig
+  `(tactic| field_simp $(cfg)? $(disch)? $[only%$o]? $[[$hs,*]]? $[with $attrs*]? $(loc)?)
 
 -- # tactic.equiv_rw
 
@@ -205,14 +204,13 @@ attribute [trNITactic try_refl_tac] trControlLawsTac
 -- # logic.nontrivial
 @[trTactic nontriviality] def trNontriviality : TacM Syntax := do
   let t ← liftM $ (← parse (pExpr)?).mapM trExpr
-  let lems ← trSimpArgs (← parse (tk "using" *> simpArgList <|> pure #[]))
-  let lems := if lems.isEmpty then none else some lems
+  let lems := (← trSimpArgs (← parse (tk "using" *> simpArgList <|> pure #[]))).asNonempty
   `(tactic| nontriviality $[$t]? $[using $lems,*]?)
 
 -- # order.filter.basic
 @[trTactic filter_upwards] def trFilterUpwards : TacM Syntax := do
-  let s := match ← (← parse pExprList).mapM (trExpr ·) with | #[] => none | s => some s
-  let wth := trWithIdentList (← parse withIdentList)
+  let s := (← (← parse pExprList).mapM (trExpr ·)).asNonempty
+  let wth := (← parse withIdentList).map trBinderIdent |>.asNonempty
   let tgt ← (← parse (tk "using" *> pExpr)?).mapM (trExpr ·)
   `(tactic| filter_upwards $[[$s:term,*]]? $[with $[$wth:term]*]? $[using $tgt:term]?)
 
@@ -228,15 +226,14 @@ attribute [trNITactic try_refl_tac] trControlLawsTac
 @[trTactic mv_bisim] def trMvBisim : TacM Syntax := do
   `(tactic| mv_bisim
     $[$(← liftM $ (← parse (pExpr)?).mapM trExpr)]?
-    $[with $(trWithIdentList (← parse withIdentList))*]?)
+    $[with $(((← parse withIdentList).map trBinderIdent).asNonempty)*]?)
 
 -- # topology.tactic
 
 @[trUserAttr continuity] def trContinuityAttr := tagAttr `continuity
 
 @[trTactic continuity] def trContinuity : TacM Syntax := do
-  let bang ← parse (tk "!")?
-  let ques ← parse (tk "?")?
+  let bang ← parse (tk "!")?; let ques ← parse (tk "?")?
   let cfg ← liftM $ (← expr?).mapM trExpr
   match bang, ques with
   | none, none => `(tactic| continuity $[(config := $cfg)]?)
@@ -263,8 +260,7 @@ attribute [trNITactic try_refl_tac] trControlLawsTac
 @[trUserAttr measurability] def trMeasurabilityAttr := tagAttr `measurability
 
 @[trTactic measurability] def trMeasurability : TacM Syntax := do
-  let bang ← parse (tk "!")?
-  let ques ← parse (tk "?")?
+  let bang ← parse (tk "!")?; let ques ← parse (tk "?")?
   let cfg ← liftM $ (← expr?).mapM trExpr
   match bang, ques with
   | none, none => `(tactic| measurability $[(config := $cfg)]?)

@@ -19,19 +19,19 @@ def trUsingList (args : Array (Spanned AST3.Expr)) : M Syntax :=
   | args => return #[mkAtom "using", (mkAtom ",").mkSep $ ← args.mapM trExpr]
 
 @[trTactic clarify] def trClarify : TacM Syntax := do
-  let hs := trSimpList (← trSimpArgs (← parse simpArgList))
-  let ps ← trUsingList $ (← parse (tk "using" *> pExprListOrTExpr)?).getD #[]
+  let hs := (← trSimpArgs (← parse simpArgList)).asNonempty
+  let ps := (← (← parse (tk "using" *> pExprListOrTExpr)?).getD #[] |>.mapM (trExpr ·)).asNonempty
   let cfg ← liftM $ (← expr?).mapM trExpr
-  pure $ mkNode ``Parser.Tactic.clarify #[mkAtom "clarify", ← mkConfigStx cfg, hs, ps]
+  `(tactic| clarify $[(config := $cfg)]? $[[$hs,*]]? $[using $ps,*]?)
 
 @[trTactic safe] def trSafe : TacM Syntax := do
-  let hs := trSimpList (← trSimpArgs (← parse simpArgList))
-  let ps ← trUsingList $ (← parse (tk "using" *> pExprListOrTExpr)?).getD #[]
+  let hs := (← trSimpArgs (← parse simpArgList)).asNonempty
+  let ps := (← (← parse (tk "using" *> pExprListOrTExpr)?).getD #[] |>.mapM (trExpr ·)).asNonempty
   let cfg ← liftM $ (← expr?).mapM trExpr
-  pure $ mkNode ``Parser.Tactic.safe #[mkAtom "safe", ← mkConfigStx cfg, hs, ps]
+  `(tactic| safe $[(config := $cfg)]? $[[$hs,*]]? $[using $ps,*]?)
 
 @[trTactic finish] def trFinish : TacM Syntax := do
-  let hs := trSimpList (← trSimpArgs (← parse simpArgList))
-  let ps ← trUsingList $ (← parse (tk "using" *> pExprListOrTExpr)?).getD #[]
+  let hs := (← trSimpArgs (← parse simpArgList)).asNonempty
+  let ps := (← (← parse (tk "using" *> pExprListOrTExpr)?).getD #[] |>.mapM (trExpr ·)).asNonempty
   let cfg ← liftM $ (← expr?).mapM trExpr
-  pure $ mkNode ``Parser.Tactic.finish #[mkAtom "finish", ← mkConfigStx cfg, hs, ps]
+  `(tactic| finish $[(config := $cfg)]? $[[$hs,*]]? $[using $ps,*]?)

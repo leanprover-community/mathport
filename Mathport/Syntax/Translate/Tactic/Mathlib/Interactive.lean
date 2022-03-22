@@ -60,14 +60,11 @@ open AST3 Parser
 @[trTactic clear_] def trClear_ : TacM Syntax := `(tactic| clear_)
 
 @[trTactic replace] def trReplace : TacM Syntax := do
-  let h ← parse (ident)?
-  let h := mkOptionalNode' h fun h => #[mkIdent h, mkNullNode]
-  let ty := mkOptionalNode $ ← trOptType (← parse (tk ":" *> pExpr)?)
+  let h := (← parse (ident)?).map mkIdent
+  let ty ← (← parse (tk ":" *> pExpr)?).mapM (trExpr ·)
   match ← parse (tk ":=" *> pExpr)? with
-  | some pr =>
-    let haveId := mkNode ``Parser.Term.haveIdDecl #[h, ty, mkAtom ":=", ← trExpr pr]
-    `(tactic| replace $haveId:haveIdDecl)
-  | none => pure $ mkNode ``Parser.Tactic.replace' #[mkAtom "replace", h, ty]
+  | some pr => `(tactic| replace $[$h]? $[: $ty]? := $(← trExpr pr))
+  | none =>  `(tactic| replace $[$h]? $[: $ty]?)
 
 @[trTactic classical] def trClassical : TacM Syntax := `(tactic| classical)
 

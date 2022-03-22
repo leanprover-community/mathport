@@ -17,44 +17,49 @@ open Parser
   `(tactic| squeeze_scope $(← trBlock (← itactic)):tacticSeq)
 
 @[trTactic squeeze_simp] def trSqueezeSimp : TacM Syntax := do
-  let (tac, s) := match ← parse_0 $ parse (tk "?")?, ← parse (tk "!")? with
-  | none, none => (``Parser.Tactic.squeezeSimp, "squeeze_simp")
-  | none, some _ => (``Parser.Tactic.squeezeSimp?, "squeeze_simp?")
-  | some _, none => (``Parser.Tactic.squeezeSimp!, "squeeze_simp!")
-  | some _, some _ => (``Parser.Tactic.squeezeSimp?!, "squeeze_simp?!")
-  let o := if ← parse onlyFlag then mkNullNode #[mkAtom "only"] else mkNullNode
-  let hs := trSimpList (← trSimpArgs (← parse simpArgList))
-  let attrs := (← parse (tk "with" *> ident*)?).getD #[]
-  let loc := mkOptionalNode $ ← trLoc (← parse location)
+  let ques ← parse_0 $ parse (tk "?")?; let bang ← parse (tk "!")?
+  let o := optTk (← parse onlyFlag)
+  let hs := (← trSimpArgs (← parse simpArgList)).asNonempty
+  let attrs := (← parse (tk "with" *> ident*)?).getD #[] |>.map mkIdent |>.asNonempty
+  let loc ← trLoc (← parse location)
   let (cfg, disch) ← parseSimpConfig <| (← parse (structInst)?).map Spanned.dummy
-  let cfg ← mkConfigStx $ cfg.bind quoteSimpConfig
-  pure $ mkNode tac #[mkAtom s, cfg, disch, o, hs, trSimpAttrs attrs, loc]
+  let cfg ← mkConfigStx? $ cfg.bind quoteSimpConfig
+  let rest ← `(Lean.Parser.Tactic.squeezeSimpArgsRest|
+    $[$cfg:config]? $(disch)? $[only%$o]? $[[$hs,*]]? $[with $attrs*]? $[$loc:location]?)
+  match ques, bang with
+  | none, none => `(tactic| squeeze_simp $rest)
+  | none, some _ => `(tactic| squeeze_simp? $rest)
+  | some _, none => `(tactic| squeeze_simp! $rest)
+  | some _, some _ => `(tactic| squeeze_simp!? $rest)
 
 @[trTactic squeeze_simpa] def trSqueezeSimpa : TacM Syntax := do
-  let (tac, s) := match ← parse_0 $ parse (tk "?")?, ← parse (tk "!")? with
-  | none, none => (``Parser.Tactic.squeezeSimpa, "squeeze_simpa")
-  | none, some _ => (``Parser.Tactic.squeezeSimpa?, "squeeze_simpa?")
-  | some _, none => (``Parser.Tactic.squeezeSimpa!, "squeeze_simpa!")
-  | some _, some _ => (``Parser.Tactic.squeezeSimpa?!, "squeeze_simpa?!")
-  let o := if ← parse onlyFlag then mkNullNode #[mkAtom "only"] else mkNullNode
-  let hs := trSimpList (← trSimpArgs (← parse simpArgList))
-  let attrs := (← parse (tk "with" *> ident*)?).getD #[]
+  let ques ← parse_0 $ parse (tk "?")?; let bang ← parse (tk "!")?
+  let o := optTk (← parse onlyFlag)
+  let hs := (← trSimpArgs (← parse simpArgList)).asNonempty
+  let attrs := (← parse (tk "with" *> ident*)?).getD #[] |>.map mkIdent |>.asNonempty
   let e ← liftM $ (← parse (tk "using" *> pExpr)?).mapM trExpr
   let (cfg, disch) ← parseSimpConfig <| (← parse (structInst)?).map Spanned.dummy
-  let cfg ← mkConfigStx $ cfg.bind quoteSimpConfig
-  pure $ mkNode tac #[mkAtom s, cfg, disch, o, hs, trSimpAttrs attrs,
-    mkOptionalNode' e fun e => #[mkAtom "using", e]]
+  let cfg ← mkConfigStx? $ cfg.bind quoteSimpConfig
+  let rest ← `(Mathlib.Tactic.simpaArgsRest|
+    $[$cfg:config]? $(disch)? $[only%$o]? $[[$hs,*]]? $[with $attrs*]? $[using $e]?)
+  match ques, bang with
+  | none, none => `(tactic| squeeze_simpa $rest)
+  | none, some _ => `(tactic| squeeze_simpa? $rest)
+  | some _, none => `(tactic| squeeze_simpa! $rest)
+  | some _, some _ => `(tactic| squeeze_simpa!? $rest)
 
 @[trTactic squeeze_dsimp] def trSqueezeDSimp : TacM Syntax := do
-  let (tac, s) := match ← parse_0 $ parse (tk "?")?, ← parse (tk "!")? with
-  | none, none => (``Parser.Tactic.squeezeDSimp, "squeeze_dsimp")
-  | none, some _ => (``Parser.Tactic.squeezeDSimp?, "squeeze_dsimp?")
-  | some _, none => (``Parser.Tactic.squeezeDSimp!, "squeeze_dsimp!")
-  | some _, some _ => (``Parser.Tactic.squeezeDSimp?!, "squeeze_dsimp?!")
-  let o := if ← parse onlyFlag then mkNullNode #[mkAtom "only"] else mkNullNode
-  let hs := trSimpList (← trSimpArgs (← parse simpArgList))
-  let attrs := (← parse (tk "with" *> ident*)?).getD #[]
-  let loc := mkOptionalNode $ ← trLoc (← parse location)
+  let ques ← parse_0 $ parse (tk "?")?; let bang ← parse (tk "!")?
+  let o := optTk (← parse onlyFlag)
+  let hs := (← trSimpArgs (← parse simpArgList)).asNonempty
+  let attrs := (← parse (tk "with" *> ident*)?).getD #[] |>.map mkIdent |>.asNonempty
+  let loc ← trLoc (← parse location)
   let (cfg, _) ← parseSimpConfig <| (← parse (structInst)?).map Spanned.dummy
-  let cfg ← mkConfigStx $ cfg.bind quoteSimpConfig
-  pure $ mkNode tac #[mkAtom s, cfg, o, hs, trSimpAttrs attrs, loc]
+  let cfg ← mkConfigStx? $ cfg.bind quoteSimpConfig
+  let rest ← `(Lean.Parser.Tactic.squeezeDSimpArgsRest|
+    $[$cfg:config]? $[only%$o]? $[[$hs,*]]? $[with $attrs*]? $[$loc:location]?)
+  match ques, bang with
+  | none, none => `(tactic| squeeze_dsimp $rest)
+  | none, some _ => `(tactic| squeeze_dsimp? $rest)
+  | some _, none => `(tactic| squeeze_dsimp! $rest)
+  | some _, some _ => `(tactic| squeeze_dsimp!? $rest)

@@ -19,10 +19,9 @@ open AST3 Parser
   | _, _, _ => warn! "unsupported: apply_assumption arguments" -- unattested
 
 @[trTactic solve_by_elim] def trSolveByElim : TacM Syntax := do
-  let star := mkOptionalNode $ (← parse (tk "*")?).map fun _ => mkAtom "*"
-  let o := if ← parse onlyFlag then mkNullNode #[mkAtom "only"] else mkNullNode
-  let hs := trSimpList (← trSimpArgs (← parse simpArgList))
-  let attrs := (← parse (tk "with" *> ident*)?).getD #[]
-  let cfg ← liftM $ (← expr?).mapM trExpr
-  pure $ mkNode ``Lean.Tactic.solveByElim #[mkAtom "solve_by_elim",
-    star, ← mkConfigStx cfg, o, hs, trSimpAttrs attrs]
+  let star := optTk (← parse (tk "*")?).isSome
+  let o := optTk (← parse onlyFlag)
+  let hs := (← trSimpArgs (← parse simpArgList)).asNonempty
+  let attrs := (← parse (tk "with" *> ident*)?).getD #[] |>.map mkIdent |>.asNonempty
+  let cfg ← mkConfigStx? (← liftM $ (← expr?).mapM trExpr)
+  `(tactic| solve_by_elim $[*%$star]? $[only%$o]? $[[$hs,*]]? $[with $attrs*]?)

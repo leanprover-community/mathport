@@ -105,6 +105,8 @@ def optPExprList := listOf pExpr <|> pure #[]
 def pExprListOrTExpr := maybeListOf pExpr
 def onlyFlag := (tk "only" *> pure true) <|> pure false
 
+def optTk (yes : Bool) : Option Syntax := if yes then some default else none
+
 def parseBinders : ParserM Binders := do let ⟨_, VMCall.binders bis⟩ ← next | failure; pure bis
 
 def inductiveDecl : ParserM InductiveCmd := do

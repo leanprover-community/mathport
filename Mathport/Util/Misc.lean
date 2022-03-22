@@ -130,6 +130,10 @@ def List.splitAt' {α} (xs : List α) (i : Nat) : List α × List α :=
 def Array.splitAt {α} (xs : Array α) (i : Nat) : Array α × Array α :=
   ((xs.toList.take i).toArray, (xs.toList.drop i).toArray)
 
+def Array.asNonempty : Array α → Option (Array α)
+  | #[] => none
+  | hs => some hs
+
 -- TODO: faster version
 def Std.HashMap.insertWith [Hashable α] [BEq α] (m : HashMap α β) (merge : β → β → β) (a : α) (b : β) : HashMap α β :=
   match m.find? a with

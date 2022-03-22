@@ -24,10 +24,10 @@ inductive CapsKind
   | pascal
 
 def getCapsKind (snake : String) : CapsKind := Id.run do
-  let mut s := snake
-  let startPos := if s.startsWith "_" then 1 else 0
-  let stopPos  := if s.endsWith "_" then s.length - 1 else s.length
-  s := Substring.mk s startPos stopPos |>.toString
+  let s := snake
+  let startPos := if s.startsWith "_" then ⟨1⟩ else 0
+  let stopPos  := if s.endsWith "_" then s.endPos - ⟨1⟩ else s.endPos
+  let s := Substring.mk s startPos stopPos
   if s.contains '_' then CapsKind.snake
   else if s.front == s.front.toLower then CapsKind.camel
   else CapsKind.pascal
