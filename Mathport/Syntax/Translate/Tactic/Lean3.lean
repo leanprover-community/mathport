@@ -228,8 +228,9 @@ where
   let h := (← parse (ident)?).filter (· != `this) |>.map mkIdent
   let ty ← (← parse (tk ":" *> pExpr)?).mapM (trExpr ·)
   match ← parse (tk ":=" *> pExpr)? with
-  | some pr =>
-    `(tactic| let $(h.getD $ Id.run `(this)) $[: $ty:term]? := $(← trExpr pr))
+  | some pr => match h with
+    | some h => `(tactic| let $h:ident $[: $ty:term]? := $(← trExpr pr))
+    | none => `(tactic| let this $[: $ty:term]? := $(← trExpr pr))
   | none =>
     `(tactic| let $[$h:ident]? $[: $ty:term]?)
 
