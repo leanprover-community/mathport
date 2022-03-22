@@ -103,10 +103,9 @@ open AST3 Parser
   let hs := (← trSimpArgs (← parse simpArgList)).asNonempty
   let attrs := (← parse (tk "with" *> ident*)?).getD #[] |>.map mkIdent |>.asNonempty
   let loc ← trLoc (← parse location)
-  let (cfg, disch) ← parseSimpConfigCore (← expr?)
+  let (cfg, disch) ← parseSimpConfig (← expr?)
   let cfg ← mkConfigStx? $ cfg.bind quoteSimpConfig
-  `(tactic| field_simp $(cfg)? $[(disch := $disch:tactic)]?
-    $[only%$o]? $[[$hs,*]]? $[with $attrs*]? $(loc)?)
+  `(tactic| field_simp $(cfg)? $(disch)? $[only%$o]? $[[$hs,*]]? $[with $attrs*]? $(loc)?)
 
 -- # tactic.equiv_rw
 

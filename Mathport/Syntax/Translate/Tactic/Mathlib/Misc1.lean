@@ -215,10 +215,10 @@ open AST3 Parser
   let hs := (← trSimpArgs (← parse simpArgList)).asNonempty
   let attrs := (← parse (tk "with" *> ident*)?).getD #[] |>.map mkIdent |>.asNonempty
   let e ← liftM $ (← parse (tk "using" *> pExpr)?).mapM trExpr
-  let (cfg, disch) ← parseSimpConfigCore (← expr?)
+  let (cfg, disch) ← parseSimpConfig (← expr?)
+  let cfg ← mkConfigStx? (cfg.bind quoteSimpConfig)
   let rest ← `(Mathlib.Tactic.simpaArgsRest|
-    $[(config := $(cfg.bind quoteSimpConfig))]? $[(disch := $disch:tactic)]?
-    $[only%$o]? $[[$hs,*]]? $[with $attrs*]? $[using $e]?)
+    $[$cfg:config]? $(disch)? $[only%$o]? $[[$hs,*]]? $[with $attrs*]? $[using $e]?)
   match unfold, squeeze with
   | none, none => `(tactic| simpa $rest)
   | none, some _ => `(tactic| simpa? $rest)
