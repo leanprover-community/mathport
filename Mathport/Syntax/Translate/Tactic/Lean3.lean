@@ -83,9 +83,6 @@ def trLoc (loc : Location) : M (Option Syntax) := do
 @[trTactic revert] def trRevert : TacM Syntax := do
   `(tactic| revert $[$((← parse ident*).map mkIdent)]*)
 
-@[trTactic to_expr'] def trToExpr' : TacM Syntax := do
-  `(tactic| to_expr' $(← trExpr (← parse pExpr)))
-
 def trRwRule (r : RwRule) : M Syntax :=
   return mkNode ``Parser.Tactic.rwRule #[
     mkOptionalNode $ if r.symm then some (mkAtom "←") else none,

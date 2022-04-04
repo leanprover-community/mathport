@@ -22,8 +22,7 @@ open Parser
   | _ => warn! "unsupported (impossible)"
 
 @[trTactic push_cast] def trPushCast : TacM Syntax := do
-  let hs ← trSimpArgs (← parse simpArgList)
-  let hs := if hs.isEmpty then none else some hs
+  let hs := (← trSimpArgs (← parse simpArgList)).asNonempty
   let loc ← trLoc (← parse location)
   `(tactic| push_cast $[[$hs,*]]? $[$loc:location]?)
 
