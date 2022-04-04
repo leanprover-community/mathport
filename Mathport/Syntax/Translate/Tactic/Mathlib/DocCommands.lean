@@ -13,9 +13,10 @@ open AST3 Parser
 
 -- # tactic.doc_commands
 
-@[trUserCmd «copy_doc_string»] def trCopyDocString : TacM Syntax := do
+@[trUserCmd «copy_doc_string»] def trCopyDocString : TacM Unit := do
   let (fr, to_) ← parse $ return (← ident, ← tk "->" *> ident*)
-  `(command| copy_doc_string $(← mkIdentI fr) → $(← liftM $ to_.mapM mkIdentI)*)
+  unless to_.isEmpty do
+    pushM `(command| copy_doc_string $(← mkIdentI fr) → $(← liftM $ to_.mapM mkIdentI)*)
 
 @[trUserCmd «library_note»] def trLibraryNote (doc : Option String) : TacM Syntax := do
   let ⟨_, Expr.string s⟩ ← parse pExpr | warn! "unsupported: weird string"

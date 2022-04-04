@@ -96,8 +96,10 @@ open AST3 Parser
 
 -- # tactic.localized
 
-@[trUserCmd «open_locale»] def trOpenLocale : TacM Syntax := do
-  `(command| open_locale $(← liftM $ (← parse (ident* <* skipAll)).mapM mkIdentN)*)
+@[trUserCmd «open_locale»] def trOpenLocale : TacM Unit := do
+  let ids ← parse (ident* <* skipAll)
+  unless ids.isEmpty do
+    pushM `(command| open $[$(← liftM $ ids.mapM mkIdentN)]*)
 
 @[trUserCmd «localized»] def trLocalized : TacM Unit := do
   let (#[cmd], loc) ← parse $ return (← pExpr *> emittedCodeHere, ← tk "in" *> ident)
