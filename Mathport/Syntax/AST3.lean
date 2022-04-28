@@ -200,11 +200,14 @@ inductive InferKind | implicit | relaxedImplicit | none
 
 instance : Inhabited InferKind := ⟨InferKind.relaxedImplicit⟩
 
+instance : ToString InferKind where
+  toString
+  | InferKind.implicit => "[]"
+  | InferKind.relaxedImplicit => "{}"
+  | InferKind.none => "( )"
+
 instance : Repr InferKind where
-  reprPrec
-  | InferKind.implicit, _ => "[]"
-  | InferKind.relaxedImplicit, _ => "{}"
-  | InferKind.none, _ => "( )"
+  reprPrec ik _ := toString ik
 
 def InferKind.optRepr : Option InferKind → Format
   | Option.none => ""

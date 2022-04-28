@@ -62,6 +62,11 @@ def BinportM.toIO (x : BinportM α) (ctx : Context) (st : State) : Elab.Command.
   ((x ctx).run' st).toIO
 
 def BinportM.runIO (x : BinportM α) (ctx : Context) (env : Environment) : IO α := do
-  toIO x ctx {} { fileName := ctx.path.toLean3 ctx.config.pathConfig "lean" |>.toString, fileMap := dummyFileMap } (Lean.Elab.Command.mkState env)
+  let elabCtx := {
+    fileName := ctx.path.toLean3 ctx.config.pathConfig "lean" |>.toString
+    fileMap := dummyFileMap
+    tacticCache? := none
+  }
+  toIO x ctx {} elabCtx (Lean.Elab.Command.mkState env)
 
 end Mathport.Binary

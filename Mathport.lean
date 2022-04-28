@@ -33,7 +33,11 @@ def mathport1 (config : Config) (path : Path) : IO Unit := do
   try
     withImportModulesConst imports.toList (opts := opts) (trustLevel := 0) $ λ env => do
       let env := env.setMainModule path.mod4
-      let cmdCtx : Elab.Command.Context := { fileName := path.toLean3 pcfg ".lean" |>.toString, fileMap := dummyFileMap }
+      let cmdCtx : Elab.Command.Context := {
+        fileName := path.toLean3 pcfg ".lean" |>.toString
+        fileMap := dummyFileMap
+        tacticCache? := none
+      }
       let cmdState : Elab.Command.State := Lean.Elab.Command.mkState (env := env) (opts := opts)
 
       CommandElabM.toIO (ctx := cmdCtx) (s := cmdState) do

@@ -160,18 +160,23 @@ open AST3 Parser
 
 attribute [trTactic change'] trChange
 
+open Mathlib.Tactic in
 @[trTactic set] def trSet : TacM Syntax := do
   let hSimp := (← parse (tk "!")?).isSome
   let a ← parse ident
   let ty ← parse (tk ":" *> pExpr)?
   let val ← parse (tk ":=") *> parse pExpr
   let revName ← parse (tk "with" *> return (← (tk "<-")?, ← ident))?
-  let revName := mkOptionalNode' revName fun (flip, id) =>
-    #[mkAtom "with", mkOptionalNode' flip fun _ => #[mkAtom "←"], mkIdent id]
-  let (tac, s) := if hSimp then (``Parser.Tactic.set!, "set!") else (``Parser.Tactic.set, "set")
-  pure $ mkNode tac #[mkAtom s, mkIdent a,
-    ← mkOptionalNodeM ty fun ty => return #[mkAtom ":", ← trExpr ty],
-    mkAtom ":=", ← trExpr val, revName]
+  let (rev, name) := match revName with
+    | none => (none, none)
+    | some (rev, name) => (some (optTk rev.isSome), some (mkIdent name))
+  let ty ← ty.mapM (trExpr ·)
+  let val ← trExpr val
+  let args ← `(setArgsRest| $(mkIdent a):ident $[: $ty]? := $val $[with $[←%$rev]? $name]?)
+  if hSimp then
+    `(tactic| set! $args:setArgsRest)
+  else
+    `(tactic| set $args:setArgsRest)
 
 @[trTactic clear_except] def trClearExcept : TacM Syntax := do
   `(tactic| clear* - $((← parse ident*).map mkIdent)*)
