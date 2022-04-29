@@ -25,7 +25,8 @@
         "coe_t",
         "coe_fn_b"
     ],
-    "defEqConstructions": [
+    "defEqConstructions": [],
+    "defEqConstructions-disabled-because-sometimes-different-in-lean4": [
         "casesOn",
         "noConfusion",
         "ibelow",
