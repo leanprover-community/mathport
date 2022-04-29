@@ -319,7 +319,8 @@ def applyPosition (n : Name) (line col : Nat) : BinportM Unit := do
           endPos := { line := line, column := col },
           endCharUtf16 := col}
   if let some n ← lookupNameExt n then
-    Lean.addDeclarationRanges n range
+    if let none := (← getEnv).getModuleIdxFor? n then
+      Lean.addDeclarationRanges n range
 
 def applyModification (mod : EnvModification) : BinportM Unit := withReader (fun ctx => { ctx with currDecl := mod.toName }) do
   println! "[apply] {mod}"

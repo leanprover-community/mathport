@@ -25,7 +25,10 @@ def mathport1 (config : Config) (path : Path) : IO Unit := do
 
   if imports.isEmpty then imports := #[{ module := `Mathlib : Import }]
 
-  let opts := ({} : Options) |>.setNat `maxRecDepth 2000 |>.setNat `maxHeartbeats 400000
+  let opts := ({} : Options)
+    |>.setNat `maxRecDepth 2000
+    |>.setNat `maxHeartbeats 400000
+    |>.setBool `pp.rawOnError true
 
   try
     withImportModulesConst imports.toList (opts := opts) (trustLevel := 0) $ λ env => do
@@ -41,7 +44,7 @@ def mathport1 (config : Config) (path : Path) : IO Unit := do
 
       println! "\n[mathport] END   {path.mod3}\n"
   catch err =>
-    throw $ IO.userError s!"failed to import environment for {path.package}:{path.mod4} with imports {imports.toList}: {err}"
+    throw $ IO.userError s!"failed to port {path.package}:{path.mod4} with imports {imports.toList}:\n{err}"
 
 def bindTasks (deps : Array Task) (k? : Option (Unit → IO Task)) : IO Task := do
   if deps.isEmpty then k?.getD (fun _ => pure $ Task.pure (Except.ok ())) () else
