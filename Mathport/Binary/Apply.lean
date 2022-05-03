@@ -17,6 +17,9 @@ namespace Mathport.Binary
 open Std (HashMap HashSet)
 open Lean Lean.Meta Lean.Elab Lean.Elab.Command
 
+def inCurrentModule [Monad M] [MonadEnv M] (n : Name) : M Bool :=
+  return (← getEnv).getModuleIdxFor? n |>.isNone
+
 def printIndType (lps : List Name) (indType : InductiveType) : BinportM Unit := do
   println! "[inductive] {indType.name}.\{{lps}}. : {indType.type}"
   for ctor in indType.ctors do
@@ -167,6 +170,7 @@ def applyProjection (proj : ProjectionInfo) : BinportM Unit := do
     let projName ← lookupNameExt! proj.projName
     let ctorName ← lookupNameExt! proj.ctorName
     let structName := ctorName.getPrefix
+    unless ← inCurrentModule structName do return
     setEnv $ addProjectionFnInfo (← getEnv) projName ctorName proj.nParams proj.index proj.fromClass
     let descr := (← get).structures.findD structName ⟨structName, #[]⟩
     match (← getEnv).find? ctorName with
@@ -318,7 +322,7 @@ def applyPosition (n : Name) (line col : Nat) : BinportM Unit := do
           endPos := { line := line, column := col },
           endCharUtf16 := col}
   if let some n ← lookupNameExt n then
-    if let none := (← getEnv).getModuleIdxFor? n then
+    if ← inCurrentModule n then
       Lean.addDeclarationRanges n range
 
 def applyModification (mod : EnvModification) : BinportM Unit := withReader (fun ctx => { ctx with currDecl := mod.toName }) do
