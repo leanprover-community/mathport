@@ -109,7 +109,7 @@ where
     if e.isAppOfArity ap4 2 then do
       let level    := e.getAppFn.constLevels!.head!
       let type     := e.getArg! 0
-      let tacName3 ← Meta.reduce (e.getArg! 1)
+      let tacName3 := e.getArg! 1
       try
         let tacName3 ← decodeName tacName3
         let tacName ← mkCandidateLean4NameForKindIO tacName3 ExprKind.eDef
