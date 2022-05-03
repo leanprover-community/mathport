@@ -8,47 +8,38 @@ import Mathport.Bridge.Rename
 
 namespace Mathport.Binary
 
-open Lean
+open Lean Meta
 
 -- Awkward: this section refers to names that are created during the port
 
 def decodeChar (e : Expr) : MetaM Char := do
+  let e ← whnf e
   let char34 := Rename.resolveIdent! (← getEnv) `char
   if e.isAppOfArity (char34 ++ `mk) 2 then
-    match (e.getArg! 0).natLit? with
-    | some n => pure $ Char.ofNat n
-    | _ => throwError "[decodeChar] failed on {e}"
-  else
-    throwError "[decodeChar] failed on {e}"
-
-partial def decodeStringCore (e : Expr) : MetaM String := do
-  let list34 := Rename.resolveIdent! (← getEnv) `list
-  if e.isAppOfArity (list34 ++ `nil) 1 then
-    pure ""
-  else if e.isAppOfArity (list34 ++ `cons) 3 then
-    let s ← decodeStringCore (e.getArg! 2)
-    let c ← decodeChar (e.getArg! 1)
-    pure ⟨c :: s.data⟩
-  else
-    throwError "[decodeStringCore] failed on {e}"
+    if let some n := (← whnf (e.getArg! 0)).natLit? then
+      return Char.ofNat n
+  throwError "[decodeChar] failed on {e}"
 
 def decodeUnsigned (e : Expr) : MetaM Nat := do
   let fin34 := Rename.resolveIdent! (← getEnv) `fin
+  let e ← whnf e
   if e.isAppOfArity (fin34 ++ `mk) 2 then
-    match (e.getArg! 0).natLit? with
-    | some n => pure n
-    | _ => throwError "[decodeUInt32] failed on {e}"
-  else
-    throwError "[decodeUInt32] failed on {e}"
+    if let some n := (← whnf (e.getArg! 0)).natLit? then
+      return n
+  throwError "[decodeUInt32] failed on {e}"
 
-def decodeString (e : Expr) : MetaM String := do
-  let stringImp34 := Rename.resolveIdent! (← getEnv) `string_imp
-  if e.isAppOfArity (stringImp34 ++ `mk) 1 then
-    decodeStringCore (e.getArg! 0)
-  else throwError "[decodeString] failed on {e}"
+partial def decodeString (e : Expr) : MetaM String := do
+  let stringStr34 := Rename.resolveIdent! (← getEnv) `string.str
+  let stringEmpty34 := Rename.resolveIdent! (← getEnv) `string.empty
+  if e.isAppOfArity stringStr34 2 then
+    return (← decodeString (e.getArg! 0)).push (← decodeChar (e.getArg! 1))
+  else if e.isConstOf stringEmpty34 then
+    return ""
+  throwError "[decodeString] failed on {e}"
 
 partial def decodeName (e : Expr) : MetaM Name := do
   let name34 := Rename.resolveIdent! (← getEnv) `name
+  let e ← whnf e
   if e.isAppOfArity (name34 ++ `anonymous) 0 then
     return Name.anonymous
   if e.isAppOfArity (name34 ++ `mk_string) 2 then

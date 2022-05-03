@@ -54,6 +54,5 @@
     ],
     "sorries": [],
     "skipProofs": false,
-    "parallel" : true,
     "error2warning" : false
 }

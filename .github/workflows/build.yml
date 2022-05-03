@@ -50,7 +50,7 @@ jobs:
         run: make lean3-predata
 
       - name: run mathport on Lean 3
-        run: env LEAN_NUM_THREADS=4 time -v make port-lean
+        run: env time -v make port-lean
 
       - name: prepare predata for mathlib
         run: make mathbin-predata
@@ -61,7 +61,7 @@ jobs:
           find sources -name "*.olean" -delete
 
       - name: run mathport on mathlib
-        run: env LEAN_NUM_THREADS=4 time -v make port-mathbin
+        run: env time -v make port-mathbin
 
       - name: prepare tarballs for release
         run: make tarballs

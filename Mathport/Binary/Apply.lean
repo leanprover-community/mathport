@@ -17,6 +17,9 @@ namespace Mathport.Binary
 open Std (HashMap HashSet)
 open Lean Lean.Meta Lean.Elab Lean.Elab.Command
 
+def inCurrentModule [Monad M] [MonadEnv M] (n : Name) : M Bool :=
+  return (← getEnv).getModuleIdxFor? n |>.isNone
+
 def printIndType (lps : List Name) (indType : InductiveType) : BinportM Unit := do
   println! "[inductive] {indType.name}.\{{lps}}. : {indType.type}"
   for ctor in indType.ctors do
@@ -167,6 +170,7 @@ def applyProjection (proj : ProjectionInfo) : BinportM Unit := do
     let projName ← lookupNameExt! proj.projName
     let ctorName ← lookupNameExt! proj.ctorName
     let structName := ctorName.getPrefix
+    unless ← inCurrentModule structName do return
     setEnv $ addProjectionFnInfo (← getEnv) projName ctorName proj.nParams proj.index proj.fromClass
     let descr := (← get).structures.findD structName ⟨structName, #[]⟩
     match (← getEnv).find? ctorName with
@@ -180,12 +184,11 @@ where
     match projName, projName3 with
     | Name.str _ fieldName .., Name.str _ fieldName3 .. =>
       pure {
-        fieldName := fieldName,
-        projFn := projName,
-        subobject? := getSubobject? numParams ctorType fieldName3,
+        fieldName
+        projFn := projName
+        subobject? := getSubobject? numParams ctorType fieldName3
         -- TODO: what to put here?
-        binderInfo := BinderInfo.default,
-        inferMod   := false
+        binderInfo := BinderInfo.default
       }
     | _, _ => throwError "unexpected projName with num field: {projName}"
 
@@ -319,7 +322,7 @@ def applyPosition (n : Name) (line col : Nat) : BinportM Unit := do
           endPos := { line := line, column := col },
           endCharUtf16 := col}
   if let some n ← lookupNameExt n then
-    if let none := (← getEnv).getModuleIdxFor? n then
+    if ← inCurrentModule n then
       Lean.addDeclarationRanges n range
 
 def applyModification (mod : EnvModification) : BinportM Unit := withReader (fun ctx => { ctx with currDecl := mod.toName }) do
@@ -355,7 +358,7 @@ where
     for (structName, structDescr) in (← get).structures.toList do
       modifyEnv fun env => registerStructure env structDescr
       println! "[registerStructure] {structName}"
-      for ⟨fieldName, projName, subobject?, _, _⟩ in structDescr.fields do
-        println! "[registerStructure.field] {structName} {fieldName} {projName} {subobject?}"
+      for { fieldName, projFn, subobject?, .. } in structDescr.fields do
+        println! "[registerStructure.field] {structName} {fieldName} {projFn} {subobject?}"
 
 end Mathport.Binary

@@ -160,7 +160,7 @@ instance (priority := high) [Monad m] : Warnable <| m Syntax where
   warn s := pure $ Syntax.mkStrLit s
 
 open Lean Elab in
-elab:max "warn!" interpStr:interpolatedStr(term) or:(checkColGt "|" term)? : term <= ty => do
+elab:max "warn!" interpStr:interpolatedStr(term) or:((checkColGt "|" term)?) : term <= ty => do
   let pos ← Elab.getRefPosition
   let head := Syntax.mkStrLit $ mkErrorStringWithPos (← read).fileName pos ""
   let str ← Elab.liftMacroM <| interpStr.expandInterpolatedStr (← `(String)) (← `(toString))
@@ -1006,7 +1006,7 @@ def trAttr (prio : Option Expr) : Attribute → M (Option TrAttr)
     | `simp,          none => `(attr| simp)
     | `recursor,      some ⟨_, AttrArg.indices #[]⟩ => warn! "unsupported: @[recursor]"
     | `recursor,      some ⟨_, AttrArg.indices #[⟨_, n⟩]⟩ =>
-      `(attr| recursor $(Quote.quote n):numLit)
+      `(attr| recursor $(Quote.quote n):num)
     | `intro,         none => `(attr| intro)
     | `intro,         some ⟨_, AttrArg.eager⟩ => `(attr| intro!)
     | `refl,          none => pure $ mkSimpleAttr `refl
@@ -1218,12 +1218,6 @@ def trDecl (dk : DeclKind) (mods : Modifiers) (n : Option (Spanned Name)) (us : 
       `(Parser.Command.namedPrio| (priority := $(← trPrio prio)))
     `(command| $mods:declModifiers instance $[$prio:namedPrio]? $[$id:declId]? $(← sig true) $val)
 
-def trInferKind : Option InferKind → M (Option Syntax)
-  | some InferKind.implicit => `(Parser.Command.inferMod | {})
-  | some InferKind.relaxedImplicit => `(Parser.Command.inferMod | {})
-  | some InferKind.none => pure none
-  | none => pure none
-
 def trOptDeriving : Array Name → M Syntax
   | #[] => `(Parser.Command.optDeriving|)
   | ds => `(Parser.Command.optDeriving| deriving $[$(ds.map mkIdent):ident],*)
@@ -1235,10 +1229,10 @@ def trInductive (cl : Bool) (mods : Modifiers) (n : Spanned Name) (us : LevelDec
   let id ← trDeclId n.kind us
   let sig ← trDeclSig false bis ty
   let ctors ← intros.mapM fun ⟨m, ⟨doc, name, ik, bis, ty⟩⟩ => withSpanS m do
+    if let some ik := ik then warn! "infer kinds are unsupported in Lean 4: {name.2} {ik}"
     `(Parser.Command.ctor| |
       $[$(doc.map trDocComment):docComment]?
       $(← mkIdentI name.kind):ident
-      $[$(← trInferKind ik):inferMod]?
       $(← trDeclSig false bis ty):optDeclSig)
   let ds ← trOptDeriving s.derive
   match cl with
@@ -1253,20 +1247,20 @@ def trMutual (decls : Array (Mutual α)) (f : Mutual α → M Syntax) : M Unit :
 def trField : Spanned Field → M (Array Syntax) := spanning fun
   | Field.binder bi ns ik bis ty dflt => do
     let ns ← ns.mapM fun n => mkIdentF n.kind
-    let im ← trInferKind ik
+    if let some ik := ik then warn! "infer kinds are unsupported in Lean 4: {ns} {ik}"
     let sig req := trDeclSig req bis ty
     (#[·]) <$> match bi with
     | BinderInfo.implicit => do
-      `(Parser.Command.structImplicitBinder| {$ns* $[$im]? $(← sig true):declSig})
+      `(Parser.Command.structImplicitBinder| {$ns* $(← sig true):declSig})
     | BinderInfo.instImplicit => do
-      `(Parser.Command.structInstBinder| [$ns* $[$im]? $(← sig true):declSig])
+      `(Parser.Command.structInstBinder| [$ns* $(← sig true):declSig])
     | _ => do
       let sig ← sig false
       let dflt ← dflt.mapM trBinderDefault
       if ns.size = 1 then
-        `(Parser.Command.structSimpleBinder| $(ns[0]):ident $[$im]? $sig:optDeclSig $[$dflt]?)
+        `(Parser.Command.structSimpleBinder| $(ns[0]):ident $sig:optDeclSig $[$dflt]?)
       else
-        `(Parser.Command.structExplicitBinder| ($ns* $[$im]? $sig:optDeclSig $[$dflt]?))
+        `(Parser.Command.structExplicitBinder| ($ns* $sig:optDeclSig $[$dflt]?))
   | Field.notation _ => warn! "unsupported: (notation) in structure"
 
 def trFields (flds : Array (Spanned Field)) : M Syntax := do
@@ -1288,7 +1282,8 @@ def trStructure (cl : Bool) (mods : Modifiers) (n : Spanned Name) (us : LevelDec
   | none, #[] => pure #[]
   | mk, flds => do
     let mk ← mk.mapM fun ⟨_, n, ik⟩ => do
-      `(Parser.Command.structCtor| $(← mkIdentF n.kind):ident $[$(← trInferKind ik)]? ::)
+      if let some ik := ik then warn! "infer kinds are unsupported in Lean 4: {n.2} {ik}"
+      `(Parser.Command.structCtor| $(← mkIdentF n.kind):ident ::)
     pure #[mkAtom "where", mkOptionalNode mk, ← trFields flds]
   let decl := mkNode ``Parser.Command.structure #[
     ← if cl then `(Parser.Command.classTk| class) else `(Parser.Command.structureTk| structure),
@@ -1556,9 +1551,9 @@ def trCommand' : Command → M Unit
     | o, OptionVal.bool false => do
       pushM `(command| set_option $(← mkIdentO o) false)
     | o, OptionVal.str s => do
-      pushM `(command| set_option $(← mkIdentO o) $(Syntax.mkStrLit s):strLit)
+      pushM `(command| set_option $(← mkIdentO o) $(Syntax.mkStrLit s):str)
     | o, OptionVal.nat n => do
-      pushM `(command| set_option $(← mkIdentO o) $(Quote.quote n):numLit)
+      pushM `(command| set_option $(← mkIdentO o) $(Quote.quote n):num)
     | o, OptionVal.decimal _ _ => warn! "unsupported: float-valued option"
   | Command.declareTrace n => do
     let n ← renameIdent n.kind

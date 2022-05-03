@@ -90,10 +90,10 @@ LEANBIN_LIB=./Outputs/oleans/leanbin
 MATHBIN_LIB=./Outputs/oleans/mathbin
 
 port-lean: init-logs build
-	./build/bin/mathport config.json Leanbin::all >> Logs/mathport.out 2> >(tee -a Logs/mathport.err >&2)
+	./build/bin/mathport --make config.json Leanbin::all >> Logs/mathport.out 2> >(tee -a Logs/mathport.err >&2)
 
 port-mathbin: port-lean
-	./build/bin/mathport config.json Leanbin::all Mathbin::all >> Logs/mathport.out 2> >(tee -a Logs/mathport.err >&2)
+	./build/bin/mathport --make config.json Leanbin::all Mathbin::all >> Logs/mathport.out 2> >(tee -a Logs/mathport.err >&2)
 
 port: port-lean port-mathbin
 

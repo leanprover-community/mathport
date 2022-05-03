@@ -133,8 +133,8 @@ def trRwArgs : TacM (Array Syntax × Option Syntax) := do
   match args with
   | #[(#[BinderName.ident tag], xs)] =>
     `(tactic| case $(mkIdent tag) $(xs.map trIdent_)* => $tac:tacticSeq)
-  | #[arg] => `(tactic| case' $(← trCaseArg arg):caseArg => $tac:tacticSeq)
-  | _ => `(tactic| case' [$(← args.mapM trCaseArg),*] => $tac:tacticSeq)
+  | #[arg] => `(tactic| case'' $(← trCaseArg arg):caseArg => $tac:tacticSeq)
+  | _ => `(tactic| case'' [$(← args.mapM trCaseArg),*] => $tac:tacticSeq)
 
 @[trTactic destruct] def trDestruct : TacM Syntax := do
   `(tactic| destruct $(← trExpr (← parse pExpr)))
@@ -388,7 +388,7 @@ def filterSimpStar (hs : Array Syntax) : Array Syntax × Bool :=
   let attrs := (← parse (tk "with" *> ident*)?).getD #[] |>.map mkIdent |>.asNonempty
   let loc ← trLoc (← parse location)
   let cfg := (← parseSimpConfig (← expr?)).1.bind quoteSimpConfig
-  `(tactic| dsimp $[(config := $cfg)]? $[only%$o]? $[[$hs,*]]? $[with $attrs*]? $(loc)?)
+  `(tactic| dsimp' $[(config := $cfg)]? $[only%$o]? $[[$hs,*]]? $[with $attrs*]? $(loc)?)
 
 @[trTactic reflexivity refl] def trRefl : TacM Syntax := `(tactic| rfl)
 @[trNITactic tactic.interactive.refl] def trNIRefl (_ : AST3.Expr) : M Syntax := `(tactic| rfl)
