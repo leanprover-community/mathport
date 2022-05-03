@@ -27,7 +27,7 @@ def mathport1 (config : Config) (path : Path) : IO Unit := do
 
   let opts := ({} : Options)
     |>.setNat `maxRecDepth 2000
-    |>.setNat `maxHeartbeats 400000
+    |>.setNat `maxHeartbeats 800000
     |>.setBool `pp.rawOnError true
 
   try
