@@ -61,9 +61,11 @@ def Rename.renameModule (pcfg : Path.Config) (mod3 : Name) : IO Name := do
   let ipath : Path ← resolveMod3 pcfg mod3
   pure $ ipath.package ++ ipath.mod4
 
+def parsePath (pmod3 : String) : IO Path := do
+  let [pkg, mod3] := pmod3.splitOn "::" | throw (IO.userError "paths must be <pkg>::<mod3>")
+  pure $ Path.mk pkg mod3.toName
+
 def parsePaths (pmod3s : List String) : IO (List Path) := do
-  pmod3s.mapM fun pmod3 => do
-    let [pkg, mod3] := pmod3.splitOn "::" | throw (IO.userError "paths must be <pkg>::<mod3>")
-    pure $ Path.mk pkg mod3.toName
+  pmod3s.mapM parsePath
 
 end Mathport
