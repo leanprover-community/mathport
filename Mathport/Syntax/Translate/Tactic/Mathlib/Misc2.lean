@@ -173,16 +173,13 @@ attribute [trNITactic try_refl_tac] trControlLawsTac
   `(attr| to_additive_reorder $((← parse smallNat*).map Quote.quote)*)
 
 @[trUserAttr to_additive] def trToAdditiveAttr : TacM Syntax := do
-  let (bang, ques, tgt, doc) ← parse $ return (← (tk "!")?, ← (tk "?")?, ← (ident)?, ← (pExpr)?)
+  let (bang, ques, tgt, doc) ← parse <|
+    return (optTk (← (tk "!")?).isSome, optTk (← (tk "?")?).isSome, ← (ident)?, ← (pExpr)?)
   let tgt ← liftM $ tgt.mapM mkIdentI
   let doc ← doc.mapM fun doc => match doc.unparen with
   | ⟨m, Expr.string s⟩ => pure $ setInfo m $ Syntax.mkStrLit s
   | _ => warn! "to_additive: weird doc string"
-  match bang, ques with
-  | none, none => `(attr| to_additive $(tgt)? $(doc)?)
-  | some _, none => `(attr| to_additive! $(tgt)? $(doc)?)
-  | none, some _ => `(attr| to_additive? $(tgt)? $(doc)?)
-  | some _, some _ => `(attr| to_additive!? $(tgt)? $(doc)?)
+  `(attr| to_additive $[!%$bang]? $[?%$ques]? $[$tgt:ident]? $[$doc:str]?)
 
 -- # meta.coinductive_predicates
 @[trUserAttr monotonicity] def trMonotonicityAttr := tagAttr `monotonicity

@@ -22,7 +22,7 @@ structure Context where
   cmds : Array Command
   arr : Array (Spanned VMCall)
 
-abbrev ParserM := ReaderT Context $ StateT Nat OptionM
+abbrev ParserM := ReaderT Context $ StateT Nat Option
 
 def ParserM.run (p : ParserM α) (ctx : Context) : Except String α := do
   match (p ctx).run 0 with

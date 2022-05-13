@@ -12,7 +12,7 @@ namespace Mathport.Binary
 
 open Lean
 
-partial def isConcreteNat? (e : Expr) : OptionM Nat := do
+partial def isConcreteNat? (e : Expr) : Option Nat := do
   if e.isConstOf `Nat.zero then
     some 0
   else if e.isAppOfArity `Nat.succ 1 then
@@ -30,7 +30,7 @@ structure NumInfo where
   hasAdd?  : Option Expr := none
   deriving Inhabited
 
-partial def isNumber? (e : Expr) : OptionM NumInfo := do
+partial def isNumber? (e : Expr) : Option NumInfo := do
   if e.isAppOfArity `HasZero.zero 2 then pure {
     number   := 0,
     level    := e.getAppFn.constLevels!.head!,
@@ -50,7 +50,7 @@ partial def isNumber? (e : Expr) : OptionM NumInfo := do
     pure { info with
              number  := info.number * 2,
              hasAdd? := info.hasAdd? <|> e.getArg! 1 }
-  else if e.isAppOfArity `bit1 4 then OptionM.run $ do
+  else if e.isAppOfArity `bit1 4 then
     let info ← isNumber? $ e.getArg! 3
     pure { info with
              number  := info.number * 2 + 1,
