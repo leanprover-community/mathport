@@ -1303,7 +1303,7 @@ partial def mkUnusedName [Monad m] [MonadResolveName m] [MonadEnv m]
 
 section
 
-private def mkNAry (lits : Array (Spanned AST3.Literal)) : OptionM (Array Literal) := do
+private def mkNAry (lits : Array (Spanned AST3.Literal)) : Option (Array Literal) := do
   let mut i := 0
   let mut out := #[]
   for lit in lits do
