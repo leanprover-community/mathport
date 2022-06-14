@@ -161,8 +161,7 @@ instance (priority := high) [Monad m] : Warnable <| m Syntax where
 
 open Lean Elab in
 elab:max "warn!" interpStr:interpolatedStr(term) or:((checkColGt "|" term)?) : term <= ty => do
-  let pos ← Elab.getRefPosition
-  let head := Syntax.mkStrLit $ mkErrorStringWithPos (← read).fileName pos ""
+  let head := Syntax.mkStrLit $ mkErrorStringWithPos (← getFileName) (← getRefPosition) ""
   let str ← Elab.liftMacroM <| interpStr.expandInterpolatedStr (← `(String)) (← `(toString))
   let or ← if or.getNumArgs == 2 then pure $ or.getArg 1 else `(Warnable.warn str)
   (Term.elabTerm · ty) <|<- `(do
