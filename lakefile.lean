@@ -1,16 +1,13 @@
 import Lake
+open Lake DSL
 
-open Lake DSL System
+package mathport
 
-package mathport {
-  dependencies := #[{
-    name := "mathlib",
-    -- We point to a particular commit in mathlib4,
-    -- as changes to tactics in mathlib4 may cause breakages here.
-    -- Please ensure that `lean-toolchain` points to the same release of Lean 4
-    -- as this commit of mathlib4 uses.
-    src := Source.git "https://github.com/leanprover-community/mathlib4.git" "2ffca8d47239ce3b152ac6ed814dacda963c5677"
-  }],
-  binRoot := `MathportApp
-  moreLinkArgs := if Platform.isWindows then #[] else #["-rdynamic"]
-}
+-- Please ensure that `lean-toolchain` points to the same release of Lean 4
+-- as this commit of mathlib4 uses.
+require mathlib from git "https://github.com/leanprover-community/mathlib4"@"8b7a86a8c1a98511e706f54beb288ee1974f052f"
+
+@[defaultTarget]
+lean_exe mathport where
+  root := `MathportApp
+  supportInterpreter := true

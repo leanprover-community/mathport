@@ -12,8 +12,8 @@ def uncurry (f : α → β → γ) : α × β → γ
 
 namespace Lean
 
-elab "leanDir!" : term => do
-  Elab.Term.elabTerm (Syntax.mkStrLit (← getLibDir (← findSysroot)).toString) none
+elab "leanDir!" : term =>
+  return toExpr (← getLibDir (← findSysroot)).toString
 
 def Expr.isAppOfArityGE (e : Expr) (n : Name) (k : Nat) : Bool :=
   e.withApp fun f args => f.isConstOf n && args.size ≥ k
@@ -114,8 +114,8 @@ instance : MonadQuotation Id where
 
 open Lean Elab in
 elab:max "throw!" interpStr:interpolatedStr(term) : term <= ty => do
-  let pos ← Elab.getRefPosition
-  let head := Syntax.mkStrLit $ mkErrorStringWithPos (← read).fileName pos ""
+  let pos ← getRefPosition
+  let head := Syntax.mkStrLit $ mkErrorStringWithPos (← getFileName) pos ""
   let str ← Elab.liftMacroM <| interpStr.expandInterpolatedStr (← `(String)) (← `(toString))
   Elab.Term.elabTerm (← `(throwError ($head ++ $str : String))) ty
 
