@@ -927,7 +927,8 @@ def trExpr' : Expr → M Syntax
   | Expr.begin tacs => do `(by $(← trBlock tacs):tacticSeq)
   | Expr.let bis e => do
     bis.foldrM (init := ← trExpr e) fun bi stx => do
-      `(let $(← trLetDecl bi.kind):letDecl $stx)
+      `(let $(← trLetDecl bi.kind):letDecl
+        $stx)
   | Expr.match #[x] _ #[] => do `(nomatch $(← trExpr x))
   | Expr.match xs _ #[] => do `(match $[$(← xs.mapM fun x => trExpr x):term],* with.)
   | Expr.match xs ty eqns => do
@@ -956,11 +957,9 @@ def trExpr' : Expr → M Syntax
         `(Parser.Term.structInstField| $lhsId:ident := $(← trExpr rhs))
     -- TODO(Mario): formatter has trouble if you omit the commas
     if catchall then
-      `({ $[$srcs,* with]? $[$flds:structInstField, ]* .. })
-    else if let some last := flds.back? then
-      `({ $[$srcs,* with]? $[$(flds.pop):structInstField, ]* $last:structInstField })
+      `({ $[$srcs,* with]? $[$flds:structInstField],* .. })
     else
-      `({ $[$srcs,* with]? })
+      `({ $[$srcs,* with]? $[$flds:structInstField],* })
   | Expr.atPat lhs rhs => do `($(mkIdent lhs.kind)@ $(← trExpr rhs))
   | Expr.notation n args => trNotation n args
   | Expr.userNotation n args => do

@@ -60,8 +60,7 @@ mathport_rules
 
 -- common obsolete patterns from haveI
 mathport_rules
-  | `(by have $hd:haveDecl
-         exact $t) =>
+  | `(by have $hd:haveDecl; exact $t) =>
     `(have $hd:haveDecl
       $t)
   | `(by have $hd:haveDecl <;> exact $t) =>
@@ -84,8 +83,7 @@ mathport_rules
 mathport_rules
   | `(show $ty:term from by $seq:tacticSeq) =>
     `(show $ty:term by $seq:tacticSeq)
-  | `(suffices $ty:term from by $seq:tacticSeq
-      $t) =>
+  | `(suffices $ty:term from by $seq:tacticSeq; $t:term) =>
     `(suffices $ty:term by $seq:tacticSeq
       $t)
   | `(tactic| suffices $ty:term from by $seq:tacticSeq) =>
@@ -93,15 +91,12 @@ mathport_rules
 
 -- push `by` before `have`, `let`, `suffices` so that it can be formatted at the end of a line
 mathport_rules
-  | `(have $hd:haveDecl
-      by $[$seq:tactic]*) =>
+  | `(have $hd:haveDecl; by $[$seq:tactic]*) =>
     `(by have $hd:haveDecl
         $[$seq:tactic]*)
-  | `(let $ld:letDecl
-      by $[$seq:tactic]*) =>
+  | `(let $ld:letDecl; by $[$seq:tactic]*) =>
     `(by let $ld:letDecl
         $[$seq:tactic]*)
-  | `(suffices $sd:sufficesDecl
-      by $[$seq:tactic]*) =>
+  | `(suffices $sd:sufficesDecl; by $[$seq:tactic]*) =>
     `(by suffices $sd:sufficesDecl
         $[$seq:tactic]*)

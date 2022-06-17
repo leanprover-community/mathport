@@ -13,7 +13,7 @@ open Lean
 open Lean.Elab.Tactic (Location)
 
 namespace Mathport.Translate.Tactic
-open AST3 Parser
+open AST3 Mathport.Translate.Parser
 
 -- # tactic.by_contra
 @[trTactic by_contra'] def trByContra' : TacM Syntax := do

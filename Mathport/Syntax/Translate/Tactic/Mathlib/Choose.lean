@@ -9,7 +9,7 @@ open Lean
 open Lean.Elab.Tactic (Location)
 
 namespace Mathport.Translate.Tactic
-open AST3 Parser
+open AST3 Mathport.Translate.Parser
 
 -- # tactic.choose
 

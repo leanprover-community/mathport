@@ -7,5 +7,4 @@ import Lean
 open Lean
 
 @[implementedBy withImportModules]
-constant withImportModulesConst (imports : List Import) (opts : Options) (trustLevel : UInt32 := 0) (x : Environment → IO α) : IO α :=
-  unreachable!
+opaque withImportModulesConst (imports : List Import) (opts : Options) (trustLevel : UInt32 := 0) (x : Environment → IO α) : IO α

@@ -9,7 +9,7 @@ open Lean
 open Lean.Elab.Tactic (Location)
 
 namespace Mathport.Translate.Tactic
-open AST3 Parser
+open AST3 Mathport.Translate.Parser
 
 def trLoc (loc : Location) : M (Option Syntax) := do
   let loc : Option Syntax ← match loc with
@@ -314,7 +314,7 @@ def quoteSimpConfig (cfg : Meta.Simp.Config) : Option Syntax := Id.run do
     |> push cfg {} qbool `iota (·.iota)
     |> push cfg {} qbool `proj (·.proj)
     |> push cfg {} qbool `decide (·.decide)
-  `({ $[$(a.pop):structInstField ,]* $(a.back):structInstField })
+  `({ $[$a:structInstField],* })
 where
   qbool (b : Bool) : Syntax := mkIdent $ cond b `true `false
   qnat : ℕ → Syntax := Quote.quote
