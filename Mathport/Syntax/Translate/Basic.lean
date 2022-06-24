@@ -845,7 +845,7 @@ def trExpr' : Expr → M Syntax
   | Expr.sorry => `(sorry)
   | Expr.«_» => `(_)
   | Expr.«()» => `(())
-  | Expr.«{}» => `({})
+  | Expr.«{}» => `(Parser.Term.structInst| {})
   | Expr.ident n => mkIdentI n
   | Expr.const n none choices => mkIdentI n.kind choices
   | Expr.const n (some #[]) choices => mkIdentI n.kind choices
@@ -934,7 +934,7 @@ def trExpr' : Expr → M Syntax
   | Expr.match xs ty eqns => do
     `(match $[$(← xs.mapM fun x => trExpr x):term],* with $[$(← eqns.mapM trArm):matchAlt]*)
   | Expr.do _ els => do let els ← els.mapM fun e => trDoElem e.kind; `(do $[$els:doElem]*)
-  | Expr.«{,}» es => do `({$(← es.mapM fun e => trExpr e),*})
+  | Expr.«{,}» es => do `({$(← es.mapM fun e => trExpr e):term,*})
   | Expr.subtype false x ty p => do
     `({$(mkIdent x.kind) $[: $(← ty.mapM fun e => trExpr e)]? // $(← trExpr p)})
   | Expr.subtype true x none p => do `({$(mkIdent x.kind):ident | $(← trExpr p)})
