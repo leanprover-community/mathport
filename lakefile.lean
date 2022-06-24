@@ -5,7 +5,7 @@ package mathport
 
 -- Please ensure that `lean-toolchain` points to the same release of Lean 4
 -- as this commit of mathlib4 uses.
-require mathlib from git "https://github.com/leanprover-community/mathlib4"@"58f072fdbfd5dd77c98d8393a489ed3eff383ac8"
+require mathlib from git "https://github.com/leanprover-community/mathlib4"@"867d773bc4f006475ccc7168ab478fb909bc792c"
 
 @[defaultTarget]
 lean_exe mathport where
