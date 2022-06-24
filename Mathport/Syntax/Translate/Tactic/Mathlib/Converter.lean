@@ -9,7 +9,7 @@ import Mathport.Syntax.Translate.Tactic.Lean3
 open Lean
 
 namespace Mathport.Translate.Tactic
-open Parser
+open Mathport.Translate.Parser
 
 -- # tactic.converter
 

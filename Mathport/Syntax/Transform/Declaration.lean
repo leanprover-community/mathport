@@ -7,13 +7,13 @@ import Mathport.Syntax.Transform.Basic
 
 mathport_rules
   | `($mods:declModifiers $attr:attrKind instance $[$prio:namedPrio]? $[$id:declId]? $sig:declSig :=
-      { $[$fieldName:ident := $fieldVal:term $[,]?]* }) =>
+      { $[$fieldName:ident := $fieldVal:term],* }) =>
     `($mods:declModifiers $attr:attrKind instance $[$prio:namedPrio]? $[$id:declId]? $sig:declSig where
-        $[$fieldName:ident := $fieldVal:term]*)
+        $[$fieldName:ident := $fieldVal:term];*)
   | `($mods:declModifiers def $id:declId $sig:optDeclSig :=
-        { $[$fieldName:ident := $fieldVal:term $[,]?]* }) =>
+        { $[$fieldName:ident := $fieldVal:term],* }) =>
     `($mods:declModifiers def $id:declId $sig:optDeclSig where
-        $[$fieldName:ident := $fieldVal:term]*)
+        $[$fieldName:ident := $fieldVal:term];*)
 
 -- TODO: this seems to break with mathport-generated lambdas
 -- open Lean.Parser.Command in

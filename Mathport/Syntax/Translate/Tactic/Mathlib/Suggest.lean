@@ -9,7 +9,7 @@ import Mathport.Syntax.Translate.Tactic.Lean3
 open Lean
 
 namespace Mathport.Translate.Tactic
-open AST3 Parser
+open AST3 Mathport.Translate.Parser
 
 -- # tactic.suggest
 

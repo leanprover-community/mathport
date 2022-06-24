@@ -12,7 +12,7 @@ import Mathport.Syntax.Translate.Tactic.Mathlib.Cache
 open Lean
 
 namespace Mathport.Translate.Tactic
-open AST3 Parser
+open AST3 Mathport.Translate.Parser
 
 -- # tactic.trunc_cases
 @[trTactic trunc_cases] def trTruncCases : TacM Syntax := do
