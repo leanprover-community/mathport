@@ -21,10 +21,10 @@ inductive NotationKind
   | const : Term → NotationKind
   | unary : (Term → Term) → NotationKind
   | binary : (Term → Term → Term) → NotationKind
-  | nary : (Array Term → Term) → NotationKind
+  | nary : (Array Syntax → Term) → NotationKind
   | exprs : (Array Term → Term) → NotationKind
   | binder : (TSyntax ``explicitBinders → Term → Term) →
-      (extended : Option (Ident → TSyntax `binderPred → Term → Term) := none) → NotationKind
+      (extended : Option (TSyntax ``binderIdent → TSyntax `binderPred → Term → Term) := none) → NotationKind
   deriving Inhabited
 
 inductive Literal
@@ -162,7 +162,7 @@ def predefinedNotations : HashMap String NotationEntry := [
 where
   exist := binder
     (fun bis e => Id.run `(∃ $bis, $e))
-    (fun x pred e => Id.run `(∃ $x:ident $pred:binderPred, $e))
+    (fun x pred e => Id.run `(∃ $x $pred:binderPred, $e))
 
 def predefinedBinderPreds : NameMap (Term → TSyntax `binderPred) := [
     ("expr <= ", fun x => Id.run `(binderPred| ≤ $x)),
