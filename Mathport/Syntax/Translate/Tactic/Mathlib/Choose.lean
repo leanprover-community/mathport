@@ -18,6 +18,6 @@ open AST3 Mathport.Translate.Parser
   let ns := (#[← parse ident] ++ (← parse ident*)).map mkIdent
   let tgt ← liftM $ (← parse (tk "using" *> pExpr)?).mapM trExpr
   match nondep with
-  | none => `(tactic| choose $ns* $[using $tgt]?)
-  | some _ => `(tactic| choose! $ns* $[using $tgt]?)
+  | none => `(tactic| choose $[$ns]* $[using $tgt]?)
+  | some _ => `(tactic| choose! $[$ns]* $[using $tgt]?)
 

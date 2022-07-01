@@ -171,12 +171,14 @@ instance (priority := high) [Monad m] : Warnable <| m (TSyntax ks) where
   warn s := pure ⟨Syntax.mkStrLit s⟩
 
 open Lean Elab in
-elab:max "warn!" interpStr:interpolatedStr(term) or:(checkColGt "|" term)? : term <= ty => do
+elab:max "warn!" interpStr:interpolatedStr(term) or:((checkColGt "|" term)?) : term <= ty => do
   let head := Syntax.mkStrLit $ mkErrorStringWithPos (← getFileName) (← getRefPosition) ""
   let str ← Elab.liftMacroM <| interpStr.expandInterpolatedStr (← `(String)) (← `(toString))
-  let or ← match or with
-    | some or => pure ⟨or.1.getArg 1⟩
-    | none => `(Warnable.warn str)
+  let or ←
+    if or.1.isNone then
+      `(Warnable.warn str)
+    else
+      pure ⟨or.1.getArg 1⟩
   (Term.elabTerm · ty) <|<- `(do
     let str : String := $head ++ $str
     logComment str

@@ -47,7 +47,7 @@ partial def applyTransformers (transformers : Array Transformer) (stx : Syntax) 
         return ← applyTransformers transformers stx'
     return stx
 
-open PrettyPrinter in
+open PrettyPrinter TSyntax.Compat in
 macro "#mathport_transform " stx:(term <|> command) : command =>
   `(run_cmd logInfo <|<-
     applyTransformers mathportTransformerList% (Unhygienic.run `($stx)))
