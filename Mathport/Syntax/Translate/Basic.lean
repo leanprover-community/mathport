@@ -24,7 +24,7 @@ def Lean.SourceInfo.getEndPos? (info : SourceInfo) (originalOnly := false) : Opt
 
 namespace Mathport
 
-open Lean hiding Expr Expr.app Expr.const Expr.sort Level Level.imax Level.max Level.param
+open Lean hiding Expr Expr.app Expr.const Expr.sort Level Level.imax Level.max Level.param Command
 open Lean.Elab (Visibility)
 open Lean.Elab.Command (CommandElabM liftCoreM)
 
@@ -126,7 +126,7 @@ def getPrecedence? (tk : String) (kind : MixfixKind) : CommandElabM (Option Prec
   let kind := PrecedenceKind.ofMixfixKind kind
   return synportPrecedenceExtension.getState (← getEnv) |>.find? (tk, kind)
 
-def Precedence.toSyntax : Precedence → Syntax
+def Precedence.toSyntax : Precedence → Syntax.Prec
   | Precedence.nat n => Quote.quote n
   | Precedence.max => Id.run `(prec| arg)
   | Precedence.maxPlus => Id.run `(prec| max)
@@ -135,7 +135,7 @@ structure Context where
   pcfg : Path.Config
   notations : Array Notation
   commands : Array Command
-  trExpr : Expr → CommandElabM Syntax
+  trExpr : Expr → CommandElabM Term
   trCommand : Command → CommandElabM Unit
   transform : Syntax → CommandElabM Syntax
   deriving Inhabited
@@ -160,10 +160,12 @@ instance (priority := high) [Monad m] : Warnable <| m Syntax where
   warn s := pure $ Syntax.mkStrLit s
 
 open Lean Elab in
-elab:max "warn!" interpStr:interpolatedStr(term) or:((checkColGt "|" term)?) : term <= ty => do
+elab:max "warn!" interpStr:interpolatedStr(term) or:(checkColGt "|" term)? : term <= ty => do
   let head := Syntax.mkStrLit $ mkErrorStringWithPos (← getFileName) (← getRefPosition) ""
   let str ← Elab.liftMacroM <| interpStr.expandInterpolatedStr (← `(String)) (← `(toString))
-  let or ← if or.getNumArgs == 2 then pure $ or.getArg 1 else `(Warnable.warn str)
+  let or ← match or with
+    | some or => pure ⟨or.1.getArg 1⟩
+    | none => `(Warnable.warn str)
   (Term.elabTerm · ty) <|<- `(do
     let str : String := $head ++ $str
     logComment str
@@ -188,13 +190,13 @@ def setInfo (meta : Option Meta) (stx : Syntax) : Syntax :=
     stx.setInfo (SourceInfo.synthetic (positionToStringPos start) (positionToStringPos end_))
   | _, _ => stx
 
-def withSpanS (m : Option Meta) (k : M Syntax) : M Syntax :=
-  setInfo m <$> withSpan m do k
+def withSpanS (m : Option Meta) (k : M (TSyntax ks)) : M (TSyntax ks) :=
+  return ⟨setInfo m (← withSpan m do k)⟩
 
 def spanning (k : β → M α) (x : Spanned β) : M α := withSpan x.meta do k x.kind
-def spanningS (k : β → M Syntax) (x : Spanned β) : M Syntax := withSpanS x.meta do k x.kind
+def spanningS (k : β → M (TSyntax ks)) (x : Spanned β) : M (TSyntax ks) := withSpanS x.meta do k x.kind
 
-def trExprUnspanned (e : Expr) : M Syntax := do (← read).trExpr e
+def trExprUnspanned (e : Expr) : M Term := do (← read).trExpr e
 def trExpr := spanningS trExprUnspanned
 
 def trCommandUnspanned (e : Command) : M Unit := do (← read).trCommand e
@@ -208,13 +210,14 @@ def renameModule (n : Name) : M Name := do Rename.renameModule (← read).pcfg n
 def renameField (n : Name) : M Name := return Rename.renameField? (← getEnv) n |>.getD n
 def renameOption (n : Name) : M Name := warn! "warning: unsupported option {n}" | pure n
 
-def mkIdentR (n : Name) : M Syntax := return (mkIdent n).setInfo (← MonadRef.mkInfoFromRefPos)
+def mkIdentR (n : Name) : M Ident :=
+  return ⟨(mkIdent n).1.setInfo (← MonadRef.mkInfoFromRefPos)⟩
 
-def mkIdentI (n : Name) (choices : Array Name := #[]) : M Syntax := do mkIdentR (← renameIdent n choices)
-def mkIdentA (n : Name) : M Syntax := do mkIdentR (← renameAttr n)
-def mkIdentN (n : Name) : M Syntax := do mkIdentR (← renameNamespace n)
-def mkIdentF (n : Name) : M Syntax := do mkIdentR (← renameField n)
-def mkIdentO (n : Name) : M Syntax := do mkIdentR (← renameOption n)
+def mkIdentI (n : Name) (choices : Array Name := #[]) : M Ident := do mkIdentR (← renameIdent n choices)
+def mkIdentA (n : Name) : M Ident := do mkIdentR (← renameAttr n)
+def mkIdentN (n : Name) : M Ident := do mkIdentR (← renameNamespace n)
+def mkIdentF (n : Name) : M Ident := do mkIdentR (← renameField n)
+def mkIdentO (n : Name) : M Ident := do mkIdentR (← renameOption n)
 
 def Parser.ParserM.run' (p : ParserM α) (args : Array (Spanned VMCall)) : M α := do
   match p.run ⟨(← read).commands, args⟩ with
@@ -434,7 +437,9 @@ inductive Binder'
   | collection : BinderInfo →
     Array (Spanned BinderName) → (nota : Name) → (rhs : Spanned Expr) → Binder'
 
-partial def trLevel : Level → M Syntax
+instance : Coe (TSyntax numLitKind) Syntax.Level where coe s := ⟨s⟩
+
+partial def trLevel : Level → M Syntax.Level
   | Level.«_» => `(level| _)
   | Level.nat n => pure $ Quote.quote n
   | Level.add l n => do `(level| $(← trLevel l.kind) + $(Quote.quote n.kind))
@@ -443,7 +448,7 @@ partial def trLevel : Level → M Syntax
   | Level.param u => pure $ mkIdent u
   | Level.paren l => trLevel l.kind -- do `(level| ($(← trLevel l.kind)))
 
-partial def trPrio : Expr → M Syntax
+partial def trPrio : Expr → M Prio
   | Expr.nat n => pure $ Quote.quote n
   | Expr.paren e => trPrio e.kind -- do `(prio| ($(← trPrio e.kind)))
   | _ => warn! "unsupported: advanced prio syntax" | pure $ quote (999 : Nat)
@@ -471,29 +476,29 @@ def trIdent_ : BinderName → Syntax
   | BinderName.ident n => mkIdent n
   | BinderName.«_» => mkAtom "_"
 
-def trBinderIdent (n : BinderName) : Syntax := mkNode ``binderIdent #[trIdent_ n]
+def trBinderIdent (n : BinderName) : TSyntax ``binderIdent := mkNode ``binderIdent #[trIdent_ n]
 
-def trBinderIdentI : BinderName → M Syntax
+def trBinderIdentI : BinderName → M (TSyntax ``binderIdent)
   | BinderName.ident n => return mkNode ``binderIdent #[← mkIdentI n]
   | BinderName.«_» => pure $ mkNode ``binderIdent #[mkAtom "_"]
 
-def optTy (ty : Option Syntax) : M (Option Syntax) :=
+def optTy (ty : Option Term) : M (Option (TSyntax ``Parser.Term.typeSpec)) :=
   ty.mapM fun stx => do `(Parser.Term.typeSpec| : $stx)
 
-def trCalcArgs (args : Array (Spanned Expr × Spanned Expr)) : M (Array Syntax) :=
+def trCalcArgs (args : Array (Spanned Expr × Spanned Expr)) : M (Array (TSyntax ``calcStep)) :=
   args.mapM fun (lhs, rhs) =>
     return mkNode ``calcStep #[← trExpr lhs, mkAtom ":=", ← trExpr rhs]
 
 mutual
 
-  partial def trBlock : Block → M Syntax
+  partial def trBlock : Block → M (TSyntax ``Parser.Tactic.tacticSeq)
     | ⟨_, none, none, #[]⟩ => do `(Parser.Tactic.tacticSeq| {})
     | ⟨_, none, none, tacs⟩ =>
       return mkNode ``Parser.Tactic.tacticSeq #[mkNode ``Parser.Tactic.tacticSeq1Indented #[
         mkNullNode $ ← tacs.mapM fun tac => return mkGroupNode #[← trTactic tac, mkNullNode]]]
     | ⟨_, cl, cfg, tacs⟩ => warn! "unsupported (TODO): block with cfg"
 
-  partial def trTactic : Spanned Tactic → M Syntax := spanningS fun
+  partial def trTactic : Spanned Tactic → M (TSyntax `tactic) := spanningS fun
     | Tactic.block bl => do `(tactic| · ($(← trBlock bl):tacticSeq))
     | Tactic.by tac => do `(tactic| · $(← trTactic tac):tactic)
     | Tactic.«;» tacs => do
@@ -538,7 +543,7 @@ mutual
     | ⟨_, Tactic.«[]» args⟩ => Sum.inr <$> args.mapM fun arg => trTactic arg
     | tac => Sum.inl <$> trTactic tac
 
-  partial def trIdTactic : Block → M Syntax
+  partial def trIdTactic : Block → M (TSyntax `tactic)
     | ⟨_, none, none, #[]⟩ => do `(tactic| skip)
     | ⟨_, none, none, #[tac]⟩ => trTactic tac
     | bl => do `(tactic| ($(← trBlock bl):tacticSeq))

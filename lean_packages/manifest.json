@@ -1,5 +1,5 @@
 {"version": 1,
  "packages":
  [{"url": "https://github.com/leanprover-community/mathlib4",
-   "rev": "c46f8b6aa0f6f19a50a536da61eee3945d2e7266",
+   "rev": "e103199178da4441f42a296aaf27a84115c79486",
    "name": "mathlib"}]}
