@@ -485,9 +485,9 @@ def trBinderName : BinderName → Syntax.BinderIdent
   | BinderName.ident n => mkIdent n
   | BinderName.«_» => ⟨mkHole default⟩
 
-def trIdent_ : BinderName → Syntax
+def trIdent_ : BinderName → Term
   | BinderName.ident n => mkIdent n
-  | BinderName.«_» => mkAtom "_"
+  | BinderName.«_» => Id.run `(_)
 
 def trIdent__ : BinderName → Ident
   | BinderName.ident n => mkIdent n
