@@ -1523,15 +1523,15 @@ def trInductiveCmd : InductiveCmd → M Unit
       trInductive cl mods n us bis ty nota intros
 
 def trAttributeCmd (loc : Bool) (attrs : Attributes) (ns : Array (Spanned Name))
-  (f : Syntax → Syntax) : M Unit := do
+    (f : Syntax.Command → Syntax.Command) : M Unit := do
   if ns.isEmpty then return ()
   let kind := if loc then AttributeKind.local else AttributeKind.global
   let (s, attrs) := (← trAttributes attrs true kind |>.run ({}, #[])).2
   let ns ← ns.mapM fun n => mkIdentI n.kind
   unless s.derive.isEmpty do
-    push $ f $ ← `(command| deriving instance $[$(s.derive.map mkIdent):ident],* for $ns,*)
+    push $ f $ ← `(deriving instance $[$(s.derive.map mkIdent):ident],* for $ns,*)
   unless attrs.isEmpty do
-    push $ f $ ← `(command| attribute [$attrs,*] $ns*)
+    push $ f $ ← `(attribute [$attrs,*] $ns*)
 
 def trCommand' : Command → M Unit
   | Command.initQuotient => pushM `(init_quot)

@@ -36,6 +36,7 @@ open AST3 Parser
 @[trUserCmd «setup_tactic_parser»] def trSetupTacticParser : TacM Syntax :=
   parse emittedCodeHere *> `(command| setup_tactic_parser)
 
+open TSyntax.Compat in
 def trInterpolatedStr' := trInterpolatedStr fun stx => `(← $stx)
 
 @[trUserNota tactic.pformat_macro] def trPFormatMacro : TacM Syntax := do
@@ -57,5 +58,5 @@ def trInterpolatedStr' := trInterpolatedStr fun stx => `(← $stx)
   | AST3.Expr.ident `none => pure $ none
   | AST3.Expr.string s => pure $ some (Syntax.mkStrLit s)
   | _ => warn! "unsupported: weird string"
-  `(command| mk_simp_attribute $(mkIdent n) $[from $(withList.map (·.map mkIdent))*]? $[:= $d]?)
+  `(command| mk_simp_attribute $(mkIdent n) $[from $[$(withList.map (·.map mkIdent))]*]? $[:= $d]?)
 

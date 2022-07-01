@@ -17,7 +17,7 @@ open Parser
   | none => `(tactic| ring1)
   | some _ => `(tactic| ring1!)
 
-def trRingMode (n : Name) : M Syntax :=
+def trRingMode (n : Name) : M (TSyntax ``Parser.Tactic.ringMode) :=
   if [`SOP, `raw, `horner].contains n then
     pure $ mkNode ``Parser.Tactic.ringMode #[mkIdent n]
   else warn! "bad ring mode"

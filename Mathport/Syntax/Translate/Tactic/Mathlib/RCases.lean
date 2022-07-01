@@ -15,7 +15,7 @@ open AST3 Mathport.Translate.Parser
 
 mutual
 
-partial def trRCasesPat : RCasesPat → M Syntax
+partial def trRCasesPat : RCasesPat → M (TSyntax `rcasesPat)
   | RCasesPat.one BinderName._ => `(rcasesPat| _)
   | RCasesPat.one (BinderName.ident x) => `(rcasesPat| $(mkIdent x):ident)
   | RCasesPat.clear => do `(rcasesPat| -)
@@ -23,15 +23,15 @@ partial def trRCasesPat : RCasesPat → M Syntax
   | RCasesPat.alts #[pat] => trRCasesPat pat
   | pat => do `(rcasesPat| ($(← trRCasesPatLo pat)))
 
-partial def trRCasesPatMed (pat : RCasesPat) : M Syntax := do
+partial def trRCasesPatMed (pat : RCasesPat) : M (TSyntax ``Parser.Tactic.rcasesPatMed) := do
   let pats := match pat with | RCasesPat.alts pats => pats | pat => #[pat]
-  pure $ mkNode ``Parser.Tactic.rcasesPatMed #[(mkAtom "|").mkSep $ ← pats.mapM trRCasesPat]
+  `(Parser.Tactic.rcasesPatMed| $[$(← pats.mapM trRCasesPat)]|*)
 
-partial def trRCasesPatLo (pat : RCasesPat) : M Syntax := do
+partial def trRCasesPatLo (pat : RCasesPat) : M (TSyntax ``Parser.Tactic.rcasesPatLo) := do
   let (pat, ty) ← match pat with
-  | RCasesPat.typed pat ty => pure (pat, mkNullNode #[mkAtom ":", ← trExpr ty])
-  | _ => pure (pat, mkNullNode)
-  pure $ Syntax.node SourceInfo.none ``Parser.Tactic.rcasesPatLo #[← trRCasesPatMed pat, ty]
+    | RCasesPat.typed pat ty => pure (pat, some (← trExpr ty))
+    | _ => pure (pat, none)
+  `(Parser.Tactic.rcasesPatLo| $(← trRCasesPatMed pat):rcasesPatMed $[: $ty:term]?)
 
 end
 
@@ -49,20 +49,19 @@ end
 
 @[trTactic obtain] def trObtain : TacM Syntax := do
   let ((pat, ty), vals) ← parse obtainArg
-  liftM $ show M _ from
-    return mkNode ``Parser.Tactic.obtain #[mkAtom "obtain",
-      mkOptionalNode (← pat.mapM trRCasesPatMed),
-      ← mkOptionalNodeM ty fun ty => return #[mkAtom ":", ← trExpr ty],
-      ← mkOptionalNodeM vals fun vals =>
-        return #[mkAtom ":=", (mkAtom ",").mkSep $ ← vals.mapM trExpr]]
+  -- liftM $ show M _ from
+  let vals ← vals.mapM fun vals => vals.mapM (liftM do trExpr ·)
+  liftM do `(tactic|
+    obtain $[$(← pat.mapM trRCasesPatMed):rcasesPatMed]?
+      $[: $(← ty.mapM trExpr)]? $[:= $[$vals],*]?)
 
-partial def trRIntroPat : RIntroPat → M Syntax
+partial def trRIntroPat : RIntroPat → M (TSyntax `rintroPat)
   | RIntroPat.one pat => do `(rintroPat| $(← trRCasesPat pat):rcasesPat)
   | RIntroPat.binder pats ty => do
     `(rintroPat| ($[$(← pats.mapM trRIntroPat):rintroPat]* $[: $(← ty.mapM trExpr)]?))
 
 @[trTactic rintro rintros] def trRIntro : TacM Syntax := do
-  liftM $ match ← parse rintroArg with
+  match ← parse rintroArg with
   | Sum.inr depth => `(tactic| rintro? $[: $(depth.map Quote.quote)]?)
   | Sum.inl (pats, ty) => show M _ from do
     `(tactic| rintro $[$(← pats.mapM trRIntroPat):rintroPat]* $[: $(← ty.mapM trExpr)]?)

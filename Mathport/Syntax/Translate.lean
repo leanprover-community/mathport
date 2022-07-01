@@ -13,7 +13,7 @@ import Init.Data.Array.QSort
 
 namespace Mathport
 
-open Lean hiding Expr Expr.app Expr.const Expr.sort Level Level.imax Level.max Level.param
+open Lean hiding Expr Expr.app Expr.const Expr.sort Level Level.imax Level.max Level.param Command
 open Lean.Elab (Visibility)
 open Lean.Elab.Command (CommandElabM)
 
@@ -52,5 +52,5 @@ end Translate
 def AST3toData4 (ast : AST3) : (pcfg : Path.Config) → CommandElabM Data4 :=
   (Translate.AST3toData4 ast).run ast.comments ast.indexed_nota ast.indexed_cmds
 
-def tactic3toSyntax (containingFile : AST3) (tac3 : Spanned AST3.Tactic) : (pcfg : Path.Config) → CommandElabM Syntax :=
+def tactic3toSyntax (containingFile : AST3) (tac3 : Spanned AST3.Tactic) : (pcfg : Path.Config) → CommandElabM Syntax.Tactic :=
   (Translate.trTactic tac3).run #[] containingFile.indexed_nota containingFile.indexed_cmds

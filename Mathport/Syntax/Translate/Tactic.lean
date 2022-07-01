@@ -17,17 +17,38 @@ open AST3 Parser Lean.Elab.Command
 
 open Lean.Elab.Command
 def mkTacMap (l : Array (Name × TacM Syntax)) :
-  M (NameMap (Array (Spanned AST3.Param) → CommandElabM Syntax)) := do
+  M (NameMap (Array (Spanned AST3.Param) → CommandElabM Syntax.Tactic)) := do
   let mut tacs := {}
   for (n, tac) in l do
-    tacs := tacs.insert n $ ← fun c s => pure fun a => tac.run n a c s
+    tacs := tacs.insert n $ ← fun c s => pure fun a => return ⟨← tac.run n a c s⟩
+  pure tacs
+
+def mkConvMap (l : Array (Name × TacM Syntax)) :
+  M (NameMap (Array (Spanned AST3.Param) → CommandElabM Syntax.Conv)) := do
+  let mut tacs := {}
+  for (n, tac) in l do
+    tacs := tacs.insert n $ ← fun c s => pure fun a => return ⟨← tac.run n a c s⟩
+  pure tacs
+
+def mkTermMap (l : Array (Name × TacM Syntax)) :
+  M (NameMap (Array (Spanned AST3.Param) → CommandElabM Syntax.Term)) := do
+  let mut tacs := {}
+  for (n, tac) in l do
+    tacs := tacs.insert n $ ← fun c s => pure fun a => return ⟨← tac.run n a c s⟩
+  pure tacs
+
+def mkAttrMap (l : Array (Name × TacM Syntax)) :
+  M (NameMap (Array (Spanned AST3.Param) → CommandElabM Syntax.Attr)) := do
+  let mut tacs := {}
+  for (n, tac) in l do
+    tacs := tacs.insert n $ ← fun c s => pure fun a => return ⟨← tac.run n a c s⟩
   pure tacs
 
 def mkNITacMap (l : Array (Name × (AST3.Expr → M Syntax))) :
-  M (NameMap (AST3.Expr → CommandElabM Syntax)) := do
+  M (NameMap (AST3.Expr → CommandElabM Syntax.Tactic)) := do
   let mut tacs := {}
   for (n, tac) in l do
-    tacs := tacs.insert n $ ← fun c s => pure fun a => tac a c s
+    tacs := tacs.insert n $ ← fun c s => pure fun a => return ⟨← tac a c s⟩
   pure tacs
 
 def mkCmdMap (l : Array (Name × (Modifiers → TacM Unit))) :
@@ -39,7 +60,7 @@ def mkCmdMap (l : Array (Name × (Modifiers → TacM Unit))) :
 
 def builtinTactics := mkTacMap trTactics!
 def builtinNITactics := mkNITacMap trNITactics!
-def builtinConvs := mkTacMap trConvs!
-def builtinUserNotation := mkTacMap trUserNotas!
-def builtinUserAttrs := mkTacMap trUserAttrs!
+def builtinConvs := mkConvMap trConvs!
+def builtinUserNotation := mkTermMap trUserNotas!
+def builtinUserAttrs := mkAttrMap trUserAttrs!
 def builtinUserCmds := mkCmdMap trUserCmds!

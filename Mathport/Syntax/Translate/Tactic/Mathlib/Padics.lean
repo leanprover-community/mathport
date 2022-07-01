@@ -22,7 +22,7 @@ open Parser
   `(tactic| ghost_fun_tac $(← trExpr (← parse pExpr)), $(← trExpr (← parse pExpr)))
 
 @[trTactic ghost_calc] def trGhostCalc : TacM Syntax := do
-  `(tactic| ghost_calc $((← parse ident_*).map trBinderIdent)*)
+  `(tactic| ghost_calc $[$((← parse ident_*).map trBinderIdent)]*)
 
 @[trTactic init_ring] def trInitRing : TacM Syntax := do
   `(tactic| init_ring $[using $(← liftM $ (← parse (tk "using" *> pExpr)?).mapM trExpr)]?)
