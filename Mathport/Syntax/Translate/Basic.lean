@@ -16,7 +16,12 @@ abbrev Lean.Syntax.Attr := TSyntax `attr
 abbrev Lean.Syntax.BracketedBinder := TSyntax ``Parser.Term.bracketedBinder
 abbrev Lean.Syntax.SimpleOrBracketedBinder := TSyntax [``Parser.Term.simpleBinder, ``Parser.Term.bracketedBinder]
 abbrev Lean.Syntax.EraseOrAttrInstance := TSyntax [``Parser.Command.eraseAttr, ``Parser.Term.attrInstance]
-abbrev Lean.Syntax.BinderIdent := TSyntax [identKind, ``Parser.Term.hole]
+
+-- Core has two (incompatible) definitions for `binderIdent`:
+-- `Lean.binderIdent` (which is a syntax)
+abbrev Lean.Syntax.BinderIdent := TSyntax ``binderIdent
+-- `Lean.Parser.Term.binderIdent` (which is a def)
+abbrev Lean.Syntax.Ident_ := TSyntax [identKind, ``Parser.Term.hole]
 
 def Lean.Syntax.getInfo : Syntax → SourceInfo
   | node info .. => info
@@ -481,25 +486,19 @@ def trPrec : AST3.Precedence → M Precedence
   | AST3.Precedence.nat n => pure $ Precedence.nat n
   | AST3.Precedence.expr e => trPrecExpr e.kind
 
-def trBinderName : BinderName → Syntax.BinderIdent
-  | BinderName.ident n => mkIdent n
-  | BinderName.«_» => ⟨mkHole default⟩
+def trIdent_ : BinderName → Syntax.Ident_
+  | .ident n => mkIdent n
+  | .«_» => Id.run `(Parser.Term.hole| _)
 
-def trIdent_ : BinderName → Term
-  | BinderName.ident n => mkIdent n
-  | BinderName.«_» => Id.run `(_)
+instance : Coe Syntax.Ident_ Syntax.Term where coe s := ⟨s⟩
 
-def trIdent__ : BinderName → Ident
-  | BinderName.ident n => mkIdent n
-  | BinderName.«_» => mkIdent "_" -- HACK
+def trBinderIdent : BinderName → Syntax.BinderIdent
+  | .ident n => Id.run `(binderIdent| $(mkIdent n):ident)
+  | .«_» => Id.run `(binderIdent| _)
 
--- TACTICS ONLY!!!!!
-def trBinderIdent (n : BinderName) : TSyntax ``binderIdent := mkNode ``binderIdent #[trIdent_ n]
-
--- TACTICS ONLY!!!!!
-def trBinderIdentI : BinderName → M (TSyntax ``binderIdent)
-  | BinderName.ident n => return mkNode ``binderIdent #[← mkIdentI n]
-  | BinderName.«_» => pure $ mkNode ``binderIdent #[mkAtom "_"]
+def trBinderIdentI : BinderName → M (Syntax.BinderIdent)
+  | .ident n => do `(binderIdent| $(← mkIdentI n):ident)
+  | .«_» => `(binderIdent| _)
 
 def optTy (ty : Option Term) : M (Option (TSyntax ``Parser.Term.typeSpec)) :=
   ty.mapM fun stx => do `(Parser.Term.typeSpec| : $stx)
@@ -629,7 +628,7 @@ def expandBinderCollection
     out := out ++ (← trBinder H (some (Spanned.dummy ty)))
   pure out
 
-abbrev bracketedBinderF := Parser.Term.bracketedBinder
+open Lean.Parser.Term (bracketedBinderF)
 
 instance : Coe (TSyntax ``bracketedBinderF) Syntax.BracketedBinder where
   coe := fun ⟨s⟩ => ⟨s⟩
@@ -639,7 +638,8 @@ def trBasicBinder : BinderContext → BinderInfo → Option (Array (Spanned Bind
   | _, BinderInfo.instImplicit, vars, _, some ty, none => do
     let var ← match vars with
       | none => pure none
-      | some #[v] => pure $ some $ trIdent__ v.kind -- HACK?? underscore case wrong
+      | some #[⟨_, .ident n⟩] => pure $ some $ mkIdent n
+      | some #[⟨_, .«_» ..⟩] => pure none
       | some _ => warn! "unsupported (impossible)"
     `(bracketedBinderF| [$[$var :]? $(← trExpr ty)])
   | ⟨allowSimp, req⟩, bi, some vars, bis, ty, dflt => do
@@ -647,7 +647,7 @@ def trBasicBinder : BinderContext → BinderInfo → Option (Array (Spanned Bind
       | true, none => some (Spanned.dummy Expr.«_»)
       | _, _ => ty
     let ty ← ty.mapM fun ty => trExprUnspanned (Expr.Pi bis ty)
-    let vars := vars.map fun v => trBinderName v.kind
+    let vars := vars.map fun v => trIdent_ v.kind
     if let some stx ← trSimple allowSimp bi vars ty dflt then
       return stx
     match bi with
@@ -792,7 +792,7 @@ def trOptType (ty : Option (Spanned Expr)) : M (Option (TSyntax ``Parser.Term.ty
 def trLetDecl : LetDecl → M (TSyntax ``Parser.Term.letDecl)
   | LetDecl.var x bis ty val => do
     let letId := mkNode ``Parser.Term.letIdDecl #[
-      trBinderName x.kind,
+      trIdent_ x.kind,
       mkNullNode $ ← trBinders { allowSimple := some true } bis,
       mkOptionalNode $ ← trOptType ty,
       mkAtom ":=", ← trExpr val]

@@ -126,7 +126,9 @@ def trRwArgs : TacM (Array (TSyntax ``Parser.Tactic.rwRule) × Option (TSyntax `
   let tac ← trBlock (← itactic)
   let trCaseArg := fun (tags, xs) => do
     let tags ← tags.mapM (trBinderIdentI ·)
-    `(Parser.Tactic.caseArg| $[$tags],* $[: $[$((xs.map trIdent__).asNonempty)]*]?)
+    let xs := (xs.map trIdent_).asNonempty
+    let xs := xs.map (·.map fun s => ⟨s⟩) -- HACK: antiquotations give Ident for (ident <|> "_")
+    `(Parser.Tactic.caseArg| $[$tags],* $[: $[$xs]*]?)
   match args with
   | #[(#[BinderName.ident tag], xs)] =>
     `(tactic| case $(mkIdent tag):ident $[$(xs.map trBinderIdent)]* => $tac:tacticSeq)
@@ -261,11 +263,13 @@ where
 
 @[trTactic injection] def trInjection : TacM Syntax := do
   let e ← trExpr (← parse pExpr)
-  let hs := (← parse withIdentList).map trIdent__ |>.asNonempty
+  let hs := (← parse withIdentList).map trIdent_ |>.asNonempty
+  let hs := hs.map (·.map fun s => ⟨s⟩) -- HACK: antiquotations give Ident for (ident <|> "_")
   `(tactic| injection $e $[with $hs*]?)
 
 @[trTactic injections] def trInjections : TacM Syntax := do
-  let hs := (← parse withIdentList).map trIdent__ |>.asNonempty
+  let hs := (← parse withIdentList).map trIdent_ |>.asNonempty
+  let hs := hs.map (·.map fun s => ⟨s⟩) -- HACK: antiquotations give Ident for (ident <|> "_")
   `(tactic| injections $[with $hs*]?)
 
 def parseSimpConfig : Option (Spanned AST3.Expr) →
@@ -374,11 +378,12 @@ def filterSimpStar (hs : Array (TSyntax ``Parser.Tactic.simpArg)) :
   warn! "unsupported: trace_simp_set"
 
 @[trTactic simp_intros] def trSimpIntros : TacM Syntax := do
-  let ids := (← parse ident_*).map trIdent__
+  let ids := (← parse ident_*).map trIdent_
   let o := optTk (← parse onlyFlag)
   let hs := (← trSimpArgs (← parse simpArgList)).asNonempty
   let attrs := (← parse (tk "with" *> ident*)?).getD #[] |>.map mkIdent |>.asNonempty
   let cfg := (← parseSimpConfig (← expr?)).1.bind quoteSimpConfig
+  let ids := ids.map fun s => ⟨s⟩ -- HACK: antiquotations give Ident for (ident <|> "_")
   `(tactic| simp_intro $[(config := $cfg)]? $[$ids]* $[only%$o]? $[[$hs,*]]? $[with $attrs*]?)
 
 @[trTactic dsimp] def trDSimp : TacM Syntax := do
