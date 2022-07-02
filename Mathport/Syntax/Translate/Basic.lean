@@ -14,8 +14,10 @@ abbrev Lean.Syntax.Tactic := TSyntax `tactic
 abbrev Lean.Syntax.Conv := TSyntax `conv
 abbrev Lean.Syntax.Attr := TSyntax `attr
 abbrev Lean.Syntax.BracketedBinder := TSyntax ``Parser.Term.bracketedBinder
-abbrev Lean.Syntax.SimpleOrBracketedBinder := TSyntax [``Parser.Term.simpleBinder, ``Parser.Term.bracketedBinder]
-abbrev Lean.Syntax.EraseOrAttrInstance := TSyntax [``Parser.Command.eraseAttr, ``Parser.Term.attrInstance]
+abbrev Lean.Syntax.SimpleOrBracketedBinder :=
+  TSyntax [``Parser.Term.simpleBinder, ``Parser.Term.bracketedBinder]
+abbrev Lean.Syntax.EraseOrAttrInstance :=
+  TSyntax [``Parser.Command.eraseAttr, ``Parser.Term.attrInstance]
 
 -- Core has two (incompatible) definitions for `binderIdent`:
 -- `Lean.binderIdent` (which is a syntax)
@@ -212,7 +214,8 @@ def withSpanS (m : Option Meta) (k : M (TSyntax ks)) : M (TSyntax ks) :=
   return ⟨setInfo m (← withSpan m do k)⟩
 
 def spanning (k : β → M α) (x : Spanned β) : M α := withSpan x.meta do k x.kind
-def spanningS (k : β → M (TSyntax ks)) (x : Spanned β) : M (TSyntax ks) := withSpanS x.meta do k x.kind
+def spanningS (k : β → M (TSyntax ks)) (x : Spanned β) : M (TSyntax ks) :=
+  withSpanS x.meta do k x.kind
 
 def trExprUnspanned (e : Expr) : M Term := do (← read).trExpr e
 def trExpr := spanningS trExprUnspanned
@@ -231,7 +234,8 @@ def renameOption (n : Name) : M Name := warn! "warning: unsupported option {n}" 
 def mkIdentR (n : Name) : M Ident :=
   return ⟨(mkIdent n).1.setInfo (← MonadRef.mkInfoFromRefPos)⟩
 
-def mkIdentI (n : Name) (choices : Array Name := #[]) : M Ident := do mkIdentR (← renameIdent n choices)
+def mkIdentI (n : Name) (choices : Array Name := #[]) : M Ident := do
+  mkIdentR (← renameIdent n choices)
 def mkIdentA (n : Name) : M Ident := do mkIdentR (← renameAttr n)
 def mkIdentN (n : Name) : M Ident := do mkIdentR (← renameNamespace n)
 def mkIdentF (n : Name) : M Ident := do mkIdentR (← renameField n)
@@ -249,7 +253,10 @@ def addLeadingComment' (comment : Comment) (info : SourceInfo) : SourceInfo :=
   let commentText := mkCommentString comment
   match info with
     | SourceInfo.none =>
-      SourceInfo.original commentText.toSubstring (positionToStringPos comment.start) "".toSubstring (positionToStringPos comment.end)
+      SourceInfo.original commentText.toSubstring
+        (positionToStringPos comment.start)
+        "".toSubstring
+        (positionToStringPos comment.end)
     | SourceInfo.synthetic a b =>
       SourceInfo.original commentText.toSubstring a "".toSubstring b
     | SourceInfo.original leading a trailing b =>
@@ -268,7 +275,10 @@ def addTrailingComment' (comment : Comment) (info : SourceInfo) : SourceInfo :=
   let commentText := mkCommentString comment
   match info with
     | SourceInfo.none =>
-      SourceInfo.original "".toSubstring (positionToStringPos comment.start) commentText.toSubstring (positionToStringPos comment.end)
+      SourceInfo.original "".toSubstring
+        (positionToStringPos comment.start)
+        commentText.toSubstring
+        (positionToStringPos comment.end)
     | SourceInfo.synthetic a b =>
       SourceInfo.original "".toSubstring a commentText.toSubstring b
     | SourceInfo.original leading a trailing b =>
@@ -350,7 +360,8 @@ partial def reprintCore : Syntax → Option Format
 def reprint (stx : Syntax) : Format :=
   reprintCore stx |>.getD ""
 
-def captureTraces [Monad m] [MonadTrace m] [MonadFinally m] (k : m α) : m (α × Std.PersistentArray TraceElem) := do
+def captureTraces [Monad m] [MonadTrace m] [MonadFinally m] (k : m α) :
+    m (α × Std.PersistentArray TraceElem) := do
   let old ← getTraces
   try
     modifyTraces fun _ => {}
@@ -598,7 +609,8 @@ mutual
 
 end
 
-def trBinderDefault : Default → M (TSyntax [``Parser.Term.binderTactic, ``Parser.Term.binderDefault])
+def trBinderDefault : Default →
+    M (TSyntax [``Parser.Term.binderTactic, ``Parser.Term.binderDefault])
   | Default.«:=» e => do `(Parser.Term.binderDefault| := $(← trExpr e))
   | Default.«.» ⟨m, e⟩ => do
     `(Parser.Term.binderTactic| := by
@@ -683,14 +695,18 @@ def expandBinder : BinderContext → Binder' → M (Array Syntax.SimpleOrBracket
       (fun vars ty => return #[← trBasicBinder bc bi (some vars) #[] ty none])
       bi vars n rhs
 
-def expandBinders (bc : BinderContext) (bis : Array Binder') : M (Array Syntax.SimpleOrBracketedBinder) := do
+def expandBinders (bc : BinderContext) (bis : Array Binder') :
+    M (Array Syntax.SimpleOrBracketedBinder) := do
   bis.concatMapM (fun bi => expandBinder bc bi)
 
-def trBinders (bc : BinderContext) (bis : Array (Spanned Binder)) : M (Array Syntax.SimpleOrBracketedBinder) := do
+def trBinders (bc : BinderContext) (bis : Array (Spanned Binder)) :
+    M (Array Syntax.SimpleOrBracketedBinder) := do
   expandBinders bc (← trBinders' bc bis)
 
-def trBracketedBinders (bc : BinderContext) (bis : Array (Spanned Binder)) : M (Array Syntax.BracketedBinder) :=
-  return (← expandBinders { bc with allowSimple := false } (← trBinders' bc bis)).map fun ⟨s⟩ => ⟨s⟩
+def trBracketedBinders (bc : BinderContext) (bis : Array (Spanned Binder)) :
+    M (Array Syntax.BracketedBinder) :=
+  return (← expandBinders { bc with allowSimple := false }
+    (← trBinders' bc bis)).map fun ⟨s⟩ => ⟨s⟩
 
 def trDArrow (bis : Array (Spanned Binder)) (ty : Spanned Expr) : M Term := do
   let bis ← trBracketedBinders { requireType := true } bis
@@ -701,7 +717,8 @@ def trExtendedBindersGrouped
   (reg : Array Syntax.SimpleOrBracketedBinder → Term → Term)
   (ext : TSyntax ``binderIdent → TSyntax `binderPred → Term → Term)
   (bc : BinderContext) (bis : Array Binder') (e : Spanned Expr) : M Term := do
-  let tr1 : Array Syntax.SimpleOrBracketedBinder × (Term → Term) → Binder' → M (Array Syntax.SimpleOrBracketedBinder × (Term → Term))
+  let tr1 : Array Syntax.SimpleOrBracketedBinder × (Term → Term) → Binder' →
+      M (Array Syntax.SimpleOrBracketedBinder × (Term → Term))
     | (args, f), Binder'.basic stx => pure (args.push stx, f)
     | (args, f), bic@(Binder'.collection _bi vars n rhs) => do
       match vars, predefinedBinderPreds.find? n.getString! with
@@ -780,7 +797,8 @@ instance : Coe Term (TSyntax ``Parser.Term.funBinder) where
   coe s := Id.run `(funBinder| $s)
 
 def trLambdaBinder : LambdaBinder → M (Array (TSyntax ``Parser.Term.funBinder))
-  | LambdaBinder.reg bi => open Lean.TSyntax.Compat in do -- HACK HACK HACK HACK HACK WRONG SYNTAX!!!
+  | LambdaBinder.reg bi =>
+    open Lean.TSyntax.Compat in do -- HACK HACK HACK HACK HACK WRONG SYNTAX!!!
     let bc := { allowSimple := some false }
     (← trBinder' bc (Spanned.dummy bi)).concatMapM (fun bi => expandBinder bc bi)
   | LambdaBinder.«⟨⟩» args =>
@@ -851,11 +869,15 @@ def trNotation (n : Choice) (args : Array (Spanned Arg)) : M Term := do
   | some ⟨_, _, NotationKind.binder .., _⟩, _ => warn! "unsupported (impossible)"
   | some ⟨_, _, NotationKind.fail, _⟩, args =>
     warn! "warning: unsupported notation {repr n}"
-    let args ← args.mapM fun | ⟨m, Arg.expr e⟩ => trExpr ⟨m, e⟩ | _ => warn! "unsupported notation {repr n}"
+    let args ← args.mapM fun
+      | ⟨m, Arg.expr e⟩ => trExpr ⟨m, e⟩
+      | _ => warn! "unsupported notation {repr n}"
     `($(mkIdent n) $args*)
   | none, args =>
     warn! "warning: unsupported notation {repr n}"
-    let args ← args.mapM fun | ⟨m, Arg.expr e⟩ => trExpr ⟨m, e⟩ | _ => warn! "unsupported notation {repr n}"
+    let args ← args.mapM fun
+      | ⟨m, Arg.expr e⟩ => trExpr ⟨m, e⟩
+      | _ => warn! "unsupported notation {repr n}"
     `($(mkIdent n) $args*)
 
 def trInfixFn (n : Choice) (e : Option (Spanned Expr)) : M Term := do
@@ -869,8 +891,11 @@ def trInfixFn (n : Choice) (e : Option (Spanned Expr)) : M Term := do
     | some e => trExpr e
   `(($stx))
 
-partial def trAppArgs [Inhabited α] : (e : Spanned Expr) → (m : Spanned Expr → M α) → M (α × Array Term)
-  | { kind := Expr.app f x, .. }, m => do let (f, args) ← trAppArgs f m; pure (f, args.push (← trExpr x))
+partial def trAppArgs [Inhabited α] : (e : Spanned Expr) →
+    (m : Spanned Expr → M α) → M (α × Array Term)
+  | { kind := Expr.app f x, .. }, m => do
+    let (f, args) ← trAppArgs f m
+    pure (f, args.push (← trExpr x))
   | e, m => return (← m e, #[])
 
 instance : Coe (TSyntax ``Parser.Term.structInst) Term where
@@ -1120,7 +1145,8 @@ def mkOpt (a : Option α) (f : α → M Syntax) : M Syntax :=
   | none => pure mkNullNode
   | some a => return mkNullNode #[← f a]
 
-instance : Coe (TSyntax ``Parser.Command.declModifiersF) (TSyntax ``Parser.Command.declModifiers) where
+instance : Coe (TSyntax ``Parser.Command.declModifiersF)
+    (TSyntax ``Parser.Command.declModifiers) where
   coe s := ⟨s⟩
 
 def trModifiers (mods : Modifiers) : M (SpecialAttrs × TSyntax ``Parser.Command.declModifiers) :=
@@ -1150,9 +1176,11 @@ where
   toSyntax : Modifiers4 → M (SpecialAttrs × TSyntax ``Parser.Command.declModifiers)
   | ⟨doc, (s, attrs), vis, nc, safety⟩ => do
     let doc := doc.map trDocComment
-    let attrs : Array (TSyntax ``Parser.Term.attrInstance) := attrs.map fun s => ⟨s⟩ -- HACK HACK HACK ignores @[-attr]
+    let attrs : Array (TSyntax ``Parser.Term.attrInstance) :=
+      attrs.map fun s => ⟨s⟩ -- HACK HACK HACK ignores @[-attr]
     let attrs ← attrs.asNonempty.mapM fun attrs => `(Parser.Term.attributes| @[$[$attrs],*])
-    let vis ← show M (Option (TSyntax [``Parser.Command.private, ``Parser.Command.protected])) from match vis with
+    let vis ← show M (Option (TSyntax [``Parser.Command.private,
+        ``Parser.Command.protected])) from match vis with
       | .regular => pure none
       | .private => `(Parser.Command.private| private)
       | .protected => `(Parser.Command.protected| protected)
@@ -1163,7 +1191,8 @@ where
     let uns ← match safety with
       | DefinitionSafety.unsafe => some <$> `(Parser.Command.unsafe| unsafe)
       | _ => pure none
-    return (s, ← `(Parser.Command.declModifiersF| $[$doc]? $[$attrs]? $[$vis]? $[$nc]? $[$uns]? $[$part]?))
+    return (s, ← `(Parser.Command.declModifiersF|
+      $[$doc]? $[$attrs]? $[$vis]? $[$nc]? $[$uns]? $[$part]?))
 
 def trOpenCmd (ops : Array Open) : M Unit := do
   let mut simple := #[]
@@ -1217,12 +1246,14 @@ def trDeclId (n : Name) (us : LevelDecl) : M (TSyntax ``Parser.Command.declId) :
   let id ← mkIdentI n #[(← get).current.curNamespace ++ n]
   `(Parser.Command.declId| $id:ident $[.{$us,*}]?)
 
-def trDeclSig (bis : Binders) (ty : Option (Spanned Expr)) : M (TSyntax ``Parser.Command.declSig) := do
+def trDeclSig (bis : Binders) (ty : Option (Spanned Expr)) :
+    M (TSyntax ``Parser.Command.declSig) := do
   let bis ← trBinders { allowSimple := true } bis
   let ty ← trExpr (ty.getD <| Spanned.dummy Expr.«_»)
   `(Parser.Command.declSig| $[$bis]* : $ty)
 
-def trOptDeclSig (bis : Binders) (ty : Option (Spanned Expr)) : M (TSyntax ``Parser.Command.optDeclSig) := do
+def trOptDeclSig (bis : Binders) (ty : Option (Spanned Expr)) :
+    M (TSyntax ``Parser.Command.optDeclSig) := do
   let bis ← trBinders { allowSimple := true } bis
   let ty ← ty.mapM trExpr
   `(Parser.Command.optDeclSig| $[$bis]* $[: $ty]?)
@@ -1333,9 +1364,11 @@ def trStructure (cl : Bool) (mods : Modifiers) (n : Spanned Name) (us : LevelDec
   let deriv ← trOptDeriving s.derive
   let decl ←
     if cl then
-      `(Parser.Command.structure| class $id:declId $[$bis]* $[$exts]? $[$ty]? $[where $[$ctor]? $flds]? $deriv)
+      `(Parser.Command.structure|
+        class $id:declId $[$bis]* $[$exts]? $[$ty]? $[where $[$ctor]? $flds]? $deriv)
     else
-      `(Parser.Command.structure| structure $id:declId $[$bis]* $[$exts]? $[$ty]? $[where $[$ctor]? $flds]? $deriv)
+      `(Parser.Command.structure|
+        structure $id:declId $[$bis]* $[$exts]? $[$ty]? $[where $[$ctor]? $flds]? $deriv)
   pushM `(command| $mods:declModifiers $decl:structure)
 
 partial def mkUnusedName [Monad m] [MonadResolveName m] [MonadEnv m]
@@ -1376,7 +1409,8 @@ private def truncatePrec (prec : Precedence) : Precedence := Id.run do
       return Precedence.nat 1024
   return prec
 
-private def trMixfix (kind : TSyntax ``Parser.Term.attrKind) (prio : Option (TSyntax ``Parser.Command.namedPrio))
+private def trMixfix (kind : TSyntax ``Parser.Term.attrKind)
+  (prio : Option (TSyntax ``Parser.Command.namedPrio))
   (m : AST3.MixfixKind) (tk : String) (prec : Option (Spanned AST3.Precedence)) :
   M (NotationDesc × (Option (TSyntax ``Parser.Command.namedName) → Term → Id Syntax.Command)) := do
   let p ← match prec with
@@ -1407,16 +1441,19 @@ private def trNotation4 (kind : TSyntax ``Parser.Term.attrKind)
     (lits : Array (Spanned AST3.Literal)) :
     M (Option (TSyntax ``Parser.Command.namedName) → Term → Id Syntax.Command) := do
   let lits ← lits.mapM fun
-  | ⟨_, AST3.Literal.sym tk⟩ => `(Parser.Command.notationItem| $(Syntax.mkStrLit tk.1.kind.toString):str)
+  | ⟨_, AST3.Literal.sym tk⟩ =>
+    `(Parser.Command.notationItem| $(Syntax.mkStrLit tk.1.kind.toString):str)
   | ⟨_, AST3.Literal.var x none⟩ =>
     `(Parser.Command.notationItem| $(mkIdent x.kind):ident)
   | ⟨_, AST3.Literal.var x (some ⟨_, Action.prec p⟩)⟩ => do
     `(Parser.Command.notationItem| $(mkIdent x.kind):ident : $((← trPrec p).toSyntax))
   | _ => warn! "unsupported (impossible)"
-  pure fun n e => `($kind:attrKind notation$[:$p]? $[$n:namedName]? $[$prio:namedPrio]? $lits* => $e)
+  pure fun n e =>
+    `($kind:attrKind notation$[:$p]? $[$n:namedName]? $[$prio:namedPrio]? $lits* => $e)
 
 open Lean.Parser.Command in
-private def trNotation3Item : (lit : AST3.Literal) → M (Array (TSyntax ``Parser.Command.notation3Item))
+private def trNotation3Item : (lit : AST3.Literal) →
+    M (Array (TSyntax ``Parser.Command.notation3Item))
   | .sym tk => pure #[sym tk]
   | .binder .. | .binders .. => return #[← `(notation3Item| (...))]
   | .var x none => pure #[var x]
