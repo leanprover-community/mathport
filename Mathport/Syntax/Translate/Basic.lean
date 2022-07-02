@@ -168,14 +168,71 @@ private def checkColGt := Lean.Parser.checkColGt
 class Warnable (α) where
   warn : String → α
 
-instance [Inhabited α] : Warnable α where
-  warn := default
+instance : Warnable Unit where
+  warn _ := ()
 
-instance (priority := high) [Monad m] : Warnable <| m Syntax where
-  warn s := pure $ Syntax.mkStrLit s
+instance : Warnable String where
+  warn s := s
 
-instance (priority := high) [Monad m] : Warnable <| m (TSyntax ks) where
-  warn s := pure ⟨Syntax.mkStrLit s⟩
+instance : Warnable (TSyntax strLitKind) where
+  warn s := quote s
+
+instance : Warnable Nat where
+  warn _ := 0
+
+instance : Warnable Syntax.Ident where
+  warn s := mkIdent s
+
+instance : Warnable Name where
+  warn s := s
+
+instance : Warnable Syntax where
+  warn s := mkIdent s
+
+instance : Warnable Syntax.Term where
+  warn s := quote s
+
+instance : Warnable Syntax.Command where
+  warn s := Id.run `(#print $(quote s):str)
+
+instance : Warnable Syntax.Tactic where
+  warn s := Id.run `(tactic| trace $(quote s))
+
+instance : Warnable Syntax.Attr where
+  warn s := Id.run `(attr| $(mkIdent s):ident)
+
+instance : Warnable Syntax.Conv where
+  warn _ := Id.run `(conv| skip)
+
+instance : Warnable (TSyntax numLitKind) where
+  warn _ := ⟨Id.run `(Parser.numLit| 00)⟩
+
+instance : Warnable Syntax.Prio where
+  warn _ := Id.run `(prio| 00)
+
+instance : Warnable Syntax.Prec where
+  warn _ := Id.run `(prec| 00)
+
+instance : Warnable (TSyntax ``Parser.Tactic.tacticSeq) where
+  warn s := Id.run `(Parser.Tactic.tacticSeq| trace $(quote s))
+
+instance : Warnable (TSyntax ``Parser.Tactic.Conv.convSeq) where
+  warn _ := Id.run `(Parser.Tactic.Conv.convSeq| skip)
+
+instance : Warnable (TSyntax ``Parser.Term.letDecl) where
+  warn s := Id.run `(Parser.Term.letDecl| error := $(Warnable.warn s))
+
+instance : Warnable (TSyntax ``Parser.Command.notationItem) where
+  warn s := Id.run `(Parser.Command.notationItem| $(quote s):str)
+
+instance : Warnable Syntax.SimpleOrBracketedBinder where
+  warn s := Id.run `(Parser.Term.simpleBinder| $(Warnable.warn s):ident)
+
+instance : Warnable (Option α) where
+  warn _ := none
+
+instance : Warnable (Array α) where
+  warn _ := #[]
 
 open Lean Elab in
 elab:max "warn!" interpStr:interpolatedStr(term) or:((checkColGt "|" term)?) : term <= ty => do
@@ -183,7 +240,7 @@ elab:max "warn!" interpStr:interpolatedStr(term) or:((checkColGt "|" term)?) : t
   let str ← Elab.liftMacroM <| interpStr.expandInterpolatedStr (← `(String)) (← `(toString))
   let or ←
     if or.1.isNone then
-      `(Warnable.warn str)
+      `(pure (Warnable.warn str))
     else
       pure ⟨or.1.getArg 1⟩
   (Term.elabTerm · ty) <|<- `(do
@@ -1537,7 +1594,7 @@ def trNotationCmd (loc : LocalReserve) (attrs : Attributes) (nota : Notation)
     | true => trNotation4 kind prio p lits
     | false => trNotation3 kind prio p lits
     pure (e, desc, cmd)
-  | _ => warn! "unsupported (impossible)"
+  | _ => warn! "unsupported (impossible)" | default
   let e ← trExpr e
   let n4 ← Elab.Command.withWeakNamespace (ns ++ (← getEnv).mainModule) $ do
     let n4 ← mkUnusedName nota.name4
