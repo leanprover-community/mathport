@@ -304,6 +304,9 @@ where
 
 def quoteSimpConfig (cfg : Meta.Simp.Config) : Option Term := Id.run do
   if cfg == {} then return none
+  --  `Quote Bool` fully qualifies true and false but we are trying to generate
+  --  the unqualified form here.
+  let _inst : Quote Bool := ⟨fun b => mkIdent (if b then `true else `false)⟩
   let a := #[]
     |> push cfg {} `maxSteps (·.maxSteps)
     |> push cfg {} `maxDischargeDepth (·.maxDischargeDepth)
