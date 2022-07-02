@@ -16,7 +16,7 @@ open AST3 Parser
   let (old, args) ← parse $ return (← ident, ←
     (tk "<-" *> Sum.inl <$> ident*) <|>
     ((tk "↔" <|> tk "<->") *> Sum.inr <$>
-      ((tk "." *> tk "." *> pure none) <|> return some (← ident_, ← ident_))))
+      ((tk ".." *> pure none) <|> return some (← ident_, ← ident_))))
   let old ← mkIdentI old
   match args with
   | Sum.inl ns => `(command| alias $old ← $(← liftM $ ns.mapM mkIdentI)*)
