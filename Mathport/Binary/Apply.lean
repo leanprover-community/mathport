@@ -11,7 +11,9 @@ import Mathport.Binary.NDRec
 import Mathport.Binary.EnvModification
 import Mathport.Binary.TranslateName
 import Mathport.Binary.TranslateExpr
-import Mathlib
+
+-- remove after https://github.com/leanprover/lean4/pull/1268 lands
+import Mathlib.Init.ExtendedBinder
 
 namespace Mathport.Binary
 
