@@ -24,6 +24,10 @@ abbrev Lean.Syntax.EraseOrAttrInstance :=
 abbrev Lean.Syntax.BinderIdent := TSyntax ``binderIdent
 -- `Lean.Parser.Term.binderIdent` (which is a def)
 abbrev Lean.Syntax.Ident_ := TSyntax [identKind, ``Parser.Term.hole]
+-- Sometimes also written this way, which is of course different:
+-- `ident <|> "_"`
+abbrev Lean.Syntax.Ident_' := TSyntax [identKind]
+  -- TODO: correct type after https://github.com/leanprover/lean4/issues/1275
 
 def Lean.Syntax.getInfo : Syntax → SourceInfo
   | node info .. => info
@@ -558,6 +562,10 @@ def trPrec : AST3.Precedence → M Precedence
 def trIdent_ : BinderName → Syntax.Ident_
   | .ident n => mkIdent n
   | .«_» => Id.run `(Parser.Term.hole| _)
+
+def trIdent_' : BinderName → Syntax.Ident_'
+  | .ident n => mkIdent n
+  | .«_» => ⟨mkAtom "_"⟩ -- TODO revisit after https://github.com/leanprover/lean4/issues/1275
 
 instance : Coe Syntax.Ident_ Syntax.Term where coe s := ⟨s⟩
 
