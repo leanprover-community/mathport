@@ -626,8 +626,8 @@ mutual
           | none => warn! "unsupported non-interactive tactic {n}"
     | Tactic.interactive n args => do
       match (← get).tactics.find? n with
-      | some f => try f args catch e => warn! "in {n}: {← e.toMessageData.toString}"
-      | none => warn! "unsupported tactic {repr n}"
+      | some f => try f args catch e => warn! "in {n} {repr args}: {← e.toMessageData.toString}"
+      | none => warn! "unsupported tactic {repr n} {repr args}"
 
   partial def trTacticOrList : Spanned Tactic → M (Sum Syntax.Tactic (Array Syntax.Tactic))
     | ⟨_, Tactic.«[]» args⟩ => Sum.inr <$> args.mapM fun arg => trTactic arg
