@@ -17,10 +17,8 @@ instance : FromJson FilePath where
 
 instance : FromJson Position where
   fromJson?
-  | Json.arr a => do
-    unless a.size = 2 do throw "expected an array with two elements"
-    pure ⟨← fromJson? a[0], ← fromJson? a[1]⟩
-  | _ => throw "JSON array expected"
+    | Json.arr #[line, col] => return ⟨← fromJson? line, ← fromJson? col⟩
+    | _ => throw "expected array with two elements"
 
 instance : FromJson Unit := ⟨fun _ => pure ()⟩
 

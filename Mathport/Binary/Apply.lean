@@ -12,9 +12,6 @@ import Mathport.Binary.EnvModification
 import Mathport.Binary.TranslateName
 import Mathport.Binary.TranslateExpr
 
--- remove after https://github.com/leanprover/lean4/pull/1268 lands
-import Mathlib.Init.ExtendedBinder
-
 namespace Mathport.Binary
 
 open Std (HashMap HashSet)

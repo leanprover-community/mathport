@@ -321,9 +321,10 @@ def addLeadingComment' (comment : Comment) (info : SourceInfo) : SourceInfo :=
 
 partial def addLeadingComment (comment : Comment) (stx : Syntax) : Option Syntax :=
   if let Syntax.node i k args := stx then Id.run do
-    for j in [0:args.size] do
+    for h : j in [0:args.size] do
+      let j := ⟨j, by exact h.2⟩
       if let some a' := addLeadingComment comment args[j] then
-        return Syntax.node i k (args.set! j a')
+        return Syntax.node i k (args.set j a')
     pure none
   else
     stx.setInfo (addLeadingComment' comment stx.getInfo)
@@ -343,10 +344,10 @@ def addTrailingComment' (comment : Comment) (info : SourceInfo) : SourceInfo :=
 
 partial def addTrailingComment (comment : Comment) (stx : Syntax) : Option Syntax :=
   if let Syntax.node i k args := stx then Id.run do
-    for j in [0:args.size] do
-      let j := args.size - j - 1
+    for h : j in [0:args.size] do
+      let j := ⟨args.size - j - 1, Nat.sub_lt (m := j+1) (by exact lt_of_le_of_lt h.1 h.2) j.succ_pos⟩
       if let some a' := addTrailingComment comment args[j] then
-        return Syntax.node i k (args.set! j a')
+        return Syntax.node i k (args.set j a')
     pure none
   else
     stx.setInfo (addTrailingComment' comment stx.getInfo)
@@ -594,7 +595,10 @@ mutual
           | Sum.inl tac => `(tactic| $lhs <;> $(← build (i+1) tac))
           | Sum.inr tacs => build (i+1) (← `(tactic| $lhs <;> [$tacs,*]))
         else pure lhs
-      build 1 (← trTactic tacs[0])
+      if h : tacs.size > 0 then
+        build 1 (← trTactic tacs[⟨0, h⟩])
+      else
+        `(tactic| skip)
     | Tactic.«<|>» tacs => do
       `(tactic| first $[| $(← tacs.mapM fun tac => trTactic tac):tactic]*)
     | Tactic.«[]» _tacs => warn! "unsupported (impossible)"
@@ -902,8 +906,11 @@ def trNotation (n : Choice) (args : Array (Spanned Arg)) : M Term := do
   let n ← match n with
   | Choice.one n => pure n
   | Choice.many ns =>
-    if ns[1:].all (ns[0] == ·) then pure ns[0] else
-      warn! "unsupported: ambiguous notation" | pure ns[0]
+    if let some first := ns[0]? then
+      if ns[1:].all (first == ·) then pure first else
+        warn! "unsupported: ambiguous notation" | pure first
+    else
+      warn! "empty choice"
   match ← getNotationEntry? n.getString!, args with
   | some ⟨_, _, NotationKind.const stx, _⟩, #[] => pure stx
   | some ⟨_, _, NotationKind.const _, _⟩, _ => warn! "unsupported (impossible)"
@@ -941,8 +948,11 @@ def trInfixFn (n : Choice) (e : Option (Spanned Expr)) : M Term := do
   let n ← match n with
   | Choice.one n => pure n
   | Choice.many ns =>
-    if ns[1:].all (ns[0] == ·) then pure ns[0] else
-      warn! "unsupported: ambiguous notation" | pure ns[0]
+    if let some first := ns[0]? then
+      if ns[1:].all (first == ·) then pure first else
+        warn! "unsupported: ambiguous notation" | pure first
+    else
+      warn! "empty choice"
   let stx ← trBinary n mkCDot $ ← match e with
     | none => pure mkCDot
     | some e => trExpr e
@@ -1038,7 +1048,10 @@ def trExpr' : Expr → M Term
   | Expr.«⟨⟩» es => do `(⟨$(← es.mapM fun e => trExpr e),*⟩)
   | Expr.infix_fn n e => trInfixFn n e
   | Expr.«(,)» es => do
-    `(($(← trExpr es[0]):term, $(← es[1:].toArray.mapM fun e => trExpr e),*))
+    if h : es.size > 0 then
+      `(($(← trExpr es[⟨0, h⟩]):term, $(← es[1:].toArray.mapM fun e => trExpr e),*))
+    else
+      warn! "unsupported: empty (,)"
   | Expr.«.()» e => trExpr e
   | Expr.«:» e ty => do `(($(← trExpr e) : $(← trExpr ty)))
   | Expr.hole _es => warn! "unsupported: \{! ... !}"
@@ -1390,8 +1403,8 @@ def trField : Spanned Field → M (Array Syntax) := spanning fun
     | _ => do
       let sig ← trOptDeclSig bis ty
       let dflt ← dflt.mapM trBinderDefault
-      if ns.size = 1 then
-        `(Parser.Command.structSimpleBinder| $(ns[0]):ident $sig:optDeclSig $[$dflt]?)
+      if let #[n] := ns then
+        `(Parser.Command.structSimpleBinder| $n:ident $sig:optDeclSig $[$dflt]?)
       else
         `(Parser.Command.structExplicitBinder| ($ns* $sig:optDeclSig $[$dflt]?))
   | Field.notation _ => warn! "unsupported: (notation) in structure"
@@ -1537,8 +1550,8 @@ where
 private def addSpaceBeforeBinders (lits : Array AST3.Literal) : Array AST3.Literal := Id.run do
   let mut lits := lits
   for i in [1:lits.size] do
-    if lits[i] matches AST3.Literal.binder .. || lits[i] matches AST3.Literal.binders .. then
-      if let AST3.Literal.sym (⟨s, Symbol.quoted tk⟩, prec) := lits[i-1] then
+    if lits[i]! matches AST3.Literal.binder .. || lits[i]! matches AST3.Literal.binders .. then
+      if let AST3.Literal.sym (⟨s, Symbol.quoted tk⟩, prec) := lits[i-1]! then
         if !tk.endsWith " " then
           lits := lits.set! (i-1) <| AST3.Literal.sym (⟨s, Symbol.quoted (tk ++ " ")⟩, prec)
   lits

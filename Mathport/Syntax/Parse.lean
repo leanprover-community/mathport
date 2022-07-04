@@ -83,18 +83,18 @@ def RawNode3.map (i : AstId) (n : RawNode3)
 def RawNode3.pexpr' (n : RawNode3) : M Lean3.Expr :=
   match n.pexpr with
   | none => default
-  | some e => return (← read).expr[e]
+  | some e => return (← read).expr[e]!
 
 def RawNode3.expr' (n : RawNode3) : M Lean3.Expr :=
   match n.expr with
   | none => default
-  | some e => return (← read).expr[e]
+  | some e => return (← read).expr[e]!
 
 def opt (f : AstId → M α) (i : AstId) : M (Option α) :=
   if i = 0 then pure none else some <$> f i
 
 def getRaw (i : AstId) : M RawNode3 := do
-  match (← read).ast[i] with
+  match (← read).ast[i]! with
   | some a => pure a
   | none => throw $ if i = 0 then "unexpected null node" else "missing node"
 
@@ -273,7 +273,7 @@ mutual
       | none => throw s!"getBinder parse error, unknown kind {k}"
   where
     binder (bi : BinderInfo) (args : Array AstId) : M Binder := do
-      match ← opt (arr getBinderName) args[0], ← getBinders args[1], ← opt getExpr args[2],
+      match ← opt (arr getBinderName) args[0]!, ← getBinders args[1]!, ← opt getExpr args[2]!,
         ← opt getDefaultOrCollection (args.getD 3 0) with
       | vars, bis, ty, none => pure $ Binder.binder bi vars bis ty none
       | vars, bis, ty, some (Sum.inl dflt) => pure $ Binder.binder bi vars bis ty dflt
@@ -303,10 +303,10 @@ mutual
 
   partial def getExpr_aux : String → Name → Array AstId → Option ExprId → M Expr
     | "notation", v, args, _ => match v with
-      | `«->» => return Expr.«→» (← getExpr args[0]) (← getExpr args[1])
-      | `Pi => return Expr.«Pi» (← getBinders args[0]) (← getExpr args[1])
+      | `«->» => return Expr.«→» (← getExpr args[0]!) (← getExpr args[1]!)
+      | `Pi => return Expr.«Pi» (← getBinders args[0]!) (← getExpr args[1]!)
       | _ => if wrapperNotations.contains v
-        then Spanned.kind <$> getExpr args[0]
+        then Spanned.kind <$> getExpr args[0]!
         else Expr.notation (Choice.one v) <$> args.mapM getArg
     | "sorry", _, _, _ => pure Expr.«sorry»
     | "_", _, _, _ => pure Expr.«_»
@@ -315,7 +315,7 @@ mutual
     | "ident", v, _, _ => pure $ Expr.ident v
     | "const", _, #[n, us], none => return Expr.const (← getName n) (← opt (arr getLevel) us) #[]
     | "const", _, #[n, us], some pexprId => do
-      match (← read).expr[pexprId] with
+      match (← read).expr[pexprId]! with
       | Lean3.Expr.const resolved _ =>
         return Expr.const (← getName n) (← opt (arr getLevel) us) #[resolved]
       | pexpr => throw s!"[const.pexpr] not a const: {repr pexpr}"
@@ -323,7 +323,7 @@ mutual
         dbg_trace "[getExpr_aux.warn] choice_const {(← getName n).kind} has no choices"
         pure $ Expr.const (← getName n) (← opt (arr getLevel) us) #[]
     | "choice_const", _, #[n, us], some pexprId => do
-      match (← read).expr[pexprId] with
+      match (← read).expr[pexprId]! with
       | Lean3.Expr.choice args =>
         let choices ← args.mapM fun
         | Lean3.Expr.const n _ => pure n
@@ -385,23 +385,23 @@ mutual
     | ".(", _, #[e], _ => Expr.«.()» <$> getExpr e
     | "...", _, _, _ => pure Expr.«...»
     | "choice", _, args, _ =>
-      return Expr.notation (Choice.many (← arr getNameK args[0])) (← args[1:].toArray.mapM getArg)
+      return Expr.notation (Choice.many (← arr getNameK args[0]!)) (← args[1:].toArray.mapM getArg)
     | "user_notation", v, args, _ => Expr.userNotation v <$> args.mapM getParam
     | k, v, args, _ => do
       throw s!"getExpr parse error, unknown kind {k}" -- at\n {repr (← Expr.other <$> mkNodeK k v args)}"
   where
     getHave (suff : Bool) (args) : M _ :=
-      return Expr.have suff (← opt getName args[0])
-        (← getExpr args[1]) (← getProof args[2]) (← getExpr args[3])
-    getStep := withNodeK fun _ _ args => do pure (← getExpr args[0], ← getExpr args[1])
-    getField := withNodeK fun _ _ args => do pure (← getName args[0], ← getExpr args[1])
+      return Expr.have suff (← opt getName args[0]!)
+        (← getExpr args[1]!) (← getProof args[2]!) (← getExpr args[3]!)
+    getStep := withNodeK fun _ _ args => do pure (← getExpr args[0]!, ← getExpr args[1]!)
+    getField := withNodeK fun _ _ args => do pure (← getName args[0]!, ← getExpr args[1]!)
     getSubtype (setOf : Bool) (args) : M _ :=
-      return Expr.subtype setOf (← getName args[0]) (← opt getExpr args[1]) (← getExpr args[2])
+      return Expr.subtype setOf (← getName args[0]!) (← opt getExpr args[1]!) (← getExpr args[2]!)
 
   partial def getExpr : AstId → M (Spanned Expr) := withNodeP getExpr_aux
 
   partial def getArm : AstId → M Arm := withNodeK fun _ _ args => do
-    pure ⟨← arr getExpr args[0], ← getExpr args[1]⟩
+    pure ⟨← arr getExpr args[0]!, ← getExpr args[1]!⟩
 
   partial def getDoElem : AstId → M (Spanned DoElem) :=
     withNode fun
@@ -437,12 +437,12 @@ mutual
     pure t
 
   partial def getBlock (curly : Bool) (args : Array AstId) : M Block := do
-    pure ⟨curly, ← opt getName args[0], ← opt getExpr args[1], ← args[2:].toArray.mapM getTactic⟩
+    pure ⟨curly, ← opt getName args[0]!, ← opt getExpr args[1]!, ← args[2:].toArray.mapM getTactic⟩
 
   partial def getParam : AstId → M (Spanned Param) :=
     withNodeR fun r => match r.kind with
     | "parse" => return Param.parse (← r.pexpr') (← r.children'.mapM getVMCall)
-    | "expr" => Param.expr <$> getExpr r.children'[0]
+    | "expr" => Param.expr <$> getExpr r.children'[0]!
     | "begin" => Param.block <$> getBlock false r.children'
     | "{" => Param.block <$> getBlock true r.children'
     | k => throw s!"getParam parse error, unknown kind {k}"
@@ -471,7 +471,7 @@ partial def getPrec : AstId → M (Spanned Precedence) :=
   | k, _, _ => throw s!"getPrec parse error, unknown kind {k}"
 
 partial def getPrecSym_aux (args : Array AstId) : M PrecSymbol :=
-  return (← getSym args[0], ← opt getPrec args[1])
+  return (← getSym args[0]!, ← opt getPrec args[1]!)
 
 partial def getPrecSym : AstId → M PrecSymbol := withNodeK fun _ _ => getPrecSym_aux
 
@@ -483,18 +483,18 @@ partial def getAction : AstId → M (Spanned Action) :=
   | "scoped", _, #[p, sc] => do
     let scope i := do
       let args := (← getRaw i).children'
-      pure (← getName args[0], ← getExpr args[1])
+      pure (← getName args[0]!, ← getExpr args[1]!)
     pure $ Action.scoped (← opt getPrec p) (← opt scope sc)
   | "foldl", _, args => getFold false args
   | "foldr", _, args => getFold true args
   | k, _, _ => throw s!"getAction parse error, unknown kind {k}"
 where
   getFold (r) (args : Array AstId) : M Action := do
-    let sc := (← getRaw args[2]).children'
+    let sc := (← getRaw args[2]!).children'
     pure $ Action.fold r
-      (← opt getPrec args[0]) (← getPrecSym args[1])
-      (← getName sc[0], ← getName sc[1], ← getExpr sc[2])
-      (← opt getExpr args[3]) (← opt getPrecSym args[4])
+      (← opt getPrec args[0]!) (← getPrecSym args[1]!)
+      (← getName sc[0]!, ← getName sc[1]!, ← getExpr sc[2]!)
+      (← opt getExpr args[3]!) (← opt getPrecSym args[4]!)
 
 partial def getLiteral : AstId → M (Spanned Literal) :=
   withNode fun
@@ -508,8 +508,8 @@ partial def getLiteral : AstId → M (Spanned Literal) :=
 partial def getNotationDef (nk : NotationKind) (args : Subarray AstId) : M Notation :=
   match nk with
   | some nk =>
-    return Notation.mixfix nk (← getSym args[0], ← opt getPrec args[1]) (← opt getExpr args[2])
-  | none => return Notation.notation (← arr getLiteral args[0]) (← opt getExpr args[1])
+    return Notation.mixfix nk (← getSym args[0]!, ← opt getPrec args[1]!) (← opt getExpr args[2]!)
+  | none => return Notation.notation (← arr getLiteral args[0]!) (← opt getExpr args[1]!)
 
 partial def getNotation' : AstId → M Notation :=
   withNodeK fun k _ a => getNotationDef (toNotationKind k).get! a
@@ -528,16 +528,16 @@ partial def getField : AstId → M (Spanned Field) := withNode fun
     | none => throw s!"getField parse error, unknown kind {k}"
 where
   field (bi : BinderInfo) (args : Array AstId) : M Field :=
-    return Field.binder bi (← arr getName args[0]) (← opt getInferKind args[1])
-      (← getBinders args[2]) (← opt getExpr args[3]) (← getDefault (args.getD 4 0))
+    return Field.binder bi (← arr getName args[0]!) (← opt getInferKind args[1]!)
+      (← getBinders args[2]!) (← opt getExpr args[3]!) (← getDefault (args.getD 4 0))
 
 def getAttrArg : AstId → M (Spanned AttrArg) := withNodeR fun r =>
   match r.kind with
   | "!" => pure AttrArg.eager
   | "indices" => AttrArg.indices <$> r.children'.mapM getNat
-  | "key_value" => return AttrArg.keyValue (← getStr r.children'[0]) (← getStr r.children'[1])
+  | "key_value" => return AttrArg.keyValue (← getStr r.children'[0]!) (← getStr r.children'[1]!)
   | "vm_override" =>
-    return AttrArg.vmOverride (← getName r.children'[0]) (← opt getName r.children'[1])
+    return AttrArg.vmOverride (← getName r.children'[0]!) (← opt getName r.children'[1]!)
   | "parse" => return AttrArg.user (← r.pexpr') (← r.children'.mapM getVMCall)
   | k => throw s!"getAttrArg parse error, unknown kind {k}"
 
@@ -576,20 +576,20 @@ def getLocal (i : AstId) : M LocalReserve := do
   | _ => throw "getLocal parse error"
 
 def getIntro : AstId → M (Spanned Intro) := withNode fun _ _ args => do
-  pure ⟨← opt getStrK args[0], ← getName args[1],
-    ← opt getInferKind args[2], ← getBinders args[3], ← opt getExpr args[4]⟩
+  pure ⟨← opt getStrK args[0]!, ← getName args[1]!,
+    ← opt getInferKind args[2]!, ← getBinders args[3]!, ← opt getExpr args[4]!⟩
 
 def getRename : AstId → M Rename := withNodeK fun _ _ args => do
-  pure ⟨← getName args[0], ← getName args[1]⟩
+  pure ⟨← getName args[0]!, ← getName args[1]!⟩
 
 def getParent : AstId → M (Spanned Parent) := withNode fun _ _ args => do
-  pure ⟨args[0] ≠ 0, ← opt getName args[1], ← getExpr args[2], ← arr getRename args[3]⟩
+  pure ⟨args[0]! ≠ 0, ← opt getName args[1]!, ← getExpr args[2]!, ← arr getRename args[3]!⟩
 
 def getMk : AstId → M (Spanned Mk) := withNode fun _ _ args => do
-  pure ⟨← getName args[0], ← opt getInferKind args[1]⟩
+  pure ⟨← getName args[0]!, ← opt getInferKind args[1]!⟩
 
 def getMutual {α} (f : AstId → M α) : AstId → M (Mutual α) := withNodeK fun _ _ args => do
-  pure ⟨← arr getAttr args[0], ← getName args[1], ← getExpr args[2], ← arr f args[3]⟩
+  pure ⟨← arr getAttr args[0]!, ← getName args[1]!, ← getExpr args[2]!, ← arr f args[3]!⟩
 
 open OpenClause in
 def getOpenClause : AstId → M (Spanned OpenClause) :=
@@ -600,7 +600,7 @@ def getOpenClause : AstId → M (Spanned OpenClause) :=
   | k, _, _ => throw s!"getOpenClause parse error, unknown kind {k}"
 
 def getOpen : AstId → M Open := withNodeK fun _ _ args => do
-  pure ⟨← getName args[0], ← opt getName args[1], ← args[2:].toArray.mapM getOpenClause⟩
+  pure ⟨← getName args[0]!, ← opt getName args[1]!, ← args[2:].toArray.mapM getOpenClause⟩
 
 open HelpCmd in
 def getHelpCmd : AstId → M HelpCmd := withNodeK fun
@@ -619,45 +619,45 @@ def getPrintAttrCmd : AstId → M (Spanned PrintAttrCmd) := withNode fun
 
 open PrintCmd in
 def getPrintCmd (args : Array AstId) : M PrintCmd := do
-  let r ← getRaw args[0]
+  let r ← getRaw args[0]!
   match r.kind with
   | "string" => pure $ str r.value.getString!
-  | "raw" => raw <$> getExpr args[1]
+  | "raw" => raw <$> getExpr args[1]!
   | "options" => pure options
   | "trust" => pure trust
   | "key_equivalences" => pure keyEquivalences
-  | "definition" => «def» <$> getName args[1]
-  | "instances" => instances <$> getName args[1]
+  | "definition" => «def» <$> getName args[1]!
+  | "instances" => instances <$> getName args[1]!
   | "classes" => pure classes
   | "attributes" => pure attributes
-  | "prefix" => «prefix» <$> getName args[1]
+  | "prefix" => «prefix» <$> getName args[1]!
   | "aliases" => pure aliases
-  | "axioms" => axioms <$> opt getName args[1]
-  | "fields" => fields <$> getName args[1]
+  | "axioms" => axioms <$> opt getName args[1]!
+  | "fields" => fields <$> getName args[1]!
   | "notation" => «notation» <$> args.mapM getName
-  | "inductive" => «inductive» <$> getName args[1]
-  | "attribute" => attr <$> getPrintAttrCmd args[1]
-  | "token" => token <$> r.map args[0] fun _ v _ => pure v
-  | "ident" => ident <$> r.map args[0] fun _ v _ => pure v
+  | "inductive" => «inductive» <$> getName args[1]!
+  | "attribute" => attr <$> getPrintAttrCmd args[1]!
+  | "token" => token <$> r.map args[0]! fun _ v _ => pure v
+  | "ident" => ident <$> r.map args[0]! fun _ v _ => pure v
   | k => throw s!"getPrintCmd parse error, unknown kind {k}"
 
 def getHeader (args : Subarray AstId) :
   M (LevelDecl × Option (Spanned Name) × Binders × Option (Spanned Expr)) := do
-  pure (← getLevelDecl args[0], ← opt getName args[1], ← getBinders args[2], ← opt getExpr args[3])
+  pure (← getLevelDecl args[0]!, ← opt getName args[1]!, ← getBinders args[2]!, ← opt getExpr args[3]!)
 
 def getMutualHeader (args : Subarray AstId) : M (LevelDecl × Binders) := do
-  pure (← getLevelDecl args[0], /- ← arr getName args[1], -/ ← getBinders args[2])
+  pure (← getLevelDecl args[0]!, /- ← arr getName args[1]!, -/ ← getBinders args[2]!)
 
 def getInductive (cl : Bool) (args : Array AstId) : M InductiveCmd := do
-  let mods ← getModifiers args[0]
-  if args[1] = 0 then
+  let mods ← getModifiers args[0]!
+  if args[1]! = 0 then
     let (us, n, bis, ty) ← getHeader args[2:6]
-    let nota ← opt getNotation' args[6]
-    pure $ InductiveCmd.reg cl mods n.get! us bis ty nota (← arr getIntro args[7])
+    let nota ← opt getNotation' args[6]!
+    pure $ InductiveCmd.reg cl mods n.get! us bis ty nota (← arr getIntro args[7]!)
   else
     let (us, bis) ← getMutualHeader args[2:5]
-    let nota ← opt getNotation' args[5]
-    pure $ InductiveCmd.mutual cl mods us bis nota (← arr (getMutual getIntro) args[6])
+    let nota ← opt getNotation' args[5]!
+    pure $ InductiveCmd.mutual cl mods us bis nota (← arr (getMutual getIntro) args[6]!)
 
 open Command in
 def getCommand : AstId → M (Spanned Command) :=
@@ -710,41 +710,41 @@ def getCommand : AstId → M (Spanned Command) :=
   | "#help", _, #[arg] => help <$> getHelpCmd arg
   | "#print", _, args => print <$> getPrintCmd args
   | "user_command", v, args =>
-    return userCommand v (← getModifiers args[0]) (← args[1:].toArray.mapM getParam)
+    return userCommand v (← getModifiers args[0]!) (← args[1:].toArray.mapM getParam)
   | k, v, args => match toNotationKind k with
     | some nk => getNotationCmd nk args
     | none => throw s!"getCommand parse error, unknown kind {k}"
 where
   getAxiom (ak) (args : Array AstId) : M Command :=
     return Command.axiom ak
-      (← getModifiers args[0]) (← getName args[2]) (← getLevelDecl args[1])
-      (← getBinders args[3]) (← getExpr args[4])
+      (← getModifiers args[0]!) (← getName args[2]!) (← getLevelDecl args[1]!)
+      (← getBinders args[3]!) (← getExpr args[4]!)
 
   getVars (args : Array AstId) (f : Modifiers → Binders → Command) : M Command := do
-    f (← getModifiers args[0]) <$> args[1:].toArray.mapM getBinder
+    f (← getModifiers args[0]!) <$> args[1:].toArray.mapM getBinder
 
   getDecl (dk) (args : Array AstId) : M Command := do
-    let mods ← getModifiers args[0]
-    if args[1] = 0 then
+    let mods ← getModifiers args[0]!
+    if args[1]! = 0 then
       let (us, n, bis, ty) ← getHeader args[2:6]
-      let val ← getDeclVal args[6]
+      let val ← getDeclVal args[6]!
       pure $ Command.decl dk mods n us bis ty val
     else
       let (us, bis) ← getMutualHeader args[2:5]
-      pure $ Command.mutualDecl dk mods us bis (← arr (getMutual getArm) args[5])
+      pure $ Command.mutualDecl dk mods us bis (← arr (getMutual getArm) args[5]!)
 
   getNotationCmd (mk : Option MixfixKind) (args : Array AstId) : M Command :=
     return Command.notation
-      (← getLocal args[0]) (← arr getAttr args[1]) (← getNotationDef mk args[2:])
+      (← getLocal args[0]!) (← arr getAttr args[1]!) (← getNotationDef mk args[2:])
 
   getStructure (cl args) : M Command := do
-    return Command.structure cl (← getModifiers args[0]) (← getName args[2])
-      (← getLevelDecl args[1]) (← getBinders args[3]) (← arr getParent args[4])
-      (← opt getExpr args[5]) (← opt getMk args[6]) (← arr getField args[7])
+    return Command.structure cl (← getModifiers args[0]!) (← getName args[2]!)
+      (← getLevelDecl args[1]!) (← getBinders args[3]!) (← arr getParent args[4]!)
+      (← opt getExpr args[5]!) (← opt getMk args[6]!) (← arr getField args[7]!)
 
   getAttribute (args) : M Command := do
-    let mods ← getModifiers args[0]
-    pure $ «attribute» (args[1] ≠ 0) mods (← arr getAttr args[2]) (← args[3:].toArray.mapM getName)
+    let mods ← getModifiers args[0]!
+    pure $ «attribute» (args[1]! ≠ 0) mods (← arr getAttr args[2]!) (← args[3:].toArray.mapM getName)
 
 def getAST (comments : Array Comment) : AstId → M (AST3 × HashMap AstId (Spanned AST3.Tactic)) := withNodeK fun
   | "file", _, #[prel, imp, cmds] => do
@@ -912,9 +912,9 @@ open Lean3 (EquationsHeader LambdaEquation Expr Proj)
 variable (lvls : Array Level)
 def buildLevel : RawLevel → Level
   | RawLevel.«0» => Lean.levelZero
-  | RawLevel.suc l => Lean.mkLevelSucc lvls[l]
-  | RawLevel.max ls => Lean.mkLevelMax lvls[ls[0]] lvls[ls[1]]
-  | RawLevel.imax ls => Lean.mkLevelIMax lvls[ls[0]] lvls[ls[1]]
+  | RawLevel.suc l => Lean.mkLevelSucc lvls[l]!
+  | RawLevel.max ls => Lean.mkLevelMax lvls[ls[0]!]! lvls[ls[1]!]!
+  | RawLevel.imax ls => Lean.mkLevelIMax lvls[ls[0]!]! lvls[ls[1]!]!
   | RawLevel.param n => Lean.mkLevelParam n
   | RawLevel.mvar n => Lean.mkLevelMVar ⟨n⟩
 
@@ -955,49 +955,49 @@ def Annotation.build : Annotation → Lean3.Annotation
 
 def RawExpr.build : RawExpr → Expr
   | var i => Expr.var i
-  | sort l => Expr.sort lvls[l]
-  | const c ls => Expr.const c $ ls.map fun l => lvls[l]
-  | app f a => Expr.app exprs[f] exprs[a]
-  | lam n bi d b => Expr.lam n bi exprs[d] exprs[b]
-  | Pi n bi d b => Expr.Pi n bi exprs[d] exprs[b]
-  | «let» n t v b => Expr.let n exprs[t] exprs[v] exprs[b]
-  | mvar n pp t => Expr.mvar n pp exprs[t]
-  | «local» n pp bi t => Expr.local n pp bi exprs[t]
-  | annotation n args => Expr.annotation n.build exprs[args[0]]
-  | field_notation field idx args => Expr.field exprs[args[0]] $
+  | sort l => Expr.sort lvls[l]!
+  | const c ls => Expr.const c $ ls.map fun l => lvls[l]!
+  | app f a => Expr.app exprs[f]! exprs[a]!
+  | lam n bi d b => Expr.lam n bi exprs[d]! exprs[b]!
+  | Pi n bi d b => Expr.Pi n bi exprs[d]! exprs[b]!
+  | «let» n t v b => Expr.let n exprs[t]! exprs[v]! exprs[b]!
+  | mvar n pp t => Expr.mvar n pp exprs[t]!
+  | «local» n pp bi t => Expr.local n pp bi exprs[t]!
+  | annotation n args => Expr.annotation n.build exprs[args[0]!]!
+  | field_notation field idx args => Expr.field exprs[args[0]!]! $
     if field.isAnonymous then Proj.ident field else Proj.nat idx
-  | typed_expr args => Expr.typed_expr exprs[args[0]] exprs[args[1]]
+  | typed_expr args => Expr.typed_expr exprs[args[0]!]! exprs[args[1]!]!
   | «structure instance» s ca flds args => Expr.structinst s ca
-    (flds.zipWith args fun n a => (n, exprs[a]))
-    (args[flds.size:].toArray.map fun a => exprs[a])
+    (flds.zipWith args fun n a => (n, exprs[a]!))
+    (args[flds.size:].toArray.map fun a => exprs[a]!)
   | projection_macro I c p i ps ty val args =>
-    Expr.proj I c p i ps exprs[ty] exprs[val] exprs[args[0]]
-  | «sorry» s args => Expr.sorry s exprs[args[0]]
+    Expr.proj I c p i ps exprs[ty]! exprs[val]! exprs[args[0]!]!
+  | «sorry» s args => Expr.sorry s exprs[args[0]!]!
   | prenum n => Expr.prenum (Lean.Syntax.decodeNatLitVal? n).get!
   | nat_value n => Expr.nat (Lean.Syntax.decodeNatLitVal? n).get!
   | string_macro v => Expr.string v
-  | expr_quote_macro v r => Expr.quote exprs[v] r
-  | choice args => Expr.choice $ args.map fun v => exprs[v]
-  | as_pattern args => Expr.as_pattern exprs[args[0]] exprs[args[1]]
-  | rec_fn n args => Expr.rec_fn n exprs[args[0]]
+  | expr_quote_macro v r => Expr.quote exprs[v]! r
+  | choice args => Expr.choice $ args.map fun v => exprs[v]!
+  | as_pattern args => Expr.as_pattern exprs[args[0]!]! exprs[args[1]!]!
+  | rec_fn n args => Expr.rec_fn n exprs[args[0]!]!
   | delayed_abstraction ns args =>
-    let args := args.map fun a => exprs[a]
+    let args := args.map fun a => exprs[a]!
     Expr.delayed_abstraction args.back (ns.zip args.pop)
   | no_equation _ => Expr.no_equation
-  | equation iu args => Expr.equation exprs[args[0]] exprs[args[1]] iu
+  | equation iu args => Expr.equation exprs[args[0]!]! exprs[args[1]!]! iu
   | equations n ns as _ p nc m l gc al args =>
-    let args : Array Expr := args.map fun a => exprs[a]
+    let args : Array Expr := args.map fun a => exprs[a]!
     let h := EquationsHeader.mk n ns as p nc m l gc al
     let (args, wf) :=
       if args.size ≥ 2 ∧ args.back.toLambdaEqn.isNone then (args.pop, some args.back)
       else (args, none)
     Expr.equations h (args.map fun e => e.toLambdaEqn.get!) wf
-  | equations_result args => Expr.equations_result $ args.map fun a => exprs[a]
+  | equations_result args => Expr.equations_result $ args.map fun a => exprs[a]!
   | ac_app args =>
-    let args : Array Expr := args.map fun a => exprs[a]
+    let args : Array Expr := args.map fun a => exprs[a]!
     Expr.ac_app args.pop args.back
-  | perm_ac args => Expr.perm_ac exprs[args[0]] exprs[args[1]] exprs[args[2]] exprs[args[3]]
-  | cc_proof args => Expr.cc_proof exprs[args[0]] exprs[args[1]]
+  | perm_ac args => Expr.perm_ac exprs[args[0]!]! exprs[args[1]!]! exprs[args[2]!]! exprs[args[3]!]!
+  | cc_proof args => Expr.cc_proof exprs[args[0]!]! exprs[args[1]!]!
 
 def buildExprs (es : Array (Option RawExpr)) : Array Expr := Id.run do
   let mut out := #[]
@@ -1009,10 +1009,10 @@ def buildExprs (es : Array (Option RawExpr)) : Array Expr := Id.run do
   out
 
 def RawHyp.build : RawHyp → AST3.Hyp
-  | ⟨name, pp, ty, val⟩ => ⟨name, pp, exprs[ty], val.map fun e => exprs[e]⟩
+  | ⟨name, pp, ty, val⟩ => ⟨name, pp, exprs[ty]!, val.map fun e => exprs[e]!⟩
 
 def RawGoal.build : RawGoal → AST3.Goal
-  | ⟨hyps, target⟩ => ⟨hyps.map (·.build exprs), exprs[target]⟩
+  | ⟨hyps, target⟩ => ⟨hyps.map (·.build exprs), exprs[target]!⟩
 
 def RawTacticState.build : RawTacticState → Name × Array AST3.Goal
   | ⟨declName, goals⟩ => (declName, goals.map (·.build exprs))
@@ -1021,7 +1021,7 @@ def RawTacticInvocation.build
   (states : Array (Name × Array AST3.Goal))
   (tacs : HashMap AstId (Spanned AST3.Tactic)) :
   RawTacticInvocation → AST3.TacticInvocation
-  | ⟨ast, start, end_, success⟩ => ⟨states[start].1, tacs.find? ast, states[start].2, states[end_].2, success⟩
+  | ⟨ast, start, end_, success⟩ => ⟨states[start]!.1, tacs.find? ast, states[start]!.2, states[end_]!.2, success⟩
 
 end
 

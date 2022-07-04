@@ -47,12 +47,12 @@ variable (env : Environment)
 
 -- For both binport and synport
 def resolveIdent? (n3 : Name) (choices : Array Name := #[]) : Option Name :=
-  if choices.isEmpty then
-    getRenameMap env |>.find? n3
-  else
-    match getRenameMap env |>.find? choices[0] with
+  if h : choices.size > 0 then
+    match getRenameMap env |>.find? choices[⟨0, h⟩] with
     | none => none
     | some target => clipLike target n3
+  else
+    getRenameMap env |>.find? n3
 where
   clipLike target n3 :=
     some <| componentsToName <| target.components.drop (target.getNumParts - n3.getNumParts)

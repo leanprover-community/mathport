@@ -706,15 +706,9 @@ mutual
       Expr_repr lhs.kind 25 ++ " → " ++ Expr_repr rhs.kind 24
     | Expr.fun as bis e, p => Format.parenPrec max_prec p $
       (if as then "assume" else "λ" : Format) ++
-      (match
-          if as && bis.size == 1 then
-            match bis[0].kind with
-            | LambdaBinder.reg (Binder.binder _ none _ ty _) => ty
-            | _ => none
-          else none
-        with
-        | some ty => ": " ++ Expr_repr ty.kind
-        | none => LambdaBinders_repr bis false) ++
+      (match as, bis with
+        | true, #[⟨_, .reg (.binder _ none _ (some ty) _)⟩] => ": " ++ Expr_repr ty.kind
+        | _, _ => LambdaBinders_repr bis false) ++
       ", " ++ Expr_repr e.kind
     | Expr.Pi bis e, p => Format.parenPrec max_prec p $ "∀" ++
       Binders_repr bis false ++ ", " ++ Expr_repr e.kind
