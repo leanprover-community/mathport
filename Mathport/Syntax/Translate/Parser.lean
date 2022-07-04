@@ -8,7 +8,7 @@ import Mathport.Syntax.AST3
 import Mathlib.Mathport.Syntax
 
 open Std (HashMap)
-open Lean hiding Expr
+open Lean hiding Expr Command
 open Lean.Elab Tactic
 
 namespace Mathport
@@ -43,7 +43,7 @@ def pExpr : (pat :_:= false) → ParserM (Spanned Expr)
 def itactic : ParserM AST3.Block := do let ⟨_, VMCall.block bl⟩ ← next | failure; pure bl
 
 def commandLike? : ParserM (Option (Spanned AST3.Command)) := do
-  let ⟨m, VMCall.command i⟩ ← next | failure; i.mapM fun i => return ⟨m, (← read).cmds[i]⟩
+  let ⟨m, VMCall.command i⟩ ← next | failure; i.mapM fun i => return ⟨m, (← read).cmds[i]!⟩
 
 def commandLike : ParserM (Spanned AST3.Command) := do
   let some i ← commandLike? | failure; pure i
@@ -111,7 +111,7 @@ def parseBinders : ParserM Binders := do let ⟨_, VMCall.binders bis⟩ ← nex
 
 def inductiveDecl : ParserM InductiveCmd := do
   let ⟨_, VMCall.inductive i⟩ ← next | failure
-  let Command.inductive c := (← read).cmds[i] | failure
+  let Command.inductive c := (← read).cmds[i]! | failure
   pure c
 
 def renameArg : ParserM (Name × Name) := return (← ident, ← (tk "->")? *> ident)

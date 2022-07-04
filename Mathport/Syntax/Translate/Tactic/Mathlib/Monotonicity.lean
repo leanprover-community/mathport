@@ -33,10 +33,14 @@ open Parser
   let hs := (← trSimpArgs (← parse ((tk "using" *> simpArgList) <|> pure #[]))).asNonempty
   `(tactic| mono $[*%$star]? $(side)? $[with $w,*]? $[using $hs,*]?)
 
+open TSyntax.Compat in
+private def mkConfigStx (stx : Option Syntax) : M Syntax :=
+  mkOpt stx fun stx => `(Lean.Parser.Tactic.config| (config := $stx))
+
 @[trTactic ac_mono] def trAcMono : TacM Syntax := do
   let arity ← parse $
     (tk "*" *> pure #[mkAtom "*"]) <|>
-    (tk "^" *> return #[mkAtom "^", Quote.quote (← smallNat)]) <|> pure #[]
+    (tk "^" *> return #[mkAtom "^", Quote.quote (k := `term) (← smallNat)]) <|> pure #[]
   let arg ← parse ((tk ":=" *> return (":=", ← pExpr)) <|> (tk ":" *> return (":", ← pExpr)))?
   let arg ← mkOptionalNodeM arg fun (s, e) => return #[mkAtom s, ← trExpr e]
   let cfg ← mkConfigStx $ ← liftM $ (← expr?).mapM trExpr

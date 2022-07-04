@@ -99,7 +99,7 @@ def applyExport (d : ExportDecl) : BinportM Unit := do
       -- TODO: naive name translation doesn't work for the alias
       -- We should probably inspect the suffixes and modify/remove the prefixes
       -- env := addAlias env (← lookupLean4Name n1) (← lookupLean4Name n2)
-      println! "[export] SKIP {n1} := {n1}"
+      println! "[export] SKIP {n1} := {n2}"
       continue
     setEnv env
 
@@ -111,11 +111,11 @@ try
   -- lower priority than the Lean4 ones.
   let prio : Nat := (← liftMacroM <| evalOptPrio none).pred
 
-  let stxPrec  : Syntax := Quote.quote prec
-  let stxName  : Option Syntax := none
-  let stxPrio  : Option Syntax := quote prio
-  let stxOp    : Syntax := Syntax.mkStrLit tok
-  let stxFun   : Syntax := Syntax.ident SourceInfo.none n.toString.toSubstring n []
+  let stxPrec  : Syntax.Prec := Quote.quote prec
+  let stxName  : Option Syntax.Ident := none
+  let stxPrio  : Option Syntax.Prio := some (quote prio)
+  let stxOp    : TSyntax strLitKind := Syntax.mkStrLit tok
+  let stxFun   : Syntax.Term := mkIdent n
 
   let stx ←
     match kind with
@@ -128,13 +128,13 @@ try
     | MixfixKind.postfix =>
       `(postfix:$stxPrec $[(name := $stxName)]? $[(priority := $stxPrio)]? $stxOp => $stxFun)
     | MixfixKind.singleton =>
-      let correctPrec : Option Syntax := Quote.quote Parser.maxPrec
-      `(notation $[: $correctPrec]? $[(name := $stxName)]? $[(priority := $stxPrio)]? $stxOp => $stxFun)
+      let correctPrec : Option Syntax.Prec := some (quote Parser.maxPrec)
+      `(notation $[: $correctPrec]? $[(name := $stxName)]? $[(priority := $stxPrio)]? $stxOp:str => $stxFun)
 
   let nextIdx : Nat := (← get).nNotations
   modify λ s => { s with nNotations := nextIdx + 1 }
-  let ns : Syntax := mkIdent $ s!"{"__".intercalate ((← read).path.mod4.components.map Name.getString!)}_{nextIdx}"
-  let stx ← `(namespace $ns:ident $stx end $ns:ident)
+  let ns : Syntax.Ident := mkIdent s!"{"__".intercalate ((← read).path.mod4.components.map Name.getString!)}_{nextIdx}"
+  let stx ← `(namespace $ns $stx end $ns)
   elabCommand stx
 catch ex => warn ex
 

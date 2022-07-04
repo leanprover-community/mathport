@@ -44,8 +44,8 @@ where
       | some ⟨hName, instName⟩ =>
         if args.size < 2 then return TransformStep.done e
         let lvl := f.constLevels!.head!
-        let type := args[0]
-        let inst := args[1]
+        let type := args[0]!
+        let inst := args[1]!
         let inst' := mkAppN (mkConst instName [lvl]) #[type, inst]
         let rest := args.extract 2 args.size
         let e' := mkAppN (mkConst hName [lvl, lvl, lvl]) (#[type, type, type, inst'] ++ rest)
@@ -56,8 +56,8 @@ where
           let [lvl1, lvl2] := f.constLevels! | throwError "Pow.pow should have 2 levels"
           -- (@instHPow.{0, 0} Nat Nat instPowNatNat)
           let instName := `instHPow
-          let (type1, type2) := (args[0], args[1])
-          let inst  := args[2]
+          let (type1, type2) := (args[0]!, args[1]!)
+          let inst  := args[2]!
           let inst' := mkAppN (mkConst instName [lvl1, lvl2]) #[type1, type2, inst]
           let rest := args.extract 3 args.size
           let e' := mkAppN (mkConst `HPow.hPow [lvl1, lvl2, lvl1]) (#[type1, type2, type1, inst'] ++ rest)

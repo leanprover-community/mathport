@@ -10,7 +10,7 @@ namespace Mathport
 namespace Transform
 open Lean Elab
 
-def transformConsecutiveTactics : Syntax → Syntax → M Syntax
+def transformConsecutiveTactics : Syntax.Tactic → Syntax.Tactic → M Syntax.Tactic
   | `(tactic| suffices : $ty:term), `(tactic|· $[$tacs:tactic $[;]?]*) =>
     `(tactic| suffices $ty:term by $[$tacs:tactic]*)
   | `(tactic| have $[$id:ident]? $[: $ty:term]?), `(tactic|· $[$tacs:tactic $[;]?]*) =>
@@ -25,19 +25,19 @@ def transformConsecutiveTactics : Syntax → Syntax → M Syntax
     `(tactic| obtain $[$pat]? $[: $ty]? := by $[$tacs:tactic]*)
   | _, _ => throwUnsupported
 
-def transformConsecutiveTacticsArray (tacs : Array Syntax) : M (Array Syntax) := do
+def transformConsecutiveTacticsArray (tacs : Array Syntax.Tactic) : M (Array Syntax.Tactic) := do
   for i in [1:tacs.size] do
-    if let some tac' ← catchUnsupportedSyntax do withRef tacs[i-1] do
-        transformConsecutiveTactics tacs[i-1] tacs[i] then
+    if let some tac' ← catchUnsupportedSyntax do withRef tacs[i-1]! do
+        transformConsecutiveTactics tacs[i-1]! tacs[i]! then
       return tacs[0:i-1] ++ #[tac'] ++ tacs[i+1:tacs.size]
   throwUnsupported
 
 -- expand `by (skip; skip)` to `by skip; skip`
-def transformInlineTactics (tacs : Array Syntax) : M (Array Syntax) := do
+def transformInlineTactics (tacs : Array Syntax.Tactic) : M (Array Syntax.Tactic) := do
   let mut tacs' := #[]
   let mut modified := false
   for tac in tacs do
-    match tac with
+    match tac.1 with
     | `(tactic| ($[$seq:tactic $[;]?]*)) =>
       tacs' := tacs' ++ seq
       modified := true
@@ -45,7 +45,7 @@ def transformInlineTactics (tacs : Array Syntax) : M (Array Syntax) := do
   unless modified do throwUnsupported
   pure tacs'
 
-def transformTacticsArray (tacs : Array Syntax) : M (Array Syntax) := do
+def transformTacticsArray (tacs : Array Syntax.Tactic) : M (Array Syntax.Tactic) := do
   for fn in #[transformConsecutiveTacticsArray, transformInlineTactics] do
     if let some tacs' ← catchUnsupportedSyntax <| fn tacs then
       return tacs'

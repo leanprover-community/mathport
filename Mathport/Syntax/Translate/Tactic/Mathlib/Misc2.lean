@@ -35,6 +35,10 @@ open AST3 Mathport.Translate.Parser
   | some _, some `term, loc => `(tactic| abel! term $(loc)?)
   | _, _, _ => warn! "bad abel mode"
 
+open TSyntax.Compat in
+private def mkConfigStx (stx : Option Syntax) : M Syntax :=
+  mkOpt stx fun stx => `(Lean.Parser.Tactic.config| (config := $stx))
+
 -- # tactic.linear_combination
 @[trTactic linear_combination] def trLinearCombination : TacM Syntax := do
   let es ← parse (
@@ -69,7 +73,7 @@ open AST3 Mathport.Translate.Parser
 -- # tactic.interval_cases
 @[trTactic interval_cases] def trIntervalCases : TacM Syntax :=
   return mkNode ``Parser.Tactic.intervalCases #[mkAtom "interval_cases",
-    ← mkOpt (← parse (pExpr)?) trExpr,
+    ← mkOpt (← parse (pExpr)?) (fun e => return (← trExpr e).1),
     ← mkOptionalNodeM (← parse (tk "using" *> return (← ident, ← ident))?) fun (x, y) =>
       return #[mkAtom "using", mkIdent x, mkAtom ",", mkIdent y],
     mkOptionalNode' (← parse (tk "with" *> ident)?) fun h => #[mkAtom "with", mkIdent h]]
@@ -153,8 +157,8 @@ open AST3 Mathport.Translate.Parser
 
 @[trTactic elementwise] def trElementwise : TacM Syntax := do
   match ← parse (tk "!")?, (← parse ident*).map mkIdent with
-  | none, ns => `(tactic| elementwise $ns*)
-  | some _, ns => `(tactic| elementwise! $ns*)
+  | none, ns => `(tactic| elementwise $[$ns]*)
+  | some _, ns => `(tactic| elementwise! $[$ns]*)
 
 @[trNITactic tactic.derive_elementwise_proof] def trDeriveElementwiseProof
   (_ : AST3.Expr) : M Syntax := `(tactic| derive_elementwise_proof)
@@ -176,8 +180,8 @@ attribute [trNITactic try_refl_tac] trControlLawsTac
   let (bang, ques, tgt, doc) ← parse <|
     return (optTk (← (tk "!")?).isSome, optTk (← (tk "?")?).isSome, ← (ident)?, ← (pExpr)?)
   let tgt ← liftM $ tgt.mapM mkIdentI
-  let doc ← doc.mapM fun doc => match doc.unparen with
-  | ⟨m, Expr.string s⟩ => pure $ setInfo m $ Syntax.mkStrLit s
+  let doc : Option (TSyntax strLitKind) ← doc.mapM fun doc => match doc.unparen with
+  | ⟨m, Expr.string s⟩ => pure ⟨setInfo m $ Syntax.mkStrLit s⟩
   | _ => warn! "to_additive: weird doc string"
   `(attr| to_additive $[!%$bang]? $[?%$ques]? $[$tgt:ident]? $[$doc:str]?)
 
@@ -207,7 +211,7 @@ attribute [trNITactic try_refl_tac] trControlLawsTac
 -- # order.filter.basic
 @[trTactic filter_upwards] def trFilterUpwards : TacM Syntax := do
   let s := (← (← parse pExprList).mapM (trExpr ·)).asNonempty
-  let wth := (← parse withIdentList).map trBinderIdent |>.asNonempty
+  let wth := (← parse withIdentList).map trIdent_ |>.asNonempty
   let tgt ← (← parse (tk "using" *> pExpr)?).mapM (trExpr ·)
   `(tactic| filter_upwards $[[$s:term,*]]? $[with $[$wth:term]*]? $[using $tgt:term]?)
 

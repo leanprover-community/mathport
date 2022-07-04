@@ -28,7 +28,7 @@ open AST3 Mathport.Translate.Parser
 
 -- # tactic.delta_instance
 @[trTactic delta_instance] def trDeltaInstance : TacM Syntax := do
-  `(tactic| delta_instance $((← parse ident*).map mkIdent)*)
+  `(tactic| delta_instance $[$((← parse ident*).map mkIdent)]*)
 
 -- # tactic.elide
 @[trTactic elide] def trElide : TacM Syntax := do
@@ -64,7 +64,7 @@ open AST3 Mathport.Translate.Parser
 -- # tactic.generalize_proofs
 @[trTactic generalize_proofs] def trGeneralizeProofs : TacM Syntax := do
   `(tactic| generalize_proofs
-    $((← parse (ident_)*).map trBinderIdent)*
+    $[$((← parse (ident_)*).map trBinderIdent)]*
     $[$(← trLoc (← parse location))]?)
 
 -- # tactic.induction
@@ -105,10 +105,10 @@ open AST3 Mathport.Translate.Parser
   let (#[cmd], loc) ← parse $ return (← pExpr *> emittedCodeHere, ← tk "in" *> ident)
     | warn! "unsupported: multiple localized"
   let loc ← renameNamespace loc
-  let cmd ← match cmd with
+  match cmd with
   | Command.attribute true mods attrs ns =>
     let loc ← mkIdentR loc
-    trAttributeCmd false attrs ns fun stx => Id.run `(command| localized [$loc] $stx)
+    trAttributeCmd false attrs ns fun stx => Id.run `(localized [$loc] $stx)
   | Command.notation (true, res) attrs n => trNotationCmd (false, res) attrs n loc
   | _ => warn! "unsupported: unusual localized"
 
@@ -146,7 +146,7 @@ open AST3 Mathport.Translate.Parser
   let ids ← match ← parse withoutIdentList with
   | #[] => pure none
   | ids => some <$> liftM (ids.mapM mkIdentF)
-  `(attr| protect_proj $[without $ids*]?)
+  `(attr| protect_proj $[without $[$ids]*]?)
 
 -- # tactic.push_neg
 
@@ -256,12 +256,13 @@ open AST3 Mathport.Translate.Parser
 @[trUserCmd «#where»] def trWhereCmd : TacM Syntax := parse skipAll *> `(command| #where)
 
 -- # tactic.tfae
+open TSyntax.Compat in
 @[trTactic tfae_have] def trTfaeHave : TacM Syntax :=
   return mkNode ``Parser.Tactic.tfaeHave #[mkAtom "tfae_have",
     mkOptionalNode' (← parse ((ident)? <* tk ":")) fun h => #[mkIdent h, mkAtom ":"],
-    Quote.quote (← parse smallNat),
+    quote (k := numLitKind) (← parse smallNat),
     mkAtom (← parse ((tk "->" *> pure "→") <|> (tk "↔" *> pure "↔") <|> (tk "<-" *> pure "←"))),
-    Quote.quote (← parse smallNat)]
+    quote (k := numLitKind) (← parse smallNat)]
 
 @[trTactic tfae_finish] def trTfaeFinish : TacM Syntax := `(tactic| tfae_finish)
 
@@ -282,8 +283,8 @@ open AST3 Mathport.Translate.Parser
 
 @[trTactic reassoc] def trReassoc : TacM Syntax := do
   match ← parse (tk "!")?, (← parse ident*).map mkIdent with
-  | none, ns => `(tactic| reassoc $ns*)
-  | some _, ns => `(tactic| reassoc! $ns*)
+  | none, ns => `(tactic| reassoc $[$ns]*)
+  | some _, ns => `(tactic| reassoc! $[$ns]*)
 
 @[trNITactic tactic.derive_reassoc_proof] def trDeriveReassocProof
   (_ : AST3.Expr) : M Syntax := `(tactic| derive_reassoc_proof)
@@ -338,4 +339,4 @@ open AST3 Mathport.Translate.Parser
 
 -- # tactic.algebra
 @[trUserAttr ancestor] def trAncestorAttr : TacM Syntax := do
-  `(attr| ancestor $(← liftM $ (← parse ident*).mapM mkIdentI)*)
+  `(attr| ancestor $[$(← liftM $ (← parse ident*).mapM mkIdentI)]*)

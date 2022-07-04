@@ -19,7 +19,7 @@ open AST3 Mathport.Translate.Parser
   `(tactic| try_for $(← trExpr (← parse pExpr)) $(← trBlock (← itactic)):tacticSeq)
 
 @[trTactic substs] def trSubsts : TacM Syntax := do
-  `(tactic| substs $((← parse ident*).map mkIdent)*)
+  `(tactic| substs $[$((← parse ident*).map mkIdent)]*)
 
 @[trTactic unfold_coes] def trUnfoldCoes : TacM Syntax := do
   `(tactic| unfold_coes $(← trLoc (← parse location))?)
@@ -109,7 +109,7 @@ open AST3 Mathport.Translate.Parser
   | _ => warn! "unsupported: weird nat"
 
 @[trTactic guard_tags] def trGuardTags : TacM Syntax := do
-  `(tactic| guard_tags $((← parse ident*).map mkIdent)*)
+  `(tactic| guard_tags $[$((← parse ident*).map mkIdent)]*)
 
 @[trTactic guard_proof_term] def trGuardProofTerm : TacM Syntax := do
   `(tactic| guard_proof_term $(← trIdTactic (← itactic)) => $(← trExpr (← parse pExpr)))
@@ -186,15 +186,15 @@ open Mathlib.Tactic in
   let n := (← parse (ident)?).map mkIdent
   let vs := (← parse (tk "with" *> ident*)?).map (·.map mkIdent)
   match hSimp with
-  | none => `(tactic| extract_goal $[$n:ident]? $[with $vs*]?)
-  | some _ => `(tactic| extract_goal! $[$n:ident]? $[with $vs*]?)
+  | none => `(tactic| extract_goal $[$n:ident]? $[with $[$vs]*]?)
+  | some _ => `(tactic| extract_goal! $[$n:ident]? $[with $[$vs]*]?)
 
 @[trTactic inhabit] def trInhabit : TacM Syntax := do
   let t ← trExpr (← parse pExpr)
   `(tactic| inhabit $[$((← parse (ident)?).map mkIdent) :]? $t)
 
 @[trTactic revert_deps] def trRevertDeps : TacM Syntax := do
-  `(tactic| revert_deps $((← parse ident*).map mkIdent)*)
+  `(tactic| revert_deps $[$((← parse ident*).map mkIdent)]*)
 
 @[trTactic revert_after] def trRevertAfter : TacM Syntax := do
   `(tactic| revert_after $(mkIdent (← parse ident)))
@@ -203,7 +203,7 @@ open Mathlib.Tactic in
   `(tactic| revert_target_deps)
 
 @[trTactic clear_value] def trClearValue : TacM Syntax := do
-  `(tactic| clear_value $((← parse ident*).map mkIdent)*)
+  `(tactic| clear_value $[$((← parse ident*).map mkIdent)]*)
 
 attribute [trTactic generalize'] trGeneralize
 

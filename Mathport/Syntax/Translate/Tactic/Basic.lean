@@ -38,6 +38,15 @@ def next? : TacM (Option Param) := do
     pure (args.get ⟨i, h⟩).kind
   else pure none
 
+instance : Warnable (Spanned AST3.Expr) where
+  warn s := ⟨default, .string s⟩
+
+instance : Warnable Block where
+  warn _ := default
+
+instance : Warnable Param where
+  warn _ := .block default
+
 def next! : TacM Param := do
   match ← next? with | some p => pure p | none => warn! "missing argument"
 

@@ -18,13 +18,13 @@ namespace Translate
 
 inductive NotationKind
   | fail
-  | const : Syntax → NotationKind
-  | unary : (Syntax → Syntax) → NotationKind
-  | binary : (Syntax → Syntax → Syntax) → NotationKind
-  | nary : (Array Syntax → Syntax) → NotationKind
-  | exprs : (Array Syntax → Syntax) → NotationKind
-  | binder : (Syntax → Syntax → Syntax) →
-      (extended : Option (Syntax → Syntax → Syntax → Syntax) := none) → NotationKind
+  | const : Term → NotationKind
+  | unary : (Term → Term) → NotationKind
+  | binary : (Term → Term → Term) → NotationKind
+  | nary : (Array Syntax → Term) → NotationKind
+  | exprs : (Array Term → Term) → NotationKind
+  | binder : (TSyntax ``explicitBinders → Term → Term) →
+      (extended : Option (TSyntax ``binderIdent → TSyntax `binderPred → Term → Term) := none) → NotationKind
   deriving Inhabited
 
 inductive Literal
@@ -62,6 +62,7 @@ structure NotationEntry where
 --   | NotationDesc.postfix _ => NotationKind.unary fun a => fakeNode #[a]
 --   | NotationDesc.nary _ => NotationKind.nary @fakeNode
 
+open TSyntax.Compat in
 def NotationDesc.toKind (n4 : Name) : NotationDesc → NotationKind
   | NotationDesc.builtin => NotationKind.fail
   | NotationDesc.fail => NotationKind.fail
@@ -161,9 +162,9 @@ def predefinedNotations : HashMap String NotationEntry := [
 where
   exist := binder
     (fun bis e => Id.run `(∃ $bis, $e))
-    (fun x pred e => Id.run `(∃ $x:ident $pred:binderPred, $e))
+    (fun x pred e => Id.run `(∃ $x $pred:binderPred, $e))
 
-def predefinedBinderPreds : NameMap (Syntax → Syntax) := [
+def predefinedBinderPreds : NameMap (Term → TSyntax `binderPred) := [
     ("expr <= ", fun x => Id.run `(binderPred| ≤ $x)),
     ("expr ≤ ", fun x => Id.run `(binderPred| ≤ $x)),
     ("expr < ", fun x => Id.run `(binderPred| < $x)),

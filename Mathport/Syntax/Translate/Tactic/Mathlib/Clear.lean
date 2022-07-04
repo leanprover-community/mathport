@@ -16,5 +16,5 @@ open Parser
 attribute [trTactic clear'] trClear
 
 @[trTactic clear_dependent] def trClearDependent : TacM Syntax := do
-  `(tactic| clear! $((← parse ident*).map mkIdent)*)
+  `(tactic| clear! $[$((← parse ident*).map Lean.mkIdent)]*)
 

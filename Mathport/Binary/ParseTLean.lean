@@ -25,17 +25,17 @@ abbrev ParseM := StateRefT ParserState IO
 
 private def nat2expr (i : Nat) : ParseM Expr := do
   let s ← get
-  if i < s.exprs.size then return s.exprs[i]
+  if h : i < s.exprs.size then return s.exprs[⟨i, h⟩]
   throw $ IO.userError s!"[nat2expr] {i} > {s.exprs.size}"
 
 private def nat2level (i : Nat) : ParseM Level := do
   let s ← get
-  if i < s.levels.size then return s.levels[i]
+  if h : i < s.levels.size then return s.levels[⟨i, h⟩]
   throw $ IO.userError s!"[nat2level] {i} > {s.levels.size}"
 
 private def nat2name (i : Nat) : ParseM Name := do
   let s ← get
-  if i < s.names.size then return s.names[i]
+  if h : i < s.names.size then return s.names[⟨i, h⟩]
   throw $ IO.userError s!"[nat2name] {i} > {s.names.size}"
 
 private def parseHints (s : String) : ParseM ReducibilityHints := do
@@ -202,15 +202,15 @@ def parseLine (line : String) : ParseM Unit := do
         let nRenames ← parseNat nRenames
         let mut renames := #[]
         for i in [:nRenames] do
-          let n1 ← str2name rest[2*i]
-          let n2 ← str2name rest[2*i+1]
+          let n1 ← str2name rest[2*i]!
+          let n2 ← str2name rest[2*i+1]!
           renames := renames.push (n1, n2)
 
-        let nExcepts ← parseNat rest[2*nRenames]
+        let nExcepts ← parseNat rest[2*nRenames]!
         let offset := (2 * nRenames + 1)
         let mut exceptNames := #[]
         for i in [:nExcepts] do
-          exceptNames := exceptNames.push $ ← str2name rest[offset + i]
+          exceptNames := exceptNames.push $ ← str2name rest[offset + i]!
 
         let exportDecl : ExportDecl := {
           currNs := (← str2name currNs),
