@@ -24,8 +24,7 @@ def trSimpsRule : Sum (Name × Name) Name × Bool → M (TSyntax ``Parser.Comman
     | .inr a => `(Parser.Command.simpsRule| - $(← mkIdentF a):ident $[as_prefix%$pfx]?)
 
 @[trUserCmd «initialize_simps_projections»] def trInitializeSimpsProjections : TacM Syntax := do
-  let trc ← parse (tk "?")?
-  let projs ← parse (return (← ident, ← simpsRules))*
+  let (trc, projs) ← parse do return (← (tk "?")?, ← (return (← ident, ← simpsRules))*)
   let projs ← projs.mapM fun (n, rules) => do
     let rules ← liftM do rules.mapM trSimpsRule
     `(Parser.Command.simpsProj| $(← mkIdentF n):ident ($[$rules],*))

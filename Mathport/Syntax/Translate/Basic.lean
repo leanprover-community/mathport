@@ -1720,5 +1720,5 @@ def trCommand' : Command → M Unit
   | Command.print _ => warn! "unsupported: advanced #print"
   | Command.userCommand n mods args => do
     match (← get).userCmds.find? n with
-    | some f => try f mods args catch e => warn! "in {n}: {← e.toMessageData.toString}"
+    | some f => try f mods args catch e => warn! "in {n} {repr args}: {← e.toMessageData.toString}"
     | none => warn! "unsupported user command {n}"
