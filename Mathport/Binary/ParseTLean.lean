@@ -25,17 +25,17 @@ abbrev ParseM := StateRefT ParserState IO
 
 private def nat2expr (i : Nat) : ParseM Expr := do
   let s ← get
-  if h : i < s.exprs.size then return s.exprs[⟨i, h⟩]
+  if h : i < s.exprs.size then return s.exprs[i]
   throw $ IO.userError s!"[nat2expr] {i} > {s.exprs.size}"
 
 private def nat2level (i : Nat) : ParseM Level := do
   let s ← get
-  if h : i < s.levels.size then return s.levels[⟨i, h⟩]
+  if h : i < s.levels.size then return s.levels[i]
   throw $ IO.userError s!"[nat2level] {i} > {s.levels.size}"
 
 private def nat2name (i : Nat) : ParseM Name := do
   let s ← get
-  if h : i < s.names.size then return s.names[⟨i, h⟩]
+  if h : i < s.names.size then return s.names[i]
   throw $ IO.userError s!"[nat2name] {i} > {s.names.size}"
 
 private def parseHints (s : String) : ParseM ReducibilityHints := do

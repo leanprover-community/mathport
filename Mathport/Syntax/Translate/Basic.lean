@@ -15,7 +15,7 @@ abbrev Lean.Syntax.Conv := TSyntax `conv
 abbrev Lean.Syntax.Attr := TSyntax `attr
 abbrev Lean.Syntax.BracketedBinder := TSyntax ``Parser.Term.bracketedBinder
 abbrev Lean.Syntax.SimpleOrBracketedBinder :=
-  TSyntax [``Parser.Term.simpleBinder, ``Parser.Term.bracketedBinder]
+  TSyntax [`ident, ``Parser.Term.hole, ``Parser.Term.bracketedBinder]
 abbrev Lean.Syntax.EraseOrAttrInstance :=
   TSyntax [``Parser.Command.eraseAttr, ``Parser.Term.attrInstance]
 
@@ -230,7 +230,7 @@ instance : Warnable (TSyntax ``Parser.Command.notationItem) where
   warn s := Id.run `(Parser.Command.notationItem| $(quote s):str)
 
 instance : Warnable Syntax.SimpleOrBracketedBinder where
-  warn s := Id.run `(Parser.Term.simpleBinder| $(Warnable.warn s):ident)
+  warn s := mkIdent s
 
 instance : Warnable (Option α) where
   warn _ := none
@@ -599,12 +599,12 @@ mutual
     | Tactic.«;» tacs => do
       let rec build (i : Nat) (lhs : Syntax.Tactic) : M Syntax.Tactic :=
         if h : i < tacs.size then do
-          match ← trTacticOrList (tacs.get ⟨i, h⟩) with
+          match ← trTacticOrList tacs[i] with
           | Sum.inl tac => `(tactic| $lhs <;> $(← build (i+1) tac))
           | Sum.inr tacs => build (i+1) (← `(tactic| $lhs <;> [$tacs,*]))
         else pure lhs
       if h : tacs.size > 0 then
-        build 1 (← trTactic tacs[⟨0, h⟩])
+        build 1 (← trTactic tacs[0])
       else
         `(tactic| skip)
     | Tactic.«<|>» tacs => do
@@ -744,7 +744,7 @@ where
   trSimple
   | some b, BinderInfo.default, vars, ty, none => do
     if b && ty.isSome then return none
-    return some (← `(Parser.Term.simpleBinder| $[$vars]* $[: $ty]?))
+    return some (← `(Parser.Term.bracketedBinderF| ($[$vars]* $[: $ty]?)))
   | _, _, _, _, _ => pure none
 
 def trBinder' : BinderContext → Spanned Binder → M (Array Binder')
@@ -1057,7 +1057,7 @@ def trExpr' : Expr → M Term
   | Expr.infix_fn n e => trInfixFn n e
   | Expr.«(,)» es => do
     if h : es.size > 0 then
-      `(($(← trExpr es[⟨0, h⟩]):term, $(← es[1:].toArray.mapM fun e => trExpr e),*))
+      `(($(← trExpr es[0]):term, $(← es[1:].toArray.mapM fun e => trExpr e),*))
     else
       warn! "unsupported: empty (,)"
   | Expr.«.()» e => trExpr e
