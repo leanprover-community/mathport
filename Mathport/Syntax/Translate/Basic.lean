@@ -16,6 +16,7 @@ abbrev Lean.Syntax.Attr := TSyntax `attr
 abbrev Lean.Syntax.BracketedBinder := TSyntax ``Parser.Term.bracketedBinder
 abbrev Lean.Syntax.SimpleOrBracketedBinder :=
   TSyntax [`ident, ``Parser.Term.hole, ``Parser.Term.bracketedBinder]
+abbrev Lean.Syntax.FunBinder := TSyntax ``Parser.Term.funBinder
 abbrev Lean.Syntax.EraseOrAttrInstance :=
   TSyntax [``Parser.Command.eraseAttr, ``Parser.Term.attrInstance]
 
@@ -862,16 +863,44 @@ where
       return #[← `(Mathlib.ExtendedBinder.extBinder|
         $(trBinderIdent v):binderIdent $[: $(← ty.mapM fun ty => trExpr ty)]?)]
 
-instance : Coe Term (TSyntax ``Parser.Term.funBinder) where
+instance : Coe Term Syntax.FunBinder where
   coe s := Id.run `(funBinder| $s)
 
-def trLambdaBinder : LambdaBinder → M (Array (TSyntax ``Parser.Term.funBinder))
-  | LambdaBinder.reg bi =>
-    open Lean.TSyntax.Compat in do -- HACK HACK HACK HACK HACK WRONG SYNTAX!!!
-    let bc := { allowSimple := some false }
-    (← trBinder' bc (Spanned.dummy bi)).concatMapM (fun bi => expandBinder bc bi)
-  | LambdaBinder.«⟨⟩» args =>
-    return #[← trExprUnspanned (.«⟨⟩» args)]
+def implicitBinderF := Parser.Term.implicitBinder
+def strictImplicitBinderF := Parser.Term.strictImplicitBinder
+
+instance : Coe (TSyntax ``implicitBinderF) Syntax.FunBinder where coe s := ⟨s⟩
+instance : Coe (TSyntax ``strictImplicitBinderF) Syntax.FunBinder where coe s := ⟨s⟩
+instance : Coe (TSyntax ``Parser.Term.instBinder) Syntax.FunBinder where coe s := ⟨s⟩
+
+partial def trFunBinder : Binder → M (Array Syntax.FunBinder)
+  | .«notation» .. => warn! "unsupported notation binder"
+  | .binder bi vars bis ty _dflt => do
+    let ty ← ty.mapM fun ty => trExprUnspanned (.Pi bis ty)
+    let vars' := vars.getD #[Spanned.dummy .«_»] |>.map (trIdent_' ·.2)
+    match bi with
+    | .implicit => return #[← `(implicitBinderF| { $[$vars']* $[: $ty]? })]
+    | .strictImplicit => return #[← `(strictImplicitBinderF| ⦃ $[$vars']* $[: $ty]? ⦄)]
+    | .instImplicit =>
+      let var ← vars.mapM fun
+        | #[var] => pure (trIdent_' var.kind)
+        | _ => warn! "unsupported"
+      return #[← `(Parser.Term.instBinder| [$[$var :]? $(ty.getD (← `(_)))])]
+    | _default =>
+      if h : vars'.size > 0 then
+        let app ← `($(vars'[0]) $(vars'[1:])*)
+        match ty with
+        | some ty => return #[← `(($app : $ty))]
+        | none => return #[← `(($app))]
+      else
+        pure #[]
+  | .collection bi vars n e =>
+    let trBinder vars ty := trFunBinder <| .binder .default (some vars) #[] ty none
+    expandBinderCollection trBinder bi vars n e
+
+def trLambdaBinder : LambdaBinder → M (Array Syntax.FunBinder)
+  | .reg bi => trFunBinder bi
+  | .«⟨⟩» args => return #[← trExprUnspanned (.«⟨⟩» args)]
 
 def trOptType (ty : Option (Spanned Expr)) : M (Option (TSyntax ``Parser.Term.typeSpec)) :=
   ty.mapM trExpr >>= optTy
