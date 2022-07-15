@@ -877,21 +877,20 @@ partial def trFunBinder : Binder → M (Array Syntax.FunBinder)
   | .«notation» .. => warn! "unsupported notation binder"
   | .binder bi vars bis ty _dflt => do
     let ty ← ty.mapM fun ty => trExprUnspanned (.Pi bis ty)
-    let vars' := vars.getD #[Spanned.dummy .«_»] |>.map (trIdent_' ·.2)
-    match bi with
-    | .implicit => return #[← `(implicitBinderF| { $[$vars']* $[: $ty]? })]
-    | .strictImplicit => return #[← `(strictImplicitBinderF| ⦃ $[$vars']* $[: $ty]? ⦄)]
-    | .instImplicit =>
+    let vars' := vars.getD #[Spanned.dummy .«_»] |>.map (trIdent_ ·.2)
+    match bi, ty with
+    | .implicit, _ => return #[← `(implicitBinderF| { $[$vars']* $[: $ty]? })]
+    | .strictImplicit, _ => return #[← `(strictImplicitBinderF| ⦃ $[$vars']* $[: $ty]? ⦄)]
+    | .instImplicit, _ =>
       let var ← vars.mapM fun
-        | #[var] => pure (trIdent_' var.kind)
-        | _ => warn! "unsupported"
+        | #[⟨_, .ident id⟩] => pure (mkIdent id)
+        | _ => warn! "unsupported" | pure (mkIdent "_inst")
       return #[← `(Parser.Term.instBinder| [$[$var :]? $(ty.getD (← `(_)))])]
-    | _default =>
+    | _default, none => pure (vars'.map (·))
+    | _default, some ty =>
       if h : vars'.size > 0 then
         let app ← `($(vars'[0]) $(vars'[1:])*)
-        match ty with
-        | some ty => return #[← `(($app : $ty))]
-        | none => return #[← `(($app))]
+        return #[← `(($app : $ty))]
       else
         pure #[]
   | .collection bi vars n e =>
