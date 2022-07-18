@@ -275,10 +275,8 @@ instance : Inhabited Levels := ⟨none⟩
 instance : Inhabited LevelDecl := ⟨none⟩
 
 -- These are used to break up the huge mutual recursion below
-def NotationId := Nat
-def CommandId := Nat
-instance : Inhabited NotationId := ⟨(0:Nat)⟩
-instance : Inhabited CommandId := ⟨(0:Nat)⟩
+abbrev NotationId := Nat
+abbrev CommandId := Nat
 
 section
 set_option hygiene false

@@ -165,8 +165,8 @@ where
   -- and the extended names may clash.
   extendName (n : Name) (suffix : String := "ₓ") : Name :=
     match n with
-    | Name.str p s _ => Name.mkStr p (s ++ suffix)
-    | n              => Name.mkStr n suffix
+    | .str p s => .str p (s ++ suffix)
+    | n        => .str n suffix
 
 def refineLean4NamesAndUpdateMap (decl : Declaration) : BinportM (Declaration × ClashKind) := do
   let (decl', clashKind, ctors) ← refineLean4Names decl

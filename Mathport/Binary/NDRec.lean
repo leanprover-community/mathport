@@ -14,7 +14,7 @@ def mkNDRec (indTy ndRecName : Name) : MetaM (Option Declaration) := do
   let some (ConstantInfo.inductInfo indI) ← getConst? indTy | throwError (toString indTy)
   let indTy' ← inferType (mkConst indI.name (indI.levelParams.map mkLevelParam))
   let useDepElim ← forallTelescopeReducing indTy' $ fun _ indSort => do
-    let Expr.sort level _ := indSort | throwError (toString indSort)
+    let .sort level := indSort | throwError (toString indSort)
     pure $ level.normalize != levelZero
   if useDepElim then return none
 
@@ -27,8 +27,8 @@ def mkNDRec (indTy ndRecName : Name) : MetaM (Option Declaration) := do
     let motive := motive.get! 0;
     let motiveTy ← inferType motive;
     forallTelescopeReducing motiveTy $ fun _ elimSort => do
-      let Expr.sort elimLevel _ := elimSort | throwError (toString elimSort)
-      let (minorPremises, args) := args.splitAt recI.numMinors
+      let .sort elimLevel := elimSort | throwError (toString elimSort)
+      let (_minorPremises, args) := args.splitAt recI.numMinors
       let (indices, major) := args.splitAt recI.numIndices
       let majorPremise := major.get! 0
       let oldMotiveTy ← Meta.mkForallFVars indices (mkSort elimLevel)
