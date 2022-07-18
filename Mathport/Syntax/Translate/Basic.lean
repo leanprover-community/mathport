@@ -48,6 +48,10 @@ open Lean hiding Expr Expr.app Expr.const Expr.sort Level Level.imax Level.max L
 open Lean.Elab (Visibility)
 open Lean.Elab.Command (CommandElabM liftCoreM)
 
+open Lean.Parser.Term (bracketedBinderF)
+instance : Coe Syntax.Ident_ Syntax.SimpleOrBracketedBinder where coe s := ⟨s⟩
+instance : Coe (TSyntax ``bracketedBinderF) Syntax.BracketedBinder where coe s := ⟨s⟩
+
 namespace Translate
 
 open Std (HashMap)
@@ -233,6 +237,9 @@ instance : Warnable (TSyntax ``Parser.Command.notationItem) where
 instance : Warnable Syntax.SimpleOrBracketedBinder where
   warn s := mkIdent s
 
+instance : Warnable Syntax.BracketedBinder where
+  warn s := Id.run `(Parser.Term.bracketedBinderF| ($(mkIdent s)))
+
 instance : Warnable (Option α) where
   warn _ := none
 
@@ -272,8 +279,11 @@ def setInfo (meta : Option Meta) (stx : Syntax) : Syntax :=
     stx.setInfo (SourceInfo.synthetic (positionToStringPos start) (positionToStringPos end_))
   | _, _ => stx
 
+def setInfoT (meta : Option Meta) (stx : TSyntax ks) : TSyntax ks :=
+  ⟨setInfo meta stx⟩
+
 def withSpanS (m : Option Meta) (k : M (TSyntax ks)) : M (TSyntax ks) :=
-  return ⟨setInfo m (← withSpan m do k)⟩
+  return setInfoT m (← withSpan m do k)
 
 def spanning (k : β → M α) (x : Spanned β) : M α := withSpan x.meta do k x.kind
 def spanningS (k : β → M (TSyntax ks)) (x : Spanned β) : M (TSyntax ks) :=
@@ -520,12 +530,10 @@ where
 def mkCDot : Term := Unhygienic.run `(·)
 
 structure BinderContext where
-  -- if true, only allow simple for no type
-  allowSimple : Option Bool := none
   requireType := false
 
 inductive Binder'
-  | basic : Syntax.SimpleOrBracketedBinder → Binder'
+  | basic : Syntax.BracketedBinder → Binder'
   | collection : BinderInfo →
     Array (Spanned BinderName) → (nota : Name) → (rhs : Spanned Expr) → Binder'
 
@@ -710,13 +718,8 @@ def expandBinderCollection
     out := out ++ (← trBinder H (some (Spanned.dummy ty)))
   pure out
 
-open Lean.Parser.Term (bracketedBinderF)
-
-instance : Coe (TSyntax ``bracketedBinderF) Syntax.BracketedBinder where
-  coe := fun ⟨s⟩ => ⟨s⟩
-
 def trBasicBinder : BinderContext → BinderInfo → Option (Array (Spanned BinderName)) →
-    Binders → Option (Spanned Expr) → Option Default → M Syntax.SimpleOrBracketedBinder
+    Binders → Option (Spanned Expr) → Option Default → M Syntax.BracketedBinder
   | _, BinderInfo.instImplicit, vars, _, some ty, none => do
     let var ← match vars with
       | none => pure none
@@ -724,14 +727,12 @@ def trBasicBinder : BinderContext → BinderInfo → Option (Array (Spanned Bind
       | some #[⟨_, .«_» ..⟩] => pure none
       | some _ => warn! "unsupported (impossible)"
     `(bracketedBinderF| [$[$var :]? $(← trExpr ty)])
-  | ⟨allowSimp, req⟩, bi, some vars, bis, ty, dflt => do
-    let ty := match req || !bis.isEmpty, ty with
+  | {requireType, ..}, bi, some vars, bis, ty, dflt => do
+    let ty := match requireType || !bis.isEmpty, ty with
       | true, none => some (Spanned.dummy Expr.«_»)
       | _, _ => ty
     let ty ← ty.mapM fun ty => trExprUnspanned (Expr.Pi bis ty)
     let vars := vars.map fun v => trIdent_ v.kind
-    if let some stx ← trSimple allowSimp bi vars ty dflt then
-      return stx
     match bi with
     | BinderInfo.implicit =>
       `(bracketedBinderF| { $[$vars]* $[: $ty]? })
@@ -741,12 +742,6 @@ def trBasicBinder : BinderContext → BinderInfo → Option (Array (Spanned Bind
       let dflt ← dflt.mapM trBinderDefault
       `(bracketedBinderF| ( $[$vars]* $[: $ty]? $[$dflt]? ))
   | _, _, _, _, _, _ => warn! "unsupported (impossible)"
-where
-  trSimple
-  | some b, BinderInfo.default, vars, ty, none => do
-    if b && ty.isSome then return none
-    return some (← `(Parser.Term.bracketedBinderF| ($[$vars]* $[: $ty]?)))
-  | _, _, _, _, _ => pure none
 
 def trBinder' : BinderContext → Spanned Binder → M (Array Binder')
   | bc, ⟨m, Binder.binder bi vars bis ty dflt⟩ =>
@@ -758,7 +753,7 @@ def trBinder' : BinderContext → Spanned Binder → M (Array Binder')
 def trBinders' (bc : BinderContext) (bis : Array (Spanned Binder)) : M (Array Binder') := do
   bis.concatMapM (fun bi => trBinder' bc bi)
 
-def expandBinder : BinderContext → Binder' → M (Array Syntax.SimpleOrBracketedBinder)
+def expandBinder : BinderContext → Binder' → M (Array Syntax.BracketedBinder)
   | _, Binder'.basic bi => pure #[bi]
   | bc, Binder'.collection bi vars n rhs =>
     expandBinderCollection
@@ -766,17 +761,16 @@ def expandBinder : BinderContext → Binder' → M (Array Syntax.SimpleOrBracket
       bi vars n rhs
 
 def expandBinders (bc : BinderContext) (bis : Array Binder') :
-    M (Array Syntax.SimpleOrBracketedBinder) := do
+    M (Array Syntax.BracketedBinder) := do
   bis.concatMapM (fun bi => expandBinder bc bi)
 
 def trBinders (bc : BinderContext) (bis : Array (Spanned Binder)) :
-    M (Array Syntax.SimpleOrBracketedBinder) := do
+    M (Array Syntax.BracketedBinder) := do
   expandBinders bc (← trBinders' bc bis)
 
 def trBracketedBinders (bc : BinderContext) (bis : Array (Spanned Binder)) :
     M (Array Syntax.BracketedBinder) :=
-  return (← expandBinders { bc with allowSimple := false }
-    (← trBinders' bc bis)).map fun ⟨s⟩ => ⟨s⟩
+  return (← expandBinders {} (← trBinders' bc bis)).map fun ⟨s⟩ => ⟨s⟩
 
 def trDArrow (bis : Array (Spanned Binder)) (ty : Spanned Expr) : M Term := do
   let bis ← trBracketedBinders { requireType := true } bis
@@ -908,7 +902,7 @@ def trLetDecl : LetDecl → M (TSyntax ``Parser.Term.letDecl)
   | LetDecl.var x bis ty val => do
     let letId := mkNode ``Parser.Term.letIdDecl #[
       trIdent_ x.kind,
-      mkNullNode $ ← trBinders { allowSimple := some true } bis,
+      mkNullNode $ ← trBinders {} bis,
       mkOptionalNode $ ← trOptType ty,
       mkAtom ":=", ← trExpr val]
     `(Parser.Term.letDecl| $letId:letIdDecl)
@@ -1007,6 +1001,13 @@ instance : Coe (TSyntax ``Parser.Term.structInst) Term where
 instance : Coe (TSyntax scientificLitKind) Term where
   coe s := Unhygienic.run `($s:scientific)
 
+def isSimpleBindersOnlyOptType? (bis : Array (Spanned Binder)) : Option (Array (Spanned BinderName) × Option (Spanned Expr)) := do
+  if let #[⟨_, .binder .default (some bns) #[] ty none⟩] := bis then
+    return (bns, ty)
+  (·, none) <$> bis.concatMapM fun
+    | ⟨_, .binder .default (some bns) #[] none none⟩ => bns
+    | _ => none
+
 def trExpr' : Expr → M Term
   | Expr.«...» => `(_)
   | Expr.sorry => `(sorry)
@@ -1040,7 +1041,10 @@ def trExpr' : Expr → M Term
     -- let dArrowHeuristic := !bis.any fun | ⟨_, Binder.binder _ _ _ none _⟩ => true | _ => false
     let dArrowHeuristic := false
     if dArrowHeuristic then trDArrow bis e else
-      let bc := { allowSimple := some false }
+      let bc := {}
+      if let some (bns, ty) := isSimpleBindersOnlyOptType? bis then
+        let bns := bns.map fun ⟨m, bn⟩ => setInfoT m <| trIdent_ bn
+        return ← `(∀ $bns* $[: $(← ty.mapM trExpr)]?, $(← trExpr e))
       trExtendedBindersGrouped
         (fun args e => Id.run `(∀ $args*, $e))
         (fun v pred e => Id.run `(∀ $v:binderIdent $pred:binderPred, $e))
@@ -1354,13 +1358,13 @@ def trDeclId (n : Name) (us : LevelDecl) : M (TSyntax ``Parser.Command.declId) :
 
 def trDeclSig (bis : Binders) (ty : Option (Spanned Expr)) :
     M (TSyntax ``Parser.Command.declSig) := do
-  let bis ← trBinders { allowSimple := true } bis
+  let bis ← trBinders {} bis
   let ty ← trExpr (ty.getD <| Spanned.dummy Expr.«_»)
   `(Parser.Command.declSig| $[$bis]* : $ty)
 
 def trOptDeclSig (bis : Binders) (ty : Option (Spanned Expr)) :
     M (TSyntax ``Parser.Command.optDeclSig) := do
-  let bis ← trBinders { allowSimple := true } bis
+  let bis ← trBinders {} bis
   let ty ← ty.mapM trExpr
   `(Parser.Command.optDeclSig| $[$bis]* $[: $ty]?)
 
