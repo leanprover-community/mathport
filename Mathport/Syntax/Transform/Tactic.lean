@@ -61,10 +61,22 @@ mathport_rules
 -- common obsolete patterns from haveI
 mathport_rules
   | `(by have $hd:haveDecl; exact $t) =>
-    `(have $hd:haveDecl
+    `(haveI $hd:haveDecl
       $t)
   | `(by have $hd:haveDecl <;> exact $t) =>
-    `(have $hd:haveDecl
+    `(haveI $hd:haveDecl
+      $t)
+  | `(by haveI $hd:haveDecl; exact $t) =>
+    `(haveI $hd:haveDecl
+      $t)
+  | `(by haveI $hd:haveDecl <;> exact $t) =>
+    `(haveI $hd:haveDecl
+      $t)
+  | `(by letI $hd:haveDecl; exact $t) =>
+    `(letI $hd:haveDecl
+      $t)
+  | `(by letI $hd:haveDecl <;> exact $t) =>
+    `(letI $hd:haveDecl
       $t)
 
 -- used in Lean 3 to postpone elaboration, now happens by default
