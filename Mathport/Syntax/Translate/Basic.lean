@@ -1034,6 +1034,9 @@ def trExpr' : Expr → M Term
   | Expr.fun true #[⟨_, LambdaBinder.reg (Binder.binder _ none _ (some ty) _)⟩] e => do
     `(fun $(mkIdent `this):ident: $(← trExpr ty) => $(← trExpr e))
   | Expr.fun _ bis e => do
+    if let #[⟨_, .reg (.binder .default (some bns) #[] ty none)⟩] := bis then
+      let bns := bns.map fun ⟨m, bn⟩ => setInfoT m <| trIdent_ bn
+      return ← `(fun $bns* $[: $(← ty.mapM trExpr)]? => $(← trExpr e))
     let bis ← bis.concatMapM (fun bi => trLambdaBinder bi.kind)
     `(fun $bis* => $(← trExpr e))
   | Expr.Pi #[] e => trExpr e
