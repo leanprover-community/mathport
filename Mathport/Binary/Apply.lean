@@ -217,7 +217,7 @@ def applyClass (n : Name) : BinportM Unit := do
     | Except.ok env    => setEnv env
   catch ex => warn ex
 
-def applyInstance (nc ni : Name) (prio : Nat) : BinportM Unit := do
+def applyInstance (_nc ni : Name) (prio : Nat) : BinportM Unit := do
   -- (for meta instances, Lean4 won't know about the decl)
   -- TODO: `prio.pred`?
   if (← read).config.disabledInstances.contains ni then return ()
@@ -328,17 +328,17 @@ def applyPosition (n : Name) (line col : Nat) : BinportM Unit := do
 def applyModification (mod : EnvModification) : BinportM Unit := withReader (fun ctx => { ctx with currDecl := mod.toName }) do
   println! "[apply] {mod}"
   match mod with
-  | EnvModification.export d               => applyExport d
-  | EnvModification.mixfix kind n prec tok => pure () -- synport handles notation
-  | EnvModification.simp n prio            => applySimpLemma n prio
-  | EnvModification.reducibility n kind    => applyReducibility n kind
-  | EnvModification.projection proj        => applyProjection proj
-  | EnvModification.class n                => applyClass n
-  | EnvModification.instance nc ni prio    => applyInstance nc ni prio
-  | EnvModification.private _ _            => pure ()
-  | EnvModification.protected n            => pure ()
-  | EnvModification.position n line col    => pure ()
-  | EnvModification.decl d                 =>
+  | EnvModification.mixfix .. -- synport handles notation
+  | EnvModification.private ..
+  | EnvModification.protected ..
+  | EnvModification.position ..         => pure ()
+  | EnvModification.export d            => applyExport d
+  | EnvModification.simp n prio         => applySimpLemma n prio
+  | EnvModification.reducibility n kind => applyReducibility n kind
+  | EnvModification.projection proj     => applyProjection proj
+  | EnvModification.class n             => applyClass n
+  | EnvModification.instance nc ni prio => applyInstance nc ni prio
+  | EnvModification.decl d              =>
     match d with
     | Declaration.axiomDecl ax                => applyAxiomVal ax
     | Declaration.thmDecl thm                 => applyTheoremVal thm

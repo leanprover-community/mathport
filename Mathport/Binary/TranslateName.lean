@@ -60,7 +60,7 @@ def getExprKind (type : Expr) : MetaM ExprKind := do
   return ExprKind.eDef
 where
   returnsSort (type : Expr) : MetaM Bool := withTransparency TransparencyMode.all do
-    forallTelescopeReducing type fun xs b => pure $ b matches Expr.sort ..
+    forallTelescopeReducing type fun _ b => pure $ b matches Expr.sort ..
 
 def mkCandidateLean4Name (n3 : Name) (type : Expr) : BinportM Name := do
   match ← lookupNameExt n3 with

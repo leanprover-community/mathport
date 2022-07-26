@@ -719,7 +719,7 @@ mutual
       (match h with | none => "" | some h => h.kind.toString ++ " : ") ++
       Expr_repr t.kind ++ Proof_repr' pr.kind ++
       "," ++ Format.line ++ Expr_repr e.kind
-    | Expr.«.» compact e pr, p =>
+    | Expr.«.» compact e pr, _ =>
       Expr_repr e.kind max_prec ++ (if compact then "." else "^.") ++ repr pr.kind
     | Expr.if h c t e, p => Format.parenPrec 1000 p $ "if " ++
       (match h with | none => "" | some h => h.kind.toString ++ " : ") ++
@@ -841,7 +841,7 @@ mutual
         ("begin" ++ s₁ ++ s₂ ++ Format.line ++ s₃).nest 2 ++ Format.line ++ "end"
 
   partial def Param_repr : Param → Format
-    | Param.parse e calls => Format.sbracket $
+    | Param.parse _ calls => Format.sbracket $
       (", ":Format).joinSep $ calls.toList.map fun c => VMCall_repr c.kind
     | Param.expr e => Expr_repr e.kind
     | Param.block e => Block_repr e
@@ -927,8 +927,9 @@ def Notation_repr : Notation → (attrs : Attributes := #[]) → Format
     (if attrs.isEmpty then "" else repr attrs ++ " " : Format) ++
     PrecSymbol_repr sym ++
     (match val with | none => "" | some e => " := " ++ Expr_repr e.kind)
-  | Notation.notation lits val, attrs => "notation" ++
-    spacedBefore (fun n => Literal_repr n.kind) lits ++
+  | Notation.notation lits val, attrs =>
+    (if attrs.isEmpty then "" else repr attrs ++ " " : Format) ++
+    "notation" ++ spacedBefore (fun n => Literal_repr n.kind) lits ++
     (match val with | none => "" | some e => " := " ++ Expr_repr e.kind)
 
 instance : Repr Notation := ⟨fun n _ => Notation_repr n⟩
@@ -1024,7 +1025,7 @@ instance : Repr InductiveCmd where reprPrec c _ := match c with
     (match nota with | none => "" | some n => "\n" ++ repr n) ++
     Intros_repr intros
   | InductiveCmd.mutual cl mods us bis nota inds =>
-    repr mods ++ (if cl then "class " else "") ++ "inductive " ++
+    repr mods ++ (if cl then "class " else "") ++ "inductive " ++ repr us ++
     Format.joinSep (inds.toList.map fun m => m.name.kind.toString) ", " ++ repr bis ++
     (match nota with | none => "" | some n => "\n" ++ repr n) ++
     Format.join (inds.toList.map (Mutual_repr Intros_repr))
@@ -1051,7 +1052,7 @@ instance : Repr Command where reprPrec c _ := match c with
     (match n with | none => "" | some n => " " ++ n.kind.toString : String) ++
     repr us ++ repr bis ++ optTy ty ++ repr val.kind
   | Command.mutualDecl dk mods us bis arms =>
-    repr mods ++ repr dk ++ " " ++
+    repr mods ++ repr dk ++ " " ++ repr us ++
     Format.joinSep (arms.toList.map fun m => m.name.kind.toString) ", " ++
     repr bis ++ Format.join (arms.toList.map (Mutual_repr Arms_repr))
   | Command.inductive ind => repr ind

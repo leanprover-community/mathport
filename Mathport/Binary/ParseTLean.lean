@@ -115,7 +115,7 @@ def parseLine (line : String) : ParseM Unit := do
       | [i, "#EP", bi, j₁, j₂, j₃] => writeExpr  i $ mkForall (← str2name j₁) (← parseBinderInfo bi) (← str2expr j₂) (← str2expr j₃)
       | [i, "#EZ", j₁, j₂, j₃, j₄] => writeExpr  i $ mkLet (← str2name j₁) (← str2expr j₂) (← str2expr j₃) (← str2expr j₄)
       | [i, "#SORRY_MACRO", j]     => writeExpr  i $ mkSorryPlaceholder (← str2expr j)
-      | [i, "#PROJ_MACRO", iName, cName, pName, idx, arg] =>
+      | [i, "#PROJ_MACRO", iName, _cName, _pName, idx, arg] =>
         let (iName, idx, arg) := (← str2name iName, ← parseNat idx, ← str2expr arg)
         let some numParams := (← get).ind2params.find? iName
           | throw $ IO.userError "projection type {iName} not found"

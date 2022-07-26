@@ -107,6 +107,7 @@ open AST3 Mathport.Translate.Parser
   let loc ← renameNamespace loc
   match cmd with
   | Command.attribute true mods attrs ns =>
+    unless mods.isEmpty do warn! "unsupported: localized modifiers"
     let loc ← mkIdentR loc
     trAttributeCmd false attrs ns fun stx => Id.run `(localized [$loc] $stx)
   | Command.notation (true, res) attrs n => trNotationCmd (false, res) attrs n loc
@@ -237,7 +238,7 @@ open AST3 Mathport.Translate.Parser
   let args ← parse $ maybeListOf $ return (← ident, ← (tk "↔" <|> tk "<->")? *> ident)
   if args.isEmpty then `(tactic| skip) else
   let args ← args.mapM fun (x, y) =>
-    `(Parser.Tactic.swapVarArg| $(mkIdent x):ident ↔ $(mkIdent y):ident)
+    `(Mathlib.Tactic.swapRule| $(mkIdent x):ident ↔ $(mkIdent y):ident)
   `(tactic| swap_var $args,*)
 
 -- # tactic.tauto

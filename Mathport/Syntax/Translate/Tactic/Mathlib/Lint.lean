@@ -19,17 +19,17 @@ open AST3 Parser
 @[trUserAttr linter] def trLinterAttr := tagAttr `linter
 
 @[trUserCmd «#lint»] def trLintCmd : TacM Syntax := do
-  let ((fast, verb), use_only, extra) ← parse lintArgs
+  let ((_fast, _verb), _use_only, _extra) ← parse lintArgs
   -- TODO: translate (hard because syntax quotation is tricky)
   `(#lint)
 
 @[trUserCmd «#lint_mathlib»] def trLintMathlibCmd : TacM Syntax := do
-  let ((fast, verb), use_only, extra) ← parse lintArgs
+  let ((_fast, _verb), _use_only, _extra) ← parse lintArgs
   -- TODO: translate (hard because syntax quotation is tricky)
   `(#lint mathlib)
 
 @[trUserCmd «#lint_all»] def trLintAllCmd : TacM Syntax := do
-  let ((fast, verb), use_only, extra) ← parse lintArgs
+  let ((_fast, _verb), _use_only, _extra) ← parse lintArgs
   -- TODO: translate (hard because syntax quotation is tricky)
   `(#lint all)
 
