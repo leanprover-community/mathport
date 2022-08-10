@@ -913,7 +913,7 @@ def trLetDecl : LetDecl → M (TSyntax ``Parser.Term.letDecl)
 def trArm : Arm → M (TSyntax ``Parser.Term.matchAltExpr)
   | ⟨lhs, rhs⟩ => do
     `(Parser.Term.matchAltExpr|
-      | $(← lhs.mapM fun e => trExpr e),* => $(← trExpr rhs))
+      | $(← lhs.mapM trExpr),* => $(← trExpr rhs))
 
 def trDoElem : DoElem → M (TSyntax `doElem)
   | DoElem.let decl => do `(doElem| let $(← spanningS trLetDecl decl):letDecl)
@@ -924,7 +924,7 @@ def trDoElem : DoElem → M (TSyntax `doElem)
     | Expr.ident lhs, none =>
       `(doElem| let $(mkIdent lhs):ident $(← trOptType ty)? ← $rhs:term)
     | _, _ =>
-      let els ← els.mapM fun e => trExpr e
+      let els ← els.mapM trExpr
       `(doElem| let $(← trExpr lhs):term ← $rhs:term $[| $els:term]?)
 
 def trProof : Proof → M Term
@@ -954,7 +954,7 @@ def trNotation (n : Choice) (args : Array (Spanned Arg)) : M Term := do
     | ⟨m, Arg.binder bi⟩ => trExtBinders #[⟨m, bi⟩]
     | ⟨_, Arg.binders bis⟩ => trExtBinders bis
     | _ => warn! "unsupported (impossible)"
-  | some ⟨_, _, NotationKind.exprs f, _⟩, #[⟨_, Arg.exprs es⟩] => f <$> es.mapM fun e => trExpr e
+  | some ⟨_, _, NotationKind.exprs f, _⟩, #[⟨_, Arg.exprs es⟩] => f <$> es.mapM trExpr
   | some ⟨_, _, NotationKind.exprs _, _⟩, _ => warn! "unsupported (impossible)"
   | some ⟨_, _, NotationKind.binder f g, _⟩, #[⟨mbi, Arg.binder bi⟩, ⟨me, Arg.expr e⟩] =>
     trExplicitBindersExt f g #[⟨mbi, bi⟩] ⟨me, e⟩
@@ -1088,11 +1088,11 @@ def trExpr' : Expr → M Term
     `(sorry)
   | Expr.«`» false n => pure $ Quote.quote n
   | Expr.«`» true n => do `(``$(← mkIdentI n):ident)
-  | Expr.«⟨⟩» es => do `(⟨$(← es.mapM fun e => trExpr e),*⟩)
+  | Expr.«⟨⟩» es => do `(⟨$(← es.mapM trExpr),*⟩)
   | Expr.infix_fn n e => trInfixFn n e
   | Expr.«(,)» es => do
     if h : es.size > 0 then
-      `(($(← trExpr es[0]):term, $(← es[1:].toArray.mapM fun e => trExpr e),*))
+      `(($(← trExpr es[0]):term, $(← es[1:].toArray.mapM trExpr),*))
     else
       warn! "unsupported: empty (,)"
   | Expr.«.()» e => trExpr e
@@ -1106,19 +1106,20 @@ def trExpr' : Expr → M Term
       `(let $(← trLetDecl bi.kind):letDecl
         $stx)
   | Expr.match #[x] _ #[] => do `(nomatch $(← trExpr x))
-  | Expr.match xs _ #[] => do `(match $[$(← xs.mapM fun x => trExpr x):term],* with.)
+  | Expr.match xs _ #[] => do `(match $[$(← xs.mapM trExpr):term],* with.)
   | Expr.match xs ty eqns => do
-    `(match $[$(← xs.mapM fun x => trExpr x):term],* with $[$(← eqns.mapM trArm):matchAlt]*)
+    `(match $[(motive := $(← ty.mapM trExpr))]? $[$(← xs.mapM trExpr):term],* with
+      $[$(← eqns.mapM trArm):matchAlt]*)
   | Expr.do _ els => do let els ← els.mapM fun e => trDoElem e.kind; `(do $[$els:doElem]*)
-  | Expr.«{,}» es => do `({$(← es.mapM fun e => trExpr e):term,*})
+  | Expr.«{,}» es => do `({$(← es.mapM trExpr):term,*})
   | Expr.subtype false x ty p => do
-    `({$(mkIdent x.kind) $[: $(← ty.mapM fun e => trExpr e)]? // $(← trExpr p)})
+    `({$(mkIdent x.kind) $[: $(← ty.mapM trExpr)]? // $(← trExpr p)})
   | Expr.subtype true x none p => do `({$(mkIdent x.kind):ident | $(← trExpr p)})
   | Expr.subtype true x (some ty) p => do
     `({ $(mkIdent x.kind):ident : $(← trExpr ty):term | $(← trExpr p):term })
   | Expr.sep x ty p => do
     `({$(mkIdent x.kind):ident ∈ $(← trExpr ty) | $(← trExpr p)})
-  | stx@(Expr.setReplacement e bis) => do
+  | stx@(Expr.setReplacement _e _bis) => do
     warn!"unsupported set replacement {repr stx}"
     -- `({$(← trExpr e) | $[$(← trBinders {} bis):bracketedBinder]*})
   | Expr.structInst _ src flds srcs catchall => do
@@ -1163,7 +1164,7 @@ inductive TrAttr
 instance : Coe (TSyntax ``Parser.Attr.simple) Syntax.Attr where
   coe s := Unhygienic.run `(attr| $s:simple)
 
-def trAttr (prio : Option Expr) : Attribute → M (Option TrAttr)
+def trAttr (_prio : Option Expr) : Attribute → M (Option TrAttr)
   | Attribute.priority n => pure $ TrAttr.prio n.kind
   | Attribute.del n => do
     let n ← match n with
@@ -1262,9 +1263,14 @@ instance : Coe (TSyntax ``Parser.Command.declModifiersF)
     (TSyntax ``Parser.Command.declModifiers) where
   coe s := ⟨s⟩
 
-def trModifiers (mods : Modifiers) : M (SpecialAttrs × TSyntax ``Parser.Command.declModifiers) :=
-  mods.foldlM trModifier {} >>= toSyntax
+def trModifiers (mods : Modifiers) (more : Attributes := #[]) :
+  M (SpecialAttrs × TSyntax ``Parser.Command.declModifiers) :=
+  mods.foldlM trModifier {} >>= trAttrs more >>= toSyntax
 where
+  trAttrs (attrs : Attributes) (kind : AttributeKind := .global)
+    (s : Modifiers4) : M Modifiers4 := do
+    pure { s with attrs := (← trAttributes attrs false kind s.attrs).2 }
+
   trModifier (s : Modifiers4) (m : Spanned Modifier) : M Modifiers4 :=
     match m.kind with
     | Modifier.private => match s.vis with
@@ -1280,9 +1286,7 @@ where
       | DefinitionSafety.safe => pure { s with safety := DefinitionSafety.unsafe }
       | _ => throw! "unsupported (impossible)"
     | Modifier.mutual => pure s -- mutual is duplicated elsewhere in the grammar
-    | Modifier.attr loc _ attrs => do
-      let kind := if loc then AttributeKind.local else AttributeKind.global
-      pure { s with attrs := (← trAttributes attrs false kind |>.run ({}, #[])).2 }
+    | Modifier.attr loc _ attrs => trAttrs attrs (if loc then .local else .global) s
     | Modifier.doc doc => match s.docComment with
       | none => pure { s with docComment := some doc }
       | _ => throw! "unsupported (impossible)"
@@ -1377,9 +1381,10 @@ def trAxiom (mods : Modifiers) (n : Name)
   unless s.derive.isEmpty do warn! "unsupported: @[derive] axiom"
   pushM `(command| $mods:declModifiers axiom $(← trDeclId n us) $(← trDeclSig bis ty))
 
-def trDecl (dk : DeclKind) (mods : Modifiers) (n : Option (Spanned Name)) (us : LevelDecl)
-  (bis : Binders) (ty : Option (Spanned Expr)) (val : DeclVal) : M Syntax.Command := do
-  let (s, mods) ← trModifiers mods
+def trDecl (dk : DeclKind) (mods : Modifiers) (attrs : Attributes)
+  (n : Option (Spanned Name)) (us : LevelDecl) (bis : Binders) (ty : Option (Spanned Expr))
+  (val : DeclVal) : M Syntax.Command := do
+  let (s, mods) ← trModifiers mods attrs
   let id ← n.mapM fun n => trDeclId n.kind us
   let val ← match val with
     | DeclVal.expr e => do `(Parser.Command.declVal| := $(← trExprUnspanned e))
@@ -1388,14 +1393,14 @@ def trDecl (dk : DeclKind) (mods : Modifiers) (n : Option (Spanned Name)) (us : 
   if s.irreducible then
     unless dk matches DeclKind.def do warn! "unsupported irreducible non-definition"
     unless s.derive.isEmpty do warn! "unsupported: @[derive, irreducible] def"
-    return ← `($mods:declModifiers irreducible_def $id.get! $(← trOptDeclSig bis ty) $val)
+    return ← `($mods:declModifiers irreducible_def $id.get! $(← trOptDeclSig bis ty) $val:declVal)
   match dk with
   | DeclKind.abbrev => do
     unless s.derive.isEmpty do warn! "unsupported: @[derive] abbrev"
-    `($mods:declModifiers abbrev $id.get! $(← trOptDeclSig bis ty) $val)
+    `($mods:declModifiers abbrev $id.get! $(← trOptDeclSig bis ty):optDeclSig $val)
   | DeclKind.def => do
     let ds := s.derive.map mkIdent |>.asNonempty
-    `($mods:declModifiers def $id.get! $(← trOptDeclSig bis ty) $val $[deriving $ds,*]?)
+    `($mods:declModifiers def $id.get! $(← trOptDeclSig bis ty) $val:declVal $[deriving $ds,*]?)
   | DeclKind.example => do
     unless s.derive.isEmpty do warn! "unsupported: @[derive] example"
     `($mods:declModifiers example $(← trDeclSig bis ty) $val)
@@ -1412,12 +1417,14 @@ def trOptDeriving : Array Name → M (TSyntax ``Parser.Command.optDeriving)
   | #[] => `(Parser.Command.optDeriving|)
   | ds => `(Parser.Command.optDeriving| deriving $[$(ds.map mkIdent):ident],*)
 
-def trInductive (cl : Bool) (mods : Modifiers) (n : Spanned Name) (us : LevelDecl)
-  (bis : Binders) (ty : Option (Spanned Expr))
+set_option linter.unusedVariables false in -- FIXME(Mario): spurious warning on let ctors ← ...
+def trInductive (cl : Bool) (mods : Modifiers) (attrs : Attributes)
+  (n : Spanned Name) (us : LevelDecl) (bis : Binders) (ty : Option (Spanned Expr))
   (nota : Option Notation) (intros : Array (Spanned Intro)) : M Syntax.Command := do
-  let (s, mods) ← trModifiers mods
+  let (s, mods) ← trModifiers mods attrs
   let id ← trDeclId n.kind us
   let sig ← trOptDeclSig bis ty
+  unless nota.isNone do warn! "unsupported: (notation) in inductive"
   let ctors ← intros.mapM fun ⟨m, ⟨doc, name, ik, bis, ty⟩⟩ => withSpanS m do
     if let some ik := ik then warn! "infer kinds are unsupported in Lean 4: {name.2} {ik}"
     `(Parser.Command.ctor| |
@@ -1641,7 +1648,7 @@ def trNotationCmd (loc : LocalReserve) (attrs : Attributes) (nota : Notation)
     let desc := match lits with
     | #[⟨_, AST3.Literal.sym tk⟩] => NotationDesc.const tk.1.kind.trim
     | #[⟨_, AST3.Literal.sym left⟩,
-        ⟨_, AST3.Literal.var v (some ⟨_, Action.fold _ _ sep _ _ (some term)⟩)⟩] =>
+        ⟨_, AST3.Literal.var _ (some ⟨_, Action.fold _ _ sep _ _ (some term)⟩)⟩] =>
       NotationDesc.exprs left.1.kind.trim sep.1.kind.trim term.1.kind.trim
     | _ => match mkNAry lits with
       | some lits => NotationDesc.nary lits
@@ -1667,10 +1674,10 @@ end
 
 def trInductiveCmd : InductiveCmd → M Unit
   | InductiveCmd.reg cl mods n us bis ty nota intros =>
-     pushM $ trInductive cl mods n us bis ty nota intros
+     pushM $ trInductive cl mods #[] n us bis ty nota intros
   | InductiveCmd.mutual cl mods us bis nota inds =>
     trMutual inds fun ⟨attrs, n, ty, intros⟩ => do
-      trInductive cl mods n us bis ty nota intros
+      trInductive cl mods attrs n us bis ty nota intros
 
 def trAttributeCmd (loc : Bool) (attrs : Attributes) (ns : Array (Spanned Name))
     (f : Syntax.Command → Syntax.Command) : M Unit := do
@@ -1709,15 +1716,15 @@ def trCommand' : Command → M Unit
       | _ => warn! "unsupported (impossible)"
     | _ => warn! "unsupported (impossible)"
   | Command.decl dk mods n us bis ty val => do
-    pushM $ trDecl dk mods n us bis ty val.kind
+    pushM $ trDecl dk mods #[] n us bis ty val.kind
   | Command.mutualDecl dk mods us bis arms =>
     trMutual arms fun ⟨attrs, n, ty, vals⟩ =>
-      trDecl dk mods n us bis ty (DeclVal.eqns vals)
+      trDecl dk mods attrs n us bis ty (DeclVal.eqns vals)
   | Command.inductive ind => trInductiveCmd ind
   | Command.structure cl mods n us bis exts ty m flds =>
     trStructure cl mods n us bis exts ty m flds
   | Command.attribute loc _ attrs ns => trAttributeCmd loc attrs ns id
-  | Command.precedence sym prec => warn! "warning: unsupported: precedence command"
+  | Command.precedence .. => warn! "warning: unsupported: precedence command"
   | Command.notation loc attrs n => trNotationCmd loc attrs n default
   | Command.open true ops => ops.forM trExportCmd
   | Command.open false ops => trOpenCmd ops
@@ -1745,18 +1752,18 @@ def trCommand' : Command → M Unit
       pushM `(command| set_option $(← mkIdentO o) $(Syntax.mkStrLit s):str)
     | o, OptionVal.nat n => do
       pushM `(command| set_option $(← mkIdentO o) $(Quote.quote n):num)
-    | o, OptionVal.decimal _ _ => warn! "unsupported: float-valued option"
+    | _, OptionVal.decimal .. => warn! "unsupported: float-valued option"
   | Command.declareTrace n => do
     let n ← renameIdent n.kind
     pushM `(command| initialize registerTraceClass $(Quote.quote n))
-  | Command.addKeyEquivalence a b => warn! "unsupported: add_key_equivalence"
+  | Command.addKeyEquivalence .. => warn! "unsupported: add_key_equivalence"
   | Command.runCmd e => do let e ← trExpr e; pushM `(run_cmd $e:term)
   | Command.check e => do pushM `(#check $(← trExpr e))
   | Command.reduce _ e => do pushM `(#reduce $(← trExpr e))
   | Command.eval e => do pushM `(#eval $(← trExpr e))
-  | Command.unify e₁ e₂ => warn! "unsupported: #unify"
-  | Command.compile n => warn! "unsupported: #compile"
-  | Command.help n => warn! "unsupported: #help"
+  | Command.unify .. => warn! "unsupported: #unify"
+  | Command.compile .. => warn! "unsupported: #compile"
+  | Command.help .. => warn! "unsupported: #help"
   | Command.print (PrintCmd.str s) => pushM `(#print $(Syntax.mkStrLit s))
   | Command.print (PrintCmd.ident n) => do pushM `(#print $(← mkIdentI n.kind))
   | Command.print (PrintCmd.axioms (some n)) => do pushM `(#print axioms $(← mkIdentI n.kind))

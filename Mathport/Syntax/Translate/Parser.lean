@@ -91,7 +91,7 @@ def withoutIdentList := (tk "without" *> ident*) <|> pure #[]
 open Lean.Elab.Tactic in
 def Location.ofOption (l : Array (Option Name)) : Location :=
   let (hs, ty) := l.foldl (init := (#[], false)) fun
-    | (hs, ty), none => (hs, true)
+    | (hs, _), none => (hs, true)
     | (hs, ty), some n => (hs.push (mkIdent n), ty)
   Location.targets hs ty
 
@@ -219,6 +219,7 @@ inductive RCasesArgs
   | rcases (name : Option Name) (tgt : Spanned AST3.Expr) (pat : RCasesPat)
   | rcasesMany (tgt : Array (Spanned AST3.Expr)) (pat : RCasesPat)
 
+set_option linter.unusedVariables false in -- FIXME(Mario): spurious warning on let p ← ...
 def rcasesArgs : ParserM RCasesArgs := do
   let hint ← (tk "?")?
   let p ← (Sum.inr <$> brackets "⟨" "⟩" (sepBy (tk ",") pExpr)) <|>

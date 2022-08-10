@@ -64,7 +64,7 @@ def translateNumbers (e : Expr) : MetaM Expr := Meta.transform e (pre := core) w
     | none   =>
       match isNumber? e with
       | none => TransformStep.visit e
-      | some info@⟨n, level, type, hasZero?, hasOne?, hasAdd?⟩ =>
+      | some { number := n, level, type, .. } =>
         -- TODO: we will want to avoid wrapping "normal" Nat numbers
         -- (current workaround is for the OfNat instances to `no_index` the numbers)
         let inst := mkAppN (mkConst `OfNat.mk [level]) #[type, mkRawNatLit n, e]

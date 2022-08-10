@@ -188,7 +188,7 @@ attribute [trNITactic try_refl_tac] trControlLawsTac
 -- # meta.coinductive_predicates
 @[trUserAttr monotonicity] def trMonotonicityAttr := tagAttr `monotonicity
 
-@[trUserCmd «coinductive»] def trCoinductivePredicate (mods : Modifiers) : TacM Syntax :=
+@[trUserCmd «coinductive»] def trCoinductivePredicate (_mods : Modifiers) : TacM Syntax :=
   parse_0 warn! "unsupported user cmd coinductive" -- unattested
 
 -- # testing.slim_check.sampleable

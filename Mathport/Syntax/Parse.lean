@@ -268,7 +268,7 @@ mutual
     | "binder_2", _, args => binder BinderInfo.strictImplicit args
     | "binder_4", _, args => binder BinderInfo.implicit args
     | "binder_8", _, args => binder BinderInfo.auxDecl args
-    | k, v, args => match toNotationKind k with
+    | k, _, args => match toNotationKind k with
       | some nk => Binder.notation <$> getNotationId nk args
       | none => throw s!"getBinder parse error, unknown kind {k}"
   where
@@ -289,7 +289,7 @@ mutual
     | "var", _, #[x, bis, ty, e] => return (LetDecl.var (← getBinderName x)
       (← getBinders bis) (← opt getExpr ty) (← getExpr e))
     | "pat", _, #[pat, e] => return LetDecl.pat (← getExpr pat) (← getExpr e)
-    | k, v, args => match toNotationKind k with
+    | k, _, args => match toNotationKind k with
       | some nk => LetDecl.notation <$> getNotationId nk args
       | none => throw s!"getBinder parse error, unknown kind {k}"
 
@@ -387,7 +387,7 @@ mutual
     | "choice", _, args, _ =>
       return Expr.notation (Choice.many (← arr getNameK args[0]!)) (← args[1:].toArray.mapM getArg)
     | "user_notation", v, args, _ => Expr.userNotation v <$> args.mapM getParam
-    | k, v, args, _ => do
+    | k, _v, _args, _ => do
       throw s!"getExpr parse error, unknown kind {k}" -- at\n {repr (← Expr.other <$> mkNodeK k v args)}"
   where
     getHave (suff : Bool) (args) : M _ :=
@@ -523,7 +523,7 @@ partial def getField : AstId → M (Spanned Field) := withNode fun
   | "field_2", _, args => field BinderInfo.strictImplicit args
   | "field_4", _, args => field BinderInfo.implicit args
   | "field_8", _, args => field BinderInfo.auxDecl args
-  | k, v, args => match toNotationKind k with
+  | k, _, args => match toNotationKind k with
     | some nk => Field.notation <$> getNotationDef nk args
     | none => throw s!"getField parse error, unknown kind {k}"
 where
@@ -711,7 +711,7 @@ def getCommand : AstId → M (Spanned Command) :=
   | "#print", _, args => print <$> getPrintCmd args
   | "user_command", v, args =>
     return userCommand v (← getModifiers args[0]!) (← args[1:].toArray.mapM getParam)
-  | k, v, args => match toNotationKind k with
+  | k, _, args => match toNotationKind k with
     | some nk => getNotationCmd nk args
     | none => throw s!"getCommand parse error, unknown kind {k}"
 where

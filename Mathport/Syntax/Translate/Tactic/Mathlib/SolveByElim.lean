@@ -24,4 +24,4 @@ open AST3 Mathport.Translate.Parser
   let hs := (← trSimpArgs (← parse simpArgList)).asNonempty
   let attrs := (← parse (tk "with" *> ident*)?).getD #[] |>.map mkIdent |>.asNonempty
   let cfg ← mkConfigStx? (← liftM $ (← expr?).mapM trExpr)
-  `(tactic| solve_by_elim $[*%$star]? $[only%$o]? $[[$hs,*]]? $[with $attrs*]?)
+  `(tactic| solve_by_elim $[*%$star]? $(cfg)? $[only%$o]? $[[$hs,*]]? $[with $attrs*]?)

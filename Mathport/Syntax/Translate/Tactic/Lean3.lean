@@ -132,7 +132,7 @@ def trRwArgs : TacM (Array (TSyntax ``Parser.Tactic.rwRule) × Option (TSyntax `
   | #[(#[BinderName.ident tag], xs)] =>
     `(tactic| case $(mkIdent tag):ident $[$(xs.map trBinderIdent)]* => $tac:tacticSeq)
   | #[arg] => `(tactic| case'' $(← trCaseArg arg):caseArg => $tac:tacticSeq)
-  | _ => `(tactic| case'' [$(← args.mapM trCaseArg),*] => $tac:tacticSeq)
+  | _ => `(tactic| case'' [$[$(← args.mapM trCaseArg)],*] => $tac:tacticSeq)
 
 @[trTactic destruct] def trDestruct : TacM Syntax := do
   `(tactic| destruct $(← trExpr (← parse pExpr)))
