@@ -589,9 +589,8 @@ def trBinderIdentI : BinderName → M (Syntax.BinderIdent)
 def optTy (ty : Option Term) : M (Option (TSyntax ``Parser.Term.typeSpec)) :=
   ty.mapM fun stx => do `(Parser.Term.typeSpec| : $stx)
 
-def trCalcArgs (args : Array (Spanned Expr × Spanned Expr)) : M (Array (TSyntax ``calcStep)) :=
-  args.mapM fun (lhs, rhs) =>
-    return mkNode ``calcStep #[← trExpr lhs, mkAtom ":=", ← trExpr rhs]
+def trCalcArg : Spanned Expr × Spanned Expr → M (TSyntax ``calcStep)
+  | (lhs, rhs) => do `(calcStep| $(← trExpr lhs) := $(← trExpr rhs))
 
 mutual
 
@@ -619,8 +618,11 @@ mutual
     | Tactic.«<|>» tacs => do
       `(tactic| first $[| $(← tacs.mapM fun tac => trTactic tac):tactic]*)
     | Tactic.«[]» _tacs => warn! "unsupported (impossible)"
-    | Tactic.exact_shortcut ⟨_, Expr.calc args⟩ => do
-      `(tactic| calc $(← trCalcArgs args)*)
+    | Tactic.exact_shortcut ⟨m, Expr.calc args⟩ => withSpanS m do
+      if h : args.size > 0 then
+        `(tactic| calc $(← trCalcArg args[0]) $(← args[1:].toArray.mapM trCalcArg)*)
+      else
+        warn! "empty calc is unsupported"
     | Tactic.exact_shortcut e => do `(tactic| exact $(← trExpr e))
     | Tactic.expr e =>
       match e.unparen with
@@ -1076,7 +1078,11 @@ def trExpr' : Expr → M Term
   | Expr.if (some h) c t e => do
     `(if $(mkIdent h.kind):ident : $(← trExpr c)
       then $(← trExpr t) else $(← trExpr e))
-  | Expr.calc args => do `(calc $(← trCalcArgs args)*)
+  | Expr.calc args => do
+    if h : args.size > 0 then
+      `(calc $(← trCalcArg args[0]) $(← args[1:].toArray.mapM trCalcArg)*)
+    else
+      warn! "empty calc is unsupported"
   | Expr.«@» _ e => do `(@$(← trExpr e))
   | Expr.pattern e => trExpr e
   | Expr.«`()» _ true e => do `(quote $(← trExpr e))

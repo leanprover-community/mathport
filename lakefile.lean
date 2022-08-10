@@ -7,6 +7,8 @@ package mathport
 -- as this commit of mathlib4 uses.
 require mathlib from git "https://github.com/leanprover-community/mathlib4"@"master"
 
+lean_lib Mathport
+
 @[defaultTarget]
 lean_exe mathport where
   root := `MathportApp
