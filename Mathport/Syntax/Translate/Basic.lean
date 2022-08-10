@@ -1269,7 +1269,7 @@ def trModifiers (mods : Modifiers) (more : Attributes := #[]) :
 where
   trAttrs (attrs : Attributes) (kind : AttributeKind := .global)
     (s : Modifiers4) : M Modifiers4 := do
-    pure { s with attrs := (← trAttributes attrs false kind |>.run ({}, #[])).2 }
+    pure { s with attrs := (← trAttributes attrs false kind s.attrs).2 }
 
   trModifier (s : Modifiers4) (m : Spanned Modifier) : M Modifiers4 :=
     match m.kind with
