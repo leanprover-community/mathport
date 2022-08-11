@@ -1185,28 +1185,29 @@ def trAttr (_prio : Option Expr) : Attribute → M (Option TrAttr)
   | AST3.Attribute.add `irreducible none => pure TrAttr.irreducible
   | AST3.Attribute.add n arg => do
     let attr ← match n, arg with
-    | `class,         none => `(attr| class)
-    | `instance,      none => `(attr| instance)
-    | `simp,          none => `(attr| simp)
-    | `recursor,      some ⟨_, AttrArg.indices #[]⟩ => warn! "unsupported: @[recursor]"
-    | `recursor,      some ⟨_, AttrArg.indices #[⟨_, n⟩]⟩ =>
+    | `class,              none => `(attr| class)
+    | `instance,           none => `(attr| instance)
+    | `simp,               none => `(attr| simp)
+    | `recursor,           some ⟨_, AttrArg.indices #[]⟩ => warn! "unsupported: @[recursor]"
+    | `recursor,           some ⟨_, AttrArg.indices #[⟨_, n⟩]⟩ =>
       `(attr| recursor $(Quote.quote n):num)
-    | `intro,         none => `(attr| intro)
-    | `intro,         some ⟨_, AttrArg.eager⟩ => `(attr| intro!)
-    | `refl,          none => pure $ mkSimpleAttr `refl
-    | `symm,          none => pure $ mkSimpleAttr `symm
-    | `trans,         none => pure $ mkSimpleAttr `trans
-    | `subst,         none => pure $ mkSimpleAttr `subst
-    | `congr,         none => pure $ mkSimpleAttr `congr
-    | `inline,        none => pure $ mkSimpleAttr `inline
-    | `pattern,       none => pure $ mkSimpleAttr `matchPattern
-    | `reducible,     none => pure $ mkSimpleAttr `reducible
-    | `semireducible, none => pure $ mkSimpleAttr `semireducible
-    | `irreducible,   none => pure $ mkSimpleAttr `irreducible
-    | `elab_simple,   none => pure $ mkSimpleAttr `elabWithoutExpectedType
-    | `vm_override,   some ⟨_, AttrArg.vmOverride n none⟩ =>
+    | `intro,              none => `(attr| intro)
+    | `intro,              some ⟨_, AttrArg.eager⟩ => `(attr| intro!)
+    | `refl,               none => pure $ mkSimpleAttr `refl
+    | `symm,               none => pure $ mkSimpleAttr `symm
+    | `trans,              none => pure $ mkSimpleAttr `trans
+    | `subst,              none => pure $ mkSimpleAttr `subst
+    | `congr,              none => pure $ mkSimpleAttr `congr
+    | `inline,             none => pure $ mkSimpleAttr `inline
+    | `pattern,            none => pure $ mkSimpleAttr `matchPattern
+    | `reducible,          none => pure $ mkSimpleAttr `reducible
+    | `semireducible,      none => pure $ mkSimpleAttr `semireducible
+    | `irreducible,        none => pure $ mkSimpleAttr `irreducible
+    | `elab_simple,        none => pure $ mkSimpleAttr `elabWithoutExpectedType
+    | `elab_as_eliminator, none => pure $ mkSimpleAttr `elabAsElim
+    | `vm_override,        some ⟨_, AttrArg.vmOverride n none⟩ =>
       pure $ mkSimpleAttr `implementedBy #[← mkIdentI n.kind]
-    | `derive,        some ⟨_, AttrArg.user _ args⟩ =>
+    | `derive,             some ⟨_, AttrArg.user _ args⟩ =>
       return TrAttr.derive $ ← (← Parser.pExprListOrTExpr.run' args).mapM trDerive
     | _, none => mkSimpleAttr <$> renameAttr n
     | _, some ⟨_, AttrArg.user e args⟩ =>
