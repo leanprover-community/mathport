@@ -42,7 +42,7 @@ def liftCoreM (x : CoreM α) : BinportM α := do
   Elab.Command.liftCoreM x
 
 def liftMetaM (x : MetaM α) : BinportM α := do
-  liftTermElabM (declName? := some (← read).currDecl) (liftM x)
+  liftTermElabM (liftM x)
 
 def addNameAlignment (n3 n4 : Name) : BinportM Unit := do
   liftCoreM $ Mathlib.Prelude.Rename.addNameAlignment n3 n4
