@@ -622,7 +622,7 @@ mutual
       if h : args.size > 0 then
         `(tactic| calc $(← trCalcArg args[0]) $(← args[1:].toArray.mapM trCalcArg)*)
       else
-        warn! "empty calc is unsupported"
+        warn! "unsupported (impossible)"
     | Tactic.exact_shortcut e => do `(tactic| exact $(← trExpr e))
     | Tactic.expr e =>
       match e.unparen with
@@ -1082,7 +1082,7 @@ def trExpr' : Expr → M Term
     if h : args.size > 0 then
       `(calc $(← trCalcArg args[0]) $(← args[1:].toArray.mapM trCalcArg)*)
     else
-      warn! "empty calc is unsupported"
+      warn! "unsupported (impossible)"
   | Expr.«@» _ e => do `(@$(← trExpr e))
   | Expr.pattern e => trExpr e
   | Expr.«`()» _ true e => do `(quote $(← trExpr e))
