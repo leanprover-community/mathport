@@ -6,6 +6,7 @@ Authors: Mario Carneiro
 import Mathport.Syntax.Translate.Tactic.Basic
 import Mathport.Syntax.Translate.Tactic.Lean3
 import Mathport.Syntax.Translate.Tactic.Mathlib.Cache
+import Mathport.Syntax.Translate.Command
 
 -- Misc. general-purpose tactics
 

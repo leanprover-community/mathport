@@ -7,15 +7,15 @@ import Mathport.Syntax.Translate.Basic
 import Mathport.Syntax.Translate.Attributes
 import Mathport.Syntax.Translate.Notation
 import Mathport.Syntax.Translate.Parser
+import Mathport.Syntax.Translate.Expr
 import Mathport.Syntax.Translate.Tactic
+import Mathport.Syntax.Translate.Tactic.Builtin
 import Mathport.Syntax.Transform
-import Init.Data.Array.QSort
 
 namespace Mathport
 
 open Lean hiding Expr Expr.app Expr.const Expr.sort Level Level.imax Level.max Level.param Command
-open Lean.Elab (Visibility)
-open Lean.Elab.Command (CommandElabM)
+open Lean.Elab.Command (CommandElabM liftCoreM)
 
 namespace Translate
 
@@ -29,6 +29,7 @@ partial def M.run' (m : M α) (notations : Array Notation) (commands : Array Com
     pcfg, notations, commands
     transform := Transform.transform
     trExpr := fun e => trExpr' e ctx s
+    trTactic := fun e => trTactic' e ctx s
     trCommand := fun c => trCommand' c ctx s }
   m ctx s
 
@@ -46,6 +47,27 @@ def M.run (m : M α) (comments : Array Comment) :
       tactics, niTactics, convs, userNotas, userAttrs, userCmds,
       remainingComments := comments.qsort (positionToStringPos ·.start < positionToStringPos ·.start) |>.toList }
     m
+
+def AST3toData4 : AST3 → M Data4
+  | ⟨prel, imp, commands, _, _, _⟩ => do
+    let prel := prel.map fun _ => mkNode ``Parser.Module.prelude #[mkAtom "prelude"]
+    let imp ← imp.foldlM (init := #[]) fun imp ns =>
+      ns.foldlM (init := imp) fun imp n =>
+        return imp.push $ mkNode ``Parser.Module.import #[mkAtom "import",
+          mkNullNode, mkIdent (← renameModule n.kind)]
+    let fmt ← liftCoreM $ PrettyPrinter.format Parser.Module.header.formatter $
+      mkNode ``Parser.Module.header #[mkOptionalNode prel, mkNullNode imp]
+    printFirstLineComments
+    printOutput fmt
+    commands.forM fun c => do
+      try trCommand c
+      catch e =>
+        let e := s!"error in {(← getEnv).mainModule}: {← e.toMessageData.toString}"
+        println! e
+        -- println! (repr c.kind)
+        printOutput f!"/- {e}\nLean 3 AST:\n{(repr c.kind).group}-/\n\n"
+    printRemainingComments
+    pure ⟨(← get).output, HashMap.empty⟩
 
 end Translate
 
