@@ -8,8 +8,40 @@ import Mathport.Syntax.Translate.Tactic.Basic
 open Lean
 open Lean.Elab.Tactic (Location)
 
-namespace Mathport.Translate.Tactic
+namespace Mathport.Translate
 open AST3 Mathport.Translate.Parser
+
+def mkConvBlock (args : Array Syntax.Conv) : TSyntax ``Parser.Tactic.Conv.convSeq :=
+  mkNode ``Parser.Tactic.Conv.convSeq #[mkNode ``Parser.Tactic.Conv.convSeq1Indented #[
+    mkNullNode $ args.map fun tac => mkGroupNode #[tac, mkNullNode]]]
+
+mutual
+
+  partial def trConvBlock : Block → M (TSyntax ``Parser.Tactic.Conv.convSeq)
+    | ⟨_, none, none, #[]⟩ => return mkConvBlock #[← `(conv| skip)]
+    | ⟨_, none, none, tacs⟩ => mkConvBlock <$> tacs.mapM trConv
+    | ⟨_, _cl, _cfg, _tacs⟩ => warn! "unsupported (TODO): conv block with cfg"
+
+  partial def trConv : Spanned Tactic → M Syntax.Conv := spanningS fun
+    | Tactic.block bl => do `(conv| · $(← trConvBlock bl):convSeq)
+    | Tactic.by tac => do `(conv| · $(← trConv tac):conv)
+    | Tactic.«;» _tacs => warn! "unsupported (impossible)"
+    | Tactic.«<|>» tacs => do
+      `(conv| first $[| $(← tacs.mapM trConv):conv]*)
+    | Tactic.«[]» _tacs => warn! "unsupported (impossible)"
+    | Tactic.exact_shortcut _ => warn! "unsupported (impossible)"
+    | Tactic.expr e => do
+      match ← trExpr e with
+      | `(do $[$els]*) => `(conv| run_conv $[$els:doSeqItem]*)
+      | stx => `(conv| run_conv $stx:term)
+    | Tactic.interactive n args => do
+      match (← get).convs.find? n with
+      | some f => try f args catch e => warn! "in {n}: {← e.toMessageData.toString}"
+      | none => warn! "unsupported conv tactic {repr n}"
+
+end
+
+namespace Tactic
 
 def trLoc : (loc : Location) → M (Option (TSyntax ``Parser.Tactic.location))
   | Location.wildcard => some <$> `(Parser.Tactic.location| at *)
@@ -622,3 +654,4 @@ end
   `(tactic| (intros; rfl))
 
 @[trTactic blast_disjs] def trBlastDisjs : TacM Syntax := `(tactic| cases_type* or)
+
