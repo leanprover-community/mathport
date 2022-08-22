@@ -364,8 +364,8 @@ def mkConfigStx? (stx : Option Term) : M (Option (TSyntax ``Parser.Tactic.config
 
 def trSimpArg : Parser.SimpArg → M (TSyntax ``Parser.Tactic.simpArg)
   | .allHyps => `(Parser.Tactic.simpArg| *)
-  | .expr true e => do `(Parser.Tactic.simpArg| $(← trExpr e):term)
-  | .expr false e => do `(Parser.Tactic.simpArg| ← $(← trExpr e))
+  | .expr false e => do `(Parser.Tactic.simpArg| $(← trExpr e):term)
+  | .expr true e => do `(Parser.Tactic.simpArg| ← $(← trExpr e))
   | .except e => do `(Parser.Tactic.simpArg| - $(← mkIdentI e))
 
 -- AWFUL HACK: `(simp [$_]) gets wrong antiquotation type :-/
