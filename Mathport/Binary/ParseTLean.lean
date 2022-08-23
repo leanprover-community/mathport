@@ -248,16 +248,13 @@ def parseLine (line : String) : ParseM Unit := do
       | "#BC" => pure BinderInfo.instImplicit
       | s     => throw $ IO.userError s!"[parseBinderInfo] unexpected: {s}"
 
-
-def parseTLean (tlean : FilePath) : IO (Array EnvModification) := do
-  IO.FS.Handle.mk tlean IO.FS.Mode.read >>= fun h => do
-     let _ ← h.getLine -- discard imports
-     parseLines h |>.run' {}
-where
-  parseLines (h : IO.FS.Handle) : ParseM (Array EnvModification) := do
-    while (not (← h.isEof)) do
-      let line := (← h.getLine).dropRightWhile λ c => c == '\n'
-      if !line.isEmpty then parseLine line
-    pure (← get).envModifications
+def parseTLean (tlean : FilePath) : IO (Array EnvModification) :=
+  StateRefT'.run' (s := {}) do
+    let lines := (← IO.FS.readFile tlean).splitOn "\n"
+    let lines := lines.tail! -- discard imports
+    for line in lines do
+      unless line.isEmpty do
+        parseLine line
+    return (← get).envModifications
 
 end Mathport.Binary

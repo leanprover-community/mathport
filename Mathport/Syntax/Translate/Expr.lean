@@ -290,7 +290,7 @@ def trExpr' : Expr → M Term
         let bns := bns.map fun ⟨m, bn⟩ => setInfoT m <| trIdent_ bn
         return ← `(∀ $bns* $[: $(← ty.mapM trExpr)]?, $(← trExpr e))
       trExtendedBindersGrouped
-        (fun args e => Id.run `(∀ $args*, $e))
+        (fun | #[], e => e | args, e => Id.run `(∀ $args*, $e))
         (fun v pred e => Id.run `(∀ $v:binderIdent $pred:binderPred, $e))
         bc (← trBinders' bc bis) e
   | e@(Expr.app _ _) => do

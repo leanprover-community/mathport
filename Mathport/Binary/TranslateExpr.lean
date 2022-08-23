@@ -61,6 +61,12 @@ where
       else
         return TransformStep.visit e
 
+instance : ToExpr Syntax.Preresolved where
+  toTypeExpr := mkConst ``Syntax.Preresolved
+  toExpr
+    | .namespace ns => mkApp (mkConst ``Syntax.Preresolved.namespace) (toExpr ns)
+    | .decl n fields => mkApp2 (mkConst ``Syntax.Preresolved.decl) (toExpr n) (toExpr fields)
+
 def trExprCore (ctx : Context) (cmdCtx : Elab.Command.Context) (cmdState : Elab.Command.State) (e : Expr) (ind? : Option (Name × Expr × List Name)) : MetaM Expr := do
   match ind? with
   | none => core e
@@ -113,9 +119,9 @@ where
       try
         let tacName3 ← decodeName tacName3
         let tacName ← mkCandidateLean4NameForKindIO tacName3 ExprKind.eDef
-        let substr : Expr := mkAppN (mkConst `String.toSubstring) #[toExpr $ tacName.toString]
-        let tacSyntax := mkAppN (mkConst `Lean.Syntax.ident) #[mkConst `Lean.SourceInfo.none, substr, toExpr tacName, toExpr ([] : List (Prod Name (List String)))]
-        let e' := mkAppN (mkConst `autoParam [level]) #[type, tacSyntax]
+        let substr : Expr := mkAppN (mkConst ``String.toSubstring) #[toExpr $ tacName.toString]
+        let tacSyntax := mkAppN (mkConst ``Lean.Syntax.ident) #[mkConst ``Lean.SourceInfo.none, substr, toExpr tacName, toExpr ([] : List Syntax.Preresolved)]
+        let e' := mkAppN (mkConst ``autoParam [level]) #[type, tacSyntax]
         unless ← Meta.isDefEq e e' do throwError "[translateAutoParams] introduced non-defeq, {e} != {e'}"
         pure $ TransformStep.done e'
       catch ex => do
