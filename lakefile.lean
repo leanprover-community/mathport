@@ -13,3 +13,7 @@ lean_lib Mathport
 lean_exe mathport where
   root := `MathportApp
   supportInterpreter := true
+
+@[defaultTarget]
+lean_exe printast where
+  root := `PrintAST

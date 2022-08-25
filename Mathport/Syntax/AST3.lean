@@ -606,13 +606,13 @@ inductive Command
   deriving Inhabited
 
 def spaced (f : α → Format) (mods : Array α) : Format :=
-  (Format.joinSep (mods.toList.map f) Format.line).group
+  (Format.joinSep (mods.toList.map f) Format.line).fill
 
 def spacedBefore (f : α → Format) (mods : Array α) : Format :=
-  (Format.join (mods.toList.map fun m => Format.line ++ f m)).group
+  (Format.join (mods.toList.map fun m => Format.line ++ f m)).fill
 
 def spacedAfter (f : α → Format) (mods : Array α) : Format :=
-  (Format.join (mods.toList.map fun m => f m ++ Format.line)).group
+  (Format.join (mods.toList.map fun m => f m ++ Format.line)).fill
 
 def suffix (pl : Bool) := if pl then "s " else " "
 
@@ -648,12 +648,12 @@ mutual
 
   partial def optTy : Option #Expr → Format
     | none => ""
-    | some e => " : " ++ Expr_repr e.kind
+    | some e => " :" ++ Format.line ++ Expr_repr e.kind
 
   partial def Default_repr : Option Default → Format
     | none => ""
-    | some (Default.«:=» e) => " := " ++ Expr_repr e.kind
-    | some (Default.«.» n) => " . " ++ (n.kind.toString : Format)
+    | some (Default.«:=» e) => " :=" ++ Format.line ++ Expr_repr e.kind
+    | some (Default.«.» n) => " ." ++ Format.line ++ (n.kind.toString : Format)
 
   partial def Binder_repr : Binder → (paren :_:= true) → Format
     | Binder.binder bi none _ e dflt, paren => bi.bracket paren $
@@ -691,7 +691,7 @@ mutual
     | Expr.«()», _ => "()"
     | Expr.«{}», _ => "{}"
     | Expr.ident n, _ => n.toString
-    | Expr.const n l _, _ => n.kind.toString ++ repr l
+    | Expr.const n l cs, _ => n.kind.toString ++ cs.toList.toString ++ repr l
     | Expr.nat n, _ => repr n
     | Expr.decimal n d, _ => repr n ++ "/" ++ repr d
     | Expr.string s, _ => repr s
@@ -703,15 +703,15 @@ mutual
     | Expr.«→» lhs rhs, p => Format.parenPrec 25 p $
       Expr_repr lhs.kind 25 ++ " → " ++ Expr_repr rhs.kind 24
     | Expr.fun as bis e, p => Format.parenPrec max_prec p $
-      (if as then "assume" else "λ" : Format) ++
+      ((if as then "assume" else "λ" : Format) ++
       (match as, bis with
         | true, #[⟨_, .reg (.binder _ none _ (some ty) _)⟩] => ": " ++ Expr_repr ty.kind
         | _, _ => LambdaBinders_repr bis false) ++
-      ", " ++ Expr_repr e.kind
-    | Expr.Pi bis e, p => Format.parenPrec max_prec p $ "∀" ++
-      Binders_repr bis false ++ ", " ++ Expr_repr e.kind
+      ",").group ++ Format.line ++ Expr_repr e.kind
+    | Expr.Pi bis e, p => Format.parenPrec max_prec p $ ("∀" ++
+      Binders_repr bis false ++ ",").group ++ Format.line ++ Expr_repr e.kind
     | Expr.app f x, p => Format.parenPrec max_prec p $
-      Expr_repr f.kind 1023 ++ " " ++ Expr_repr x.kind max_prec
+      (Expr_repr f.kind 1023 ++ Format.line ++ Expr_repr x.kind max_prec).fill
     | Expr.show t pr, p => Format.parenPrec 1000 p $
       "show " ++ Expr_repr t.kind ++ Proof_repr' pr.kind
     | Expr.have suff h t pr e, p => Format.parenPrec 1000 p $
@@ -782,7 +782,7 @@ mutual
     | Expr.atPat lhs rhs, p => Format.parenPrec 1000 p $
       lhs.kind.toString ++ "@" ++ Expr_repr rhs.kind max_prec
     | Expr.notation n args, _ => repr n ++
-      (Format.joinSep (args.toList.map fun e => Arg_repr e.kind) ", ").paren
+      (Format.joinSep (args.toList.map fun e => Arg_repr e.kind) ("," ++ Format.line)).paren
     | Expr.userNotation n args, p => Format.parenPrec 1000 p $ n.toString ++
       Format.join (args.toList.map fun a => " " ++ Param_repr a.kind)
 
@@ -1048,9 +1048,9 @@ instance : Repr Command where reprPrec c _ := match c with
     repr us ++ repr bis ++ optTy ty
   | Command.axioms ak mods bis => repr mods ++ repr ak ++ "s" ++ repr bis
   | Command.decl dk mods n us bis ty val =>
-    repr mods ++ repr dk ++
+    repr mods ++ (repr dk ++
     (match n with | none => "" | some n => " " ++ n.kind.toString : String) ++
-    repr us ++ repr bis ++ optTy ty ++ repr val.kind
+    repr us ++ repr bis ++ optTy ty).group.nest 2 ++ repr val.kind
   | Command.mutualDecl dk mods us bis arms =>
     repr mods ++ repr dk ++ " " ++ repr us ++
     Format.joinSep (arms.toList.map fun m => m.name.kind.toString) ", " ++
