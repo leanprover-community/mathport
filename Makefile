@@ -114,14 +114,18 @@ test-import-leanbin:
 test-import-mathbin:
 	cd Test/importMathbin && rm -rf build lean_packages && lake build
 
-tarballs:
-	mkdir -p Outputs/src/leanbin Outputs/src/mathbin Outputs/oleans/leanbin Outputs/oleans/mathbin
+predata-tarballs:
 	find sources/lean/library/ -name "*.ast.json" -o -name "*.tlean" | tar -czvf lean3-predata.tar.gz -T -
+	find sources/mathlib/ -name "*.ast.json" -o -name "*.tlean" | tar -czvf mathlib3-predata.tar.gz -T -
+
+mathport-tarballs:
+	mkdir -p Outputs/src/leanbin Outputs/src/mathbin Outputs/oleans/leanbin Outputs/oleans/mathbin
 	tar -czvf lean3-synport.tar.gz -C Outputs/src/leanbin .
 	tar -czvf lean3-binport.tar.gz -C Outputs/oleans/leanbin .
-	find sources/mathlib/ -name "*.ast.json" -o -name "*.tlean" | tar -czvf mathlib3-predata.tar.gz -T -
 	tar -czvf mathlib3-synport.tar.gz -C Outputs/src/mathbin .
 	tar -czvf mathlib3-binport.tar.gz -C Outputs/oleans/mathbin .
+
+tarballs: predata-tarballs mathport-tarballs
 
 unport:
 	rm -rf Outputs/* Logs/*
