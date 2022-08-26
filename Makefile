@@ -46,6 +46,7 @@ mathbin-source:
 		cd sources && git clone https://github.com/leanprover-community/mathlib.git; \
 	fi
 	cd sources/mathlib && git clean -xfd && git checkout $(MATHBIN_COMMIT)
+	cd sources/mathlib && echo -n 'mathlib commit: ' && git rev-parse HEAD
 	cd sources/mathlib && leanpkg configure && ./scripts/mk_all.sh
 
 # Clone Lean 3, and some preparatory work:
@@ -71,12 +72,14 @@ lean3-predata: lean3-source
 	find sources/lean/library -name "*.olean" -delete # ast only exported when oleans not present
 	cd sources/lean && elan override set `cat ../mathlib/leanpkg.toml | grep lean_version | cut -d '"' -f2`
 	cd sources/lean && lean --make --recursive --ast --tlean library
+	cd sources/lean/library && git rev-parse HEAD > rev
 
 # Build .ast and .tlean files for Mathlib 3.
 mathbin-predata: mathbin-source
 	find sources/mathlib -name "*.olean" -delete # ast only exported when oleans not present
 	# By changing into the directory, `elan` automatically dispatches to the correct binary.
 	cd sources/mathlib && lean --make --recursive --ast --tlean src
+	cd sources/mathlib && git rev-parse HEAD > rev
 
 predata: lean3-predata mathbin-predata
 
