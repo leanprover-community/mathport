@@ -1,0 +1,70 @@
+on:
+  push:
+    branches-ignore:
+      # ignore tmp branches used by bors
+      - 'staging.tmp*'
+      - 'trying.tmp*'
+      - 'staging*.tmp'
+  schedule:
+    - cron: '0 7 * * *'  # 8AM CET/11PM PT
+
+name: predata
+
+jobs:
+  predata:
+    # if: github.event_name == 'schedule' && github.repository == 'leanprover-community/mathport'
+    name: Predata
+    runs-on: mathport
+    steps:
+      - name: clean up working directory
+        run: rm -rf *
+
+      - name: clean up elan
+        run: rm -rf $HOME/.elan
+
+      - name: install elan
+        run: |
+          set -o pipefail
+          curl -sSfL https://github.com/leanprover/elan/releases/download/v1.3.1/elan-x86_64-unknown-linux-gnu.tar.gz | tar xz
+          ./elan-init -y --default-toolchain none
+          echo "$HOME/.elan/bin" >> $GITHUB_PATH
+
+      - uses: actions/checkout@v2
+
+      - name: prepare sources
+        run: make mathbin-source lean3-source
+
+      - name: prepare predata for Lean 3
+        run: make lean3-predata
+
+      - name: prepare predata for mathlib
+        run: make mathbin-predata
+
+      - name: clean up a bit
+        run: |
+          rm -rf sources/lean/.git sources/mathlib/.git
+          find sources -name "*.olean" -delete
+
+      - name: prepare tarballs for release
+        run: make predata-tarballs
+
+      - name: set tag
+        run: echo "TAG=predata-nightly-$(date -u +%F)" >> $GITHUB_ENV
+
+      - name: release (master)
+        uses: softprops/action-gh-release@v1
+        with:
+          prerelease: true
+          tag_name: ${{ env.TAG }}
+          target_commitish: ${{ github.sha }}
+          files: |
+            lean3-predata.tar.gz
+            mathlib3-predata.tar.gz
+        env:
+          GITHUB_TOKEN: ${{ secrets.PUSH_NIGHTLY_TOKEN }}
+
+      - name: clean up working directory
+        run: rm -rf *
+
+      - name: clean up elan
+        run: rm -rf $HOME/.elan
