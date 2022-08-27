@@ -65,7 +65,7 @@ where
     -- TODO: sadly, noncomputable comes after the definition
     -- (so if this isn't good enough, we will need to refactor)
     match decl with
-    | Declaration.defnDecl _ => true
+    | Declaration.defnDecl _ => false -- https://github.com/leanprover-community/mathport/issues/172
     | _                      => false
 
 def setAttr (attr : Attribute) (declName : Name) : BinportM Unit := do
