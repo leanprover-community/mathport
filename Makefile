@@ -12,12 +12,6 @@
 #
 # See also `download-release.sh`, which can be used to download artifacts for
 # the `predata` and `port` targets.
-#
-# If you have already done a complete run,
-# or `make build source` followed by running `download-release.sh`
-# you can also use the `make TARGET=Data.Nat.Bitwise port-mathbin-single` target
-# (similarly for `port-lean-single`) to run mathport on a single file.
-# This is useful if you are testing a change to mathport.
 
 ## Prerequisites:
 # curl, git, cmake, elan
@@ -99,23 +93,6 @@ port-mathbin: port-lean
 	./build/bin/mathport --make config.json Leanbin::all Mathbin::all >> Logs/mathport.out 2> >(tee -a Logs/mathport.err >&2)
 
 port: port-lean port-mathbin
-
-# You can use the next two targets to recompile a single file
-# (e.g. if you are testing a modification of mathport)
-# You'll need to have either run all the steps: `make build source predata port`,
-# or run `make build source` and `./download-release.sh nightly-YYYY-MM-DD`.
-
-port-lean-single:
-	./build/bin/mathport config.json Leanbin::$(TARGET)
-
-port-mathbin-single:
-	./build/bin/mathport config.json Mathbin::$(TARGET)
-
-test-import-leanbin:
-	cd Test/importLeanbin && rm -rf build lean_packages && lake build
-
-test-import-mathbin:
-	cd Test/importMathbin && rm -rf build lean_packages && lake build
 
 predata-tarballs:
 	find sources/lean/library/ -name "*.ast.json" -o -name "*.tlean" | tar -czvf lean3-predata.tar.gz -T -
