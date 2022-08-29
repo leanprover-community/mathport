@@ -165,7 +165,7 @@ open AST3 Mathport.Translate.Parser
 
 -- # tactic.rename_var
 @[trTactic rename_var] def trRenameVar : TacM Syntax := do
-  `(tactic| rename_var $(mkIdent (← parse ident)) → $(mkIdent (← parse ident))
+  `(tactic| rename_bvar $(mkIdent (← parse ident)) → $(mkIdent (← parse ident))
     $(← trLoc (← parse location))?)
 
 -- # tactic.restate_axiom

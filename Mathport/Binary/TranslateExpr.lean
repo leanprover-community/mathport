@@ -39,27 +39,27 @@ def isCoeDecl (declName : Name) : Bool :=
 /-- Expand coercions occurring in `e` (+ Lean 3 defs) -/
 partial def expandCoe (e : Expr) : MetaM Expr :=
   withReducibleAndInstances do
-    return (← transform e (pre := step))
+    transform e (pre := step)
 where
   step (e : Expr) : MetaM TransformStep := do
     let f := e.getAppFn
     if !f.isConst then
-      return TransformStep.visit e
+      return .continue
     else
       let declName := f.constName!
       if isCoeDecl declName then
         match (← unfoldDefinition? e) with
-        | none   => return TransformStep.visit e
+        | none   => return .continue
         | some e' =>
           let mut e' := e'.headBeta
           while e'.getAppFn.isProj do
             if let some f ← reduceProj? e'.getAppFn then
               e' := (mkAppN f e'.getAppArgs).headBeta
             else
-              return TransformStep.visit e
-          step e'
+              return .continue
+          return .visit e'
       else
-        return TransformStep.visit e
+        return .continue
 
 instance : ToExpr Syntax.Preresolved where
   toTypeExpr := mkConst ``Syntax.Preresolved
@@ -128,9 +128,9 @@ where
         -- they prove theorems about auto_param!
         println! "[decode] {(← ex.toMessageData.toString)}"
         -- strip the auto_param?
-        pure $ TransformStep.visit e
+        pure .continue
     else
-      pure $ TransformStep.visit e
+      pure .continue
 
   mkCandidateLean4NameForKindIO (n3 : Name) (eKind : ExprKind) : IO Name := do
     (mkCandidateLean4NameForKind n3 eKind).toIO ctx {} cmdCtx cmdState

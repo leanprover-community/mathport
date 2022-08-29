@@ -63,7 +63,7 @@ def translateNumbers (e : Expr) : MetaM Expr := Meta.transform e (pre := core) w
     | some n => TransformStep.done $ mkNatLit n
     | none   =>
       match isNumber? e with
-      | none => TransformStep.visit e
+      | none => .continue
       | some { number := n, level, type, .. } =>
         -- TODO: we will want to avoid wrapping "normal" Nat numbers
         -- (current workaround is for the OfNat instances to `no_index` the numbers)
