@@ -557,7 +557,7 @@ def trNotationCmd (loc : LocalReserve) (attrs : Attributes) (nota : Notation)
     try elabCommand (cmd (some nn) e).1
     catch e => dbg_trace "warning: failed to add syntax {repr n4}: {← e.toMessageData.toString}"
     pure $ (← getCurrNamespace) ++ n4
-  printOutput s!"-- mathport name: «{n}»\n"
+  printOutput s!"-- mathport name: {n}\n"
   if ns == default then push (cmd none e).1
   else pushM `(command| localized [$(← mkIdentR ns)] $(cmd none e))
   registerNotationEntry loc.1 ⟨n, n4, desc⟩
