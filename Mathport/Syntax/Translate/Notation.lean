@@ -77,7 +77,7 @@ def NotationDesc.toKind (n4 : Name) : NotationDesc → NotationKind
     | Literal.tk tk => mkAtom tk
 
 open NotationKind in set_option hygiene false in
-def predefinedNotations : HashMap String NotationEntry := [
+def predefinedNotations : NameMap NotationEntry := [
     ("exprProp", const <| Id.run `(Prop)),
     ("expr $ ", binary fun f x => Id.run `($f <| $x)),
     ("expr¬ ", unary fun e => Id.run `(¬ $e)),

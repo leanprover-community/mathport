@@ -85,7 +85,7 @@ open Std (HashMap)
 open AST3
 
 structure NotationData where
-  n3 : String
+  n3 : Name
   n4 : Name
   desc : NotationDesc
 
@@ -93,7 +93,7 @@ def NotationData.unpack : NotationData → NotationEntry
   | ⟨n3, _n4, NotationDesc.builtin⟩ => (predefinedNotations.find? n3).get!
   | ⟨_n3, n4, desc⟩ => ⟨n4, desc, desc.toKind n4, false⟩
 
-abbrev NotationEntries := HashMap String NotationData
+abbrev NotationEntries := NameMap NotationData
 
 structure Scope where
   curNamespace : Name := Name.anonymous
@@ -116,7 +116,7 @@ structure State where
   deriving Inhabited
 
 def NotationEntries.insert (m : NotationEntries) : NotationData → NotationEntries
-  | d => HashMap.insert m d.n3 d
+  | d => NameMap.insert m d.n3 d
 
 initialize synportNotationExtension : SimplePersistentEnvExtension NotationData NotationEntries ←
   registerSimplePersistentEnvExtension {
@@ -125,9 +125,9 @@ initialize synportNotationExtension : SimplePersistentEnvExtension NotationData 
     addImportedFn := fun es => mkStateFromImportedEntries NotationEntries.insert {} es
   }
 
-def getGlobalNotationEntry? (s : String) : CommandElabM (Option NotationEntry) :=
-  return match synportNotationExtension.getState (← getEnv) |>.find? s with
-  | none => predefinedNotations.find? s
+def getGlobalNotationEntry? (n : Name) : CommandElabM (Option NotationEntry) :=
+  return match synportNotationExtension.getState (← getEnv) |>.find? n with
+  | none => predefinedNotations.find? n
   | some d => d.unpack
 
 def registerGlobalNotationEntry (d : NotationData) : CommandElabM Unit :=
@@ -477,9 +477,9 @@ def push (stx : Syntax) : M Unit := do
 
 def pushM (stx : M Syntax) : M Unit := stx >>= push
 
-def getNotationEntry? (s : String) : M (Option NotationEntry) := do
-  match (← get).current.localNotations.find? s with
-  | none => getGlobalNotationEntry? s
+def getNotationEntry? (n : Name) : M (Option NotationEntry) := do
+  match (← get).current.localNotations.find? n with
+  | none => getGlobalNotationEntry? n
   | some d => pure d.unpack
 
 def mkOptionalNode' (x : Option α) (f : α → Array Syntax) : Syntax :=

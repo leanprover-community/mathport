@@ -1093,8 +1093,8 @@ instance : Repr Command where reprPrec c _ := match c with
     Format.join (args.toList.map fun a => " " ++ Param_repr a.kind)
 
 def Notation.name (sp : Char) (f : PrecSymbol → String) (withTerm : Bool) (start : String) :
-  Notation → String
-| Notation.notation (some name) .. | Notation.mixfix _ (some name) .. => name.kind.toString
+  Notation → Name
+| Notation.notation (some name) .. | Notation.mixfix _ (some name) .. => name.kind
 | Notation.notation none lits _ => Id.run do
   let mut s := start
   for ⟨_, lit⟩ in lits do
@@ -1110,9 +1110,9 @@ def Notation.name (sp : Char) (f : PrecSymbol → String) (withTerm : Bool) (sta
       if withTerm then if let some term := term then s := s ++ f term
     | Literal.binder _ => s := s.push sp
     | Literal.binders _ => s := s.push sp
-  s
+  Name.mkSimple s
 | Notation.mixfix mk none tk _ =>
-  match mk with
+  Name.mkSimple <| match mk with
   | MixfixKind.infix => start.push sp ++ (f tk).push sp
   | MixfixKind.infixl => start.push sp ++ (f tk).push sp
   | MixfixKind.infixr => start.push sp ++ (f tk).push sp
@@ -1120,7 +1120,7 @@ def Notation.name (sp : Char) (f : PrecSymbol → String) (withTerm : Bool) (sta
   | MixfixKind.prefix => start ++ (f tk).push sp
 
 def Notation.name3 := Notation.name ' ' (·.1.kind.trim) true "expr"
-def Notation.name4 := Name.mkSimple ∘ Notation.name '_' (·.1.kind.trim) false "term"
+def Notation.name4 := Notation.name '_' (·.1.kind.trim) false "term"
 
 structure Hyp where
   name : Name
