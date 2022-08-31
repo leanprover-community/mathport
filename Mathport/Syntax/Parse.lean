@@ -508,8 +508,11 @@ partial def getLiteral : AstId → M (Spanned Literal) :=
 partial def getNotationDef (nk : NotationKind) (args : Subarray AstId) : M Notation :=
   match nk with
   | some nk =>
-    return Notation.mixfix nk (← getSym args[0]!, ← opt getPrec args[1]!) (← opt getExpr args[2]!)
-  | none => return Notation.notation (← arr getLiteral args[0]!) (← opt getExpr args[1]!)
+    return Notation.mixfix nk (← opt getName args[0]!)
+      (← getSym args[1]!, ← opt getPrec args[2]!) (← opt getExpr args[3]!)
+  | none =>
+    return Notation.notation (← opt getName args[0]!)
+      (← arr getLiteral args[1]!) (← opt getExpr args[2]!)
 
 partial def getNotation' : AstId → M Notation :=
   withNodeK fun k _ a => getNotationDef (toNotationKind k).get! a

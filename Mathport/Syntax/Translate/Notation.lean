@@ -3,7 +3,6 @@ Copyright (c) 2021 Microsoft Corporation. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Mario Carneiro
 -/
-import Std.Data.HashMap
 import Mathport.Util.Json
 import Mathport.Util.Misc
 import Mathlib.Mathport.Syntax
@@ -78,7 +77,7 @@ def NotationDesc.toKind (n4 : Name) : NotationDesc → NotationKind
     | Literal.tk tk => mkAtom tk
 
 open NotationKind in set_option hygiene false in
-def predefinedNotations : HashMap String NotationEntry := [
+def predefinedNotations : NameMap NotationEntry := [
     ("exprProp", const <| Id.run `(Prop)),
     ("expr $ ", binary fun f x => Id.run `($f <| $x)),
     ("expr¬ ", unary fun e => Id.run `(¬ $e)),

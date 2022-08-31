@@ -39,7 +39,7 @@ def trExtendedBindersGrouped
       M (Array Syntax.SimpleOrBracketedBinder × (Term → Term))
     | (args, f), Binder'.basic stx => pure (args.push stx, f)
     | (args, f), bic@(Binder'.collection _bi vars n rhs) => do
-      match vars, predefinedBinderPreds.find? n.getString! with
+      match vars, predefinedBinderPreds.find? n with
       | #[v], some g =>
         let v := trBinderIdent v.kind
         let pred := g (← trExpr rhs)
@@ -81,7 +81,7 @@ def trExplicitBindersExt
   | some ext => do
     let (left, f) ← bis.foldlM (init := (#[], id)) fun (left, f) bi => do
       if let Binder.collection _ #[v] n rhs := bi.kind then
-        if let some g := predefinedBinderPreds.find? n.getString! then
+        if let some g := predefinedBinderPreds.find? n then
           pure (#[], f ∘ (← reg' left) ∘ ext (trBinderIdent v.kind) (g (← trExpr rhs)))
         else pure (left.push bi, f)
       else pure (left.push bi, f)
@@ -92,7 +92,7 @@ def trExtBinders (args : Array (Spanned Binder)) : M Syntax := do
   | ⟨_, Binder.binder _ vars _ ty _⟩ =>
     trBasicBinder (vars.getD #[Spanned.dummy BinderName._]) ty
   | ⟨_, Binder.collection bi vars n rhs⟩ =>
-    if let some g := predefinedBinderPreds.find? n.getString! then
+    if let some g := predefinedBinderPreds.find? n then
       onVars vars fun v =>
         return #[← `(Mathlib.ExtendedBinder.extBinder|
           $(trBinderIdent v):binderIdent $(g (← trExpr rhs)):binderPred)]
@@ -177,7 +177,7 @@ def trNotation (n : Choice) (args : Array (Spanned Arg)) : M Term := do
         warn! "unsupported: ambiguous notation" | pure first
     else
       warn! "empty choice"
-  match ← getNotationEntry? n.getString!, args with
+  match ← getNotationEntry? n, args with
   | some ⟨_, _, NotationKind.const stx, _⟩, #[] => pure stx
   | some ⟨_, _, NotationKind.const _, _⟩, _ => warn! "unsupported (impossible)"
   | some ⟨_, _, NotationKind.unary f, _⟩, #[⟨m, Arg.expr e⟩] => f <$> trExpr ⟨m, e⟩
@@ -211,7 +211,7 @@ def trNotation (n : Choice) (args : Array (Spanned Arg)) : M Term := do
     `($(mkIdent n) $args*)
 
 def trBinary (n : Name) (lhs rhs : Term) : M Term := do
-  match ← getNotationEntry? n.getString! with
+  match ← getNotationEntry? n with
   | some ⟨_, _, NotationKind.unary f, _⟩ => pure $ f lhs
   | some ⟨_, _, NotationKind.binary f, _⟩ => pure $ f lhs rhs
   | some ⟨_, _, NotationKind.nary f, _⟩ => pure $ f #[lhs, rhs]

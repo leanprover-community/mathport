@@ -14,7 +14,7 @@
    "rev": "25b32ef69fd6d8ae34300d51dc0b9403ffb1fd29",
    "name": "Unicode"},
   {"url": "https://github.com/leanprover-community/mathlib4",
-   "rev": "2e3cdfaaa8ba1639dc092757cee447e77591ad00",
+   "rev": "380fbe124708314e7dcd6c3b8f41adffd5046c44",
    "name": "mathlib",
    "inputRev": "master"},
   {"url": "https://github.com/leanprover/lake",

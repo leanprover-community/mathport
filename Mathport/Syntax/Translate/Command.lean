@@ -514,7 +514,7 @@ def trNotationCmd (loc : LocalReserve) (attrs : Attributes) (nota : Notation)
   unless attrs.isEmpty do warn! "unsupported (impossible)"
   if loc.2 then
     match nota with
-    | Notation.mixfix m (tk, some prec) _ =>
+    | Notation.mixfix m _ (tk, some prec) _ =>
       registerPrecedenceEntry tk.kind.toString m (← trPrec prec.kind)
     | _ => warn! "warning: suppressing unsupported reserve notation"
     return
@@ -527,9 +527,9 @@ def trNotationCmd (loc : LocalReserve) (attrs : Attributes) (nota : Notation)
   let prio ← s.prio.mapM fun prio => do
     `(Parser.Command.namedPrio| (priority := $(← trPrio prio)))
   let (e, desc, cmd) ← match nota with
-  | Notation.mixfix m (tk, prec) (some e) =>
+  | Notation.mixfix m _ (tk, prec) (some e) =>
     pure (e, ← trMixfix kind prio m tk.kind.toString prec)
-  | Notation.notation lits (some e) =>
+  | Notation.notation _ lits (some e) =>
     let p := match lits.get? 0 with
     | some ⟨_, AST3.Literal.sym tk⟩ => tk.2
     | some ⟨_, AST3.Literal.var _ _⟩ => match lits.get? 1 with
@@ -557,7 +557,7 @@ def trNotationCmd (loc : LocalReserve) (attrs : Attributes) (nota : Notation)
     try elabCommand (cmd (some nn) e).1
     catch e => dbg_trace "warning: failed to add syntax {repr n4}: {← e.toMessageData.toString}"
     pure $ (← getCurrNamespace) ++ n4
-  printOutput s!"-- mathport name: «{n}»\n"
+  printOutput s!"-- mathport name: {n}\n"
   if ns == default then push (cmd none e).1
   else pushM `(command| localized [$(← mkIdentR ns)] $(cmd none e))
   registerNotationEntry loc.1 ⟨n, n4, desc⟩
