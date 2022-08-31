@@ -471,8 +471,8 @@ inductive Literal
   deriving Inhabited
 
 inductive Notation
-  | «notation» : Array #Literal → Option #Expr → Notation
-  | mixfix : MixfixKind → PrecSymbol → Option #Expr → Notation
+  | «notation» : Option #Name → Array #Literal → Option #Expr → Notation
+  | mixfix : MixfixKind → Option #Name → PrecSymbol → Option #Expr → Notation
   deriving Inhabited
 
 inductive Modifier
@@ -923,13 +923,15 @@ instance : Repr Attributes :=
   ⟨fun attrs _ =>  (Format.joinSep (attrs.toList.map repr) ", ").sbracket⟩
 
 def Notation_repr : Notation → (attrs : Attributes := #[]) → Format
-  | Notation.mixfix mk sym val, attrs => repr mk ++ " " ++
-    (if attrs.isEmpty then "" else repr attrs ++ " " : Format) ++
-    PrecSymbol_repr sym ++
+  | Notation.mixfix mk name sym val, attrs => repr mk ++
+    (if attrs.isEmpty then "" else " " ++ repr attrs : Format) ++
+    (match name with | none => "" | some n => f!" (name := {repr n})") ++
+    " " ++ PrecSymbol_repr sym ++
     (match val with | none => "" | some e => " := " ++ Expr_repr e.kind)
-  | Notation.notation lits val, attrs =>
-    (if attrs.isEmpty then "" else repr attrs ++ " " : Format) ++
-    "notation" ++ spacedBefore (fun n => Literal_repr n.kind) lits ++
+  | Notation.notation name lits val, attrs => "notation" ++
+    (if attrs.isEmpty then "" else " " ++ repr attrs : Format) ++
+    (match name with | none => "" | some n => f!" (name := {repr n})") ++
+    spacedBefore (fun n => Literal_repr n.kind) lits ++
     (match val with | none => "" | some e => " := " ++ Expr_repr e.kind)
 
 instance : Repr Notation := ⟨fun n _ => Notation_repr n⟩
@@ -1092,7 +1094,8 @@ instance : Repr Command where reprPrec c _ := match c with
 
 def Notation.name (sp : Char) (f : PrecSymbol → String) (withTerm : Bool) (start : String) :
   Notation → String
-| Notation.notation lits _ => Id.run do
+| Notation.notation (some name) .. | Notation.mixfix _ (some name) .. => name.kind.toString
+| Notation.notation none lits _ => Id.run do
   let mut s := start
   for ⟨_, lit⟩ in lits do
     match lit with
@@ -1108,7 +1111,7 @@ def Notation.name (sp : Char) (f : PrecSymbol → String) (withTerm : Bool) (sta
     | Literal.binder _ => s := s.push sp
     | Literal.binders _ => s := s.push sp
   s
-| Notation.mixfix mk tk _ =>
+| Notation.mixfix mk none tk _ =>
   match mk with
   | MixfixKind.infix => start.push sp ++ (f tk).push sp
   | MixfixKind.infixl => start.push sp ++ (f tk).push sp
