@@ -4,8 +4,6 @@ nReleased under Apache 2.0 license as described in the file LICENSE.
 Authors: Mario Carneiro, Daniel Selsam
 -/
 import Lean
-import Std.Data.HashMap
-import Std.Data.RBMap
 
 def uncurry (f : α → β → γ) : α × β → γ
   | (x, y) => f x y

@@ -4,8 +4,6 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Daniel Selsam
 -/
 import Lean
-import Std.Data.HashSet
-import Std.Data.HashMap
 import Mathport.Util.Misc
 
 namespace Mathport.Binary
