@@ -157,7 +157,8 @@ where
     | _ => println! "[refineInd] not an IND"
            recurse
 
-  isDefEqUpto (lvls₁ : List Name) (t₁ : Expr) (lvls₂ : List Name) (t₂ : Expr) : BinportM Bool :=
+  isDefEqUpto (lvls₁ : List Name) (t₁ : Expr) (lvls₂ : List Name) (t₂ : Expr) : BinportM Bool := do
+    if lvls₁.length ≠ lvls₂.length then return false
     return Kernel.isDefEq (← getEnv) {} t₁ $
       t₂.instantiateLevelParams lvls₂ $ lvls₁.map mkLevelParam
 
