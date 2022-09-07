@@ -7,7 +7,6 @@ import Mathport.Syntax.Transform.Basic
 import Mathport.Syntax.Transform.Declaration
 import Mathport.Syntax.Transform.Tactic
 import Mathport.Syntax.Transform.Expr
-import Mathlib.Tactic.Lint.Frontend
 
 namespace Mathport
 namespace Transform
