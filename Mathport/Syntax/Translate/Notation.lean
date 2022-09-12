@@ -6,7 +6,7 @@ Authors: Mario Carneiro
 import Mathport.Util.Json
 import Mathport.Util.Misc
 import Mathlib.Mathport.Syntax
-import Mathlib.Init.ExtendedBinder
+import Std.Util.ExtendedBinder
 import Mathlib.Init.Set
 
 open Std (HashMap)
