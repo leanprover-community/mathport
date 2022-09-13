@@ -10,6 +10,7 @@ open Lean.Elab.Tactic (Location)
 
 namespace Mathport.Translate.Tactic
 open AST3 Mathport.Translate.Parser
+open Std.Tactic.RCases
 
 -- # tactic.rcases
 
@@ -23,15 +24,15 @@ partial def trRCasesPat : RCasesPat → M (TSyntax `rcasesPat)
   | RCasesPat.alts #[pat] => trRCasesPat pat
   | pat => do `(rcasesPat| ($(← trRCasesPatLo pat)))
 
-partial def trRCasesPatMed (pat : RCasesPat) : M (TSyntax ``Parser.Tactic.rcasesPatMed) := do
+partial def trRCasesPatMed (pat : RCasesPat) : M (TSyntax ``rcasesPatMed) := do
   let pats := match pat with | RCasesPat.alts pats => pats | pat => #[pat]
-  `(Parser.Tactic.rcasesPatMed| $[$(← pats.mapM trRCasesPat)]|*)
+  `(rcasesPatMed| $[$(← pats.mapM trRCasesPat)]|*)
 
-partial def trRCasesPatLo (pat : RCasesPat) : M (TSyntax ``Parser.Tactic.rcasesPatLo) := do
+partial def trRCasesPatLo (pat : RCasesPat) : M (TSyntax ``rcasesPatLo) := do
   let (pat, ty) ← match pat with
     | RCasesPat.typed pat ty => pure (pat, some (← trExpr ty))
     | _ => pure (pat, none)
-  `(Parser.Tactic.rcasesPatLo| $(← trRCasesPatMed pat):rcasesPatMed $[: $ty:term]?)
+  `(rcasesPatLo| $(← trRCasesPatMed pat):rcasesPatMed $[: $ty:term]?)
 
 end
 

@@ -81,7 +81,9 @@ def trLoc : (loc : Location) → M (Option (TSyntax ``Parser.Tactic.location))
 @[trTactic eapply] def trEApply : TacM Syntax := do `(tactic| eapply $(← trExpr (← parse pExpr)))
 
 @[trTactic apply_with] def trApplyWith : TacM Syntax := do
-  `(tactic| apply $(← trExpr (← parse pExpr)) with $(← trExpr (← expr!)))
+  let expr ← trExpr (← parse pExpr)
+  let cfg ← trExpr (← expr!)
+  `(tactic| apply (config := $cfg) $expr)
 
 @[trTactic mapply] def trMApply : TacM Syntax := do `(tactic| mapply $(← trExpr (← parse pExpr)))
 
