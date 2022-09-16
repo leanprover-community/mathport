@@ -16,9 +16,8 @@ open AST3 Mathport.Translate.Parser
 @[trTactic suggest] def trSuggest : TacM Syntax := do
   let n := (← parse (smallNat)?).map Quote.quote
   let hs ← trSimpArgs (← parse simpArgList)
-  let attrs := (← parse (tk "with" *> ident*)?).getD #[] |>.map mkIdent
-  let hs := hs ++ attrs.map (·)
-  let hs := hs.asNonempty
+  let attrs := (← parse (tk "with" *> ident*)?).getD #[]
+  let hs := (hs ++ attrs.map trSimpExt).asNonempty
   let use := (← parse (tk "using" *> ident_*)?).getD #[] |>.map trBinderIdent |>.asNonempty
   let cfg ← liftM $ (← expr?).mapM trExpr
   `(tactic| suggest $[(config := $cfg)]? $(n)? $[[$hs,*]]? $[using $use*]?)
@@ -26,13 +25,10 @@ open AST3 Mathport.Translate.Parser
 @[trTactic library_search] def trLibrarySearch : TacM Syntax := do
   let bang ← parse (tk "!")?
   let hs ← trSimpArgs (← parse simpArgList)
-  let attrs := (← parse (tk "with" *> ident*)?).getD #[] |>.map mkIdent
-  let hs := hs ++ attrs.map (·)
-  let hs := hs.asNonempty
+  let attrs := (← parse (tk "with" *> ident*)?).getD #[]
+  let hs := (hs ++ attrs.map trSimpExt).asNonempty
   let use := (← parse (tk "using" *> ident_*)?).getD #[] |>.map trBinderIdent |>.asNonempty
   let cfg ← liftM $ (← expr?).mapM trExpr
   match bang with
-  | none => `(tactic| library_search
-    $[(config := $cfg)]? $[[$hs,*]]? $[using $use*]?)
-  | some _ => `(tactic| library_search!
-    $[(config := $cfg)]? $[[$hs,*]]? $[using $use*]?)
+  | none => `(tactic| library_search $[(config := $cfg)]? $[[$hs,*]]? $[using $use*]?)
+  | some _ => `(tactic| library_search! $[(config := $cfg)]? $[[$hs,*]]? $[using $use*]?)

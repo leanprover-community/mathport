@@ -4,7 +4,7 @@ build/
 Logs/
 PreData/
 Outputs/
-lean_packages/
+lean_packages/*
 !lean_packages/manifest.json
 sources/
 *.tar.gz

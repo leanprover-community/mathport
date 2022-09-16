@@ -195,49 +195,24 @@ open AST3 Mathport.Translate.Parser
     return (← onlyFlag, ← simpArgList, (← (tk "with" *> ident*)?).getD #[], ← (tk ":")? *> pExpr)
   let o := optTk o
   let hs ← trSimpArgs args
-  let colon := optTk !attrs.isEmpty
-  let attrs := attrs.map mkIdent
-  let hs := hs ++ attrs.map (·)
-  let hs := hs.asNonempty
-  `(command| #simp $[only%$o]? $[[$hs,*]]? $[:%$colon]? $(← trExpr e))
+  let hs := (hs ++ attrs.map trSimpExt).asNonempty
+  `(command| #simp $[only%$o]? $[[$hs,*]]? $(← trExpr e))
 
 -- # tactic.simp_result
 @[trTactic dsimp_result] def trDSimpResult : TacM Syntax := do
   let o := optTk (← parse onlyFlag)
   let hs ← trSimpArgs (← parse simpArgList)
-  let (hs, all) := filterSimpStar hs
-  if all then warn! "unsupported dsimp_result [*]"
-  let attrs := (← parse (tk "with" *> ident*)?).getD #[] |>.map mkIdent
-  let hs := hs ++ attrs.map (·)
-  let hs := hs.asNonempty
+  let (hs, _all) := filterSimpStar hs -- dsimp [*] is always pointless
+  let attrs := (← parse (tk "with" *> ident*)?).getD #[]
+  let hs := (hs ++ attrs.map trSimpExt).asNonempty
   `(tactic| dsimp_result $[only%$o]? $[[$hs,*]]? => $(← trBlock (← itactic)))
 
 @[trTactic simp_result] def trSimpResult : TacM Syntax := do
   let o := optTk (← parse onlyFlag)
   let hs ← trSimpArgs (← parse simpArgList)
-  let attrs := (← parse (tk "with" *> ident*)?).getD #[] |>.map mkIdent
-  let hs := hs ++ attrs.map (·)
-  let hs := hs.asNonempty
+  let attrs := (← parse (tk "with" *> ident*)?).getD #[]
+  let hs := (hs ++ attrs.map trSimpExt).asNonempty
   `(tactic| simp_result $[only%$o]? $[[$hs,*]]? => $(← trBlock (← itactic)))
-
--- # tactic.simpa
-@[trTactic simpa] def trSimpa : TacM Syntax := do
-  let unfold ← parse (tk "!")?; let squeeze ← parse (tk "?")?
-  let o := optTk (← parse onlyFlag)
-  let hs ← trSimpArgs (← parse simpArgList)
-  let attrs := (← parse (tk "with" *> ident*)?).getD #[] |>.map mkIdent
-  let e ← liftM $ (← parse (tk "using" *> pExpr)?).mapM trExpr
-  let (cfg, disch) ← parseSimpConfig (← expr?)
-  let cfg ← mkConfigStx? (cfg.bind quoteSimpConfig)
-  let hs := hs ++ attrs.map (·)
-  let hs := hs.asNonempty
-  let rest ← `(Std.Tactic.simpaArgsRest|
-    $[$cfg:config]? $(disch)? $[only%$o]? $[[$hs,*]]? $[using $e]?)
-  match unfold, squeeze with
-  | none, none => `(tactic| simpa $rest)
-  | none, some _ => `(tactic| simpa? $rest)
-  | some _, none => `(tactic| simpa! $rest)
-  | some _, some _ => `(tactic| simpa?! $rest)
 
 -- # tactic.split_ifs
 @[trTactic split_ifs] def trSplitIfs : TacM Syntax := do

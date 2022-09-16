@@ -105,9 +105,8 @@ private def mkConfigStx (stx : Option Syntax) : M Syntax :=
 @[trTactic field_simp] def trFieldSimp : TacM Syntax := do
   let o := optTk (← parse onlyFlag)
   let hs ← trSimpArgs (← parse simpArgList)
-  let attrs := (← parse (tk "with" *> ident*)?).getD #[] |>.map mkIdent
-  let hs := hs ++ attrs.map (·)
-  let hs := hs.asNonempty
+  let attrs := (← parse (tk "with" *> ident*)?).getD #[]
+  let hs := (hs ++ attrs.map trSimpExt).asNonempty
   let loc ← trLoc (← parse location)
   let (cfg, disch) ← parseSimpConfig (← expr?)
   let cfg ← mkConfigStx? $ cfg.bind quoteSimpConfig
