@@ -17,49 +17,45 @@ open Mathport.Translate.Parser
   `(tactic| squeeze_scope $(← trBlock (← itactic)):tacticSeq)
 
 @[trTactic squeeze_simp] def trSqueezeSimp : TacM Syntax := do
-  let ques ← parse_0 $ parse (tk "?")?; let bang ← parse (tk "!")?
+  let _ques ← parse_0 $ parse (tk "?")?; let bang ← parse (tk "!")?
   let o := optTk (← parse onlyFlag)
-  let hs := (← trSimpArgs (← parse simpArgList)).asNonempty
-  let attrs := (← parse (tk "with" *> ident*)?).getD #[] |>.map mkIdent |>.asNonempty
+  let hs ← trSimpArgs (← parse simpArgList)
+  let attrs := (← parse (tk "with" *> ident*)?).getD #[] |>.map mkIdent
+  let hs := hs ++ attrs.map (·)
+  let hs := hs.asNonempty
   let loc ← trLoc (← parse location)
   let (cfg, disch) ← parseSimpConfig <| (← parse (structInst)?).map Spanned.dummy
   let cfg ← mkConfigStx? $ cfg.bind quoteSimpConfig
-  let rest ← `(Lean.Parser.Tactic.squeezeSimpArgsRest|
-    $[$cfg:config]? $(disch)? $[only%$o]? $[[$hs,*]]? $[with $attrs*]? $[$loc:location]?)
-  match ques, bang with
-  | none, none => `(tactic| squeeze_simp $rest)
-  | none, some _ => `(tactic| squeeze_simp? $rest)
-  | some _, none => `(tactic| squeeze_simp! $rest)
-  | some _, some _ => `(tactic| squeeze_simp!? $rest)
+  let rest ← `(Lean.Parser.Tactic.simpTraceArgsRest|
+    $[$cfg:config]? $(disch)? $[only%$o]? $[[$hs,*]]? $[$loc:location]?)
+  if bang.isSome then `(tactic| simp?! $rest) else `(tactic| simp? $rest)
 
 @[trTactic squeeze_simpa] def trSqueezeSimpa : TacM Syntax := do
-  let ques ← parse_0 $ parse (tk "?")?; let bang ← parse (tk "!")?
+  let _ques ← parse_0 $ parse (tk "?")?; let bang ← parse (tk "!")?
   let o := optTk (← parse onlyFlag)
-  let hs := (← trSimpArgs (← parse simpArgList)).asNonempty
-  let attrs := (← parse (tk "with" *> ident*)?).getD #[] |>.map mkIdent |>.asNonempty
+  let hs ← trSimpArgs (← parse simpArgList)
+  let attrs := (← parse (tk "with" *> ident*)?).getD #[] |>.map mkIdent
+  let hs := hs ++ attrs.map (·)
+  let hs := hs.asNonempty
   let e ← liftM $ (← parse (tk "using" *> pExpr)?).mapM trExpr
   let (cfg, disch) ← parseSimpConfig <| (← parse (structInst)?).map Spanned.dummy
   let cfg ← mkConfigStx? $ cfg.bind quoteSimpConfig
-  let rest ← `(Mathlib.Tactic.simpaArgsRest|
-    $[$cfg:config]? $(disch)? $[only%$o]? $[[$hs,*]]? $[with $attrs*]? $[using $e]?)
-  match ques, bang with
-  | none, none => `(tactic| squeeze_simpa $rest)
-  | none, some _ => `(tactic| squeeze_simpa? $rest)
-  | some _, none => `(tactic| squeeze_simpa! $rest)
-  | some _, some _ => `(tactic| squeeze_simpa!? $rest)
+  let rest ← `(Std.Tactic.simpaArgsRest|
+    $[$cfg:config]? $(disch)? $[only%$o]? $[[$hs,*]]? $[using $e]?)
+  if bang.isSome then `(tactic| simpa?! $rest) else `(tactic| simpa? $rest)
 
 @[trTactic squeeze_dsimp] def trSqueezeDSimp : TacM Syntax := do
-  let ques ← parse_0 $ parse (tk "?")?; let bang ← parse (tk "!")?
+  let _ques ← parse_0 $ parse (tk "?")?; let bang ← parse (tk "!")?
   let o := optTk (← parse onlyFlag)
-  let hs := (← trSimpArgs (← parse simpArgList)).asNonempty
-  let attrs := (← parse (tk "with" *> ident*)?).getD #[] |>.map mkIdent |>.asNonempty
+  let hs ← trSimpArgs (← parse simpArgList)
+  let (hs, all) := filterSimpStar hs
+  if all then warn! "unsupported squeeze_dsimp [*]"
+  let attrs := (← parse (tk "with" *> ident*)?).getD #[] |>.map mkIdent
+  let hs := hs ++ attrs.map (·)
+  let hs := hs.asNonempty
   let loc ← trLoc (← parse location)
   let (cfg, _) ← parseSimpConfig <| (← parse (structInst)?).map Spanned.dummy
   let cfg ← mkConfigStx? $ cfg.bind quoteSimpConfig
-  let rest ← `(Lean.Parser.Tactic.squeezeDSimpArgsRest|
-    $[$cfg:config]? $[only%$o]? $[[$hs,*]]? $[with $attrs*]? $[$loc:location]?)
-  match ques, bang with
-  | none, none => `(tactic| squeeze_dsimp $rest)
-  | none, some _ => `(tactic| squeeze_dsimp? $rest)
-  | some _, none => `(tactic| squeeze_dsimp! $rest)
-  | some _, some _ => `(tactic| squeeze_dsimp!? $rest)
+  let rest ← `(Lean.Parser.Tactic.dsimpTraceArgsRest|
+    $[$cfg:config]? $[only%$o]? $[[$hs,*]]? $[$loc:location]?)
+  if bang.isSome then `(tactic| dsimp?! $rest) else `(tactic| dsimp? $rest)

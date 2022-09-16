@@ -21,7 +21,9 @@ open AST3 Mathport.Translate.Parser
 @[trTactic solve_by_elim] def trSolveByElim : TacM Syntax := do
   let star := optTk (← parse (tk "*")?).isSome
   let o := optTk (← parse onlyFlag)
-  let hs := (← trSimpArgs (← parse simpArgList)).asNonempty
-  let attrs := (← parse (tk "with" *> ident*)?).getD #[] |>.map mkIdent |>.asNonempty
+  let hs ← trSimpArgs (← parse simpArgList)
+  let attrs := (← parse (tk "with" *> ident*)?).getD #[] |>.map mkIdent
+  let hs := hs ++ attrs.map (·)
+  let hs := hs.asNonempty
   let cfg ← mkConfigStx? (← liftM $ (← expr?).mapM trExpr)
-  `(tactic| solve_by_elim $[*%$star]? $(cfg)? $[only%$o]? $[[$hs,*]]? $[with $attrs*]?)
+  `(tactic| solve_by_elim $[*%$star]? $(cfg)? $[only%$o]? $[[$hs,*]]?)
