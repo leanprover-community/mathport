@@ -11,55 +11,42 @@ open Lean
 namespace Mathport.Translate.Tactic
 open Mathport.Translate.Parser
 
+-- # tactic.simpa
+
+def trSimpaCore (autoUnfold trace : Bool) (parseCfg : TacM (Option (Spanned AST3.Expr))) :
+    TacM Syntax := do
+  let o := optTk (← parse onlyFlag)
+  let hs ← trSimpArgs (← parse simpArgList)
+  let attrs := (← parse (tk "with" *> ident*)?).getD #[]
+  let hs := (hs ++ attrs.map trSimpExt).asNonempty
+  let e ← liftM $ (← parse (tk "using" *> pExpr)?).mapM trExpr
+  let (cfg, disch) ← parseSimpConfig (← parseCfg)
+  let cfg ← mkConfigStx? (cfg.bind quoteSimpConfig)
+  let rest ← `(Std.Tactic.simpaArgsRest|
+    $[$cfg:config]? $(disch)? $[only%$o]? $[[$hs,*]]? $[using $e]?)
+  match autoUnfold, trace with
+  | true, true => `(tactic| simpa?! $rest)
+  | false, true => `(tactic| simpa? $rest)
+  | true, false => `(tactic| simpa! $rest)
+  | false, false => `(tactic| simpa $rest)
+
+@[trTactic simpa] def trSimpa : TacM Syntax := do
+  let unfold ← parse (tk "!")?; let squeeze ← parse (tk "?")?
+  trSimpaCore unfold.isSome squeeze.isSome expr?
+
 -- # tactic.squeeze
 
 @[trTactic squeeze_scope] def trSqueezeScope : TacM Syntax := do
   `(tactic| squeeze_scope $(← trBlock (← itactic)):tacticSeq)
 
 @[trTactic squeeze_simp] def trSqueezeSimp : TacM Syntax := do
-  let ques ← parse_0 $ parse (tk "?")?; let bang ← parse (tk "!")?
-  let o := optTk (← parse onlyFlag)
-  let hs := (← trSimpArgs (← parse simpArgList)).asNonempty
-  let attrs := (← parse (tk "with" *> ident*)?).getD #[] |>.map mkIdent |>.asNonempty
-  let loc ← trLoc (← parse location)
-  let (cfg, disch) ← parseSimpConfig <| (← parse (structInst)?).map Spanned.dummy
-  let cfg ← mkConfigStx? $ cfg.bind quoteSimpConfig
-  let rest ← `(Lean.Parser.Tactic.squeezeSimpArgsRest|
-    $[$cfg:config]? $(disch)? $[only%$o]? $[[$hs,*]]? $[with $attrs*]? $[$loc:location]?)
-  match ques, bang with
-  | none, none => `(tactic| squeeze_simp $rest)
-  | none, some _ => `(tactic| squeeze_simp? $rest)
-  | some _, none => `(tactic| squeeze_simp! $rest)
-  | some _, some _ => `(tactic| squeeze_simp!? $rest)
+  let _ques ← parse_0 $ parse (tk "?")?; let bang ← parse (tk "!")?
+  trSimpCore bang.isSome true
 
 @[trTactic squeeze_simpa] def trSqueezeSimpa : TacM Syntax := do
-  let ques ← parse_0 $ parse (tk "?")?; let bang ← parse (tk "!")?
-  let o := optTk (← parse onlyFlag)
-  let hs := (← trSimpArgs (← parse simpArgList)).asNonempty
-  let attrs := (← parse (tk "with" *> ident*)?).getD #[] |>.map mkIdent |>.asNonempty
-  let e ← liftM $ (← parse (tk "using" *> pExpr)?).mapM trExpr
-  let (cfg, disch) ← parseSimpConfig <| (← parse (structInst)?).map Spanned.dummy
-  let cfg ← mkConfigStx? $ cfg.bind quoteSimpConfig
-  let rest ← `(Mathlib.Tactic.simpaArgsRest|
-    $[$cfg:config]? $(disch)? $[only%$o]? $[[$hs,*]]? $[with $attrs*]? $[using $e]?)
-  match ques, bang with
-  | none, none => `(tactic| squeeze_simpa $rest)
-  | none, some _ => `(tactic| squeeze_simpa? $rest)
-  | some _, none => `(tactic| squeeze_simpa! $rest)
-  | some _, some _ => `(tactic| squeeze_simpa!? $rest)
+  let _ques ← parse_0 $ parse (tk "?")?; let bang ← parse (tk "!")?
+  trSimpaCore bang.isSome true expr?
 
 @[trTactic squeeze_dsimp] def trSqueezeDSimp : TacM Syntax := do
-  let ques ← parse_0 $ parse (tk "?")?; let bang ← parse (tk "!")?
-  let o := optTk (← parse onlyFlag)
-  let hs := (← trSimpArgs (← parse simpArgList)).asNonempty
-  let attrs := (← parse (tk "with" *> ident*)?).getD #[] |>.map mkIdent |>.asNonempty
-  let loc ← trLoc (← parse location)
-  let (cfg, _) ← parseSimpConfig <| (← parse (structInst)?).map Spanned.dummy
-  let cfg ← mkConfigStx? $ cfg.bind quoteSimpConfig
-  let rest ← `(Lean.Parser.Tactic.squeezeDSimpArgsRest|
-    $[$cfg:config]? $[only%$o]? $[[$hs,*]]? $[with $attrs*]? $[$loc:location]?)
-  match ques, bang with
-  | none, none => `(tactic| squeeze_dsimp $rest)
-  | none, some _ => `(tactic| squeeze_dsimp? $rest)
-  | some _, none => `(tactic| squeeze_dsimp! $rest)
-  | some _, some _ => `(tactic| squeeze_dsimp!? $rest)
+  let _ques ← parse_0 $ parse (tk "?")?; let bang ← parse (tk "!")?
+  trDSimpCore bang.isSome true (return (← parse (structInst)?).map .dummy)

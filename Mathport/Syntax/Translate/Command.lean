@@ -280,7 +280,7 @@ def trDecl (dk : DeclKind) (mods : Modifiers) (attrs : Attributes)
     `($mods:declModifiers def $id.get! $(← trOptDeclSig bis ty) $val:declVal $[deriving $ds,*]?)
   | DeclKind.example => do
     unless s.derive.isEmpty do warn! "unsupported: @[derive] example"
-    `($mods:declModifiers example $(← trDeclSig bis ty) $val)
+    `($mods:declModifiers example $(← trOptDeclSig bis ty):optDeclSig $val)
   | DeclKind.theorem => do
     unless s.derive.isEmpty do warn! "unsupported: @[derive] theorem"
     `($mods:declModifiers theorem $id.get! $(← trDeclSig bis ty) $val)
