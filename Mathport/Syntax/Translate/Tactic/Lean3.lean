@@ -476,7 +476,7 @@ def trDSimpCore (autoUnfold trace : Bool) (parseCfg : TacM (Option (Spanned AST3
   let loc ← parse location
   let cfg ← mkConfigStx? $ (← parseSimpConfig (← expr?)).1.bind quoteSimpConfig
   let cs ← liftM $ cs.mapM mkIdentI
-  `(tactic| dunfold $[$cfg:config]? $[$cs:ident]* $[$(← trLoc loc):location]?)
+  `(tactic| dsimp $[$cfg:config]? only [$[$cs:ident],*] $[$(← trLoc loc):location]?)
 
 @[trTactic delta] def trDelta : TacM Syntax := do
   `(tactic| delta' $(← liftM $ (← parse ident*).mapM mkIdentI)* $[$(← trLoc (← parse location))]?)
@@ -489,16 +489,20 @@ def trDSimpCore (autoUnfold trace : Bool) (parseCfg : TacM (Option (Spanned AST3
 @[trTactic unfold] def trUnfold : TacM Syntax := do
   let cs ← parse ident*
   let loc ← parse location
-  let cfg ← mkConfigStx? $ (← parseSimpConfig (← expr?)).1.bind quoteSimpConfig
+  if (← expr?).isSome then warn! "warning: unsupported: unfold config"
   let cs ← liftM $ cs.mapM mkIdentI
-  `(tactic| unfold $[$cfg:config]? $[$cs:ident]* $[$(← trLoc loc):location]?)
+  `(tactic| unfold $[$cs:ident],* $[$(← trLoc loc):location]?)
 
 @[trTactic unfold1] def trUnfold1 : TacM Syntax := do
   let cs ← parse ident*
   let loc ← parse location
-  let cfg ← mkConfigStx? $ (← parseSimpConfig (← expr?)).1.bind quoteSimpConfig
+  if (← expr?).isSome then warn! "warning: unsupported: unfold config"
   let cs ← liftM $ cs.mapM mkIdentI
-  `(tactic| unfold1 $[$cfg:config]? $[$cs:ident]* $[$(← trLoc loc):location]?)
+  let loc ← trLoc loc
+  let tac ← cs.mapM fun c => `(tactic| unfold $c:ident $(loc)?)
+  match tac with
+  | #[tac] => pure tac
+  | _ => `(tactic| first $[| $tac:tactic]*)
 
 @[trTactic apply_opt_param] def trApplyOptParam : TacM Syntax := `(tactic| infer_opt_param)
 
@@ -615,7 +619,7 @@ def trDSimpCore (autoUnfold trace : Bool) (parseCfg : TacM (Option (Spanned AST3
   `(tactic| simp $(cfg)? $(disch)? $[only%$o]? $[[$hs,*]]?)
 
 @[trConv guard_lhs] def trGuardLHSConv : TacM Syntax := do
-  `(conv| guard_lhs =ₐ $(← trExpr (← parse pExpr)))
+  `(conv| guard_target =ₐ $(← trExpr (← parse pExpr)))
 
 @[trConv rewrite rw] def trRwConv : TacM Syntax := do
   let q ← liftM $ (← parse rwRules).mapM trRwRule
