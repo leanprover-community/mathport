@@ -43,7 +43,7 @@ def refineAddDecl (decl : Declaration) : BinportM (Declaration × ClashKind) := 
   | ClashKind.freshDecl =>
     println! "[addDecl] START CHECK  {path.mod3} {decl.toName}"
     try
-      Lean.addDecl decl
+      liftCoreM <| Lean.addDecl decl
     catch ex =>
       println! "[kernel] {← ex.toMessageData.toString}"
       if (← read).config.error2warning then printDeclDebug decl

@@ -10,7 +10,6 @@ import Mathport.Syntax.Translate.Attributes
 import Mathport.Syntax.Translate.Parser
 import Mathlib
 
-abbrev Lean.Syntax.Tactic := TSyntax `tactic
 abbrev Lean.Syntax.Conv := TSyntax `conv
 abbrev Lean.Syntax.Attr := TSyntax `attr
 abbrev Lean.Syntax.BracketedBinder := TSyntax ``Parser.Term.bracketedBinder

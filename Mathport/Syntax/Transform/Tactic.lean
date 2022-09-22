@@ -38,7 +38,7 @@ def transformInlineTactics (tacs : Array Syntax.Tactic) : M (Array Syntax.Tactic
   let mut modified := false
   for tac in tacs do
     match tac.1 with
-    | `(tactic| ($[$seq:tactic $[;]?]*)) =>
+    | `(tactic| ($[$seq:tactic]*)) =>
       tacs' := tacs' ++ seq
       modified := true
     | _ => tacs' := tacs'.push tac
@@ -53,9 +53,9 @@ def transformTacticsArray (tacs : Array Syntax.Tactic) : M (Array Syntax.Tactic)
 
 open Parser.Tactic in
 mathport_rules
-  | `(tacticSeq1Indented| $[$tac:tactic $[;]?]*) => do
+  | `(tacticSeq1Indented| $[$tac:tactic]*) => do
     `(tacticSeq1Indented| $[$(← transformTacticsArray tac):tactic]*)
-  | `(tactic| · $[$tac:tactic $[;]?]*) => do
+  | `(tactic| · $[$tac:tactic]*) => do
     `(tactic| · $[$(← transformTacticsArray tac):tactic]*)
 
 -- common obsolete patterns from haveI
@@ -105,10 +105,10 @@ mathport_rules
 mathport_rules
   | `(have $hd:haveDecl; by $[$seq:tactic]*) =>
     `(by have $hd:haveDecl
-        $[$seq:tactic]*)
+         $[$seq:tactic]*)
   | `(let $ld:letDecl; by $[$seq:tactic]*) =>
     `(by let $ld:letDecl
-        $[$seq:tactic]*)
+         $[$seq:tactic]*)
   | `(suffices $sd:sufficesDecl; by $[$seq:tactic]*) =>
     `(by suffices $sd:sufficesDecl
-        $[$seq:tactic]*)
+         $[$seq:tactic]*)
