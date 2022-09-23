@@ -19,7 +19,7 @@ open AST3 Parser
 @[trTactic fsplit] def trFSplit : TacM Syntax := `(tactic| fconstructor)
 
 @[trTactic injections_and_clear] def trInjectionsAndClear : TacM Syntax :=
-  `(tactic| injections_and_clear)
+  `(tactic| injections)
 
 @[trUserCmd «run_parser»] def trRunParser : TacM Syntax := do
   warn! "unsupported: run_parser" -- unattested
