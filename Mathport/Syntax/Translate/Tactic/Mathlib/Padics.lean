@@ -33,4 +33,4 @@ open Parser
 @[trTactic witt_truncate_fun_tac] def trWittTruncateFunTac : TacM Syntax :=
   `(tactic| witt_truncate_fun_tac)
 
-@[trUserAttr is_poly] def trIsPolyAttr : TacM Syntax := tagAttr `is_poly
+@[trUserAttr is_poly] def trIsPolyAttr := tagAttr `is_poly

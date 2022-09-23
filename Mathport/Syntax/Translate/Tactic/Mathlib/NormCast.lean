@@ -13,8 +13,8 @@ open Parser
 
 -- # tactic.norm_cast
 
-@[trUserAttr norm_cast] def trNormCastAttr : TacM Syntax := do
-  match ← parse (ident)? with
+@[trUserAttr norm_cast] def trNormCastAttr : Parse1 Syntax :=
+  parse1 (ident)? fun
   | some `elim => `(attr| norm_cast elim)
   | some `move => `(attr| norm_cast move)
   | some `squash => `(attr| norm_cast squash)

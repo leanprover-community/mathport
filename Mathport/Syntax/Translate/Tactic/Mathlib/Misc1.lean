@@ -39,19 +39,19 @@ open AST3 Mathport.Translate.Parser
   `(tactic| unelide $(← trLoc (← parse location))?)
 
 -- # tactic.explode
-@[trUserCmd «#explode»] def trExplode : TacM Syntax := do
-  `(command| #explode $(← mkIdentI (← parse ident)))
+@[trUserCmd «#explode»] def trExplode : Parse1 Syntax :=
+  parse1 ident fun n => do `(command| #explode $(← mkIdentI n))
 
 -- # tactic.find
-@[trUserCmd «#find»] def trFindCmd : TacM Syntax := do
-  `(command| #find $(← trExpr (← parse pExpr)))
+@[trUserCmd «#find»] def trFindCmd : Parse1 Syntax :=
+  parse1 pExpr fun e => do `(command| #find $(← trExpr e))
 
 -- # tactic.find_unused
 
 @[trUserAttr main_declaration] def trMainDeclaration := tagAttr `main_declaration
 
-@[trUserCmd «#list_unused_decls»] def trListUnusedDecls : TacM Syntax :=
-  parse_0 `(command| #list_unused_decls)
+@[trUserCmd «#list_unused_decls»] def trListUnusedDecls : Parse1 Syntax :=
+  parse0 `(command| #list_unused_decls)
 
 -- # tactic.generalizes
 
@@ -68,10 +68,10 @@ open AST3 Mathport.Translate.Parser
 
 -- # tactic.induction
 
-@[trUserCmd cases'] def trCases' : TacM Syntax := do
+@[trUserCmd cases'] def trCases' : Parse1 Syntax := parse0 do
   warn! "unsupported: cases'" -- unattested
 
-@[trUserCmd induction'] def trInduction' : TacM Syntax := do
+@[trUserCmd induction'] def trInduction' : Parse1 Syntax := parse0 do
   warn! "unsupported: induction'" -- unattested
 
 -- # tactic.itauto
@@ -95,35 +95,35 @@ open AST3 Mathport.Translate.Parser
 
 -- # tactic.localized
 
-@[trUserCmd «open_locale»] def trOpenLocale : TacM Unit := do
-  let ids ← parse (ident* <* skipAll)
+@[trUserCmd «open_locale»] def trOpenLocale : Parse1 Unit :=
+  parse1 (ident* <* skipAll) fun ids => do
   unless ids.isEmpty do
     pushM `(command| open $[$(← liftM $ ids.mapM mkIdentN)]*)
 
-@[trUserCmd «localized»] def trLocalized : TacM Unit := do
-  let (#[cmd], loc) ← parse $ return (← pExpr *> emittedCodeHere, ← tk "in" *> ident)
-    | warn! "unsupported: multiple localized"
+@[trUserCmd «localized»] def trLocalized : Parse1 Unit :=
+  parse1 (return (← pExpr *> emittedCodeHere, ← tk "in" *> ident)) fun (cmd, loc) => do
   let loc ← renameNamespace loc
   match cmd with
-  | Command.attribute true mods attrs ns =>
+  | #[Command.attribute true mods attrs ns] =>
     unless mods.isEmpty do warn! "unsupported: localized modifiers"
     let loc ← mkIdentR loc
     trAttributeCmd false attrs ns fun stx => Id.run `(localized [$loc] $stx)
-  | Command.notation (true, res) attrs n => trNotationCmd (false, res) attrs n loc
-  | _ => warn! "unsupported: unusual localized"
+  | #[Command.notation (true, res) attrs n] => trNotationCmd (false, res) attrs n loc
+  | #[_] => warn! "unsupported: unusual localized"
+  | _ => warn! "unsupported: multiple localized"
 
 -- # tactic.mk_iff_of_inductive_prop
-@[trUserCmd «mk_iff_of_inductive_prop»] def trMkIffOfInductiveProp : TacM Syntax := do
-  let (i, r) ← parse $ return (← ident, ← ident)
+@[trUserCmd «mk_iff_of_inductive_prop»] def trMkIffOfInductiveProp : Parse1 Syntax :=
+  parse1 (return (← ident, ← ident)) fun (i, r) => do
   `(command| mk_iff_of_inductive_prop $(← mkIdentI i) $(← mkIdentI r))
 
-@[trUserAttr mk_iff] def trMkIffAttr : TacM Syntax := do
-  `(attr| mk_iff $(← liftM $ (← parse (ident)?).mapM mkIdentI)?)
+@[trUserAttr mk_iff] def trMkIffAttr : Parse1 Syntax :=
+  parse1 (ident)? fun n => do `(attr| mk_iff $(← liftM $ n.mapM mkIdentI)?)
 
 -- # tactic.replacer
 
-@[trUserCmd «def_replacer»] def trDefReplacer : TacM Syntax := do
-  let (n, ty) ← parse $ return (← ident, ← (tk ":" *> pExpr)?)
+@[trUserCmd «def_replacer»] def trDefReplacer : Parse1 Syntax :=
+  parse1 (return (← ident, ← (tk ":" *> pExpr)?)) fun (n, ty) => do
   `(command| def_replacer $(← mkIdentI n) $[$(← trOptType ty):typeSpec]?)
 
 @[trUserAttr replaceable] def trReplaceableAttr := tagAttr `replaceable
@@ -142,8 +142,9 @@ open AST3 Mathport.Translate.Parser
 
 @[trUserAttr «protected»] def trProtectedAttr := tagAttr `protected
 
-@[trUserAttr protect_proj] def trProtectProjAttr : TacM Syntax := do
-  let ids ← match ← parse withoutIdentList with
+@[trUserAttr protect_proj] def trProtectProjAttr : Parse1 Syntax :=
+  parse1 withoutIdentList fun ids => do
+  let ids ← match ids with
   | #[] => pure none
   | ids => some <$> liftM (ids.mapM mkIdentF)
   `(attr| protect_proj $[without $[$ids]*]?)
@@ -167,8 +168,8 @@ open AST3 Mathport.Translate.Parser
     $(← trLoc (← parse location))?)
 
 -- # tactic.restate_axiom
-@[trUserCmd «restate_axiom»] def trRestateAxiom : TacM Syntax := do
-  let (a, b) ← parse $ return (← ident, ← (ident)?)
+@[trUserCmd «restate_axiom»] def trRestateAxiom : Parse1 Syntax :=
+  parse1 (return (← ident, ← (ident)?)) fun (a, b) => do
   `(command| restate_axiom $(← mkIdentI a) $(← liftM $ b.mapM mkIdentI)?)
 
 -- # tactic.rewrite
@@ -188,13 +189,14 @@ open AST3 Mathport.Translate.Parser
     $(← trLoc (← parse location))?)
 
 -- # tactic.simp_command
-@[trUserCmd «#simp»] def trSimpCmd : TacM Syntax := do
-  let (o, args, attrs, e) ← parse $
-    return (← onlyFlag, ← simpArgList, (← (tk "with" *> ident*)?).getD #[], ← (tk ":")? *> pExpr)
-  let o := optTk o
-  let hs ← trSimpArgs args
-  let hs := (hs ++ attrs.map trSimpExt).asNonempty
-  `(command| #simp $[only%$o]? $[[$hs,*]]? $(← trExpr e))
+@[trUserCmd «#simp»] def trSimpCmd : Parse1 Syntax :=
+  parse1 (return (← onlyFlag, ← simpArgList,
+    (← (tk "with" *> ident*)?).getD #[], ← (tk ":")? *> pExpr))
+  fun (o, args, attrs, e) => do
+    let o := optTk o
+    let hs ← trSimpArgs args
+    let hs := (hs ++ attrs.map trSimpExt).asNonempty
+    `(command| #simp $[only%$o]? $[[$hs,*]]? $(← trExpr e))
 
 -- # tactic.simp_result
 @[trTactic dsimp_result] def trDSimpResult : TacM Syntax := do
@@ -238,7 +240,8 @@ open AST3 Mathport.Translate.Parser
   warn! "unsupported tactic unify_equations" -- unattested
 
 -- # tactic.where
-@[trUserCmd «#where»] def trWhereCmd : TacM Syntax := parse skipAll *> `(command| #where)
+@[trUserCmd «#where»] def trWhereCmd : Parse1 Syntax :=
+  parse1 skipAll fun _ => `(command| #where)
 
 -- # tactic.tfae
 open TSyntax.Compat in
@@ -260,11 +263,11 @@ open TSyntax.Compat in
 
 -- # tactic.reassoc_axiom
 
-@[trUserAttr reassoc] def trReassocAttr : TacM Syntax := do
-  `(attr| reassoc $(← liftM $ (← parse (ident)?).mapM mkIdentI)?)
+@[trUserAttr reassoc] def trReassocAttr : Parse1 Syntax :=
+  parse1 (ident)? fun n => do `(attr| reassoc $(← liftM $ n.mapM mkIdentI)?)
 
-@[trUserCmd «reassoc_axiom»] def trReassocAxiom : TacM Syntax := do
-  `(command| reassoc_axiom $(← mkIdentI (← parse ident)))
+@[trUserCmd «reassoc_axiom»] def trReassocAxiom : Parse1 Syntax :=
+  parse1 ident fun n => do `(command| reassoc_axiom $(← mkIdentI n))
 
 @[trTactic reassoc] def trReassoc : TacM Syntax := do
   match ← parse (tk "!")?, (← parse ident*).map mkIdent with
@@ -323,5 +326,5 @@ open TSyntax.Compat in
   `(tactic| wlog $[(discharger := $disch)]? $(h)? $[: $pat]? $[:= $cases]? $[using $[$perms*],*]?)
 
 -- # tactic.algebra
-@[trUserAttr ancestor] def trAncestorAttr : TacM Syntax := do
-  discard <| parse ident*; pure .missing -- ancestor attribute no longer needed
+@[trUserAttr ancestor] def trAncestorAttr : Parse1 Syntax :=
+  parse1 ident* fun _ => pure .missing -- ancestor attribute no longer needed

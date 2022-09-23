@@ -21,20 +21,21 @@ open AST3 Parser
 @[trTactic injections_and_clear] def trInjectionsAndClear : TacM Syntax :=
   `(tactic| injections)
 
-@[trUserCmd «run_parser»] def trRunParser : TacM Syntax := do
+@[trUserCmd «run_parser»] def trRunParser : Parse1 Syntax := parse0 do
   warn! "unsupported: run_parser" -- unattested
 
 @[trNITactic tactic.classical] def trNIClassical (_ : AST3.Expr) : M Syntax :=
   `(tactic| classical)
 
-@[trUserAttr higher_order] def trHigherOrderAttr : TacM Syntax := do
-  `(attr| higher_order $(← liftM $ (← parse (ident)?).mapM mkIdentI)?)
+@[trUserAttr higher_order] def trHigherOrderAttr : Parse1 Syntax :=
+  parse1 (ident)? fun n => do
+    `(attr| higher_order $(← liftM $ n.mapM mkIdentI)?)
 
-@[trUserAttr interactive] def trInteractiveAttr : TacM Syntax :=
-  parse_0 `(attr| interactive)
+@[trUserAttr interactive] def trInteractiveAttr : Parse1 Syntax :=
+  parse0 `(attr| interactive)
 
-@[trUserCmd «setup_tactic_parser»] def trSetupTacticParser : TacM Syntax :=
-  parse emittedCodeHere *> `(command| setup_tactic_parser)
+@[trUserCmd «setup_tactic_parser»] def trSetupTacticParser : Parse1 Syntax :=
+  parse1 emittedCodeHere fun _ => `(command| setup_tactic_parser)
 
 open TSyntax.Compat in
 def trInterpolatedStr' := trInterpolatedStr fun stx => `(← $stx)
@@ -48,12 +49,12 @@ def trInterpolatedStr' := trInterpolatedStr fun stx => `(← $stx)
 @[trUserNota tactic.trace_macro] def trTraceMacro : TacM Syntax := do
   let stx ← trInterpolatedStr'; `(← do dbg_trace $stx)
 
-@[trUserCmd «import_private»] def trImportPrivate : TacM Syntax := do
-  let (n, fr) ← parse $ return (← ident, ← (tk "from" *> ident)?)
+@[trUserCmd «import_private»] def trImportPrivate : Parse1 Syntax :=
+  parse1 (return (← ident, ← (tk "from" *> ident)?)) fun (n, fr) => do
   `(open private $(← mkIdentF n) $[from $(← liftM $ fr.mapM mkIdentI)]?)
 
-@[trUserCmd «mk_simp_attribute»] def trMkSimpAttribute : TacM Syntax := do
-  let (n, d, withList) ← parse $ return (← ident, ← pExpr, ← (tk "with" *> ident*)?)
+@[trUserCmd «mk_simp_attribute»] def trMkSimpAttribute : Parse1 Syntax :=
+  parse1 (return (← ident, ← pExpr, ← (tk "with" *> ident*)?)) fun (n, d, withList) => do
   let d ← match d.kind.unparen with
   | AST3.Expr.ident `none => pure $ none
   | AST3.Expr.string s => pure $ some (Syntax.mkStrLit s)

@@ -13,8 +13,8 @@ open Parser
 
 -- # tactic.monotonicity
 
-@[trUserAttr mono] def trMonoAttr : TacM Syntax := do
-  match ← parse (ident)? with
+@[trUserAttr mono] def trMonoAttr : Parse1 Syntax :=
+  parse1 (ident)? fun
   | some `left => `(attr| mono left)
   | some `right => `(attr| mono right)
   | some `both => `(attr| mono)

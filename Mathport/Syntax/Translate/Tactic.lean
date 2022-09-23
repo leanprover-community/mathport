@@ -37,11 +37,11 @@ def mkTermMap (l : Array (Name × TacM Syntax)) :
     tacs := tacs.insert n $ ← fun c s => pure fun a => return ⟨← tac.run n a c s⟩
   pure tacs
 
-def mkAttrMap (l : Array (Name × TacM Syntax)) :
+def mkAttrMap (l : Array (Name × Parse1 Syntax)) :
   M (NameMap (Array (Spanned AST3.Param) → CommandElabM Syntax.Attr)) := do
   let mut tacs := {}
   for (n, tac) in l do
-    tacs := tacs.insert n $ ← fun c s => pure fun a => return ⟨← tac.run n a c s⟩
+    tacs := tacs.insert n $ ← fun c s => pure fun a => return ⟨← tac.run.run n a c s⟩
   pure tacs
 
 def mkNITacMap (l : Array (Name × (AST3.Expr → M Syntax))) :
@@ -51,11 +51,11 @@ def mkNITacMap (l : Array (Name × (AST3.Expr → M Syntax))) :
     tacs := tacs.insert n $ ← fun c s => pure fun a => return ⟨← tac a c s⟩
   pure tacs
 
-def mkCmdMap (l : Array (Name × (Modifiers → TacM Unit))) :
+def mkCmdMap (l : Array (Name × (Modifiers → Parse1 Unit))) :
   M (NameMap (Modifiers → Array (Spanned AST3.Param) → CommandElabM Unit)) := do
   let mut tacs := {}
   for (n, tac) in l do
-    tacs := tacs.insert n $ ← fun c s => pure fun mod a => (tac mod).run n a c s
+    tacs := tacs.insert n $ ← fun c s => pure fun mod a => (tac mod).run.run n a c s
   pure tacs
 
 def builtinTactics := mkTacMap trTactics!
