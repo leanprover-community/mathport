@@ -44,7 +44,7 @@ partial def trTactic' : Tactic → M Syntax.Tactic
     | ⟨_, Expr.«`[]» tacs⟩ => trIdTactic ⟨true, none, none, tacs⟩
     | e => do
       let rec head
-      | Expr.ident x => some x
+      | Expr.const _ _ #[x] | Expr.const ⟨_, x⟩ _ _ | Expr.ident x => some x
       | Expr.paren e => head e.kind
       | Expr.app e _ => head e.kind
       | _ => none
