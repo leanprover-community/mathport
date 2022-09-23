@@ -14,7 +14,8 @@ open AST3 Parser
 -- # tactic.ext
 
 @[trUserAttr ext] def trExtAttr : TacM Syntax := do
-  `(attr| ext $(← liftM $ (← parse (ident)?).mapM mkIdentI)?)
+  if (← parse (ident)?).isSome then warn! "unsupported: attribute [ext id]"
+  `(attr| ext)
 
 @[trTactic ext1] def trExt1 : TacM Syntax := do
   let hint ← parse (tk "?")?

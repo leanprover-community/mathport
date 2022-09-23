@@ -92,8 +92,10 @@ def trAttr (_prio : Option Expr) : Attribute → M (Option TrAttr)
     | _, some ⟨_, AttrArg.user e args⟩ =>
       match (← get).userAttrs.find? n, args with
       | some f, _ =>
-        try f #[Spanned.dummy (AST3.Param.parse e args)]
+        let attr ← try f #[Spanned.dummy (AST3.Param.parse e args)]
         catch e => warn! "in {n}: {← e.toMessageData.toString}"
+        if attr.raw.isMissing then return none
+        pure attr
       | none, #[] => mkSimpleAttr <$> renameAttr n
       | none, _ => warn! "unsupported user attr {n}"
     | _, _ =>
