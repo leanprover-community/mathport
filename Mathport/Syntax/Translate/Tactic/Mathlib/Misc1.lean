@@ -326,4 +326,4 @@ open TSyntax.Compat in
 
 -- # tactic.algebra
 @[trUserAttr ancestor] def trAncestorAttr : TacM Syntax := do
-  `(attr| ancestor $[$(← liftM $ (← parse ident*).mapM mkIdentI)]*)
+  discard <| parse ident*; pure .missing -- ancestor attribute no longer needed
