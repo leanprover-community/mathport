@@ -22,13 +22,13 @@ open Mathport.Translate.Parser
 @[trTactic conv_lhs] def trConvLHS : TacM Syntax := do
   `(tactic| conv_lhs
     $[at $((← parse (tk "at" *> ident)?).map mkIdent)]?
-    $[in $(← liftM $ (← parse (tk "in" *> pExpr)?).mapM trExpr)]?
+    $[in $(← liftM $ (← parse (tk "in" *> pExpr)?).mapM trExpr):term]?
     => $(← trConvBlock (← itactic)):convSeq)
 
 @[trTactic conv_rhs] def trConvRHS : TacM Syntax := do
   `(tactic| conv_rhs
     $[at $((← parse (tk "at" *> ident)?).map mkIdent)]?
-    $[in $(← liftM $ (← parse (tk "in" *> pExpr)?).mapM trExpr)]?
+    $[in $(← liftM $ (← parse (tk "in" *> pExpr)?).mapM trExpr):term]?
     => $(← trConvBlock (← itactic)):convSeq)
 
 @[trConv erw] def trERwConv : TacM Syntax := do

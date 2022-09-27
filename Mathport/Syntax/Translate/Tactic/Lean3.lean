@@ -13,7 +13,7 @@ open AST3 Mathport.Translate.Parser
 
 def mkConvBlock (args : Array Syntax.Conv) : TSyntax ``Parser.Tactic.Conv.convSeq :=
   mkNode ``Parser.Tactic.Conv.convSeq #[mkNode ``Parser.Tactic.Conv.convSeq1Indented #[
-    mkNullNode $ args.map fun tac => mkGroupNode #[tac, mkNullNode]]]
+    mkNullNode.mkSep args]]
 
 mutual
 
@@ -159,14 +159,12 @@ def trRwArgs : TacM (Array (TSyntax ``Parser.Tactic.rwRule) × Option (TSyntax `
   let args ← parse case
   let tac ← trBlock (← itactic)
   let trCaseArg := fun (tags, xs) => do
-    let tags ← tags.mapM (trBinderIdentI ·)
-    let xs := (xs.map trIdent_').asNonempty
-    `(Parser.Tactic.caseArg'| $[$tags],* $[: $[$xs]*]?)
-  match args with
-  | #[(#[BinderName.ident tag], xs)] =>
-    `(tactic| case $(mkIdent tag):ident $[$(xs.map trBinderIdent)]* => $tac:tacticSeq)
-  | #[arg] => `(tactic| case'' $(← trCaseArg arg):caseArg' => $tac:tacticSeq)
-  | _ => `(tactic| case'' [$[$(← args.mapM trCaseArg)],*] => $tac:tacticSeq)
+    let tag ← tags.foldlM (init := Name.anonymous) fun
+      | acc, .ident (.str _ id) => pure (acc.str id)
+      | acc, tag => warn! "weird case tag {repr tag}" | pure acc
+    let xs := xs.map trBinderIdent
+    `(Parser.Tactic.caseArg| $(mkIdent tag):ident $xs*)
+  `(tactic| case $(← args.mapM trCaseArg)|* => $tac:tacticSeq)
 
 @[trTactic destruct] def trDestruct : TacM Syntax := do
   `(tactic| destruct $(← trExpr (← parse pExpr)))
@@ -567,7 +565,7 @@ def trDSimpCore (autoUnfold trace : Bool) (parseCfg : TacM (Option (Spanned AST3
 @[trTactic conv] def trConvTac : TacM Syntax := do
   `(tactic| conv
     $[at $((← parse (tk "at" *> ident)?).map mkIdent)]?
-    $[in $(← liftM $ (← parse (tk "in" *> pExpr)?).mapM trExpr)]?
+    $[in $(← liftM $ (← parse (tk "in" *> pExpr)?).mapM trExpr):term]?
     => $(← trConvBlock (← itactic)):convSeq)
 
 @[trConv conv] def trConvConv : TacM Syntax := do
@@ -586,7 +584,7 @@ def trDSimpCore (autoUnfold trace : Bool) (parseCfg : TacM (Option (Spanned AST3
   let cfg := (← parseSimpConfig (← expr?)).1.bind quoteSimpConfig
   `(conv| dsimp $[(config := $cfg)]? $[only%$o]? $[[$hs,*]]?)
 
-@[trConv trace_lhs] def trTraceLHSConv : TacM Syntax := `(conv| trace_lhs)
+@[trConv trace_lhs] def trTraceLHSConv : TacM Syntax := `(conv| trace_state)
 
 @[trConv change] def trChangeConv : TacM Syntax := do
   `(conv| change $(← trExpr (← parse pExpr)))
@@ -602,12 +600,13 @@ def trDSimpCore (autoUnfold trace : Bool) (parseCfg : TacM (Option (Spanned AST3
 @[trConv done] def trDoneConv : TacM Syntax := `(conv| done)
 
 @[trConv find] def trFindConv : TacM Syntax := do
-  `(conv| find $(← trExpr (← parse pExpr)) => $(← trConvBlock (← itactic)):convSeq)
+  `(conv| find $(← trExpr (← parse pExpr)):term => $(← trConvBlock (← itactic)):convSeq)
 
 @[trConv «for»] def trForConv : TacM Syntax := do
-  `(conv| for $(← trExpr (← parse pExpr))
-    [$[$((← parse (listOf smallNat)).map quote)],*]
-    => $(← trBlock (← itactic)):tacticSeq)
+  let pat ← trExpr (← parse pExpr)
+  let occs ← parse (listOf smallNat)
+  let tac ← trConvBlock (← itactic)
+  `(conv| pattern (occs := $[$(occs.map quote):num]*) $pat:term <;> ($tac))
 
 @[trConv simp] def trSimpConv : TacM Syntax := do
   let o := optTk (← parse onlyFlag)
