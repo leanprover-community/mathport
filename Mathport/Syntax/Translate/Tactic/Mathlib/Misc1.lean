@@ -180,7 +180,7 @@ open AST3 Mathport.Translate.Parser
     $(← trLoc (← parse location))?)
 
 -- # tactic.show_term
-@[trTactic show_term] def trShowTerm : TacM Syntax := do
+@[trTactic «show_term»] def trShowTerm : TacM Syntax := do
   `(tactic| show_term $(← trBlock (← itactic)):tacticSeq)
 
 -- # tactic.simp_rw

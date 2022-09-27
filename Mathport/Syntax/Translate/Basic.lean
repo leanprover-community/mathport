@@ -533,7 +533,7 @@ partial def trBlock : Block → M (TSyntax ``Parser.Tactic.tacticSeq)
   | ⟨_, none, none, #[]⟩ => do `(Parser.Tactic.tacticSeq| {})
   | ⟨_, none, none, tacs⟩ =>
     return mkNode ``Parser.Tactic.tacticSeq #[mkNode ``Parser.Tactic.tacticSeq1Indented #[
-      mkNullNode $ ← tacs.mapM fun tac => return mkGroupNode #[← trTactic tac, mkNullNode]]]
+      mkNullNode.mkSep $ ← tacs.mapM trTactic]]
   | ⟨_, _cl, _cfg, _tacs⟩ => warn! "unsupported (TODO): block with cfg"
 
 partial def trIdTactic : Block → M Syntax.Tactic

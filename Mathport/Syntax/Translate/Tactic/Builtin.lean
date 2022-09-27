@@ -12,7 +12,7 @@ open Lean.Elab (Visibility)
 open Lean.Elab.Command (CommandElabM liftCoreM)
 open AST3
 
-partial def trTacticOrList : Spanned Tactic → M (Sum Syntax.Tactic (Array Syntax.Tactic))
+partial def trTacticOrList : Spanned Tactic → M (Syntax.Tactic ⊕ Array Syntax.Tactic)
   | ⟨_, Tactic.«[]» args⟩ => Sum.inr <$> args.mapM fun arg => trTactic arg
   | tac => Sum.inl <$> trTactic tac
 
@@ -44,20 +44,22 @@ partial def trTactic' : Tactic → M Syntax.Tactic
     | ⟨_, Expr.«`[]» tacs⟩ => trIdTactic ⟨true, none, none, tacs⟩
     | e => do
       let rec head
-      | Expr.ident x => x
+      | Expr.ident x => some x
       | Expr.paren e => head e.kind
       | Expr.app e _ => head e.kind
-      | _ => Name.anonymous
-      match Rename.resolveIdent? (← getEnv) (head e.kind) with
-      | none =>
-        -- warn! "unsupported non-interactive tactic {repr e}"
+      | _ => none
+      let fallback := do
         match ← trExpr e with
         | `(do $[$els]*) => `(tactic| run_tac $[$els:doSeqItem]*)
         | stx => `(tactic| run_tac $stx:term)
+      match head e.kind with
+      | none =>
+        -- warn! "unsupported non-interactive tactic {repr e}"
+        fallback
       | some n =>
         match (← get).niTactics.find? n with
         | some f => try f e.kind catch e => warn! "in {n}: {← e.toMessageData.toString}"
-        | none => warn! "unsupported non-interactive tactic {n}"
+        | none => warn! "unsupported non-interactive tactic {n}" | fallback
   | Tactic.interactive n args => do
     match (← get).tactics.find? n with
     | some f => try f args catch e => warn! "in {n} {repr args}: {← e.toMessageData.toString}"
