@@ -16,7 +16,6 @@ namespace Mathport
 
 open Lean
 open System (FilePath)
-open Std (HashMap)
 open Mathlib.Prelude.Rename
 
 -- During synport, we need to guess how to capitalize a field name without knowing
@@ -85,7 +84,7 @@ def renameField? (n : Name) : Option Name :=
   match n with
   | Name.str Name.anonymous s .. =>
     match getFieldNameMap env |>.find? s with
-    | some (c::cs) => Name.mkSimple $ s.convertSnake c.getString!.getCapsKind
+    | some (c::_) => Name.mkSimple $ s.convertSnake c.getString!.getCapsKind
     | _ => none
   | _ => none
 

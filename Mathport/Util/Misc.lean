@@ -16,7 +16,7 @@ elab "leanDir!" : term =>
 def Expr.isAppOfArityGE (e : Expr) (n : Name) (k : Nat) : Bool :=
   e.withApp fun f args => f.isConstOf n && args.size ≥ k
 
-open Std (HashMap)
+open Lean (HashMap)
 
 deriving instance Hashable for Position
 
@@ -72,7 +72,6 @@ def Declaration.toName : Declaration → Name
 
 end Lean
 
-export Std (HashSet HashMap RBMap RBNode)
 export System (FilePath)
 
 instance : MonadLift (Except String) IO where
@@ -129,21 +128,12 @@ def Array.asNonempty : Array α → Option (Array α)
   | hs => some hs
 
 -- TODO: faster version
-def Std.HashMap.insertWith [Hashable α] [BEq α] (m : HashMap α β) (merge : β → β → β) (a : α) (b : β) : HashMap α β :=
+def Lean.HashMap.insertWith [Hashable α] [BEq α] (m : HashMap α β) (merge : β → β → β) (a : α) (b : β) : HashMap α β :=
   match m.find? a with
   | none => m.insert a b
   | some c => m.insert a (merge c b)
 
-namespace Lean
-
-namespace NameMap
-
-instance : ForIn m (NameMap α) (Name × α) where
-  forIn := Std.RBMap.forIn
-
-end NameMap
-
-namespace Elab.Command
+namespace Lean.Elab.Command
 
 def CommandElabM.toIO (x : CommandElabM α) (ctx : Context) (s : State) : IO α := do
   match ← x ctx |>.run' s |>.toIO' with

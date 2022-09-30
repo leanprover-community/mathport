@@ -9,7 +9,6 @@ import Mathlib.Mathport.Syntax
 import Std.Util.ExtendedBinder
 import Mathlib.Init.Set
 
-open Std (HashMap)
 open Lean
 
 namespace Mathport

@@ -80,7 +80,7 @@ instance : Coe Syntax.Ident_ Syntax.Term where coe s := ⟨s⟩
 
 namespace Translate
 
-open Std (HashMap)
+open Lean (HashMap)
 open AST3
 
 structure NotationData where
@@ -359,7 +359,7 @@ def addLeadingComment' (comment : Comment) (info : SourceInfo) : SourceInfo :=
         (positionToStringPos comment.start)
         "".toSubstring
         (positionToStringPos comment.end)
-    | SourceInfo.synthetic a b =>
+    | SourceInfo.synthetic a b _ =>
       SourceInfo.original commentText.toSubstring a "".toSubstring b
     | SourceInfo.original leading a trailing b =>
       SourceInfo.original (commentText ++ leading.toString).toSubstring a trailing b
@@ -382,7 +382,7 @@ def addTrailingComment' (comment : Comment) (info : SourceInfo) : SourceInfo :=
         (positionToStringPos comment.start)
         commentText.toSubstring
         (positionToStringPos comment.end)
-    | SourceInfo.synthetic a b =>
+    | SourceInfo.synthetic a b _ =>
       SourceInfo.original "".toSubstring a commentText.toSubstring b
     | SourceInfo.original leading a trailing b =>
       SourceInfo.original leading a (trailing.toString ++ commentText).toSubstring b
@@ -443,7 +443,7 @@ def reprint (stx : Syntax) : Format :=
   reprintCore stx |>.getD ""
 
 def captureTraces [Monad m] [MonadTrace m] [MonadFinally m] (k : m α) :
-    m (α × Std.PersistentArray TraceElem) := do
+    m (α × Lean.PersistentArray TraceElem) := do
   let old ← getTraces
   try
     modifyTraces fun _ => {}
