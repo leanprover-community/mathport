@@ -13,7 +13,6 @@ namespace Mathport
 
 open Lean
 open System (FilePath)
-open Std (HashMap)
 
 def dot2path (dot : String) : FilePath :=
   System.mkFilePath $ dot.splitOn "."
@@ -48,7 +47,7 @@ def Path.toLean4olean (cfg : Path.Config) (p : Path) : FilePath :=
   ⟨path.toString ++ ".olean"⟩
 
 def resolveMod3 (cfg : Path.Config) (mod3 : Name) : IO Path := do
-  for (package, root3) in cfg.packages.toList do
+  for (package, _) in cfg.packages.toList do
     let path := Path.mk package mod3
     if ← (path.toLean3 cfg ".tlean").pathExists then return path
     let path := Path.mk package (mod3 ++ `default)

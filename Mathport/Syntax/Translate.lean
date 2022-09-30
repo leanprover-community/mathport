@@ -19,7 +19,6 @@ open Lean.Elab.Command (CommandElabM liftCoreM)
 
 namespace Translate
 
-open Std (HashMap)
 open AST3
 
 partial def M.run' (m : M α) (notations : Array Notation) (commands : Array Command)
