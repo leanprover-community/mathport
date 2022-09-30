@@ -14,7 +14,6 @@ import Mathport.Binary.TranslateExpr
 
 namespace Mathport.Binary
 
-open Std (HashMap HashSet)
 open Lean Lean.Meta Lean.Elab Lean.Elab.Command
 
 def inCurrentModule [Monad M] [MonadEnv M] (n : Name) : M Bool :=

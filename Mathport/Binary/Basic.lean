@@ -10,7 +10,6 @@ import Mathport.Bridge.Config
 
 namespace Mathport.Binary
 
-open Std (HashMap HashSet)
 open Lean Lean.Meta Lean.Elab.Command
 
 structure Context where

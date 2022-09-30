@@ -11,7 +11,6 @@ import Mathport.Bridge.Path
 namespace Mathport
 
 open Lean Lean.Json
-open Std (HashMap HashSet)
 
 structure Config where
   pathConfig         : Path.Config

@@ -600,7 +600,7 @@ def trDSimpCore (autoUnfold trace : Bool) (parseCfg : TacM (Option (Spanned AST3
 @[trConv done] def trDoneConv : TacM Syntax := `(conv| done)
 
 @[trConv find] def trFindConv : TacM Syntax := do
-  `(conv| find $(← trExpr (← parse pExpr)):term => $(← trConvBlock (← itactic)):convSeq)
+  `(conv| (pattern $(← trExpr (← parse pExpr)):term; ($(← trConvBlock (← itactic)):convSeq)))
 
 @[trConv «for»] def trForConv : TacM Syntax := do
   let pat ← trExpr (← parse pExpr)

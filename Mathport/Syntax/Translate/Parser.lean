@@ -6,7 +6,6 @@ Authors: Mario Carneiro
 import Mathport.Syntax.AST3
 import Mathlib.Mathport.Syntax
 
-open Std (HashMap)
 open Lean hiding Expr Command
 open Lean.Elab Tactic
 
