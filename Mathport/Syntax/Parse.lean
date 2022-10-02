@@ -10,7 +10,7 @@ import Mathport.Syntax.AST3
 
 namespace Mathport
 
-open Lean (Json FromJson Position Name BinderInfo)
+open Lean (Json FromJson Position Name BinderInfo HashMap)
 open Lean.FromJson (fromJson?)
 
 namespace Parse

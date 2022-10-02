@@ -45,6 +45,18 @@ def transformInlineTactics (tacs : Array Syntax.Tactic) : M (Array Syntax.Tactic
   unless modified do throwUnsupported
   pure tacs'
 
+def transformInlineConvs (tacs : Array Syntax.Conv) : M (Array Syntax.Conv) := do
+  let mut tacs' := #[]
+  let mut modified := false
+  for tac in tacs do
+    match tac.1 with
+    | `(conv| ($[$seq:conv]*)) =>
+      tacs' := tacs' ++ seq
+      modified := true
+    | _ => tacs' := tacs'.push tac
+  unless modified do throwUnsupported
+  pure tacs'
+
 def transformTacticsArray (tacs : Array Syntax.Tactic) : M (Array Syntax.Tactic) := do
   for fn in #[transformConsecutiveTacticsArray, transformInlineTactics] do
     if let some tacs' ← catchUnsupportedSyntax <| fn tacs then
@@ -57,6 +69,8 @@ mathport_rules
     `(tacticSeq1Indented| $[$(← transformTacticsArray tac):tactic]*)
   | `(tactic| · $[$tac:tactic]*) => do
     `(tactic| · $[$(← transformTacticsArray tac):tactic]*)
+  | `(Conv.convSeq| $[$tac:conv]*) => do
+    `(Conv.convSeq| $[$(← transformInlineConvs tac):conv]*)
 
 -- common obsolete patterns from haveI
 mathport_rules

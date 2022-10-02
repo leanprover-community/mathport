@@ -76,10 +76,7 @@ open AST3 Mathport.Translate.Parser
   let h := (← parse (ident)?).map mkIdent
   parse (tk ":")
   let (e, x) ← parse generalizeArg
-  let e ← trExpr e; let x := mkIdent x
-  match ← trLoc (← parse location) with
-  | none => `(tactic| generalize $[$h :]? $e = $x)
-  | some loc => `(tactic| generalize $[$h :]? $e = $x $loc)
+  `(tactic| generalize $[$h :]? $(← trExpr e) = $(mkIdent x) $(← trLoc (← parse location))?)
 
 @[trTactic clean] def trClean : TacM Syntax := do
   `(tactic| clean $(← trExpr (← parse pExpr)))
