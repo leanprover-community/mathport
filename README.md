@@ -16,7 +16,7 @@ Please use the repositories
 https://github.com/leanprover-community/lean3port
 and
 https://github.com/leanprover-community/mathlib3port
-and run `lake build` to obtain the generated `.olean` and `.lean` files.
+and run `lake build` to obtain the generated `.olean` files.
 
 Using these repositories, you can open the synported `.lean` files in VS Code
 to see the current state of output.
@@ -35,7 +35,8 @@ project should work to enable `import Mathbin.All`.)
 The synported `.lean` files are checked in to these repositories:
 feel free to commit new versions
 if you have updated the dependencies in the relevant lakefile
-and downloaded fresh `.lean` files.
+and downloaded fresh `.lean` files using the `update.sh <tag>` script,
+where `<tag>` is a release from https://github.com/leanprover-community/mathport/releases
 
 ## Running mathport locally
 
