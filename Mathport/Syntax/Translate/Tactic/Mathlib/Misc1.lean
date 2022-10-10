@@ -56,11 +56,9 @@ open AST3 Mathport.Translate.Parser
 -- # tactic.generalizes
 
 @[trTactic generalizes] def trGeneralizes : TacM Syntax := do
-  let args ← (← parse (listOf generalizesArg)).mapM fun (h, t, x) =>
-    return mkNode ``Parser.Tactic.generalizesArg #[
-      mkOptionalNode' h fun h => #[mkIdent h, mkAtom ":"],
-      ← trExpr t, mkAtom "=", mkIdent x]
-  `(tactic| generalizes [$args,*])
+  let args ← (← parse (listOf generalizesArg)).mapM fun (h, t, x) => do
+    `(Parser.Tactic.generalizeArg| $[$(h.map mkIdent) :]? $(← trExpr t) = $(mkIdent x))
+  `(tactic| generalize $args,*)
 
 -- # tactic.generalize_proofs
 @[trTactic generalize_proofs] def trGeneralizeProofs : TacM Syntax := do
