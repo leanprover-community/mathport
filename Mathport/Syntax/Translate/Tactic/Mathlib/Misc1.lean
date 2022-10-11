@@ -157,8 +157,8 @@ open AST3 Mathport.Translate.Parser
 
 @[trTactic contrapose] def trContrapose : TacM Syntax := do
   let (tac, s) := match ← parse (tk "!")? with
-  | none => (``Parser.Tactic.contrapose, "contrapose")
-  | some _ => (``Parser.Tactic.contrapose!, "contrapose!")
+  | none => (``Mathlib.Tactic.Contrapose.contrapose, "contrapose")
+  | some _ => (``Mathlib.Tactic.Contrapose.contrapose!, "contrapose!")
   let n ← parse (return (← ident, ← (tk "with" *> ident)?))?
   pure $ mkNode tac #[mkAtom s, mkOptionalNode' n fun (a, b) =>
     #[mkIdent a, mkOptionalNode' b fun b => #[mkAtom "with", mkIdent b]]]
