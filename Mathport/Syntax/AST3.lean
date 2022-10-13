@@ -10,7 +10,6 @@ def Lean.BinderInfo.bracket (paren : Bool) : BinderInfo → Format → Format
   | BinderInfo.implicit,       f => f.bracket "{" "}"
   | BinderInfo.strictImplicit, f => f.bracket "{{" "}}"
   | BinderInfo.instImplicit,   f => f.sbracket
-  | BinderInfo.auxDecl,        f => f.group
 
 namespace Mathport
 
