@@ -53,11 +53,15 @@ def trInterpolatedStr' := trInterpolatedStr fun stx => `(← $stx)
   parse1 (return (← ident, ← (tk "from" *> ident)?)) fun (n, fr) => do
   `(open private $(← mkIdentF n) $[from $(← liftM $ fr.mapM mkIdentI)]?)
 
-@[trUserCmd «mk_simp_attribute»] def trMkSimpAttribute : Parse1 Syntax :=
+@[trUserCmd «mk_simp_attribute»] def trMkSimpAttribute : Parse1 Unit :=
   parse1 (return (← ident, ← pExpr, ← (tk "with" *> ident*)?)) fun (n, d, withList) => do
-  let d ← match d.kind.unparen with
-  | AST3.Expr.ident `none => pure $ none
-  | AST3.Expr.string s => pure $ some (Syntax.mkStrLit s)
+  let descr ← match d.kind.unparen with
+  | AST3.Expr.ident `none => pure s!"simp set for {n.toString}"
+  | AST3.Expr.string s => pure s
   | _ => warn! "unsupported: weird string"
-  `(command| mk_simp_attribute $(mkIdent n) $[from $[$(withList.map (·.map mkIdent))]*]? $[:= $d]?)
-
+  let n := mkIdent n
+  push (← `(command| $(trDocComment s!" {descr} "):docComment register_simp_attr $n))
+  let withList := withList.getD #[]
+  unless withList.isEmpty do
+    logComment "[mathport] port note: move this to another file, it won't work here"
+    push (← `(command| attribute [$n:ident] $(← liftM $ withList.mapM mkIdentI)*))
