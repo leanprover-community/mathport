@@ -535,7 +535,7 @@ def trDSimpCore (autoUnfold trace : Bool) (parseCfg : TacM (Option (Spanned AST3
   `(tactic| funext $[$((← parse ident_*).map trIdent_)]*)
 
 @[trTactic by_contradiction by_contra] def trByContra : TacM Syntax := do
-  `(tactic| by_contra $((← parse (ident)?).map mkIdent)?)
+  `(tactic| by_contra $[$((← parse (ident)?).map mkIdent):ident]?)
 
 @[trTactic type_check] def trTypeCheck : TacM Syntax := do
   `(tactic| type_check $(← trExpr (← parse pExpr)))

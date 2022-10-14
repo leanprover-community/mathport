@@ -267,7 +267,7 @@ mutual
     | "binder_1", _, args => binder BinderInfo.instImplicit args
     | "binder_2", _, args => binder BinderInfo.strictImplicit args
     | "binder_4", _, args => binder BinderInfo.implicit args
-    | "binder_8", _, args => binder BinderInfo.auxDecl args
+    | "binder_8", _, args => binder BinderInfo.default args -- aux decl binders not supported
     | k, _, args => match toNotationKind k with
       | some nk => Binder.notation <$> getNotationId nk args
       | none => throw s!"getBinder parse error, unknown kind {k}"
@@ -525,7 +525,7 @@ partial def getField : AstId → M (Spanned Field) := withNode fun
   | "field_1", _, args => field BinderInfo.instImplicit args
   | "field_2", _, args => field BinderInfo.strictImplicit args
   | "field_4", _, args => field BinderInfo.implicit args
-  | "field_8", _, args => field BinderInfo.auxDecl args
+  | "field_8", _, args => field BinderInfo.default args -- aux decl binders not supported
   | k, _, args => match toNotationKind k with
     | some nk => Field.notation <$> getNotationDef nk args
     | none => throw s!"getField parse error, unknown kind {k}"
@@ -799,7 +799,7 @@ instance : FromJson BinderInfo where
     | 1 => pure BinderInfo.instImplicit
     | 2 => pure BinderInfo.strictImplicit
     | 4 => pure BinderInfo.implicit
-    | 8 => pure BinderInfo.auxDecl
+    | 8 => pure BinderInfo.default -- aux decl binders not supported
     | _ => throw "unknown binder type"
 
 inductive Annotation
