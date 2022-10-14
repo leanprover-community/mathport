@@ -153,8 +153,8 @@ private def mkConfigStx (stx : Option Syntax) : M Syntax :=
 
 -- # tactic.elementwise
 
-@[trUserAttr elementwise] def trElementwiseAttr : TacM Syntax := do
-  `(attr| elementwise $(← liftM $ (← parse (ident)?).mapM mkIdentI)?)
+@[trUserAttr elementwise] def trElementwiseAttr : Parse1 Syntax :=
+  parse1 (ident)? fun n => do `(attr| elementwise $(← liftM $ n.mapM mkIdentI)?)
 
 @[trTactic elementwise] def trElementwise : TacM Syntax := do
   match ← parse (tk "!")?, (← parse ident*).map mkIdent with
@@ -168,33 +168,33 @@ private def mkConfigStx (stx : Option Syntax) : M Syntax :=
 attribute [trNITactic try_refl_tac] trControlLawsTac
 
 -- # algebra.group.to_additive
-@[trUserAttr to_additive_ignore_args] def trToAdditiveIgnoreArgsAttr : TacM Syntax := do
-  `(attr| to_additive_ignore_args $((← parse smallNat*).map Quote.quote)*)
+@[trUserAttr to_additive_ignore_args] def trToAdditiveIgnoreArgsAttr : Parse1 Syntax :=
+  parse1 smallNat* fun n => `(attr| to_additive_ignore_args $(n.map Quote.quote)*)
 
-@[trUserAttr to_additive_relevant_arg] def trToAdditiveRelevantArgAttr : TacM Syntax := do
-  `(attr| to_additive_relevant_arg $(Quote.quote (← parse smallNat)))
+@[trUserAttr to_additive_relevant_arg] def trToAdditiveRelevantArgAttr : Parse1 Syntax :=
+  parse1 smallNat fun n => `(attr| to_additive_relevant_arg $(Quote.quote n))
 
-@[trUserAttr to_additive_reorder] def trToAdditiveReorderAttr : TacM Syntax := do
-  `(attr| to_additive_reorder $((← parse smallNat*).map Quote.quote)*)
+@[trUserAttr to_additive_reorder] def trToAdditiveReorderAttr : Parse1 Syntax :=
+  parse1 smallNat* fun n => `(attr| to_additive_reorder $(n.map Quote.quote)*)
 
-@[trUserAttr to_additive] def trToAdditiveAttr : TacM Syntax := do
-  let (bang, ques, tgt, doc) ← parse <|
-    return (optTk (← (tk "!")?).isSome, optTk (← (tk "?")?).isSome, ← (ident)?, ← (pExpr)?)
-  let tgt ← liftM $ tgt.mapM mkIdentI
-  let doc : Option (TSyntax strLitKind) ← doc.mapM fun doc => match doc.unparen with
-  | ⟨m, Expr.string s⟩ => pure ⟨setInfo m $ Syntax.mkStrLit s⟩
-  | _ => warn! "to_additive: weird doc string"
-  `(attr| to_additive $[!%$bang]? $[?%$ques]? $[$tgt:ident]? $[$doc:str]?)
+@[trUserAttr to_additive] def trToAdditiveAttr : Parse1 Syntax :=
+  parse1 (return (optTk (← (tk "!")?).isSome, optTk (← (tk "?")?).isSome, ← (ident)?, ← (pExpr)?))
+  fun (bang, ques, tgt, doc) => do
+    let tgt ← liftM $ tgt.mapM mkIdentI
+    let doc : Option (TSyntax strLitKind) ← doc.mapM fun doc => match doc.unparen with
+    | ⟨m, Expr.string s⟩ => pure ⟨setInfo m $ Syntax.mkStrLit s⟩
+    | _ => warn! "to_additive: weird doc string"
+    `(attr| to_additive $[!%$bang]? $[?%$ques]? $[$tgt:ident]? $[$doc:str]?)
 
 -- # meta.coinductive_predicates
 @[trUserAttr monotonicity] def trMonotonicityAttr := tagAttr `monotonicity
 
-@[trUserCmd «coinductive»] def trCoinductivePredicate (_mods : Modifiers) : TacM Syntax :=
-  parse_0 warn! "unsupported user cmd coinductive" -- unattested
+@[trUserCmd «coinductive»] def trCoinductivePredicate (_mods : Modifiers) : Parse1 Syntax :=
+  parse0 warn! "unsupported user cmd coinductive" -- unattested
 
 -- # testing.slim_check.sampleable
-@[trUserCmd «#sample»] def trSampleCmd : TacM Syntax := do
-  `(command| #sample $(← trExpr (← parse pExpr)))
+@[trUserCmd «#sample»] def trSampleCmd : Parse1 Syntax :=
+  parse1 pExpr fun e => do `(command| #sample $(← trExpr e))
 
 @[trNITactic sampleable.mk_trivial_interp] def trMkTrivialInterp
   (_ : AST3.Expr) : M Syntax := `(tactic| refine id)

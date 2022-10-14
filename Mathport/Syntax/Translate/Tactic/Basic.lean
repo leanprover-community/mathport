@@ -54,8 +54,6 @@ def parse (p : Parser.ParserM α) : TacM α := do
   let Param.parse _ args ← next! | throw! "expecting parse arg"
   p.run' args
 
-def parse_0 (t : TacM α) := parse (pure ()) *> t
-
 def expr? : TacM (Option (Spanned AST3.Expr)) := do
   match ← next? with
   | none => pure none
@@ -69,26 +67,32 @@ def itactic : TacM AST3.Block := do
   let Param.block bl ← next! | warn! "expecting tactic arg"
   pure bl
 
-def withNoMods (tac : TacM α) : Modifiers → TacM α
+structure Parse1 (α) := run : TacM α
+
+def parse1 (p : Parser.ParserM α) (f : α → M β) : Parse1 β := ⟨do f (← parse p)⟩
+def parse0 (x : M α) : Parse1 α := parse1 (pure ()) fun _ => x
+
+def tagAttr (n : Name) : Parse1 Syntax := parse0 <| pure (mkSimpleAttr n)
+
+def withNoMods (tac : Parse1 α) : Modifiers → Parse1 α
   | #[] => tac
-  | _ => warn! "expecting no modifiers" | tac
+  | _ => ⟨warn! "expecting no modifiers" | tac.run⟩
 
-def tagAttr (n : Name) : TacM Syntax := parse_0 $ pure (mkSimpleAttr n)
+scoped instance : Coe (Parse1 α) (Modifiers → Parse1 α) := ⟨withNoMods⟩
 
-scoped instance : Coe (TacM α) (Modifiers → TacM α) := ⟨withNoMods⟩
-
-def withDocString (tac : Option String → TacM α) : Modifiers → TacM α
+def withDocString (tac : Option String → Parse1 α) : Modifiers → Parse1 α
   | #[] => tac none
   | #[⟨_, Modifier.doc s⟩] => tac (some s)
-  | _ => warn! "unsupported modifiers in user command" | tac none
+  | _ => ⟨warn! "unsupported modifiers in user command" | (tac none).run⟩
 
-scoped instance : Coe (Option String → TacM α) (Modifiers → TacM α) := ⟨withDocString⟩
-scoped instance : Coe (α → TacM Syntax) (α → TacM Unit) := ⟨fun tac mods => do push (← tac mods)⟩
+scoped instance : Coe (Option String → Parse1 α) (Modifiers → Parse1 α) := ⟨withDocString⟩
+scoped instance : Coe (α → Parse1 Syntax) (α → Parse1 Unit) :=
+  ⟨fun tac mods => ⟨do push (← (tac mods).run)⟩⟩
 
 abbrev NameExt := SimplePersistentEnvExtension (Name × Name) (NameMap Name)
 
-private def mkExt (name attr : Name) (descr : String) : IO NameExt := do
-  let addEntryFn | m, (n3, n4) => m.insert n3 n4
+private def mkExt (attr : Name) (descr : String) (name : Name := by exact decl_name%) : IO NameExt := do
+  let addEntryFn m | (n3, n4) => m.insert n3 n4
   let ext ← registerSimplePersistentEnvExtension {
     name, addEntryFn
     addImportedFn := mkStateFromImportedEntries addEntryFn {}
@@ -120,24 +124,12 @@ syntax (name := trUserNota) "trUserNota " ident+ : attr
 syntax (name := trUserAttr) "trUserAttr " ident+ : attr
 syntax (name := trUserCmd) "trUserCmd " ident+ : attr
 
-initialize trTacExtension : NameExt ←
-  mkExt `Mathport.Translate.Tactic.trTacExtension `trTactic
-    (descr := "lean 3 → 4 interactive tactic translation")
-initialize trNITacExtension : NameExt ←
-  mkExt `Mathport.Translate.Tactic.trNITacExtension `trNITactic
-    (descr := "lean 3 → 4 noninteractive tactic translation")
-initialize trConvExtension : NameExt ←
-  mkExt `Mathport.Translate.Tactic.trConvExtension `trConv
-    (descr := "lean 3 → 4 interactive conv tactic translation")
-initialize trUserNotaExtension : NameExt ←
-  mkExt `Mathport.Translate.Tactic.trUserNotaExtension `trUserNota
-    (descr := "lean 3 → 4 user notation translation")
-initialize trUserAttrExtension : NameExt ←
-  mkExt `Mathport.Translate.Tactic.trUserAttrExtension `trUserAttr
-    (descr := "lean 3 → 4 user attribute translation")
-initialize trUserCmdExtension : NameExt ←
-  mkExt `Mathport.Translate.Tactic.trUserCmdExtension `trUserCmd
-    (descr := "lean 3 → 4 user attribute translation")
+initialize trTacExtension : NameExt ← mkExt `trTactic "lean 3 → 4 interactive tactic translation"
+initialize trNITacExtension : NameExt ← mkExt `trNITactic "lean 3 → 4 noninteractive tactic translation"
+initialize trConvExtension : NameExt ← mkExt `trConv "lean 3 → 4 interactive conv tactic translation"
+initialize trUserNotaExtension : NameExt ← mkExt `trUserNota "lean 3 → 4 user notation translation"
+initialize trUserAttrExtension : NameExt ← mkExt `trUserAttr "lean 3 → 4 user attribute translation"
+initialize trUserCmdExtension : NameExt ← mkExt `trUserCmd "lean 3 → 4 user attribute translation"
 
 elab "trTactics!" : term <= ty => mkElab trTacExtension ty
 elab "trNITactics!" : term <= ty => mkElab trNITacExtension ty

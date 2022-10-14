@@ -40,13 +40,13 @@ def trSimpaCore (autoUnfold trace : Bool) (parseCfg : TacM (Option (Spanned AST3
   `(tactic| squeeze_scope $(← trBlock (← itactic)):tacticSeq)
 
 @[trTactic squeeze_simp] def trSqueezeSimp : TacM Syntax := do
-  let _ques ← parse_0 $ parse (tk "?")?; let bang ← parse (tk "!")?
+  let _ques ← parse (pure ()) <* parse (tk "?")?; let bang ← parse (tk "!")?
   trSimpCore bang.isSome true
 
 @[trTactic squeeze_simpa] def trSqueezeSimpa : TacM Syntax := do
-  let _ques ← parse_0 $ parse (tk "?")?; let bang ← parse (tk "!")?
+  let _ques ← parse (pure ()) <* parse (tk "?")?; let bang ← parse (tk "!")?
   trSimpaCore bang.isSome true expr?
 
 @[trTactic squeeze_dsimp] def trSqueezeDSimp : TacM Syntax := do
-  let _ques ← parse_0 $ parse (tk "?")?; let bang ← parse (tk "!")?
+  let _ques ← parse (pure ()) <* parse (tk "?")?; let bang ← parse (tk "!")?
   trDSimpCore bang.isSome true (return (← parse (structInst)?).map .dummy)
