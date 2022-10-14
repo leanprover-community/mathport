@@ -15,8 +15,22 @@ mathport_rules
     `($mods:declModifiers def $id:declId $sig:optDeclSig where
         $[$fieldName:ident := $fieldVal:term]*)
 
--- TODO: this seems to break with mathport-generated lambdas
--- open Lean.Parser.Command in
--- mathport_rules
---   | `(whereStructField| $id:ident := fun $xs:ident* => $val:term) =>
---     `(whereStructField| $id:ident $xs:ident* := $val:term)
+open Lean Parser.Term Mathport.Transform in
+mathport_rules
+  | `(letDecl| $id:ident $xs* := fun $ys* => $val:term) => do
+    -- well this is surprisingly annoying
+    let ofTerm
+    | `($v:ident) => pure (v : TSyntax [`ident, ``hole])
+    | `(_) => `(hole| _)
+    | _ => throwUnsupported
+    let ys ← ys.mapM fun
+    | `(funBinder| ⦃$vs* : $ty⦄) => `(letIdBinder| ⦃$vs* : $ty⦄)
+    | `(funBinder| {$vs*}) => `(letIdBinder| {$vs*})
+    | `(funBinder| {$vs* : $ty}) => `(letIdBinder| {$vs* : $ty})
+    | `(funBinder| [$[$v :]? $ty]) => `(letIdBinder| [$[$v :]? $ty])
+    | `(funBinder| $x:ident) => `(letIdBinder| $x:ident)
+    | `(funBinder| ($v1 $vs* $[: $ty]?)) => do
+      `(letIdBinder| ($(← ofTerm v1) $(← vs.mapM ofTerm)* $[: $ty]?))
+    | `(funBinder| _) => `(letIdBinder| _)
+    | _ => throwUnsupported
+    `(letDecl| $id:ident $(xs ++ ys)* := $val:term)
