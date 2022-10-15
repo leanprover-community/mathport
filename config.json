@@ -55,5 +55,6 @@
     ],
     "sorries": [],
     "skipProofs": false,
-    "error2warning" : false
+    "skipDefEq": true,
+    "error2warning" : true
 }
