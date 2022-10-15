@@ -55,8 +55,8 @@ partial def mkCandidateLean4NameForKind (n3 : Name) (eKind : ExprKind) : Binport
     | _                => pure Name.anonymous
 
 def getExprKind (type : Expr) : MetaM ExprKind := do
-  if ← isProp type then return ExprKind.eProof
-  if ← returnsSort type then return ExprKind.eSort
+  if ← try isProp type catch _ => pure false then return ExprKind.eProof
+  if ← try returnsSort type catch _ => pure false then return ExprKind.eSort
   return ExprKind.eDef
 where
   returnsSort (type : Expr) : MetaM Bool := withTransparency TransparencyMode.all do
@@ -77,22 +77,20 @@ inductive ClashKind
 -- TODO: this is awkward, the `List Name` is just the list of constructor names for defEq inductive clashes
 partial def refineLean4Names (decl : Declaration) : BinportM (Declaration × ClashKind × List Name) := do
   match decl with
-  | Declaration.axiomDecl ax                =>
+  | Declaration.axiomDecl ax =>
     refineAx { ax with name := ← mkCandidateLean4Name ax.name ax.type }
-  | Declaration.thmDecl thm                 =>
-    refineThm { thm with name := ← mkCandidateLean4Name thm.name thm.type}
-  | Declaration.defnDecl defn               =>
+  | Declaration.thmDecl thm =>
+    refineThm { thm with name := ← mkCandidateLean4Name thm.name thm.type }
+  | Declaration.defnDecl defn =>
     let name ← mkCandidateLean4Name defn.name defn.type
     -- Optimization: don't bother def-eq checking constructions that we know will be def-eq
-    if name.isStr && (← read).config.defEqConstructions.contains name.getString! then
+    if (← read).config.skipDefEq ||
+        name.isStr && (← read).config.defEqConstructions.contains name.getString! then
       let clashKind := if (← getEnv).contains name then ClashKind.foundDefEq else ClashKind.freshDecl
       return (Declaration.defnDecl { defn with name := name }, clashKind, [])
     refineDef { defn with name := name }
   | Declaration.inductDecl lps nps [indType] iu =>
     let mut candidateName ← mkCandidateLean4Name indType.name indType.type
-    if indType.ctors.any (fun ctor => (ctor.type.find? fun e => e.isConstOf candidateName).isSome) then
-      println! "[preempt-cat-clash] {indType.name} --> {candidateName}"
-      candidateName := extendName candidateName "Cat"
     let indType := indType.replacePlaceholder (newName := candidateName)
     let indType := indType.updateNames InductiveType.selfPlaceholder candidateName
     refineInd lps nps indType iu
@@ -102,38 +100,41 @@ where
   refineAx (ax3 : AxiomVal) := do
     println! "[refineAx] {ax3.name} {ax3.type}"
     match (← getEnv).find? ax3.name with
-    | some (ConstantInfo.axiomInfo ax4) =>
-      if ← isDefEqUpto ax3.levelParams ax3.type ax4.levelParams ax4.type then
+    | some ax4 =>
+      if (← isDefEqUpto ax3.levelParams ax3.type ax4.levelParams ax4.type) &&
+          if let .axiomInfo _ := ax4 then true else (← read).config.skipDefEq then
         pure (Declaration.axiomDecl ax3, ClashKind.foundDefEq, [])
       else
         println! "[clash] {ax3.name}"
         refineAx { ax3 with name := extendName ax3.name }
     | none => pure (Declaration.axiomDecl ax3, ClashKind.freshDecl, [])
-    | _ => refineAx { ax3 with name := extendName ax3.name }
 
   refineThm (thm3 : TheoremVal) := do
     println! "[refineThm] {thm3.name}"
     match (← getEnv).find? thm3.name with
-    | some (ConstantInfo.thmInfo thm4) =>
-      if ← isDefEqUpto thm3.levelParams thm3.type thm4.levelParams thm4.type then
+    | some thm4 =>
+      if (← isDefEqUpto thm3.levelParams thm3.type thm4.levelParams thm4.type) &&
+          if let .thmInfo _ := thm4 then true else (← read).config.skipDefEq then
         pure (Declaration.thmDecl thm3, ClashKind.foundDefEq, [])
       else
         println! "[clash] {thm3.name}"
         refineThm { thm3 with name := extendName thm3.name }
     | none => pure (Declaration.thmDecl thm3, ClashKind.freshDecl, [])
-    | _ => refineThm { thm3 with name := extendName thm3.name }
 
   refineDef (defn3 : DefinitionVal) := do
     println! "[refineDef] {defn3.name}"
     match (← getEnv).find? defn3.name with
-    | some (ConstantInfo.defnInfo defn4) =>
-      if ← isDefEqUpto defn3.levelParams defn3.value defn4.levelParams defn4.value then
+    | some defn4 =>
+      let ok ← match defn4 with
+        | .defnInfo defn4 =>
+          isDefEqUpto defn3.levelParams defn3.value defn4.levelParams defn4.value
+        | _ => pure (← read).config.skipDefEq
+      if ok then
         pure (Declaration.defnDecl defn3, ClashKind.foundDefEq, [])
       else
         println! "[clash] {defn3.name}"
         refineDef { defn3 with name := extendName defn3.name }
     | none => pure (Declaration.defnDecl defn3, ClashKind.freshDecl, [])
-    | _ => refineDef { defn3 with name := extendName defn3.name }
 
   refineInd (lps : List Name) (numParams : Nat) (indType3 : InductiveType) (isUnsafe : Bool) := do
     println! "[refineInd] {indType3.name}"
@@ -142,23 +143,26 @@ where
       refineInd lps numParams (indType3.updateNames indType3.name (extendName indType3.name)) isUnsafe
     match (← getEnv).find? indType3.name with
     | some (ConstantInfo.inductInfo indVal) =>
-      if indVal.numParams ≠ numParams then recurse
-      else if not (← isDefEqUpto lps indType3.type indVal.levelParams indVal.type) then recurse
-      else
+      let ok ← (do
+        if lps.length ≠ indVal.levelParams.length then return false
+        if (← read).config.skipDefEq then return true
+        if indVal.numParams ≠ numParams then return false
+        if !(← isDefEqUpto lps indType3.type indVal.levelParams indVal.type) then return false
         let ctors := indType3.ctors.zip indVal.ctors
-        let ctorsDefEq (ctor3 : Constructor) (name4 : Name) : BinportM Bool := do
+        ctors.allM fun (ctor3, name4) => do
           let some (ConstantInfo.ctorInfo ctor4) := (← getEnv).find? name4
             | throwError "constructor '{name4}' not found"
-          isDefEqUpto lps ctor3.type ctor4.levelParams ctor4.type
-        if ← ctors.allM (fun (x, y) => ctorsDefEq x y) then
-          pure (Declaration.inductDecl lps numParams [indType3] isUnsafe, ClashKind.foundDefEq, indVal.ctors)
-        else recurse
+          isDefEqUpto lps ctor3.type ctor4.levelParams ctor4.type)
+      if ok then
+        pure (Declaration.inductDecl lps numParams [indType3] isUnsafe, ClashKind.foundDefEq, indVal.ctors)
+      else recurse
     | none => pure (Declaration.inductDecl lps numParams [indType3] isUnsafe, ClashKind.freshDecl, [])
     | _ => println! "[refineInd] not an IND"
            recurse
 
   isDefEqUpto (lvls₁ : List Name) (t₁ : Expr) (lvls₂ : List Name) (t₂ : Expr) : BinportM Bool := do
     if lvls₁.length ≠ lvls₂.length then return false
+    if (← read).config.skipDefEq then return true
     return Kernel.isDefEq (← getEnv) {} t₁ $
       t₂.instantiateLevelParams lvls₂ $ lvls₁.map mkLevelParam
 
