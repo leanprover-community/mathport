@@ -48,7 +48,11 @@ The script `./download-release.sh nightly-YYYY-MM-DD` downloads one of these,
 after which you can skip the `make predata` and/or `make port` steps
 (you will still need to run `make build` and `make source`).
 
-To port a single file, then execute `mathport` as follows
+The script `./download-release.sh` separately calls
+`download-predata.sh` and `download-ported.sh`.
+We run CI for predata more frequently.
+
+To port a single file execute `mathport` as follows
 (depending on whether you want to port a core or a mathlib file):
 ```
 ./build/bin/mathport config.json Leanbin::init.data.nat.gcd
