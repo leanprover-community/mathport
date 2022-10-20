@@ -13,7 +13,7 @@ open AST3 Mathport.Translate.Parser
 
 -- # tactic.suggest
 
-@[trTactic suggest] def trSuggest : TacM Syntax := do
+@[tr_tactic suggest] def trSuggest : TacM Syntax := do
   let n := (← parse (smallNat)?).map Quote.quote
   let hs ← trSimpArgs (← parse simpArgList)
   let attrs := (← parse (tk "with" *> ident*)?).getD #[]
@@ -22,7 +22,7 @@ open AST3 Mathport.Translate.Parser
   let cfg ← liftM $ (← expr?).mapM trExpr
   `(tactic| suggest $[(config := $cfg)]? $(n)? $[[$hs,*]]? $[using $use*]?)
 
-@[trTactic library_search] def trLibrarySearch : TacM Syntax := do
+@[tr_tactic library_search] def trLibrarySearch : TacM Syntax := do
   let bang ← parse (tk "!")?
   let hs ← trSimpArgs (← parse simpArgList)
   let attrs := (← parse (tk "with" *> ident*)?).getD #[]

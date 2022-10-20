@@ -13,47 +13,47 @@ open AST3 Parser
 
 -- # tactic.core
 
-@[trNITactic tactic.exact_dec_trivial] def trExactDecTrivial (_ : AST3.Expr) : M Syntax :=
+@[tr_ni_tactic tactic.exact_dec_trivial] def trExactDecTrivial (_ : AST3.Expr) : M Syntax :=
   `(tactic| decide)
 
-@[trTactic fsplit] def trFSplit : TacM Syntax := `(tactic| fconstructor)
+@[tr_tactic fsplit] def trFSplit : TacM Syntax := `(tactic| fconstructor)
 
-@[trTactic injections_and_clear] def trInjectionsAndClear : TacM Syntax :=
+@[tr_tactic injections_and_clear] def trInjectionsAndClear : TacM Syntax :=
   `(tactic| injections)
 
-@[trUserCmd «run_parser»] def trRunParser : Parse1 Syntax := parse0 do
+@[tr_user_cmd «run_parser»] def trRunParser : Parse1 Syntax := parse0 do
   warn! "unsupported: run_parser" -- unattested
 
-@[trNITactic tactic.classical] def trNIClassical (_ : AST3.Expr) : M Syntax :=
+@[tr_ni_tactic tactic.classical] def trNIClassical (_ : AST3.Expr) : M Syntax :=
   `(tactic| classical)
 
-@[trUserAttr higher_order] def trHigherOrderAttr : Parse1 Syntax :=
+@[tr_user_attr higher_order] def trHigherOrderAttr : Parse1 Syntax :=
   parse1 (ident)? fun n => do
     `(attr| higher_order $(← liftM $ n.mapM mkIdentI)?)
 
-@[trUserAttr interactive] def trInteractiveAttr : Parse1 Syntax :=
+@[tr_user_attr interactive] def trInteractiveAttr : Parse1 Syntax :=
   parse0 `(attr| interactive)
 
-@[trUserCmd «setup_tactic_parser»] def trSetupTacticParser : Parse1 Syntax :=
+@[tr_user_cmd «setup_tactic_parser»] def trSetupTacticParser : Parse1 Syntax :=
   parse1 emittedCodeHere fun _ => `(command| setup_tactic_parser)
 
 open TSyntax.Compat in
 def trInterpolatedStr' := trInterpolatedStr fun stx => `(← $stx)
 
-@[trUserNota tactic.pformat_macro] def trPFormatMacro : TacM Syntax := do
+@[tr_user_nota tactic.pformat_macro] def trPFormatMacro : TacM Syntax := do
   `(f! $(← trInterpolatedStr'))
 
-@[trUserNota tactic.fail_macro] def trFailMacro : TacM Syntax := do
+@[tr_user_nota tactic.fail_macro] def trFailMacro : TacM Syntax := do
   `(throwError $(← trInterpolatedStr'))
 
-@[trUserNota tactic.trace_macro] def trTraceMacro : TacM Syntax := do
+@[tr_user_nota tactic.trace_macro] def trTraceMacro : TacM Syntax := do
   let stx ← trInterpolatedStr'; `(← do dbg_trace $stx)
 
-@[trUserCmd «import_private»] def trImportPrivate : Parse1 Syntax :=
+@[tr_user_cmd «import_private»] def trImportPrivate : Parse1 Syntax :=
   parse1 (return (← ident, ← (tk "from" *> ident)?)) fun (n, fr) => do
   `(open private $(← mkIdentF n) $[from $(← liftM $ fr.mapM mkIdentI)]?)
 
-@[trUserCmd «mk_simp_attribute»] def trMkSimpAttribute : Parse1 Unit :=
+@[tr_user_cmd «mk_simp_attribute»] def trMkSimpAttribute : Parse1 Unit :=
   parse1 (return (← ident, ← pExpr, ← (tk "with" *> ident*)?)) fun (n, d, withList) => do
   let descr ← match d.kind.unparen with
   | AST3.Expr.ident `none => pure s!"simp set for {n.toString}"

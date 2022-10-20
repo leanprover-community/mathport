@@ -18,19 +18,19 @@ def trUsingList (args : Array (Spanned AST3.Expr)) : M Syntax :=
   | #[] => pure #[]
   | args => return #[mkAtom "using", (mkAtom ",").mkSep $ ← args.mapM trExpr]
 
-@[trTactic clarify] def trClarify : TacM Syntax := do
+@[tr_tactic clarify] def trClarify : TacM Syntax := do
   let hs := (← trSimpArgs (← parse simpArgList)).asNonempty
   let ps := (← (← parse (tk "using" *> pExprListOrTExpr)?).getD #[] |>.mapM (trExpr ·)).asNonempty
   let cfg ← liftM $ (← expr?).mapM trExpr
   `(tactic| clarify $[(config := $cfg)]? $[[$hs,*]]? $[using $ps,*]?)
 
-@[trTactic safe] def trSafe : TacM Syntax := do
+@[tr_tactic safe] def trSafe : TacM Syntax := do
   let hs := (← trSimpArgs (← parse simpArgList)).asNonempty
   let ps := (← (← parse (tk "using" *> pExprListOrTExpr)?).getD #[] |>.mapM (trExpr ·)).asNonempty
   let cfg ← liftM $ (← expr?).mapM trExpr
   `(tactic| safe $[(config := $cfg)]? $[[$hs,*]]? $[using $ps,*]?)
 
-@[trTactic finish] def trFinish : TacM Syntax := do
+@[tr_tactic finish] def trFinish : TacM Syntax := do
   let hs := (← trSimpArgs (← parse simpArgList)).asNonempty
   let ps := (← (← parse (tk "using" *> pExprListOrTExpr)?).getD #[] |>.mapM (trExpr ·)).asNonempty
   let cfg ← liftM $ (← expr?).mapM trExpr

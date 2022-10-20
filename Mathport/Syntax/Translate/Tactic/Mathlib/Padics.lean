@@ -12,25 +12,25 @@ namespace Mathport.Translate.Tactic
 open Parser
 
 -- # number_theory.padics.padic_numbers
-@[trTactic padic_index_simp] def trPadicIndexSimp : TacM Syntax := do
+@[tr_tactic padic_index_simp] def trPadicIndexSimp : TacM Syntax := do
   `(tactic| padic_index_simp
     [$(← liftM $ (← parse pExprList).mapM trExpr),*]
     $(← trLoc (← parse location))?)
 
 -- # ring_theory.witt_vector
-@[trTactic ghost_fun_tac] def trGhostFunTac : TacM Syntax := do
+@[tr_tactic ghost_fun_tac] def trGhostFunTac : TacM Syntax := do
   `(tactic| ghost_fun_tac $(← trExpr (← parse pExpr)), $(← trExpr (← parse pExpr)))
 
-@[trTactic ghost_calc] def trGhostCalc : TacM Syntax := do
+@[tr_tactic ghost_calc] def trGhostCalc : TacM Syntax := do
   `(tactic| ghost_calc $[$((← parse ident_*).map trBinderIdent)]*)
 
-@[trTactic init_ring] def trInitRing : TacM Syntax := do
+@[tr_tactic init_ring] def trInitRing : TacM Syntax := do
   `(tactic| init_ring $[using $(← liftM $ (← parse (tk "using" *> pExpr)?).mapM trExpr)]?)
 
-@[trTactic ghost_simp] def trGhostSimp : TacM Syntax := do
+@[tr_tactic ghost_simp] def trGhostSimp : TacM Syntax := do
   `(tactic| ghost_simp $[[$((← trSimpArgs (← parse simpArgList)).asNonempty),*]]?)
 
-@[trTactic witt_truncate_fun_tac] def trWittTruncateFunTac : TacM Syntax :=
+@[tr_tactic witt_truncate_fun_tac] def trWittTruncateFunTac : TacM Syntax :=
   `(tactic| witt_truncate_fun_tac)
 
-@[trUserAttr is_poly] def trIsPolyAttr := tagAttr `is_poly
+@[tr_user_attr is_poly] def trIsPolyAttr := tagAttr `is_poly

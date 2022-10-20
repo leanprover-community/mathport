@@ -14,22 +14,22 @@ open Translate.Parser
 
 -- # tactic.cache
 
-attribute [trTactic unfreezingI] trId
-attribute [trTactic resetI] trSkip
-attribute [trTactic substI] trSubst
-attribute [trTactic casesI] trCases
-attribute [trTactic introI] trIntro
-attribute [trTactic introsI] trIntros
-attribute [trTactic exactI] trExact
+attribute [tr_tactic unfreezingI] trId
+attribute [tr_tactic resetI] trSkip
+attribute [tr_tactic substI] trSubst
+attribute [tr_tactic casesI] trCases
+attribute [tr_tactic introI] trIntro
+attribute [tr_tactic introsI] trIntros
+attribute [tr_tactic exactI] trExact
 
-@[trTactic «haveI»] def trHaveI : TacM Syntax := do
+@[tr_tactic «haveI»] def trHaveI : TacM Syntax := do
   let h := (← parse (ident)?).filter (· != `this) |>.map mkIdent
   let ty ← (← parse (tk ":" *> pExpr)?).mapM (trExpr ·)
   match ← parse (tk ":=" *> pExpr)? with
   | some pr => `(tactic| haveI $[$h:ident]? $[: $ty:term]? := $(← trExpr pr))
   | none => `(tactic| have $[$h:ident]? $[: $ty:term]?)
 
-@[trTactic «letI»] def trLetI : TacM Syntax := do
+@[tr_tactic «letI»] def trLetI : TacM Syntax := do
   let h := (← parse (ident)?).filter (· != `this) |>.map mkIdent
   let ty ← (← parse (tk ":" *> pExpr)?).mapM (trExpr ·)
   match ← parse (tk ":=" *> pExpr)? with

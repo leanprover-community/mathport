@@ -117,23 +117,23 @@ private def mkElab (ext : NameExt) (ty : Lean.Expr) : Elab.Term.TermElabM Lean.E
     stx := stx.push $ ← `(($(Quote.quote n3), $(mkIdent n4):ident))
   Elab.Term.elabTerm (← `(#[$stx,*])) (some ty)
 
-syntax (name := trTactic) "trTactic " ident+ : attr
-syntax (name := trNITactic) "trNITactic " ident+ : attr
-syntax (name := trConv) "trConv " ident+ : attr
-syntax (name := trUserNota) "trUserNota " ident+ : attr
-syntax (name := trUserAttr) "trUserAttr " ident+ : attr
-syntax (name := trUserCmd) "trUserCmd " ident+ : attr
+syntax (name := tr_tactic) "tr_tactic " ident+ : attr
+syntax (name := tr_ni_tactic) "tr_ni_tactic " ident+ : attr
+syntax (name := tr_conv) "tr_conv " ident+ : attr
+syntax (name := tr_user_nota) "tr_user_nota " ident+ : attr
+syntax (name := tr_user_attr) "tr_user_attr " ident+ : attr
+syntax (name := tr_user_cmd) "tr_user_cmd " ident+ : attr
 
-initialize trTacExtension : NameExt ← mkExt `trTactic "lean 3 → 4 interactive tactic translation"
-initialize trNITacExtension : NameExt ← mkExt `trNITactic "lean 3 → 4 noninteractive tactic translation"
-initialize trConvExtension : NameExt ← mkExt `trConv "lean 3 → 4 interactive conv tactic translation"
-initialize trUserNotaExtension : NameExt ← mkExt `trUserNota "lean 3 → 4 user notation translation"
-initialize trUserAttrExtension : NameExt ← mkExt `trUserAttr "lean 3 → 4 user attribute translation"
-initialize trUserCmdExtension : NameExt ← mkExt `trUserCmd "lean 3 → 4 user attribute translation"
+initialize trTacExtension : NameExt ← mkExt `tr_tactic "lean 3 → 4 interactive tactic translation"
+initialize trNITacExtension : NameExt ← mkExt `tr_ni_tactic "lean 3 → 4 noninteractive tactic translation"
+initialize trConvExtension : NameExt ← mkExt `tr_conv "lean 3 → 4 interactive conv tactic translation"
+initialize trUserNotaExtension : NameExt ← mkExt `tr_user_nota "lean 3 → 4 user notation translation"
+initialize trUserAttrExtension : NameExt ← mkExt `tr_user_attr "lean 3 → 4 user attribute translation"
+initialize trUserCmdExtension : NameExt ← mkExt `tr_user_cmd "lean 3 → 4 user attribute translation"
 
-elab "trTactics!" : term <= ty => mkElab trTacExtension ty
-elab "trNITactics!" : term <= ty => mkElab trNITacExtension ty
-elab "trConvs!" : term <= ty => mkElab trConvExtension ty
-elab "trUserNotas!" : term <= ty => mkElab trUserNotaExtension ty
-elab "trUserAttrs!" : term <= ty => mkElab trUserAttrExtension ty
-elab "trUserCmds!" : term <= ty => mkElab trUserCmdExtension ty
+elab "tr_tactics%" : term <= ty => mkElab trTacExtension ty
+elab "tr_ni_tactics%" : term <= ty => mkElab trNITacExtension ty
+elab "tr_convs%" : term <= ty => mkElab trConvExtension ty
+elab "tr_user_notas%" : term <= ty => mkElab trUserNotaExtension ty
+elab "tr_user_attrs%" : term <= ty => mkElab trUserAttrExtension ty
+elab "tr_user_cmds%" : term <= ty => mkElab trUserCmdExtension ty

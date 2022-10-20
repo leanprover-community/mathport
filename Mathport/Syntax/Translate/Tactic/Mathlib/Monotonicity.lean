@@ -13,7 +13,7 @@ open Parser
 
 -- # tactic.monotonicity
 
-@[trUserAttr mono] def trMonoAttr : Parse1 Syntax :=
+@[tr_user_attr mono] def trMonoAttr : Parse1 Syntax :=
   parse1 (ident)? fun
   | some `left => `(attr| mono left)
   | some `right => `(attr| mono right)
@@ -21,7 +21,7 @@ open Parser
   | none => `(attr| mono)
   | _ => warn! "unsupported (impossible)"
 
-@[trTactic mono] def trMono : TacM Syntax := do
+@[tr_tactic mono] def trMono : TacM Syntax := do
   let star := optTk (← parse (tk "*")?).isSome
   let side ← match ← parse (ident)? with
   | some `left => some <$> `(Lean.Parser.Tactic.mono.side| left)
@@ -37,7 +37,7 @@ open TSyntax.Compat in
 private def mkConfigStx (stx : Option Syntax) : M Syntax :=
   mkOpt stx fun stx => `(Lean.Parser.Tactic.config| (config := $stx))
 
-@[trTactic ac_mono] def trAcMono : TacM Syntax := do
+@[tr_tactic ac_mono] def trAcMono : TacM Syntax := do
   let arity ← parse $
     (tk "*" *> pure #[mkAtom "*"]) <|>
     (tk "^" *> return #[mkAtom "^", Quote.quote (k := `term) (← smallNat)]) <|> pure #[]

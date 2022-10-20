@@ -10,7 +10,7 @@ def uncurry (f : α → β → γ) : α × β → γ
 
 namespace Lean
 
-elab "leanDir!" : term =>
+elab "lean_dir%" : term =>
   return toExpr (← getLibDir (← findSysroot)).toString
 
 def Expr.isAppOfArityGE (e : Expr) (n : Name) (k : Nat) : Bool :=
@@ -159,11 +159,11 @@ syntax (name := attrStx)  "#attr "   attr : command
 
 deriving instance Repr for Syntax
 
-@[commandElab termStx] def elabTermStx : CommandElab
+@[command_elab termStx] def elabTermStx : CommandElab
   | `(#term $stx:term) => println! "{ stx}"
   | _ => throwUnsupportedSyntax
 
-@[commandElab cmdStx] def elabCmdStx : CommandElab
+@[command_elab cmdStx] def elabCmdStx : CommandElab
   | `(#cmd $stx:command) => do
     -- let stx ← liftTermElabM `none do formatCommand stx
     println! "{stx}\n"
@@ -171,7 +171,7 @@ deriving instance Repr for Syntax
     println! "{stx}\n"
   | _ => throwUnsupportedSyntax
 
-@[commandElab attrStx] def elabAttrStx : CommandElab
+@[command_elab attrStx] def elabAttrStx : CommandElab
   | `(#attr $stx:attr) => println! "{ stx}"
   | _ => throwUnsupportedSyntax
 

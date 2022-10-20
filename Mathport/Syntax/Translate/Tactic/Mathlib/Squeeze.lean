@@ -30,23 +30,23 @@ def trSimpaCore (autoUnfold trace : Bool) (parseCfg : TacM (Option (Spanned AST3
   | true, false => `(tactic| simpa! $rest)
   | false, false => `(tactic| simpa $rest)
 
-@[trTactic simpa] def trSimpa : TacM Syntax := do
+@[tr_tactic simpa] def trSimpa : TacM Syntax := do
   let unfold ← parse (tk "!")?; let squeeze ← parse (tk "?")?
   trSimpaCore unfold.isSome squeeze.isSome expr?
 
 -- # tactic.squeeze
 
-@[trTactic squeeze_scope] def trSqueezeScope : TacM Syntax := do
+@[tr_tactic squeeze_scope] def trSqueezeScope : TacM Syntax := do
   `(tactic| squeeze_scope $(← trBlock (← itactic)):tacticSeq)
 
-@[trTactic squeeze_simp] def trSqueezeSimp : TacM Syntax := do
+@[tr_tactic squeeze_simp] def trSqueezeSimp : TacM Syntax := do
   let _ques ← parse (pure ()) <* parse (tk "?")?; let bang ← parse (tk "!")?
   trSimpCore bang.isSome true
 
-@[trTactic squeeze_simpa] def trSqueezeSimpa : TacM Syntax := do
+@[tr_tactic squeeze_simpa] def trSqueezeSimpa : TacM Syntax := do
   let _ques ← parse (pure ()) <* parse (tk "?")?; let bang ← parse (tk "!")?
   trSimpaCore bang.isSome true expr?
 
-@[trTactic squeeze_dsimp] def trSqueezeDSimp : TacM Syntax := do
+@[tr_tactic squeeze_dsimp] def trSqueezeDSimp : TacM Syntax := do
   let _ques ← parse (pure ()) <* parse (tk "?")?; let bang ← parse (tk "!")?
   trDSimpCore bang.isSome true (return (← parse (structInst)?).map .dummy)

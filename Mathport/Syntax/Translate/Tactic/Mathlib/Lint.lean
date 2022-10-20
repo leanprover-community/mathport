@@ -13,25 +13,25 @@ open AST3 Parser
 
 -- # tactic.lint
 
-@[trUserAttr nolint] def trNolintAttr : Parse1 Syntax :=
+@[tr_user_attr nolint] def trNolintAttr : Parse1 Syntax :=
   parse1 ident* fun n => `(attr| nolint $(n.map mkIdent)*)
 
-@[trUserAttr linter] def trLinterAttr := tagAttr `linter
+@[tr_user_attr linter] def trLinterAttr := tagAttr `linter
 
-@[trUserCmd «#lint»] def trLintCmd : Parse1 Syntax :=
+@[tr_user_cmd «#lint»] def trLintCmd : Parse1 Syntax :=
   parse1 lintArgs fun ((_fast, _verb), _use_only, _extra) =>
   -- TODO: translate (hard because syntax quotation is tricky)
   `(#lint)
 
-@[trUserCmd «#lint_mathlib»] def trLintMathlibCmd : Parse1 Syntax :=
+@[tr_user_cmd «#lint_mathlib»] def trLintMathlibCmd : Parse1 Syntax :=
   parse1 lintArgs fun ((_fast, _verb), _use_only, _extra) =>
   -- TODO: translate (hard because syntax quotation is tricky)
   `(#lint mathlib)
 
-@[trUserCmd «#lint_all»] def trLintAllCmd : Parse1 Syntax :=
+@[tr_user_cmd «#lint_all»] def trLintAllCmd : Parse1 Syntax :=
   parse1 lintArgs fun ((_fast, _verb), _use_only, _extra) =>
   -- TODO: translate (hard because syntax quotation is tricky)
   `(#lint all)
 
-@[trUserCmd «#list_linters»] def trListLintersCmd : Parse1 Syntax :=
+@[tr_user_cmd «#list_linters»] def trListLintersCmd : Parse1 Syntax :=
   parse0 `(command| #list_linters)

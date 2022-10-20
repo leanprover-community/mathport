@@ -58,9 +58,9 @@ def mkCmdMap (l : Array (Name × (Modifiers → Parse1 Unit))) :
     tacs := tacs.insert n $ ← fun c s => pure fun mod a => (tac mod).run.run n a c s
   pure tacs
 
-def builtinTactics := mkTacMap trTactics!
-def builtinNITactics := mkNITacMap trNITactics!
-def builtinConvs := mkConvMap trConvs!
-def builtinUserNotation := mkTermMap trUserNotas!
-def builtinUserAttrs := mkAttrMap trUserAttrs!
-def builtinUserCmds := mkCmdMap trUserCmds!
+def builtinTactics := mkTacMap tr_tactics%
+def builtinNITactics := mkNITacMap tr_ni_tactics%
+def builtinConvs := mkConvMap tr_convs%
+def builtinUserNotation := mkTermMap tr_user_notas%
+def builtinUserAttrs := mkAttrMap tr_user_attrs%
+def builtinUserCmds := mkCmdMap tr_user_cmds%

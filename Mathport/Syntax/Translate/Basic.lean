@@ -59,7 +59,7 @@ instance : Coe (TSyntax ``Parser.Command.declModifiersF)
   coe s := ⟨s⟩
 
 instance : Coe Term Syntax.FunBinder where
-  coe s := Id.run `(funBinder| $s)
+  coe s := Id.run `(Parser.Term.funBinder| $s)
 
 def implicitBinderF := Parser.Term.implicitBinder
 def strictImplicitBinderF := Parser.Term.strictImplicitBinder
@@ -119,7 +119,6 @@ def NotationEntries.insert (m : NotationEntries) : NotationData → NotationEntr
 
 initialize synportNotationExtension : SimplePersistentEnvExtension NotationData NotationEntries ←
   registerSimplePersistentEnvExtension {
-    name          := `Mathport.Translate.synportNotationExtension
     addEntryFn    := NotationEntries.insert
     addImportedFn := fun es => mkStateFromImportedEntries NotationEntries.insert {} es
   }
@@ -160,7 +159,6 @@ def PrecedenceEntries.insert (m : PrecedenceEntries) :
 initialize synportPrecedenceExtension :
   SimplePersistentEnvExtension (String × PrecedenceKind × Precedence) PrecedenceEntries ←
   registerSimplePersistentEnvExtension {
-    name          := `Mathport.Translate.synportPrecedenceExtension
     addEntryFn    := PrecedenceEntries.insert
     addImportedFn := fun es => mkStateFromImportedEntries PrecedenceEntries.insert {} es
   }
