@@ -88,6 +88,7 @@ def trAttr (_prio : Option Expr) : Attribute → M (Option TrAttr)
       pure $ mkSimpleAttr `implemented_by #[← mkIdentI n.kind]
     | `derive,             some ⟨_, AttrArg.user _ args⟩ =>
       return TrAttr.derive $ ← (← Parser.pExprListOrTExpr.run' args).mapM trDerive
+    | `algebra,            _ => return none -- this attribute is no longer needed
     | _, none => mkSimpleAttr <$> renameAttr n
     | _, some ⟨_, AttrArg.user e args⟩ =>
       match (← get).userAttrs.find? n, args with
@@ -237,10 +238,20 @@ def trExportCmd : Open → M Unit
     pushElab $ ← `(export $(← mkIdentN tgt.kind):ident ($args*))
   | _ => warn! "unsupported: advanced export style"
 
-def trDeclId (n : Name) (us : LevelDecl) : M (TSyntax ``Parser.Command.declId) := do
+def trDeclId (n : Name) (us : LevelDecl) : OptionT M (TSyntax ``Parser.Command.declId) := do
   let us := us.map $ Array.map fun u => mkIdent u.kind
-  let id ← mkIdentI n #[(← get).current.curNamespace ++ n]
-  `(Parser.Command.declId| $id:ident $[.{$us,*}]?)
+  let orig := (← get).current.curNamespace ++ n
+  let ((dubious, n4), id) ← renameIdentCore n #[orig]
+  let (n3, _) := Rename.getClashes (← getEnv) n4
+  let mut msg := Format.nil
+  if orig != n3 then
+    if dubious.isEmpty then failure -- if the clash is authoritative, abort the current command
+    msg := msg ++ f!"warning: {orig} clashes with {n3} -> {n4}\n"
+  if !dubious.isEmpty then
+    msg := msg ++ f!"warning: {orig} -> {n4} is a dubious translation:\n{dubious}\n"
+  if !msg.isEmpty then
+    logComment f!"{msg}Case conversion may be inaccurate. Consider using '#align {orig} {n4}ₓ'."
+  `(Parser.Command.declId| $(← mkIdentR id):ident $[.{$us,*}]?)
 
 def trDeclSig (bis : Binders) (ty : Option (Spanned Expr)) :
     M (TSyntax ``Parser.Command.declSig) := do
@@ -258,13 +269,15 @@ def trAxiom (mods : Modifiers) (n : Name)
   (us : LevelDecl) (bis : Binders) (ty : Option (Spanned Expr)) : M Unit := do
   let (s, mods) ← trModifiers mods
   unless s.derive.isEmpty do warn! "unsupported: @[derive] axiom"
-  pushM `(command| $mods:declModifiers axiom $(← trDeclId n us) $(← trDeclSig bis ty))
+  let some id ← trDeclId n us | return
+  pushM `(command| $mods:declModifiers axiom $id $(← trDeclSig bis ty))
 
 def trDecl (dk : DeclKind) (mods : Modifiers) (attrs : Attributes)
   (n : Option (Spanned Name)) (us : LevelDecl) (bis : Binders) (ty : Option (Spanned Expr))
-  (val : DeclVal) : M Syntax.Command := do
+  (val : DeclVal) : OptionT M Syntax.Command := do
   let (s, mods) ← trModifiers mods attrs
   let id ← n.mapM fun n => trDeclId n.kind us
+  liftM do
   let val ← match val with
     | DeclVal.expr e => do `(Parser.Command.declVal| := $(← trExprUnspanned e))
     | DeclVal.eqns #[] => `(Parser.Command.declVal| := fun.)
@@ -299,7 +312,7 @@ def trOptDeriving : Array Name → M (TSyntax ``Parser.Command.optDeriving)
 set_option linter.unusedVariables false in -- FIXME(Mario): spurious warning on let ctors ← ...
 def trInductive (cl : Bool) (mods : Modifiers) (attrs : Attributes)
   (n : Spanned Name) (us : LevelDecl) (bis : Binders) (ty : Option (Spanned Expr))
-  (nota : Option Notation) (intros : Array (Spanned Intro)) : M Syntax.Command := do
+  (nota : Option Notation) (intros : Array (Spanned Intro)) : OptionT M Syntax.Command := do
   let (s, mods) ← trModifiers mods attrs
   let id ← trDeclId n.kind us
   let sig ← trOptDeclSig bis ty
@@ -317,8 +330,9 @@ def trInductive (cl : Bool) (mods : Modifiers) (attrs : Attributes)
   | false => `($mods:declModifiers inductive
     $id:declId $sig:optDeclSig $[$ctors:ctor]* $ds:optDeriving)
 
-def trMutual (decls : Array (Mutual α)) (f : Mutual α → M Syntax.Command) : M Unit := do
-  pushM `(mutual $(← decls.mapM f)* end)
+def trMutual (decls : Array (Mutual α)) (f : Mutual α → OptionT M Syntax.Command) : M Unit := do
+  let some cmds ← (decls.mapM f).run | return
+  pushM `(mutual $cmds* end)
 
 def trField : Spanned Field → M (Array Syntax) := spanning fun
   | Field.binder bi ns ik bis ty dflt => do
@@ -346,7 +360,7 @@ def trStructure (cl : Bool) (mods : Modifiers) (n : Spanned Name) (us : LevelDec
   (bis : Binders) (exts : Array (Spanned Parent)) (ty : Option (Spanned Expr))
   (mk : Option (Spanned Mk)) (flds : Array (Spanned Field)) : M Unit := do
   let (s, mods) ← trModifiers mods
-  let id ← trDeclId n.kind us
+  let some id ← trDeclId n.kind us | return
   let bis ← trBracketedBinders {} bis
   let exts ← exts.mapM fun
     | ⟨_, false, none, ty, #[]⟩ => trExpr ty
@@ -434,10 +448,7 @@ private def trMixfix (kind : TSyntax ``Parser.Term.attrKind)
   let p := p.toSyntax
   let s := Syntax.mkStrLit tk
   pure $ match m with
-  | MixfixKind.infix =>
-    (NotationDesc.infix tk, fun n e =>
-      `($kind:attrKind infixl:$p $[$n:namedName]? $[$prio:namedPrio]? $s => $e))
-  | MixfixKind.infixl =>
+  | MixfixKind.infix | MixfixKind.infixl =>
     (NotationDesc.infix tk, fun n e =>
       `($kind:attrKind infixl:$p $[$n:namedName]? $[$prio:namedPrio]? $s => $e))
   | MixfixKind.infixr =>
@@ -470,8 +481,8 @@ private def trNotation3Item : (lit : AST3.Literal) →
     M (Array (TSyntax ``Parser.Command.notation3Item))
   | .sym tk => pure #[sym tk]
   | .binder .. | .binders .. => return #[← `(notation3Item| (...))]
-  | .var x none => pure #[var x]
-  | .var x (some ⟨_, .prec _⟩) => pure #[var x]
+  | .var x none
+  | .var x (some ⟨_, .prec _⟩)
   | .var x (some ⟨_, .prev⟩) => pure #[var x]
   | .var x (some ⟨_, .scoped _ sc⟩) => return #[← scope x sc]
   | .var x (some ⟨_, .fold r _ sep «rec» (some ini) term⟩) => do
@@ -567,8 +578,9 @@ def trNotationCmd (loc : LocalReserve) (attrs : Attributes) (nota : Notation)
 end
 
 def trInductiveCmd : InductiveCmd → M Unit
-  | InductiveCmd.reg cl mods n us bis ty nota intros =>
-     pushM $ trInductive cl mods #[] n us bis ty nota intros
+  | InductiveCmd.reg cl mods n us bis ty nota intros => do
+     if let some cmd ← trInductive cl mods #[] n us bis ty nota intros then
+      push cmd
   | InductiveCmd.mutual cl mods us bis nota inds =>
     trMutual inds fun ⟨attrs, n, ty, intros⟩ => do
       trInductive cl mods attrs n us bis ty nota intros
@@ -610,7 +622,8 @@ def trCommand' : Command → M Unit
       | _ => warn! "unsupported (impossible)"
     | _ => warn! "unsupported (impossible)"
   | Command.decl dk mods n us bis ty val => do
-    pushM $ trDecl dk mods #[] n us bis ty val.kind
+    if let some cmd ← trDecl dk mods #[] n us bis ty val.kind then
+      push cmd
   | Command.mutualDecl dk mods us bis arms =>
     trMutual arms fun ⟨attrs, n, ty, vals⟩ =>
       trDecl dk mods attrs n us bis ty (DeclVal.eqns vals)

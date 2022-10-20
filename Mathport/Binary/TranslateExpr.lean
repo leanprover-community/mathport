@@ -21,7 +21,7 @@ import Mathport.Binary.Heterogenize
 
 namespace Mathport.Binary
 
-open Lean Lean.Meta
+open Lean Lean.Meta Mathlib.Prelude.Rename
 
 /--
   Return true iff `declName` is one of the auxiliary definitions/projections
@@ -86,14 +86,13 @@ where
     e ← Meta.transform e (post := replaceSorryPlaceholders)
     e ← expandCoe e
     e ← translateNumbers e
-    match (Mathlib.Prelude.Rename.getRenameMap cmdState.env).find? `auto_param with
-    | none     => pure ()
-    | some ap4 => e ← Meta.transform e (pre := translateAutoParams ap4)
+    if let some (_, ap4) := (getRenameMap cmdState.env).find? `auto_param then
+      e ← Meta.transform e (pre := translateAutoParams ap4)
     e ← heterogenize e
     reflToRfl e
 
   replaceConstNames (e : Expr) : MetaM Expr := pure <|
-    e.replaceConstNames fun n => (Mathlib.Prelude.Rename.getRenameMap cmdState.env).find? n
+    e.replaceConstNames fun n => (getRenameMap cmdState.env).find? n |>.map (·.2)
 
   reflToRfl (e : Expr) : MetaM Expr := pure <|
     e.replace fun e =>
