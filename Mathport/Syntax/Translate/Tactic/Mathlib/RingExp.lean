@@ -12,19 +12,19 @@ namespace Mathport.Translate.Tactic
 open Parser
 
 -- # tactic.ring_exp
-@[trTactic ring_exp_eq] def trRingExpEq : TacM Syntax := do
+@[tr_tactic ring_exp_eq] def trRingExpEq : TacM Syntax := do
   match ← parse (tk "!")? with
   | none => `(tactic| ring_exp_eq)
   | some _ => `(tactic| ring_exp_eq!)
 
-@[trTactic ring_exp] def trRingExp : TacM Syntax := do
+@[tr_tactic ring_exp] def trRingExp : TacM Syntax := do
   let c ← parse (tk "!")?
   let loc ← trLoc (← parse location)
   match c with
   | none => `(tactic| ring_exp $(loc)?)
   | some _ => `(tactic| ring_exp! $(loc)?)
 
-@[trConv ring_exp] def trRingExpConv : TacM Syntax := do
+@[tr_conv ring_exp] def trRingExpConv : TacM Syntax := do
   match ← parse (tk "!")? with
   | none => `(conv| ring_exp)
   | some _ => `(conv| ring_exp!)

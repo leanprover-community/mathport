@@ -78,14 +78,14 @@ def trAttr (_prio : Option Expr) : Attribute → M (Option TrAttr)
     | `subst,              none => pure $ mkSimpleAttr `subst
     | `congr,              none => pure $ mkSimpleAttr `congr
     | `inline,             none => pure $ mkSimpleAttr `inline
-    | `pattern,            none => pure $ mkSimpleAttr `matchPattern
+    | `pattern,            none => pure $ mkSimpleAttr `match_pattern
     | `reducible,          none => pure $ mkSimpleAttr `reducible
     | `semireducible,      none => pure $ mkSimpleAttr `semireducible
     | `irreducible,        none => pure $ mkSimpleAttr `irreducible
-    | `elab_simple,        none => pure $ mkSimpleAttr `elabWithoutExpectedType
-    | `elab_as_eliminator, none => pure $ mkSimpleAttr `elabAsElim
+    | `elab_simple,        none => pure $ mkSimpleAttr `elab_without_expected_type
+    | `elab_as_eliminator, none => pure $ mkSimpleAttr `elab_as_elim
     | `vm_override,        some ⟨_, AttrArg.vmOverride n none⟩ =>
-      pure $ mkSimpleAttr `implementedBy #[← mkIdentI n.kind]
+      pure $ mkSimpleAttr `implemented_by #[← mkIdentI n.kind]
     | `derive,             some ⟨_, AttrArg.user _ args⟩ =>
       return TrAttr.derive $ ← (← Parser.pExprListOrTExpr.run' args).mapM trDerive
     | _, none => mkSimpleAttr <$> renameAttr n

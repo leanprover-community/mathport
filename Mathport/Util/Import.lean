@@ -6,5 +6,5 @@ Authors: Daniel Selsam
 import Lean
 open Lean
 
-@[implementedBy withImportModules]
+@[implemented_by withImportModules]
 opaque withImportModulesConst (imports : List Import) (opts : Options) (trustLevel : UInt32 := 0) (x : Environment → IO α) : IO α

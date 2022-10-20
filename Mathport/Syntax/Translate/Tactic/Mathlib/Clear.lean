@@ -13,8 +13,8 @@ open Parser
 
 -- # tactic.clear
 
-attribute [trTactic clear'] trClear
+attribute [tr_tactic clear'] trClear
 
-@[trTactic clear_dependent] def trClearDependent : TacM Syntax := do
+@[tr_tactic clear_dependent] def trClearDependent : TacM Syntax := do
   `(tactic| clear! $[$((← parse ident*).map Lean.mkIdent)]*)
 

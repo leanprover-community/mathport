@@ -17,65 +17,65 @@ namespace Mathport.Translate.Tactic
 open AST3 Mathport.Translate.Parser
 
 -- # tactic.by_contra
-@[trTactic by_contra'] def trByContra' : TacM Syntax := do
+@[tr_tactic by_contra'] def trByContra' : TacM Syntax := do
   `(tactic| by_contra' $[$((← parse (ident)?).map mkIdent):ident]?
     $[: $(← liftM $ (← parse (tk ":" *> pExpr)?).mapM trExpr)]?)
 
 -- # tactic.dec_trivial
-@[trTactic dec_trivial] def trDecTrivial : TacM Syntax := do
+@[tr_tactic dec_trivial] def trDecTrivial : TacM Syntax := do
   match ← parse (tk "!")? with
   | none => `(tactic| decide)
   | some _ => `(tactic| decide!)
 
 -- # tactic.delta_instance
-@[trTactic delta_instance] def trDeltaInstance : TacM Syntax := do
+@[tr_tactic delta_instance] def trDeltaInstance : TacM Syntax := do
   `(tactic| delta_instance $[$((← parse ident*).map mkIdent)]*)
 
 -- # tactic.elide
-@[trTactic elide] def trElide : TacM Syntax := do
+@[tr_tactic elide] def trElide : TacM Syntax := do
   `(tactic| elide $(Quote.quote (← parse smallNat)) $(← trLoc (← parse location))?)
 
-@[trTactic unelide] def trUnelide : TacM Syntax := do
+@[tr_tactic unelide] def trUnelide : TacM Syntax := do
   `(tactic| unelide $(← trLoc (← parse location))?)
 
 -- # tactic.explode
-@[trUserCmd «#explode»] def trExplode : Parse1 Syntax :=
+@[tr_user_cmd «#explode»] def trExplode : Parse1 Syntax :=
   parse1 ident fun n => do `(command| #explode $(← mkIdentI n))
 
 -- # tactic.find
-@[trUserCmd «#find»] def trFindCmd : Parse1 Syntax :=
+@[tr_user_cmd «#find»] def trFindCmd : Parse1 Syntax :=
   parse1 pExpr fun e => do `(command| #find $(← trExpr e))
 
 -- # tactic.find_unused
 
-@[trUserAttr main_declaration] def trMainDeclaration := tagAttr `main_declaration
+@[tr_user_attr main_declaration] def trMainDeclaration := tagAttr `main_declaration
 
-@[trUserCmd «#list_unused_decls»] def trListUnusedDecls : Parse1 Syntax :=
+@[tr_user_cmd «#list_unused_decls»] def trListUnusedDecls : Parse1 Syntax :=
   parse0 `(command| #list_unused_decls)
 
 -- # tactic.generalizes
 
-@[trTactic generalizes] def trGeneralizes : TacM Syntax := do
+@[tr_tactic generalizes] def trGeneralizes : TacM Syntax := do
   let args ← (← parse (listOf generalizesArg)).mapM fun (h, t, x) => do
     `(Parser.Tactic.generalizeArg| $[$(h.map mkIdent) :]? $(← trExpr t) = $(mkIdent x))
   `(tactic| generalize $args,*)
 
 -- # tactic.generalize_proofs
-@[trTactic generalize_proofs] def trGeneralizeProofs : TacM Syntax := do
+@[tr_tactic generalize_proofs] def trGeneralizeProofs : TacM Syntax := do
   `(tactic| generalize_proofs
     $[$((← parse (ident_)*).map trBinderIdent)]*
     $[$(← trLoc (← parse location))]?)
 
 -- # tactic.induction
 
-@[trUserCmd cases'] def trCases' : Parse1 Syntax := parse0 do
+@[tr_user_cmd cases'] def trCases' : Parse1 Syntax := parse0 do
   warn! "unsupported: cases'" -- unattested
 
-@[trUserCmd induction'] def trInduction' : Parse1 Syntax := parse0 do
+@[tr_user_cmd induction'] def trInduction' : Parse1 Syntax := parse0 do
   warn! "unsupported: induction'" -- unattested
 
 -- # tactic.itauto
-@[trTactic itauto] def trITauto : TacM Syntax := do
+@[tr_tactic itauto] def trITauto : TacM Syntax := do
   match ← parse (tk "!")?, ← parse ((return some (← pExprList)) <|> (tk "*" *> pure none))? with
   | none,   none           => `(tactic| itauto)
   | some _, none           => `(tactic| itauto!)
@@ -85,7 +85,7 @@ open AST3 Mathport.Translate.Parser
   | some _, some (some ls) => `(tactic| itauto! [$(← ls.mapM trExpr),*])
 
 -- # tactic.lift
-@[trTactic lift] def trLift : TacM Syntax := do
+@[tr_tactic lift] def trLift : TacM Syntax := do
   `(tactic| lift $(← trExpr (← parse pExpr))
     to $(← trExpr (← parse (tk "to" *> pExpr)))
     $[using $(← liftM $ (← parse (tk "using" *> pExpr)?).mapM trExpr)]?
@@ -95,12 +95,12 @@ open AST3 Mathport.Translate.Parser
 
 -- # tactic.localized
 
-@[trUserCmd «open_locale»] def trOpenLocale : Parse1 Unit :=
+@[tr_user_cmd «open_locale»] def trOpenLocale : Parse1 Unit :=
   parse1 (ident* <* skipAll) fun ids => do
   unless ids.isEmpty do
     pushM `(command| open $[$(← liftM $ ids.mapM mkIdentN)]*)
 
-@[trUserCmd «localized»] def trLocalized : Parse1 Unit :=
+@[tr_user_cmd «localized»] def trLocalized : Parse1 Unit :=
   parse1 (return (← pExpr *> emittedCodeHere, ← tk "in" *> ident)) fun (cmd, loc) => do
   let loc ← renameNamespace loc
   match cmd with
@@ -113,36 +113,36 @@ open AST3 Mathport.Translate.Parser
   | _ => warn! "unsupported: multiple localized"
 
 -- # tactic.mk_iff_of_inductive_prop
-@[trUserCmd «mk_iff_of_inductive_prop»] def trMkIffOfInductiveProp : Parse1 Syntax :=
+@[tr_user_cmd «mk_iff_of_inductive_prop»] def trMkIffOfInductiveProp : Parse1 Syntax :=
   parse1 (return (← ident, ← ident)) fun (i, r) => do
   `(command| mk_iff_of_inductive_prop $(← mkIdentI i) $(← mkIdentI r))
 
-@[trUserAttr mk_iff] def trMkIffAttr : Parse1 Syntax :=
+@[tr_user_attr mk_iff] def trMkIffAttr : Parse1 Syntax :=
   parse1 (ident)? fun n => do `(attr| mk_iff $(← liftM $ n.mapM mkIdentI)?)
 
 -- # tactic.replacer
 
-@[trUserCmd «def_replacer»] def trDefReplacer : Parse1 Syntax :=
+@[tr_user_cmd «def_replacer»] def trDefReplacer : Parse1 Syntax :=
   parse1 (return (← ident, ← (tk ":" *> pExpr)?)) fun (n, ty) => do
   `(command| def_replacer $(← mkIdentI n) $[$(← trOptType ty):typeSpec]?)
 
-@[trUserAttr replaceable] def trReplaceableAttr := tagAttr `replaceable
+@[tr_user_attr replaceable] def trReplaceableAttr := tagAttr `replaceable
 
 -- # tactic.obviously
 
-@[trUserAttr obviously] def trObviouslyAttr := tagAttr `obviously
+@[tr_user_attr obviously] def trObviouslyAttr := tagAttr `obviously
 
-@[trNITactic obviously] def trObviously (_ : AST3.Expr) : M Syntax := `(tactic| obviously)
+@[tr_ni_tactic obviously] def trObviously (_ : AST3.Expr) : M Syntax := `(tactic| obviously)
 
 -- # tactic.pretty_cases
-@[trTactic pretty_cases] def trPrettyCases : TacM Syntax := do
+@[tr_tactic pretty_cases] def trPrettyCases : TacM Syntax := do
   `(tactic| pretty_cases)
 
 -- # tactic.protected
 
-@[trUserAttr «protected»] def trProtectedAttr := tagAttr `protected
+@[tr_user_attr «protected»] def trProtectedAttr := tagAttr `protected
 
-@[trUserAttr protect_proj] def trProtectProjAttr : Parse1 Syntax :=
+@[tr_user_attr protect_proj] def trProtectProjAttr : Parse1 Syntax :=
   parse1 withoutIdentList fun ids => do
   let ids ← match ids with
   | #[] => pure none
@@ -151,10 +151,10 @@ open AST3 Mathport.Translate.Parser
 
 -- # tactic.push_neg
 
-@[trTactic push_neg] def trPushNeg : TacM Syntax := do
+@[tr_tactic push_neg] def trPushNeg : TacM Syntax := do
   `(tactic| push_neg $(← trLoc (← parse location))?)
 
-@[trTactic contrapose] def trContrapose : TacM Syntax := do
+@[tr_tactic contrapose] def trContrapose : TacM Syntax := do
   let (tac, s) := match ← parse (tk "!")? with
   | none => (``Mathlib.Tactic.Contrapose.contrapose, "contrapose")
   | some _ => (``Mathlib.Tactic.Contrapose.contrapose!, "contrapose!")
@@ -163,33 +163,33 @@ open AST3 Mathport.Translate.Parser
     #[mkIdent a, mkOptionalNode' b fun b => #[mkAtom "with", mkIdent b]]]
 
 -- # tactic.rename_var
-@[trTactic rename_var] def trRenameVar : TacM Syntax := do
+@[tr_tactic rename_var] def trRenameVar : TacM Syntax := do
   `(tactic| rename_bvar $(mkIdent (← parse ident)) → $(mkIdent (← parse ident))
     $(← trLoc (← parse location))?)
 
 -- # tactic.restate_axiom
-@[trUserCmd «restate_axiom»] def trRestateAxiom : Parse1 Syntax :=
+@[tr_user_cmd «restate_axiom»] def trRestateAxiom : Parse1 Syntax :=
   parse1 (return (← ident, ← (ident)?)) fun (a, b) => do
   `(command| restate_axiom $(← mkIdentI a) $(← liftM $ b.mapM mkIdentI)?)
 
 -- # tactic.rewrite
-@[trTactic assoc_rewrite assoc_rw] def trAssocRw : TacM Syntax := do
+@[tr_tactic assoc_rewrite assoc_rw] def trAssocRw : TacM Syntax := do
   `(tactic| assoc_rw
     [$(← liftM $ (← parse rwRules).mapM trRwRule),*]
     $(← trLoc (← parse location))?)
 
 -- # tactic.show_term
-@[trTactic «show_term»] def trShowTerm : TacM Syntax := do
+@[tr_tactic «show_term»] def trShowTerm : TacM Syntax := do
   `(tactic| show_term $(← trBlock (← itactic)):tacticSeq)
 
 -- # tactic.simp_rw
-@[trTactic simp_rw] def trSimpRw : TacM Syntax := do
+@[tr_tactic simp_rw] def trSimpRw : TacM Syntax := do
   `(tactic| simp_rw
     [$(← liftM $ (← parse rwRules).mapM trRwRule),*]
     $(← trLoc (← parse location))?)
 
 -- # tactic.simp_command
-@[trUserCmd «#simp»] def trSimpCmd : Parse1 Syntax :=
+@[tr_user_cmd «#simp»] def trSimpCmd : Parse1 Syntax :=
   parse1 (return (← onlyFlag, ← simpArgList,
     (← (tk "with" *> ident*)?).getD #[], ← (tk ":")? *> pExpr))
   fun (o, args, attrs, e) => do
@@ -199,7 +199,7 @@ open AST3 Mathport.Translate.Parser
     `(command| #simp $[only%$o]? $[[$hs,*]]? $(← trExpr e))
 
 -- # tactic.simp_result
-@[trTactic dsimp_result] def trDSimpResult : TacM Syntax := do
+@[tr_tactic dsimp_result] def trDSimpResult : TacM Syntax := do
   let o := optTk (← parse onlyFlag)
   let hs ← trSimpArgs (← parse simpArgList)
   let (hs, _all) := filterSimpStar hs -- dsimp [*] is always pointless
@@ -207,7 +207,7 @@ open AST3 Mathport.Translate.Parser
   let hs := (hs ++ attrs.map trSimpExt).asNonempty
   `(tactic| dsimp_result $[only%$o]? $[[$hs,*]]? => $(← trBlock (← itactic)))
 
-@[trTactic simp_result] def trSimpResult : TacM Syntax := do
+@[tr_tactic simp_result] def trSimpResult : TacM Syntax := do
   let o := optTk (← parse onlyFlag)
   let hs ← trSimpArgs (← parse simpArgList)
   let attrs := (← parse (tk "with" *> ident*)?).getD #[]
@@ -215,12 +215,12 @@ open AST3 Mathport.Translate.Parser
   `(tactic| simp_result $[only%$o]? $[[$hs,*]]? => $(← trBlock (← itactic)))
 
 -- # tactic.split_ifs
-@[trTactic split_ifs] def trSplitIfs : TacM Syntax := do
+@[tr_tactic split_ifs] def trSplitIfs : TacM Syntax := do
   `(tactic| split_ifs $(← trLoc (← parse location))?
     $[with $(((← parse withIdentList).map trBinderIdent).asNonempty)*]?)
 
 -- # tactic.swap_var
-@[trTactic swap_var] def trSwapVar : TacM Syntax := do
+@[tr_tactic swap_var] def trSwapVar : TacM Syntax := do
   let args ← parse $ maybeListOf $ return (← ident, ← (tk "↔" <|> tk "<->")? *> ident)
   if args.isEmpty then `(tactic| skip) else
   let args ← args.mapM fun (x, y) =>
@@ -228,7 +228,7 @@ open AST3 Mathport.Translate.Parser
   `(tactic| swap_var $args,*)
 
 -- # tactic.tauto
-@[trTactic tauto tautology] def trTauto : TacM Syntax := do
+@[tr_tactic tauto tautology] def trTauto : TacM Syntax := do
   let c ← parse (tk "!")?
   let cfg ← liftM $ (← expr?).mapM trExpr
   match c with
@@ -236,26 +236,26 @@ open AST3 Mathport.Translate.Parser
   | some _ => `(tactic| tauto! $[(config := $cfg)]?)
 
 -- # tactic.unify_equations
-@[trTactic unify_equations] def trUnifyEquations : TacM Syntax := do
+@[tr_tactic unify_equations] def trUnifyEquations : TacM Syntax := do
   warn! "unsupported tactic unify_equations" -- unattested
 
 -- # tactic.where
-@[trUserCmd «#where»] def trWhereCmd : Parse1 Syntax :=
+@[tr_user_cmd «#where»] def trWhereCmd : Parse1 Syntax :=
   parse1 skipAll fun _ => `(command| #where)
 
 -- # tactic.tfae
 open TSyntax.Compat in
-@[trTactic tfae_have] def trTfaeHave : TacM Syntax :=
+@[tr_tactic tfae_have] def trTfaeHave : TacM Syntax :=
   return mkNode ``Parser.Tactic.tfaeHave #[mkAtom "tfae_have",
     mkOptionalNode' (← parse ((ident)? <* tk ":")) fun h => #[mkIdent h, mkAtom ":"],
     quote (k := numLitKind) (← parse smallNat),
     mkAtom (← parse ((tk "->" *> pure "→") <|> (tk "↔" *> pure "↔") <|> (tk "<-" *> pure "←"))),
     quote (k := numLitKind) (← parse smallNat)]
 
-@[trTactic tfae_finish] def trTfaeFinish : TacM Syntax := `(tactic| tfae_finish)
+@[tr_tactic tfae_finish] def trTfaeFinish : TacM Syntax := `(tactic| tfae_finish)
 
 -- # tactic.apply_fun
-@[trTactic apply_fun] def trApplyFun : TacM Syntax := do
+@[tr_tactic apply_fun] def trApplyFun : TacM Syntax := do
   `(tactic| apply_fun
     $(← trExpr (← parse pExpr))
     $[$(← trLoc (← parse location))]?
@@ -263,40 +263,40 @@ open TSyntax.Compat in
 
 -- # tactic.reassoc_axiom
 
-@[trUserAttr reassoc] def trReassocAttr : Parse1 Syntax :=
+@[tr_user_attr reassoc] def trReassocAttr : Parse1 Syntax :=
   parse1 (ident)? fun n => do `(attr| reassoc $(← liftM $ n.mapM mkIdentI)?)
 
-@[trUserCmd «reassoc_axiom»] def trReassocAxiom : Parse1 Syntax :=
+@[tr_user_cmd «reassoc_axiom»] def trReassocAxiom : Parse1 Syntax :=
   parse1 ident fun n => do `(command| reassoc_axiom $(← mkIdentI n))
 
-@[trTactic reassoc] def trReassoc : TacM Syntax := do
+@[tr_tactic reassoc] def trReassoc : TacM Syntax := do
   match ← parse (tk "!")?, (← parse ident*).map mkIdent with
   | none, ns => `(tactic| reassoc $[$ns]*)
   | some _, ns => `(tactic| reassoc! $[$ns]*)
 
-@[trNITactic tactic.derive_reassoc_proof] def trDeriveReassocProof
+@[tr_ni_tactic tactic.derive_reassoc_proof] def trDeriveReassocProof
   (_ : AST3.Expr) : M Syntax := `(tactic| derive_reassoc_proof)
 
 -- # tactic.slice
 
-@[trConv slice] def trSliceConv : TacM Syntax := do
+@[tr_conv slice] def trSliceConv : TacM Syntax := do
   let ⟨_, AST3.Expr.nat a⟩ ← expr! | warn! "slice: weird nat"
   let ⟨_, AST3.Expr.nat b⟩ ← expr! | warn! "slice: weird nat"
   `(conv| slice $(Quote.quote a) $(Quote.quote b))
 
-@[trTactic slice_lhs] def trSliceLHS : TacM Syntax := do
+@[tr_tactic slice_lhs] def trSliceLHS : TacM Syntax := do
   `(tactic| slice_lhs $(Quote.quote (← parse smallNat)) $(Quote.quote (← parse smallNat))
     => $(← trConvBlock (← itactic)):convSeq)
 
-@[trTactic slice_rhs] def trSliceRHS : TacM Syntax := do
+@[tr_tactic slice_rhs] def trSliceRHS : TacM Syntax := do
   `(tactic| slice_rhs $(Quote.quote (← parse smallNat)) $(Quote.quote (← parse smallNat))
     => $(← trConvBlock (← itactic)):convSeq)
 
 -- # tactic.rewrite_search
 
-@[trUserAttr rewrite] def trRewriteAttr := tagAttr `rewrite
+@[tr_user_attr rewrite] def trRewriteAttr := tagAttr `rewrite
 
-@[trTactic rewrite_search] def trRewriteSearch : TacM Syntax := do
+@[tr_tactic rewrite_search] def trRewriteSearch : TacM Syntax := do
   let explain ← parse (tk "?")?
   let rw ← liftM $ (← parse rwRules).mapM trRwRule
   let cfg ← liftM $ (← expr?).mapM trExpr
@@ -306,9 +306,9 @@ open TSyntax.Compat in
 
 -- # tactic.tidy
 
-@[trUserAttr tidy] def trTidyAttr := tagAttr `tidy
+@[tr_user_attr tidy] def trTidyAttr := tagAttr `tidy
 
-@[trTactic tidy] def trTidy : TacM Syntax := do
+@[tr_tactic tidy] def trTidy : TacM Syntax := do
   let explain ← parse (tk "?")?
   let cfg ← liftM $ (← expr?).mapM trExpr
   match explain with
@@ -316,7 +316,7 @@ open TSyntax.Compat in
   | some _ => `(tactic| tidy? $[(config := $cfg)]?)
 
 -- # tactic.wlog
-@[trTactic wlog] def trWlog : TacM Syntax := do
+@[tr_tactic wlog] def trWlog : TacM Syntax := do
   let h := (← parse (ident)?).map mkIdent
   let pat ← liftM $ (← parse (tk ":" *> pExpr)?).mapM trExpr
   let cases ← liftM $ (← parse (tk ":=" *> pExpr)?).mapM trExpr
@@ -326,5 +326,5 @@ open TSyntax.Compat in
   `(tactic| wlog $[(discharger := $disch)]? $(h)? $[: $pat]? $[:= $cases]? $[using $[$perms*],*]?)
 
 -- # tactic.algebra
-@[trUserAttr ancestor] def trAncestorAttr : Parse1 Syntax :=
+@[tr_user_attr ancestor] def trAncestorAttr : Parse1 Syntax :=
   parse1 ident* fun _ => pure .missing -- ancestor attribute no longer needed

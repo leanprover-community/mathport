@@ -9,11 +9,11 @@ require mathlib from git "https://github.com/leanprover-community/mathlib4"@"mas
 
 lean_lib Mathport
 
-@[defaultTarget]
+@[default_target]
 lean_exe mathport where
   root := `MathportApp
   supportInterpreter := true
 
-@[defaultTarget]
+@[default_target]
 lean_exe printast where
   root := `PrintAST

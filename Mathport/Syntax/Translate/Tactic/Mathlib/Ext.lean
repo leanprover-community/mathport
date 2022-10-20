@@ -13,19 +13,19 @@ open AST3 Parser
 
 -- # tactic.ext
 
-@[trUserAttr ext] def trExtAttr : Parse1 Syntax :=
+@[tr_user_attr ext] def trExtAttr : Parse1 Syntax :=
   parse1 (ident)? fun n => do
   if n.isSome then warn! "unsupported: attribute [ext id]"
   `(attr| ext)
 
-@[trTactic ext1] def trExt1 : TacM Syntax := do
+@[tr_tactic ext1] def trExt1 : TacM Syntax := do
   let hint ← parse (tk "?")?
   let pats ← liftM $ (← parse (rcasesPat true)*).mapM trRCasesPat
   match hint with
   | none => `(tactic| ext1 $[$pats:rcasesPat]*)
   | some _ => `(tactic| ext1? $[$pats:rcasesPat]*)
 
-@[trTactic ext] def trExt : TacM Syntax := do
+@[tr_tactic ext] def trExt : TacM Syntax := do
   let hint ← parse (tk "?")?
   let pats ← liftM $ (← parse (rcasesPat true)*).mapM trRCasesPat
   let depth := (← parse (tk ":" *> smallNat)?).map Quote.quote

@@ -14,4 +14,4 @@ namespace Transform
 open Lean Elab Term
 
 partial def transform : Syntax → M Syntax :=
-  applyTransformers mathportTransformerList%
+  applyTransformers mathport_transformer_list%

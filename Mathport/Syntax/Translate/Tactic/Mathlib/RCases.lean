@@ -36,7 +36,7 @@ partial def trRCasesPatLo (pat : RCasesPat) : M (TSyntax ``rcasesPatLo) := do
 
 end
 
-@[trTactic rcases] def trRCases : TacM Syntax := do
+@[tr_tactic rcases] def trRCases : TacM Syntax := do
   match ← parse rcasesArgs with
   | RCasesArgs.hint es depth => do
     let es := match es with | Sum.inl e => #[e] | Sum.inr es => es
@@ -48,7 +48,7 @@ end
   | RCasesArgs.rcasesMany es pat => liftM $ show M _ from do
     `(tactic| rcases $[$(← es.mapM trExpr):term],* with $(← trRCasesPat pat):rcasesPat)
 
-@[trTactic obtain] def trObtain : TacM Syntax := do
+@[tr_tactic obtain] def trObtain : TacM Syntax := do
   let ((pat, ty), vals) ← parse obtainArg
   -- liftM $ show M _ from
   let vals ← vals.mapM fun vals => vals.mapM (liftM do trExpr ·)
@@ -61,7 +61,7 @@ partial def trRIntroPat : RIntroPat → M (TSyntax `rintroPat)
   | RIntroPat.binder pats ty => do
     `(rintroPat| ($[$(← pats.mapM trRIntroPat):rintroPat]* $[: $(← ty.mapM trExpr)]?))
 
-@[trTactic rintro rintros] def trRIntro : TacM Syntax := do
+@[tr_tactic rintro rintros] def trRIntro : TacM Syntax := do
   match ← parse rintroArg with
   | Sum.inr depth => `(tactic| rintro? $[: $(depth.map Quote.quote)]?)
   | Sum.inl (pats, ty) => show M _ from do

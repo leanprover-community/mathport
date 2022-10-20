@@ -28,13 +28,13 @@ def main (args : List String) : IO Unit := do
   | [pathToConfig, pmod3] =>
     let config ← parseJsonFile Config pathToConfig
     let path ← parsePath pmod3
-    searchPathRef.set (leanDir! :: config.pathConfig.leanPath)
+    searchPathRef.set (lean_dir% :: config.pathConfig.leanPath)
     mathport1 config path
 
   | ("--make" :: pathToConfig :: pmod3s@(_ :: _)) =>
     let config ← parseJsonFile Config pathToConfig
     let paths ← parsePaths pmod3s
-    searchPathRef.set (leanDir! :: config.pathConfig.leanPath)
+    searchPathRef.set (lean_dir% :: config.pathConfig.leanPath)
     let results := (← (paths.mapM (visit pathToConfig config)).run' {}).map (·.get)
     let errors := results.filterMap fun | .error err => some err | _ => none
     unless errors.isEmpty do

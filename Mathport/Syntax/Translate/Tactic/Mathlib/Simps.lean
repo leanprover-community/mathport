@@ -11,7 +11,7 @@ namespace Mathport.Translate.Tactic
 open Parser
 
 -- # tactic.simps
-@[trUserAttr notation_class] def trNotationClassAttr : Parse1 Syntax :=
+@[tr_user_attr notation_class] def trNotationClassAttr : Parse1 Syntax :=
   parse1 (return (← (tk "*")?, ← (ident)?)) fun (star, n) => do
   let star := optTk star.isSome
   `(attr| notation_class $[*%$star]? $[$(← liftM do n.mapM mkIdentF)]?)
@@ -23,7 +23,7 @@ def trSimpsRule : Sum (Name × Name) Name × Bool → M (TSyntax ``Parser.Comman
     | .inl (a, b) => `(Parser.Command.simpsRule| $(← mkIdentF a):ident → $(← mkIdentF b) $[as_prefix%$pfx]?)
     | .inr a => `(Parser.Command.simpsRule| - $(← mkIdentF a):ident $[as_prefix%$pfx]?)
 
-@[trUserCmd «initialize_simps_projections»] def trInitializeSimpsProjections : Parse1 Syntax :=
+@[tr_user_cmd «initialize_simps_projections»] def trInitializeSimpsProjections : Parse1 Syntax :=
   parse1 (return (← (tk "?")?, ← (return (← ident, ← simpsRules))*)) fun (trc, projs) => do
   let projs ← projs.mapM fun (n, rules) => do
     let rules ← liftM do rules.mapM trSimpsRule
@@ -33,7 +33,7 @@ def trSimpsRule : Sum (Name × Name) Name × Bool → M (TSyntax ``Parser.Comman
   else
     `(initialize_simps_projections $[$projs]*)
 
-@[trUserAttr simps] def trSimpsAttr : Parse1 Syntax :=
+@[tr_user_attr simps] def trSimpsAttr : Parse1 Syntax :=
   parse1 (return (← (tk "?")?, ← ident*, ← (pExpr)?)) fun (trc, ns, cfg) => do
   let ns ← liftM $ ns.mapM mkIdentF
   let cfg ← liftM $ cfg.mapM trExpr

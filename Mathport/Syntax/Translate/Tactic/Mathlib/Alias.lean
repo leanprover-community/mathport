@@ -12,7 +12,7 @@ open AST3 Parser
 
 -- # tactic.alias
 
-@[trUserCmd «alias»] def trAlias (doc : Option String) : Parse1 Syntax :=
+@[tr_user_cmd «alias»] def trAlias (doc : Option String) : Parse1 Syntax :=
   parse1 (return (← ident <* withInput skipAll, ←
     (tk "<-" *> Sum.inl <$> ident*) <|>
     ((tk "↔" <|> tk "<->") *> Sum.inr <$>
