@@ -88,6 +88,7 @@ def trAttr (_prio : Option Expr) : Attribute → M (Option TrAttr)
       pure $ mkSimpleAttr `implementedBy #[← mkIdentI n.kind]
     | `derive,             some ⟨_, AttrArg.user _ args⟩ =>
       return TrAttr.derive $ ← (← Parser.pExprListOrTExpr.run' args).mapM trDerive
+    | `algebra,            _ => return none -- this attribute is no longer needed
     | _, none => mkSimpleAttr <$> renameAttr n
     | _, some ⟨_, AttrArg.user e args⟩ =>
       match (← get).userAttrs.find? n, args with
@@ -239,8 +240,17 @@ def trExportCmd : Open → M Unit
 
 def trDeclId (n : Name) (us : LevelDecl) : M (TSyntax ``Parser.Command.declId) := do
   let us := us.map $ Array.map fun u => mkIdent u.kind
-  let id ← mkIdentI n #[(← get).current.curNamespace ++ n]
-  `(Parser.Command.declId| $id:ident $[.{$us,*}]?)
+  let orig := (← get).current.curNamespace ++ n
+  let ((dubious, n4), id) ← renameIdentCore n #[orig]
+  let (n3, _) := Rename.getClashes (← getEnv) n4
+  let mut msg := Format.nil
+  if orig != n3 then
+    msg := msg ++ f!"warning: {orig} clashes with {n3} -> {n4}\n"
+  if !dubious.isEmpty then
+    msg := msg ++ f!"warning: {orig} -> {n4} is a dubious translation:\n{dubious}\n"
+  if !msg.isEmpty then
+    logComment f!"{msg}Case conversion may be inaccurate. Consider using '#align {orig} {n4}ₓ'."
+  `(Parser.Command.declId| $(← mkIdentR id):ident $[.{$us,*}]?)
 
 def trDeclSig (bis : Binders) (ty : Option (Spanned Expr)) :
     M (TSyntax ``Parser.Command.declSig) := do
@@ -434,10 +444,7 @@ private def trMixfix (kind : TSyntax ``Parser.Term.attrKind)
   let p := p.toSyntax
   let s := Syntax.mkStrLit tk
   pure $ match m with
-  | MixfixKind.infix =>
-    (NotationDesc.infix tk, fun n e =>
-      `($kind:attrKind infixl:$p $[$n:namedName]? $[$prio:namedPrio]? $s => $e))
-  | MixfixKind.infixl =>
+  | MixfixKind.infix | MixfixKind.infixl =>
     (NotationDesc.infix tk, fun n e =>
       `($kind:attrKind infixl:$p $[$n:namedName]? $[$prio:namedPrio]? $s => $e))
   | MixfixKind.infixr =>
@@ -470,8 +477,8 @@ private def trNotation3Item : (lit : AST3.Literal) →
     M (Array (TSyntax ``Parser.Command.notation3Item))
   | .sym tk => pure #[sym tk]
   | .binder .. | .binders .. => return #[← `(notation3Item| (...))]
-  | .var x none => pure #[var x]
-  | .var x (some ⟨_, .prec _⟩) => pure #[var x]
+  | .var x none
+  | .var x (some ⟨_, .prec _⟩)
   | .var x (some ⟨_, .prev⟩) => pure #[var x]
   | .var x (some ⟨_, .scoped _ sc⟩) => return #[← scope x sc]
   | .var x (some ⟨_, .fold r _ sep «rec» (some ini) term⟩) => do

@@ -43,14 +43,14 @@ def liftCoreM (x : CoreM α) : BinportM α := do
 def liftMetaM (x : MetaM α) : BinportM α := do
   liftTermElabM (liftM x)
 
-def addNameAlignment (n3 n4 : Name) : BinportM Unit := do
-  liftCoreM $ Mathlib.Prelude.Rename.addNameAlignment n3 n4
+def addNameAlignment (n3 n4 : Name) (synthetic := false) (dubious := "") : BinportM Unit := do
+  liftCoreM $ Mathlib.Prelude.Rename.addNameAlignment n3 n4 synthetic dubious
 
 def addPossibleFieldName (n3 n4 : Name) : BinportM Unit := do
   liftCoreM $ Mathport.addPossibleFieldName n3 n4
 
 def lookupNameExt (n3 : Name) : BinportM (Option Name) :=
-  return Rename.resolveIdent? (← getEnv) n3
+  return Rename.resolveIdent? (← getEnv) n3 |>.map (·.1.2)
 
 def lookupNameExt! (n3 : Name) : BinportM Name := do
   match ← lookupNameExt n3 with

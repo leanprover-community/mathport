@@ -197,7 +197,7 @@ def printOutput (out : Format) : M Unit :=
   modify fun s => { s with output := s.output ++ out }
 
 def logComment (comment : Format) : M Unit :=
-  printOutput f!"-- {comment}\n"
+  printOutput f!"/- {comment} -/\n"
 
 private def checkColGt := Lean.Parser.checkColGt
 
@@ -325,6 +325,8 @@ def trTactic := spanningS trTacticUnspanned
 def trCommandUnspanned (e : Command) : M Unit := do (← read).trCommand e
 def trCommand := spanning trCommandUnspanned
 
+def renameIdentCore (n : Name) (choices : Array Name := #[]) : M ((String × Name) × Name) :=
+  return Rename.resolveIdentCore! (← getEnv) n choices
 def renameIdent (n : Name) (choices : Array Name := #[]) : M Name :=
   return Rename.resolveIdent! (← getEnv) n choices
 def renameNamespace (n : Name) : M Name := return Rename.renameNamespace (← getEnv) n
