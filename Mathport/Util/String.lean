@@ -14,7 +14,7 @@ def snake2pascalCamel (snake : String) (lc : Bool) : String := Id.run do
 
 def snake2pascal (snake : String) : String :=
   -- pre-empt collisions in category theory where the original is already pascal case
-  if (snake.get 0).isUpper && !snake.contains '_' then snake ++ "Cat"
+  if (snake.get 0).isUpper && !snake.contains '_' && !snake.all Char.isUpper then snake ++ "Cat"
   else snake2pascalCamel snake (lc := false)
 
 def snake2camel (snake : String) : String :=

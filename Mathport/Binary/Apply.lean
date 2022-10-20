@@ -71,8 +71,10 @@ def refineAddDecl (decl : Declaration) : BinportM (Declaration × ClashKind) := 
   println! "[addDecl] START REFINE {path.mod3} {decl.toName}"
   let ⟨decl, clashKind⟩ ← refineLean4NamesAndUpdateMap decl
   match clashKind with
-  | ClashKind.foundDefEq =>
+  | ClashKind.found "" =>
     println! "[addDecl] FOUND DEF-EQ {path.mod3} {decl.toName}"
+  | ClashKind.found _ =>
+    println! "[addDecl] FOUND DUBIOUS {path.mod3} {decl.toName}"
   | ClashKind.freshDecl =>
     println! "[addDecl] START CHECK  {path.mod3} {decl.toName}"
     try

@@ -18,6 +18,16 @@ def Expr.isAppOfArityGE (e : Expr) (n : Name) (k : Nat) : Bool :=
 
 open Lean (HashMap)
 
+deriving instance Repr for ConstantVal
+deriving instance Repr for AxiomVal
+deriving instance Repr for ReducibilityHints
+deriving instance Repr for DefinitionVal
+deriving instance Repr for TheoremVal
+deriving instance Repr for OpaqueVal
+deriving instance Repr for Constructor
+deriving instance Repr for InductiveType
+deriving instance Repr for Declaration
+
 deriving instance Hashable for Position
 
 def dummyFileMap : FileMap := ⟨"", #[0], #[1]⟩
