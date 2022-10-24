@@ -8,3 +8,4 @@ lean_packages/*
 !lean_packages/manifest.json
 sources/
 *.tar.gz
+config.oneshot.json

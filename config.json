@@ -3,16 +3,21 @@
         "outRoot": "Outputs",
         "packages": {
             "Leanbin": "sources/lean/library",
-            "Mathbin": "sources/mathlib/src"
+            "Mathbin": "sources/mathlib/src",
+            "Oneshot": "Oneshot/lean3-in"
         },
         "leanPath": [
             "./lean_packages/mathlib/build/lib",
             "./lean_packages/Qq/build/lib",
             "./lean_packages/std/build/lib",
+            "./Oneshot/lean4-in/build/lib",
             "./Outputs/oleans/leanbin",
-            "./Outputs/oleans/mathbin"
+            "./Outputs/oleans/mathbin",
+            "./Outputs/oleans/oneshot"
         ]
     },
+    "baseModules": ["Mathlib"],
+    "extraModules": [],
     "stringsToKeep": [
         "_sunfold",
         "equations",

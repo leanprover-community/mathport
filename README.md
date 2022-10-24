@@ -69,3 +69,4 @@ To port a single file execute `mathport` as follows
 The directory `Test` contains subdirectories `importLeanBin` and `importMathbin`,
 each containing a `lakefile.lean` that depends on `lean3port` and `mathlib3port`, resp.
 
+Mathport also supports a "oneshot" mode, for quick tests. A template is set up in the `Oneshot/` directory. See [`Oneshot/README.md`](Oneshot/README.md).

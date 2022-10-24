@@ -14,6 +14,8 @@ open Lean Lean.Json
 
 structure Config where
   pathConfig         : Path.Config
+  baseModules        : Array Name := #[`Mathlib]
+  extraModules       : Array Name := #[]
   defEqConstructions : HashSet String := {}
   forceAbbrevs       : HashSet Name := {}
   stringsToKeep      : HashSet Name := {}
