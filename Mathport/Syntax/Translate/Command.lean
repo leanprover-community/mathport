@@ -57,7 +57,7 @@ def trAttr (_prio : Option Expr) : Attribute → M (Option TrAttr)
     | `simp => pure `simp
     | `congr => pure `congr
     | `inline => pure `inline
-    | `pattern => pure `matchPattern
+    | `pattern => pure `match_pattern
     | _ => warn! "warning: unsupported attr -{n}"; return none
     pure $ some $ TrAttr.del (← `(Parser.Command.eraseAttr| -$(← mkIdentI n)))
   | AST3.Attribute.add `parsing_only none => pure TrAttr.parsingOnly
