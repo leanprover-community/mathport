@@ -23,15 +23,14 @@ def trSimpsRule : Sum (Name × Name) Name × Bool → M (TSyntax ``Parser.Comman
     | .inl (a, b) => `(Parser.Command.simpsRule| $(← mkIdentF a):ident → $(← mkIdentF b) $[as_prefix%$pfx]?)
     | .inr a => `(Parser.Command.simpsRule| - $(← mkIdentF a):ident $[as_prefix%$pfx]?)
 
-@[tr_user_cmd «initialize_simps_projections»] def trInitializeSimpsProjections : Parse1 Syntax :=
+@[tr_user_cmd «initialize_simps_projections»] def trInitializeSimpsProjections : Parse1 Unit :=
   parse1 (return (← (tk "?")?, ← (return (← ident, ← simpsRules))*)) fun (trc, projs) => do
-  let projs ← projs.mapM fun (n, rules) => do
-    let rules ← liftM do rules.mapM trSimpsRule
-    `(Parser.Command.simpsProj| $(← mkIdentF n):ident ($[$rules],*))
-  if trc.isSome then
-    `(initialize_simps_projections? $[$projs]*)
-  else
-    `(initialize_simps_projections $[$projs]*)
+    for (n, rules) in projs do
+      let rules ← liftM do rules.mapM trSimpsRule
+      if trc.isSome then
+        pushM `(initialize_simps_projections? $(← mkIdentF n):ident ($[$rules],*))
+      else
+        pushM `(initialize_simps_projections $(← mkIdentF n):ident ($[$rules],*))
 
 @[tr_user_attr simps] def trSimpsAttr : Parse1 Syntax :=
   parse1 (return (← (tk "?")?, ← ident*, ← (pExpr)?)) fun (trc, ns, cfg) => do

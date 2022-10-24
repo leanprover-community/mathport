@@ -422,7 +422,7 @@ def trSimpCore (autoUnfold trace : Bool) : TacM Syntax := do
   warn! "unsupported: trace_simp_set"
 
 @[tr_tactic simp_intros] def trSimpIntros : TacM Syntax := do
-  let ids := (← parse ident_*).map trIdent_'
+  let ids := (← parse ident_*).map trBinderIdent
   let o := optTk (← parse onlyFlag)
   let hs ← trSimpArgs (← parse simpArgList)
   let attrs := (← parse (tk "with" *> ident*)?).getD #[]
