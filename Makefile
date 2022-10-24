@@ -31,7 +31,7 @@ build:
 	lake build
 
 # Select which commit of mathlib3 to use.
-MATHBIN_COMMIT=master
+MATHBIN_COMMIT=origin/master
 
 # Clone mathlib3 and create `all.lean`.
 mathbin-source:
@@ -39,7 +39,7 @@ mathbin-source:
 	if [ ! -d "sources/mathlib" ]; then \
 		cd sources && git clone https://github.com/leanprover-community/mathlib.git; \
 	fi
-	cd sources/mathlib && git clean -xfd && git checkout $(MATHBIN_COMMIT)
+	cd sources/mathlib && git clean -xfd && git fetch && git checkout $(MATHBIN_COMMIT)
 	cd sources/mathlib && echo -n 'mathlib commit: ' && git rev-parse HEAD
 	cd sources/mathlib && leanpkg configure && ./scripts/mk_all.sh
 
@@ -112,3 +112,16 @@ unport:
 
 rm-tarballs:
 	rm lean3-predata.tar.gz lean3-synport.tar.gz lean3-binport.tar.gz mathlib3-predata.tar.gz mathlib3-synport.tar.gz mathlib3-binport.tar.gz
+
+oneshot-lean3:
+	cd sources/lean && lean --make --recursive --ast --tlean ../../Oneshot/lean3-in
+
+oneshot-lean4:
+	cd Oneshot/lean4-in && lake build
+
+oneshot-config: config.json
+	jq '.extraModules += ["Oneshot"]' < config.json > config.oneshot.json
+
+oneshot: oneshot-lean3 oneshot-lean4 oneshot-config
+	./build/bin/mathport config.oneshot.json Oneshot::main >> Logs/oneshot.out 2> >(tee -a Logs/oneshot.err >&2)
+	# output is in Outputs/src/oneshot/Oneshot/Main.lean

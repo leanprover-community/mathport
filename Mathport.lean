@@ -24,7 +24,8 @@ def mathport1 (config : Config) (path : Path) : IO Unit := do
     let ipath : Path ← resolveMod3 pcfg mod3
     pure { module := ipath.package ++ ipath.mod4 : Import }
 
-  if imports.isEmpty then imports := #[{ module := `Mathlib : Import }]
+  if imports.isEmpty then imports := config.baseModules.map ({ module := · : Import })
+  imports := imports ++ config.extraModules.map ({ module := · : Import })
 
   let opts := ({} : Options)
     |>.setNat `maxRecDepth 2000
