@@ -25,6 +25,12 @@
 
 SHELL := bash   # so we can use process redirection
 
+.PHONY: all build \
+	mathbin-source lean3-source source \
+	lean3-predata mathbin-predata predata \
+	init-logs oneshot unport port-lean port-mathbin port \
+	predata-tarballs mathport-tarballs tarballs rm-tarballs \
+
 all:
 
 build:
@@ -113,15 +119,17 @@ unport:
 rm-tarballs:
 	rm lean3-predata.tar.gz lean3-synport.tar.gz lean3-binport.tar.gz mathlib3-predata.tar.gz mathlib3-synport.tar.gz mathlib3-binport.tar.gz
 
-oneshot-lean3:
+Oneshot/lean3-in/main.ast.json: Oneshot/lean3-in/*.lean
 	cd sources/lean && lean --make --recursive --ast --tlean ../../Oneshot/lean3-in
 
-oneshot-lean4:
+Oneshot/lean4-in/build/lib/Oneshot.trace: Oneshot/lean4-in/*.lean
 	cd Oneshot/lean4-in && lake build
 
-oneshot-config: config.json
+config.oneshot.json: config.json
 	jq '.extraModules += ["Oneshot"]' < config.json > config.oneshot.json
 
-oneshot: oneshot-lean3 oneshot-lean4 oneshot-config
+Outputs/src/oneshot/Oneshot/Main.lean: Oneshot/lean3-in/main.ast.json Oneshot/lean4-in/build/lib/Oneshot.trace config.oneshot.json
 	./build/bin/mathport config.oneshot.json Oneshot::main >> Logs/oneshot.out 2> >(tee -a Logs/oneshot.err >&2)
+
+oneshot: Outputs/src/oneshot/Oneshot/Main.lean
 	# output is in Outputs/src/oneshot/Oneshot/Main.lean
