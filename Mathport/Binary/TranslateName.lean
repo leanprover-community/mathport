@@ -174,15 +174,16 @@ where
   isDefEqUpto (lvls₁ : List Name) (t₁ : Expr) (lvls₂ : List Name) (t₂ : Expr) : BinportM Bool := do
     if lvls₁.length ≠ lvls₂.length then return false
     let t₂ := t₂.instantiateLevelParams lvls₂ $ lvls₁.map mkLevelParam
+    let result := Kernel.isDefEq (← getEnv) {} t₁ t₂
     if (← read).config.skipDefEq then
-      -- HACK: We can't use the kernel typechecker because it throws C++ exceptions on
-      -- type errors (lean4#1756)
-      -- Remark: we translate type errors to true instead of false because
-      -- otherwise we get lots of false positives where definitions
-      -- depending on a dubious translation are themselves marked dubious
-      liftCoreM (MetaM.run' (try isDefEq t₁ t₂ catch _ => pure true))
+      return match result with
+        | .ok defeq => defeq
+        -- Remark: we translate type errors to true instead of false because
+        -- otherwise we get lots of false positives where definitions
+        -- depending on a dubious translation are themselves marked dubious
+        | .error .. => true
     else
-      return Kernel.isDefEq (← getEnv) {} t₁ t₂
+      ofExceptKernelException result
 
   -- Note: "'" does not work any more, since there are many "'" suffixes in mathlib
   -- and the extended names may clash.
