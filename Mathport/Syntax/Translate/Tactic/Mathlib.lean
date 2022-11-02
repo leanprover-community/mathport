@@ -28,7 +28,6 @@ import Mathport.Syntax.Translate.Tactic.Mathlib.NormNum
 import Mathport.Syntax.Translate.Tactic.Mathlib.Padics
 import Mathport.Syntax.Translate.Tactic.Mathlib.RCases
 import Mathport.Syntax.Translate.Tactic.Mathlib.Ring
-import Mathport.Syntax.Translate.Tactic.Mathlib.RingExp
 import Mathport.Syntax.Translate.Tactic.Mathlib.Simps
 import Mathport.Syntax.Translate.Tactic.Mathlib.SolveByElim
 import Mathport.Syntax.Translate.Tactic.Mathlib.Squeeze

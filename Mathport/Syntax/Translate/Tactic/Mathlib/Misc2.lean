@@ -27,10 +27,10 @@ open AST3 Mathport.Translate.Parser
 
 @[tr_tactic abel] def trAbel : TacM Syntax := do
   match ← parse (tk "!")?, ← parse (ident)?, ← trLoc (← parse location) with
-  | none, none, loc => `(tactic| abel $(loc)?)
+  | none, none, loc => `(tactic| abel $[$loc:location]?)
   | none, some `raw, loc => `(tactic| abel raw $(loc)?)
   | none, some `term, loc => `(tactic| abel term $(loc)?)
-  | some _, none, loc => `(tactic| abel! $(loc)?)
+  | some _, none, loc => `(tactic| abel! $[$loc:location]?)
   | some _, some `raw, loc => `(tactic| abel! raw $(loc)?)
   | some _, some `term, loc => `(tactic| abel! term $(loc)?)
   | _, _, _ => warn! "bad abel mode"

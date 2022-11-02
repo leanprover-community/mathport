@@ -27,8 +27,8 @@ open AST3 Mathport.Translate.Parser
   let hs ← trSimpArgs (← parse simpArgList)
   let attrs := (← parse (tk "with" *> ident*)?).getD #[]
   let hs := (hs ++ attrs.map trSimpExt).asNonempty
-  let use := (← parse (tk "using" *> ident_*)?).getD #[] |>.map trBinderIdent |>.asNonempty
+  let use := (← parse (tk "using" *> ident_*)?).getD #[] |>.map trIdent_ |>.asNonempty
   let cfg ← liftM $ (← expr?).mapM trExpr
   match bang with
-  | none => `(tactic| library_search $[(config := $cfg)]? $[[$hs,*]]? $[using $use*]?)
-  | some _ => `(tactic| library_search! $[(config := $cfg)]? $[[$hs,*]]? $[using $use*]?)
+  | none => `(tactic| library_search $[(config := $cfg)]? $[[$hs,*]]? $[using $use,*]?)
+  | some _ => `(tactic| library_search! $[(config := $cfg)]? $[[$hs,*]]? $[using $use,*]?)
