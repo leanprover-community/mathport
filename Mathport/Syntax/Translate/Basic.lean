@@ -473,6 +473,12 @@ def push (stx : Syntax) : M Unit := do
         pure f!"-- failed to format: {← e.toMessageData.toString}\n{reprint stx}")
   printOutput f!"{fmt}\n\n"
 
+def stripLastNewline : Format → Format
+  | .append f₁ f₂ => .append f₁ (stripLastNewline f₂)
+  | .text s => .text <|
+      let p := s.prev s.endPos; if s.get p == '\n' then s.extract 0 p else s
+  | f => f
+
 def pushM (stx : M Syntax) : M Unit := stx >>= push
 
 def withReplacement (name : Option Name) (x : M Unit) : M Unit :=
@@ -481,7 +487,10 @@ def withReplacement (name : Option Name) (x : M Unit) : M Unit :=
   | some n => do
     match (← read).config.replacementStyle with
     | .skip => pure ()
-    | .comment => printOutput f!"#print {n} /-\n"; x; printOutput f!"-/\n"
+    | .comment =>
+      printOutput f!"#print {n} /-\n"
+      x
+      modify fun s => { s with output := stripLastNewline s.output ++ "-/\n\n" }
     | .keep => x
 
 def getNotationEntry? (n : Name) : M (Option NotationEntry) := do
