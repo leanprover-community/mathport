@@ -97,6 +97,7 @@ def refineAddDecl (decl : Declaration) : BinportM (Declaration × ClashKind) := 
             throw ex
       else throw ex
 
+    modifyEnv fun env => binportTag.ext.addEntry env decl.toName
     println! "[addDecl] END CHECK    {path.mod3} {decl.toName}"
     if shouldGenCodeFor decl then
       println! "[compile] {decl.toName} START"

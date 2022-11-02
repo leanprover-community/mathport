@@ -40,19 +40,25 @@ def getFieldNameMap (env : Environment) : FieldNameMap :=
 def addPossibleFieldName (n3 n4 : Name) : CoreM Unit := do
   modifyEnv fun env => mathportFieldNameExtension.addEntry env (n3, n4)
 
+export Mathlib.Prelude.Rename (binportTag)
+
 namespace Rename
 
 variable (env : Environment)
 
 -- For both binport and synport
-def resolveIdent? (n3 : Name) (removeX : Bool) (choices : Array Name := #[]) : Option ((String × Name) × Name) :=
+def resolveIdent? (n3 : Name) (removeX : Bool) (choices : Array Name := #[]) :
+    Option ((String × Name) × Name) :=
   if h : choices.size > 0 then
-    getRenameMap env |>.find? choices[0] |>.map fun target => (target, clean' (clipLike target.2 n3))
+    getRenameMap env |>.find? choices[0] |>.map fun target =>
+      (target, clean' (clipLike target.2 n3 choices[0]))
   else
     getRenameMap env |>.find? n3 |>.map fun target => (target, clean' target.2)
 where
-  clipLike target n3 :=
-    componentsToName <| target.components.drop (target.getNumParts - n3.getNumParts)
+  clipLike target n3 orig :=
+    if orig.getNumParts == target.getNumParts then
+      componentsToName <| target.components.drop (target.getNumParts - n3.getNumParts)
+    else target
 
   clean' s := if removeX then clean s else s
 

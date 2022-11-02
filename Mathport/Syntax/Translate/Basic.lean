@@ -3,12 +3,11 @@ Copyright (c) 2021 Microsoft Corporation. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Mario Carneiro, Daniel Selsam
 -/
-import Mathport.Bridge.Path
+import Mathport.Bridge.Config
 import Mathport.Syntax.Data4
 import Mathport.Syntax.Translate.Notation
 import Mathport.Syntax.Translate.Attributes
 import Mathport.Syntax.Translate.Parser
-import Mathlib
 
 abbrev Lean.Syntax.Conv := TSyntax `conv
 abbrev Lean.Syntax.Attr := TSyntax `attr
@@ -180,7 +179,7 @@ def Precedence.toSyntax : Precedence → Syntax.Prec
   | Precedence.maxPlus => Id.run `(prec| max)
 
 structure Context where
-  pcfg : Path.Config
+  config : Config
   notations : Array Notation
   commands : Array Command
   trExpr : Expr → CommandElabM Term
@@ -329,7 +328,7 @@ def renameIdent (n : Name) (choices : Array Name := #[]) : M Name :=
   return Rename.resolveIdent! (← getEnv) n true choices
 def renameNamespace (n : Name) : M Name := return Rename.renameNamespace (← getEnv) n
 def renameAttr (n : Name) : M Name := return Rename.renameAttr n
-def renameModule (n : Name) : M Name := do Rename.renameModule (← read).pcfg n
+def renameModule (n : Name) : M Name := do Rename.renameModule (← read).config.pathConfig n
 def renameField (n : Name) : M Name := return Rename.renameField? (← getEnv) n |>.getD n
 def renameOption (n : Name) : M Name := warn! "warning: unsupported option {n}" | pure n
 
@@ -475,6 +474,15 @@ def push (stx : Syntax) : M Unit := do
   printOutput f!"{fmt}\n\n"
 
 def pushM (stx : M Syntax) : M Unit := stx >>= push
+
+def withReplacement (name : Option Name) (x : M Unit) : M Unit :=
+  match name with
+  | none => x
+  | some n => do
+    match (← read).config.replacementStyle with
+    | .skip => pure ()
+    | .comment => printOutput f!"#print {n} /-\n"; x; printOutput f!"-/\n"
+    | .keep => x
 
 def getNotationEntry? (n : Name) : M (Option NotationEntry) := do
   match (← get).current.localNotations.find? n with

@@ -5,6 +5,7 @@ Authors: Mario Carneiro
 -/
 import Mathport.Syntax.Translate.Basic
 import Mathport.Syntax.Translate.Parser
+import Mathlib.Mathport.Syntax
 
 open Lean
 open Lean.Elab.Tactic (Location)

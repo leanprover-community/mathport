@@ -12,6 +12,20 @@ namespace Mathport
 
 open Lean Lean.Json
 
+/-- Controls the way that translated definitions are displayed
+when a lean 4 definition already exists. -/
+inductive ReplacementStyle where
+  /-- Completely skip the mathport output. Good for pruning an already ported file. -/
+  | skip
+  /-- Show a `#print` command pointing at the lean 4 declaration,
+  and then print the mathport output in a comment. Useful when we want to recover
+  the mathport output without re-running the program in case the alignment is erroneous. -/
+  | comment
+  /-- Ignore existing lean 4 definitions and just print all mathport outputs.
+  Will cause redefinition errors. -/
+  | keep
+  deriving FromJson, Inhabited
+
 structure Config where
   pathConfig         : Path.Config
   baseModules        : Array Name := #[`Mathlib]
@@ -25,6 +39,8 @@ structure Config where
   skipProofs         : Bool := false
   skipDefEq          : Bool := true
   error2warning      : Bool := false
-  deriving FromJson
+  replacementStyle   : ReplacementStyle := .comment
+  deriving FromJson, Inhabited
+
 
 end Mathport
