@@ -41,14 +41,8 @@ private def mkConfigStx (stx : Option Syntax) : M Syntax :=
 
 -- # tactic.linear_combination
 @[tr_tactic linear_combination] def trLinearCombination : TacM Syntax := do
-  let es ← parse (
-    (return (← tk "(" *> ident, some $ ← tk "," *> pExpr <* tk ")")) <|>
-    (return (← ident, none)))*
-  let es ← es.mapM fun
-  | (x, none) => pure $ mkIdent x
-  | (x, some n) => return mkNode ``Parser.Tactic.nameAndTerm #[mkIdent x, mkAtom "*", ← trExpr n]
-  pure $ mkNode ``Parser.Tactic.linearCombination #[mkAtom "linear_combination",
-    ← mkConfigStx (← liftM $ (← expr?).mapM trExpr), Syntax.mkSep es (mkAtom "+")]
+  let e ← liftM $ (← parse (pExpr)? <* parse (tk "with")?).mapM trExpr
+  `(tactic| linear_combination $[(config := $(← liftM $ (← expr?).mapM trExpr))]? $[$e]?)
 
 -- # tactic.noncomm_ring
 @[tr_tactic noncomm_ring] def trNoncommRing : TacM Syntax := `(tactic| noncomm_ring)
@@ -164,6 +158,16 @@ private def mkConfigStx (stx : Option Syntax) : M Syntax :=
 @[tr_ni_tactic tactic.derive_elementwise_proof] def trDeriveElementwiseProof
   (_ : AST3.Expr) : M Syntax := `(tactic| derive_elementwise_proof)
 
+-- # tactic.positivity
+@[tr_tactic positivity] def trPositivity : TacM Syntax := `(tactic| positivity)
+
+-- # tactic.compute_degree
+@[tr_tactic compute_degree] def trComputeDegree : TacM Syntax := `(tactic| compute_degree)
+
+-- # tactic.expand_exists
+@[tr_user_attr expand_exists] def trExpandExists : Parse1 Syntax :=
+  parse1 (ident)* fun n => do `(attr| expand_exists $[$(← liftM $ n.mapM mkIdentI)]*)
+
 -- # algebra.group.defs
 attribute [tr_ni_tactic try_refl_tac] trControlLawsTac
 
@@ -253,6 +257,10 @@ attribute [tr_ni_tactic try_refl_tac] trControlLawsTac
 -- # data.equiv.local_equiv
 @[tr_tactic mfld_set_tac] def trMfldSetTac : TacM Syntax := `(tactic| mfld_set_tac)
 
+-- # measure_theory.constructions.borel_space
+@[tr_tactic borelize] def trBorelize : TacM Syntax := do
+  `(tactic| borelize $[$(← liftM $ (← parse pExprListOrTExpr).mapM trExpr):term]*)
+
 -- # measure_theory.measure.measure_space_def
 @[tr_ni_tactic volume_tac] def trVolumeTac (_ : AST3.Expr) : M Syntax := do
   `(tactic| exact $(← mkIdentI `measure_theory.measure_space.volume))
@@ -275,3 +283,7 @@ attribute [tr_ni_tactic try_refl_tac] trControlLawsTac
 -- # measure_theory.integral.interval_integral
 @[tr_ni_tactic unique_diff_within_at_Ici_Iic_univ] def trUniqueDiffWithinAt_Ici_Iic_univ (_ : AST3.Expr) : M Syntax := do
   `(tactic| uniqueDiffWithinAt_Ici_Iic_univ)
+
+-- # category_theory.monoidal.coherence
+@[tr_tactic coherence] def trCoherence : TacM Syntax := `(tactic| coherence)
+@[tr_tactic pure_coherence] def trPureCoherence : TacM Syntax := `(tactic| pure_coherence)

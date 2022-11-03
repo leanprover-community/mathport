@@ -85,7 +85,7 @@ open AST3 Mathport.Translate.Parser
   `(tactic| refine_struct $(← trExpr (← parse pExpr)))
 
 @[tr_tactic guard_hyp'] def trGuardHyp' : TacM Syntax := do
-  `(tactic| guard_hyp $(mkIdent (← parse ident)) : $(← trExpr (← parse (tk ":" *> pExpr))))
+  `(tactic| guard_hyp $(mkIdent (← parse ident)) :ₐ $(← trExpr (← parse (tk ":" *> pExpr))))
 
 @[tr_tactic match_hyp] def trMatchHyp : TacM Syntax := do
   let h := mkIdent (← parse ident)
@@ -96,18 +96,24 @@ open AST3 Mathport.Translate.Parser
 @[tr_tactic guard_expr_strict] def trGuardExprStrict : TacM Syntax := do
   let t ← expr!
   let p ← parse (tk ":=" *> pExpr)
-  `(tactic| guard_expr $(← trExpr t):term == $(← trExpr p):term)
+  `(tactic| guard_expr $(← trExpr t):term =ₛ $(← trExpr p):term)
 
 @[tr_tactic guard_target_strict] def trGuardTargetStrict : TacM Syntax := do
-  `(tactic| guard_target == $(← trExpr (← parse pExpr)))
+  `(tactic| guard_target =ₛ $(← trExpr (← parse pExpr)))
 
 @[tr_tactic guard_hyp_strict] def trGuardHypStrict : TacM Syntax := do
-  `(tactic| guard_hyp $(mkIdent (← parse ident)) : $(← trExpr (← parse (tk ":" *> pExpr))))
+  `(tactic| guard_hyp $(mkIdent (← parse ident)) :ₛ $(← trExpr (← parse (tk ":" *> pExpr))))
 
 @[tr_tactic guard_hyp_nums] def trGuardHypNums : TacM Syntax := do
   match (← expr!).kind.unparen with
   | AST3.Expr.nat n => `(tactic| guard_hyp_nums $(Quote.quote n))
   | _ => warn! "unsupported: weird nat"
+
+@[tr_tactic guard_target_mod_implicit] def trGuardTargetModImplicit : TacM Syntax := do
+  `(tactic| guard_target = $(← trExpr (← parse pExpr)))
+
+@[tr_tactic guard_hyp_mod_implicit] def trGuardHypModImplicit : TacM Syntax := do
+  `(tactic| guard_hyp $(mkIdent (← parse ident)) : $(← trExpr (← parse (tk ":" *> pExpr))))
 
 @[tr_tactic guard_tags] def trGuardTags : TacM Syntax := do
   `(tactic| guard_tags $[$((← parse ident*).map mkIdent)]*)
@@ -129,7 +135,8 @@ open AST3 Mathport.Translate.Parser
 @[tr_tactic apply_field] def trApplyField : TacM Syntax := `(tactic| apply_field)
 
 @[tr_tactic apply_rules] def trApplyRules : TacM Syntax := do
-  let hs ← liftM $ (← parse pExprListOrTExpr).mapM trExpr
+  let hs ← liftM $ (← parse optPExprList).mapM trExpr
+  let hs := hs ++ (← parse (tk "with" *> ident*)).map mkIdent
   let n ← (← expr?).mapM fun
   | ⟨_, AST3.Expr.nat n⟩ => pure $ Quote.quote n
   | _ => warn! "unsupported: weird nat"
@@ -147,10 +154,10 @@ open AST3 Mathport.Translate.Parser
   | some _ => `(tactic| h_generalize! $[$h :]? $e = $x $[with $eqsH]?)
 
 @[tr_tactic guard_expr_eq'] def trGuardExprEq' : TacM Syntax := do
-  `(tactic| guard_expr $(← trExpr (← expr!)) = $(← trExpr (← parse (tk ":=" *> pExpr))))
+  `(tactic| guard_expr $(← trExpr (← expr!)) =~ $(← trExpr (← parse (tk ":=" *> pExpr))))
 
 @[tr_tactic guard_target'] def trGuardTarget' : TacM Syntax := do
-  `(tactic| guard_target = $(← trExpr (← parse pExpr)))
+  `(tactic| guard_target =~ $(← trExpr (← parse pExpr)))
 
 @[tr_tactic triv] def trTriv : TacM Syntax := `(tactic| triv)
 

@@ -16,13 +16,13 @@ open AST3 Parser
 -- # tactic.congr
 @[tr_tactic congr'] def trCongr' : TacM Syntax := do
   let n ← parse (smallNat)?
-  let args ← parse (tk "with" *> return (← (rcasesPat true)*, ← (tk ":" *> smallNat)?))?
-  let pats ← args.mapM (liftM do ·.1.mapM trRCasesPat)
+  let args ← parse (tk "with" *> return (← rintroPat*, ← (tk ":" *> smallNat)?))?
+  let pats ← liftM <| args.mapM (·.1.mapM trRIntroPat)
   let ks := args.map (·.2.map quote)
   `(tactic| congr $[$(n.map quote)]? $[with $[$pats]* $[: $ks]?]?)
 
 @[tr_tactic rcongr] def trRCongr : TacM Syntax := do
-  let pats ← liftM $ (← parse (rcasesPat true)*).mapM trRCasesPat
+  let pats ← liftM $ (← parse rintroPat*).mapM trRIntroPat
   `(tactic| rcongr $[$pats]*)
 
 @[tr_tactic convert] def trConvert : TacM Syntax := do

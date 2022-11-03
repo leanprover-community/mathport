@@ -30,3 +30,12 @@ open Parser
 @[tr_conv norm_num] def trNormNumConv : TacM Syntax := do
   let hs := (← trSimpArgs (← parse simpArgList)).asNonempty
   `(conv| norm_num $[[$hs,*]]?)
+
+@[tr_user_cmd «#norm_num»] def trNormNumCmd : Parse1 Syntax :=
+  parse1 (return (← onlyFlag, ← simpArgList,
+    (← (tk "with" *> ident*)?).getD #[], ← (tk ":")? *> pExpr))
+  fun (o, args, attrs, e) => do
+    let o := optTk o
+    let hs ← trSimpArgs args
+    let hs := (hs ++ attrs.map trSimpExt).asNonempty
+    `(command| #norm_num $[only%$o]? $[[$hs,*]]? $(← trExpr e))

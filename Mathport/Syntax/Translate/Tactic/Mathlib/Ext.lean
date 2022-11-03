@@ -22,13 +22,13 @@ open AST3 Parser
   let hint ← parse (tk "?")?
   let pats ← liftM $ (← parse (rcasesPat true)*).mapM trRCasesPat
   match hint with
-  | none => `(tactic| ext1 $[$pats:rcasesPat]*)
-  | some _ => `(tactic| ext1? $[$pats:rcasesPat]*)
+  | none => `(tactic| ext1 $[$pats]*)
+  | some _ => `(tactic| ext1? $[$pats]*)
 
 @[tr_tactic ext] def trExt : TacM Syntax := do
   let hint ← parse (tk "?")?
-  let pats ← liftM $ (← parse (rcasesPat true)*).mapM trRCasesPat
+  let pats ← liftM $ (← parse rintroPat*).mapM trRIntroPat
   let depth := (← parse (tk ":" *> smallNat)?).map Quote.quote
   match hint with
-  | none => `(tactic| ext $[$pats:rcasesPat]* $[: $depth]?)
-  | some _ => `(tactic| ext? $[$pats:rcasesPat]* $[: $depth]?)
+  | none => `(tactic| ext $[$pats]* $[: $depth]?)
+  | some _ => `(tactic| ext? $[$pats]* $[: $depth]?)
