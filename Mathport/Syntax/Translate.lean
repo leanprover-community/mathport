@@ -22,10 +22,10 @@ namespace Translate
 open AST3
 
 partial def M.run' (m : M α) (notations : Array Notation) (commands : Array Command)
-  (pcfg : Path.Config) : CommandElabM α := do
+    (config : Config) : CommandElabM α := do
   let s ← ST.mkRef {}
   let rec ctx := {
-    pcfg, notations, commands
+    config, notations, commands
     transform := Transform.transform
     trExpr := fun e => trExpr' e ctx s
     trTactic := fun e => trTactic' e ctx s
@@ -34,7 +34,7 @@ partial def M.run' (m : M α) (notations : Array Notation) (commands : Array Com
 
 def M.run (m : M α) (comments : Array Comment) :
     (notations : Array Notation) → (commands : Array Command) →
-    (pcfg : Path.Config) → CommandElabM α :=
+    (config : Config) → CommandElabM α :=
   M.run' $ do
     let tactics ← Tactic.builtinTactics
     let niTactics ← Tactic.builtinNITactics
@@ -70,8 +70,8 @@ def AST3toData4 : AST3 → M Data4
 
 end Translate
 
-def AST3toData4 (ast : AST3) : (pcfg : Path.Config) → CommandElabM Data4 :=
+def AST3toData4 (ast : AST3) : (config : Config) → CommandElabM Data4 :=
   (Translate.AST3toData4 ast).run ast.comments ast.indexed_nota ast.indexed_cmds
 
-def tactic3toSyntax (containingFile : AST3) (tac3 : Spanned AST3.Tactic) : (pcfg : Path.Config) → CommandElabM Syntax.Tactic :=
+def tactic3toSyntax (containingFile : AST3) (tac3 : Spanned AST3.Tactic) : (config : Config) → CommandElabM Syntax.Tactic :=
   (Translate.trTactic tac3).run #[] containingFile.indexed_nota containingFile.indexed_cmds

@@ -5,6 +5,7 @@ Authors: Mario Carneiro, Daniel Selsam
 -/
 import Mathport.Binary
 import Mathport.Syntax
+import Mathlib
 
 namespace Mathport
 

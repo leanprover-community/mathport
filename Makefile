@@ -133,3 +133,9 @@ Outputs/src/oneshot/Oneshot/Main.lean: Oneshot/lean3-in/main.ast.json Oneshot/le
 
 oneshot: Outputs/src/oneshot/Oneshot/Main.lean
 	# output is in Outputs/src/oneshot/Oneshot/Main.lean
+
+clean-oneshot:
+	find Oneshot/lean3-in -name "*.olean" -delete
+	rm Oneshot/lean3-in/main.ast.json || true
+	cd Oneshot/lean4-in && lake clean
+	rm config.oneshot.json || true

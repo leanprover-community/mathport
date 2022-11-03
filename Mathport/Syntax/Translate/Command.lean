@@ -238,20 +238,24 @@ def trExportCmd : Open → M Unit
     pushElab $ ← `(export $(← mkIdentN tgt.kind):ident ($args*))
   | _ => warn! "unsupported: advanced export style"
 
-def trDeclId (n : Name) (us : LevelDecl) : OptionT M (TSyntax ``Parser.Command.declId) := do
+def trDeclId (n : Name) (us : LevelDecl) : M (Option Name × TSyntax ``Parser.Command.declId) := do
   let us := us.map $ Array.map fun u => mkIdent u.kind
   let orig := (← get).current.curNamespace ++ n
   let ((dubious, n4), id) ← renameIdentCore n #[orig]
   let (n3, _) := Rename.getClashes (← getEnv) n4
   let mut msg := Format.nil
+  let mut found := none
+  if dubious.isEmpty && (← getEnv).contains n4 && !binportTag.hasTag (← getEnv) n4 then
+    found := n4 -- if the definition already exists, abort the current command
   if orig != n3 then
-    if dubious.isEmpty then failure -- if the clash is authoritative, abort the current command
+    if dubious.isEmpty then
+      found := n4 -- if the clash is authoritative, abort the current command
     msg := msg ++ f!"warning: {orig} clashes with {n3} -> {n4}\n"
   if !dubious.isEmpty then
     msg := msg ++ f!"warning: {orig} -> {n4} is a dubious translation:\n{dubious}\n"
   if !msg.isEmpty then
     logComment f!"{msg}Case conversion may be inaccurate. Consider using '#align {orig} {n4}ₓ'."
-  `(Parser.Command.declId| $(← mkIdentR id):ident $[.{$us,*}]?)
+  return (found, ← `(Parser.Command.declId| $(← mkIdentR id):ident $[.{$us,*}]?))
 
 def trDeclSig (bis : Binders) (ty : Option (Spanned Expr)) :
     M (TSyntax ``Parser.Command.declSig) := do
@@ -269,15 +273,17 @@ def trAxiom (mods : Modifiers) (n : Name)
   (us : LevelDecl) (bis : Binders) (ty : Option (Spanned Expr)) : M Unit := do
   let (s, mods) ← trModifiers mods
   unless s.derive.isEmpty do warn! "unsupported: @[derive] axiom"
-  let some id ← trDeclId n us | return
-  pushM `(command| $mods:declModifiers axiom $id $(← trDeclSig bis ty))
+  let (found, id) ← trDeclId n us
+  withReplacement found do
+    pushM `(command| $mods:declModifiers axiom $id $(← trDeclSig bis ty))
 
 def trDecl (dk : DeclKind) (mods : Modifiers) (attrs : Attributes)
   (n : Option (Spanned Name)) (us : LevelDecl) (bis : Binders) (ty : Option (Spanned Expr))
-  (val : DeclVal) : OptionT M Syntax.Command := do
+  (val : DeclVal) : M (Option Name × Syntax.Command) := do
   let (s, mods) ← trModifiers mods attrs
   let id ← n.mapM fun n => trDeclId n.kind us
-  liftM do
+  (id >>= (·.1), ·) <$> do
+  let id := (·.2) <$> id
   let val ← match val with
     | DeclVal.expr e => do `(Parser.Command.declVal| := $(← trExprUnspanned e))
     | DeclVal.eqns #[] => `(Parser.Command.declVal| := fun.)
@@ -312,9 +318,10 @@ def trOptDeriving : Array Name → M (TSyntax ``Parser.Command.optDeriving)
 set_option linter.unusedVariables false in -- FIXME(Mario): spurious warning on let ctors ← ...
 def trInductive (cl : Bool) (mods : Modifiers) (attrs : Attributes)
   (n : Spanned Name) (us : LevelDecl) (bis : Binders) (ty : Option (Spanned Expr))
-  (nota : Option Notation) (intros : Array (Spanned Intro)) : OptionT M Syntax.Command := do
+  (nota : Option Notation) (intros : Array (Spanned Intro)) : M (Option Name × Syntax.Command) := do
   let (s, mods) ← trModifiers mods attrs
-  let id ← trDeclId n.kind us
+  let (found, id) ← trDeclId n.kind us
+  (found, ·) <$> do
   let sig ← trOptDeclSig bis ty
   unless nota.isNone do warn! "unsupported: (notation) in inductive"
   let ctors ← intros.mapM fun ⟨m, ⟨doc, name, ik, bis, ty⟩⟩ => withSpanS m do
@@ -330,9 +337,15 @@ def trInductive (cl : Bool) (mods : Modifiers) (attrs : Attributes)
   | false => `($mods:declModifiers inductive
     $id:declId $sig:optDeclSig $[$ctors:ctor]* $ds:optDeriving)
 
-def trMutual (decls : Array (Mutual α)) (f : Mutual α → OptionT M Syntax.Command) : M Unit := do
-  let some cmds ← (decls.mapM f).run | return
-  pushM `(mutual $cmds* end)
+def trMutual (decls : Array (Mutual α))
+    (f : Mutual α → M (Option Name × Syntax.Command)) : M Unit := do
+  let mut found := none
+  let mut cmds := #[]
+  for decl in decls do
+    let (found', cmd) ← f decl
+    found := found <|> found'
+    cmds := cmds.push cmd
+  withReplacement found do pushM `(mutual $cmds* end)
 
 def trField : Spanned Field → M (Array Syntax) := spanning fun
   | Field.binder bi ns ik bis ty dflt => do
@@ -360,7 +373,8 @@ def trStructure (cl : Bool) (mods : Modifiers) (n : Spanned Name) (us : LevelDec
   (bis : Binders) (exts : Array (Spanned Parent)) (ty : Option (Spanned Expr))
   (mk : Option (Spanned Mk)) (flds : Array (Spanned Field)) : M Unit := do
   let (s, mods) ← trModifiers mods
-  let some id ← trDeclId n.kind us | return
+  let (found, id) ← trDeclId n.kind us
+  withReplacement found do
   let bis ← trBracketedBinders {} bis
   let exts ← exts.mapM fun
     | ⟨_, false, none, ty, #[]⟩ => trExpr ty
@@ -579,8 +593,8 @@ end
 
 def trInductiveCmd : InductiveCmd → M Unit
   | InductiveCmd.reg cl mods n us bis ty nota intros => do
-     if let some cmd ← trInductive cl mods #[] n us bis ty nota intros then
-      push cmd
+    let (found, cmd) ← trInductive cl mods #[] n us bis ty nota intros
+    withReplacement found (push cmd)
   | InductiveCmd.mutual cl mods us bis nota inds =>
     trMutual inds fun ⟨attrs, n, ty, intros⟩ => do
       trInductive cl mods attrs n us bis ty nota intros
@@ -622,8 +636,8 @@ def trCommand' : Command → M Unit
       | _ => warn! "unsupported (impossible)"
     | _ => warn! "unsupported (impossible)"
   | Command.decl dk mods n us bis ty val => do
-    if let some cmd ← trDecl dk mods #[] n us bis ty val.kind then
-      push cmd
+    let (found, cmd) ← trDecl dk mods #[] n us bis ty val.kind
+    withReplacement found (push cmd)
   | Command.mutualDecl dk mods us bis arms =>
     trMutual arms fun ⟨attrs, n, ty, vals⟩ =>
       trDecl dk mods attrs n us bis ty (DeclVal.eqns vals)
