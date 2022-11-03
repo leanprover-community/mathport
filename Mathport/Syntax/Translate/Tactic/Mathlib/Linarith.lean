@@ -36,3 +36,16 @@ open AST3 Parser
 @[tr_tactic zify] def trZify : TacM Syntax := do
   let hs := (← trSimpArgs (← parse simpArgList)).asNonempty
   `(tactic| zify $[[$hs,*]]? $(← trLoc (← parse location))?)
+
+-- # tactic.qify
+@[tr_user_attr qify] def trQifyAttr := tagAttr `qify
+
+@[tr_tactic qify] def trQify : TacM Syntax := do
+  let hs := (← trSimpArgs (← parse simpArgList)).asNonempty
+  `(tactic| qify $[[$hs,*]]? $(← trLoc (← parse location))?)
+
+-- # tactic.polyrith
+@[tr_tactic polyrith] def trPolyrith : TacM Syntax := do
+  let o := optTk (← parse onlyFlag)
+  let args := (← (← parse optPExprList).mapM (trExpr ·)).asNonempty
+  `(tactic| polyrith $[only%$o]? $[[$args,*]]?)

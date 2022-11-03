@@ -27,9 +27,10 @@ def trRingMode : Name → M (TSyntax ``Parser.Tactic.ringMode)
   let c ← parse (tk "!")?
   let mode ← liftM $ (← parse (ident)?).mapM trRingMode
   let loc ← trLoc (← parse location)
+  let cfg ← liftM $ (← expr?).mapM trExpr
   match c with
-  | none => `(tactic| ring_nf $(mode)? $(loc)?)
-  | some _ => `(tactic| ring_nf! $(mode)? $(loc)?)
+  | none => `(tactic| ring_nf $[(config := $cfg)]? $(mode)? $(loc)?)
+  | some _ => `(tactic| ring_nf! $[(config := $cfg)]? $(mode)? $(loc)?)
 
 @[tr_tactic ring] def trRing : TacM Syntax := do
   match ← parse (tk "!")? with
@@ -46,9 +47,10 @@ def trRingMode : Name → M (TSyntax ``Parser.Tactic.ringMode)
 @[tr_conv ring_nf] def trRingNFConv : TacM Syntax := do
   let c ← parse (tk "!")?
   let mode ← liftM $ (← parse (ident)?).mapM trRingMode
+  let cfg ← liftM $ (← expr?).mapM trExpr
   match c with
-  | none => `(conv| ring_nf $(mode)?)
-  | some _ => `(conv| ring_nf! $(mode)?)
+  | none => `(conv| ring_nf $[(config := $cfg)]? $(mode)?)
+  | some _ => `(conv| ring_nf! $[(config := $cfg)]? $(mode)?)
 
 @[tr_conv ring ring_exp] def trRingConv : TacM Syntax := do
   match ← parse (tk "!")? with

@@ -154,6 +154,9 @@ open AST3 Mathport.Translate.Parser
 @[tr_tactic push_neg] def trPushNeg : TacM Syntax := do
   `(tactic| push_neg $(← trLoc (← parse location))?)
 
+@[tr_user_cmd «#push_neg»] def trPushNegCmd : Parse1 Syntax :=
+  parse1 pExpr fun e => do `(command| #push_neg $(← trExpr e))
+
 @[tr_tactic contrapose] def trContrapose : TacM Syntax := do
   let (tac, s) := match ← parse (tk "!")? with
   | none => (``Mathlib.Tactic.Contrapose.contrapose, "contrapose")
