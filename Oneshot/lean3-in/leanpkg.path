@@ -1,2 +1,2 @@
 builtin_path
-path ../../sources/lean/library
+path ../../sources/mathlib/src

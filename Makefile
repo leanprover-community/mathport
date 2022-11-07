@@ -120,8 +120,8 @@ rm-tarballs:
 	rm lean3-predata.tar.gz lean3-synport.tar.gz lean3-binport.tar.gz mathlib3-predata.tar.gz mathlib3-synport.tar.gz mathlib3-binport.tar.gz
 
 Oneshot/lean3-in/main.ast.json: Oneshot/lean3-in/*.lean
-	cd sources/lean && elan override set `cat ../mathlib/leanpkg.toml | grep lean_version | cut -d '"' -f2`
-	cd sources/lean && lean --make --recursive --ast --tlean ../../Oneshot/lean3-in
+	cd Oneshot/lean3-in && elan override set `cat ../../sources/mathlib/leanpkg.toml | grep lean_version | cut -d '"' -f2`
+	cd Oneshot/lean3-in && lean --make --recursive --ast --tlean .
 
 Oneshot/lean4-in/build/lib/Oneshot.trace: Oneshot/lean4-in/*.lean
 	cd Oneshot/lean4-in && lake build

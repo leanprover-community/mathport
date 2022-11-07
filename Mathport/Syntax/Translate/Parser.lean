@@ -180,6 +180,7 @@ def simpArgList : ParserM (Array SimpArg) :=
 inductive RCasesPat : Type
   | one : BinderName → RCasesPat
   | clear : RCasesPat
+  | explicit : RCasesPat → RCasesPat
   | typed : RCasesPat → Spanned AST3.Expr → RCasesPat
   | tuple : Array RCasesPat → RCasesPat
   | alts : Array RCasesPat → RCasesPat
@@ -194,11 +195,12 @@ mutual
 partial def rcasesPat : Bool → ParserM RCasesPat
 | true =>
   (brackets "(" ")" (rcasesPat false)) <|>
-  (RCasesPat.tuple <$> brackets "⟨" "⟩" (sepBy (tk ",") (rcasesPat false))) <|>
-  (tk "-" *> pure RCasesPat.clear) <|>
-  (RCasesPat.one <$> ident_)
+  (.tuple <$> brackets "⟨" "⟩" (sepBy (tk ",") (rcasesPat false))) <|>
+  (tk "-" *> pure .clear) <|>
+  (tk "@" *> .explicit <$> rcasesPat true) <|>
+  (.one <$> ident_)
 | false => do
-  let pat ← RCasesPat.alts' <$> rcasesPatList
+  let pat ← .alts' <$> rcasesPatList
   (tk ":" *> pat.typed <$> pExpr) <|> pure pat
 
 partial def rcasesPatList (pats : Array RCasesPat := #[]) : ParserM (Array RCasesPat) := do
@@ -207,7 +209,7 @@ partial def rcasesPatList (pats : Array RCasesPat := #[]) : ParserM (Array RCase
 partial def rcasesPatListRest (pats : Array RCasesPat) : ParserM (Array RCasesPat) :=
   (tk "|" *> rcasesPatList pats) <|>
   -- hack to support `-|-` patterns, because `|-` is a token
-  (tk "|-" *> rcasesPatListRest (pats.push RCasesPat.clear)) <|>
+  (tk "|-" *> rcasesPatListRest (pats.push .clear)) <|>
   pure pats
 
 end
