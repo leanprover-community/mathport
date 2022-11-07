@@ -4,6 +4,9 @@ GITHUB_USER=leanprover-community-bot
 
 set -ex
 
+git config user.email "leanprover.community@gmail.com"
+git config user.name "leanprover-community-bot"
+
 git clone "https://$GITHUB_USER:$GITHUB_TOKEN@github.com/leanprover-community/lean3port"
 pushd lean3port
 ./update.sh "$TAG"
