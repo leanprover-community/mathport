@@ -8,7 +8,7 @@ on:
       - 'trying.tmp*'
       - 'staging*.tmp'
   schedule:
-    - cron: '0 2 * * *'  # 8PM CET/11AM PT
+    - cron: '0 19 * * *'  # 8PM CET/11AM PT
 
 name: mathport
 
