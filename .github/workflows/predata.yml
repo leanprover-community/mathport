@@ -51,7 +51,7 @@ jobs:
       - name: set tag
         run: echo "TAG=predata-nightly-$(date -u +%F)" >> $GITHUB_ENV
 
-      - name: release (master)
+      - name: release
         uses: softprops/action-gh-release@v1
         with:
           prerelease: true
@@ -60,8 +60,6 @@ jobs:
           files: |
             lean3-predata.tar.gz
             mathlib3-predata.tar.gz
-        env:
-          GITHUB_TOKEN: ${{ secrets.PUSH_NIGHTLY_TOKEN }}
 
       - name: clean up working directory
         run: rm -rf *
