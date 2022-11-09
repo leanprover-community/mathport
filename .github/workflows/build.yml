@@ -9,6 +9,7 @@ on:
       - 'staging*.tmp'
   schedule:
     - cron: '0 19 * * *'  # 8PM CET/11AM PT
+  workflow_dispatch:
 
 name: mathport
 
