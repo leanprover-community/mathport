@@ -38,7 +38,7 @@ jobs:
         run: make lean3-predata
 
       - name: prepare predata for mathlib
-        run: make mathbin-predata LEAN3_OPTS=-j6
+        run: env time -v make mathbin-predata LEAN3_OPTS=-j6
 
       - name: clean up a bit
         run: |
