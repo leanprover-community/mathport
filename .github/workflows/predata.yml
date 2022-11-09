@@ -6,7 +6,7 @@ on:
   #     - 'trying.tmp*'
   #     - 'staging*.tmp'
   schedule:
-    - cron: '0 7 * * *'  # 8AM CET/11PM PT
+    - cron: '6 20 * * *'  # 8AM CET/11PM PT
 
 name: predata
 
@@ -38,7 +38,7 @@ jobs:
         run: make lean3-predata
 
       - name: prepare predata for mathlib
-        run: make mathbin-predata
+        run: make mathbin-predata LEAN3_OPTS=-j6
 
       - name: clean up a bit
         run: |
