@@ -647,8 +647,8 @@ def trArm : Arm → M (TSyntax ``Parser.Term.matchAltExpr)
     `(Parser.Term.matchAltExpr|
       | $(← lhs.mapM trExpr),* => $(← trExpr rhs))
 
-def mkSimpleAttr (n : Name) (args : Array Syntax := #[]) :=
-  mkNode ``Parser.Attr.simple #[mkIdent n, mkNullNode args]
+def mkSimpleAttr (n : Name) (args : Array Syntax := #[]) : Syntax.Attr :=
+  ⟨mkNode ``Parser.Attr.simple #[mkIdent n, mkNullNode args]⟩
 
 def mkOpt (a : Option α) (f : α → M Syntax) : M Syntax :=
   match a with

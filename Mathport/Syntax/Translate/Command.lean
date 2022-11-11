@@ -12,13 +12,13 @@ open Lean.Elab (Visibility)
 open Lean.Elab.Command (CommandElabM liftCoreM)
 open AST3
 
-def elabCommand (stx : Syntax) : CommandElabM Unit := do
+def elabCommand (stx : Syntax.Command) : CommandElabM Unit := do
   -- try dbg_trace "warning: elaborating:\n{← liftCoreM $
   --   Lean.PrettyPrinter.parenthesizeCommand stx >>= Lean.PrettyPrinter.formatCommand}"
   -- catch e => dbg_trace "warning: failed to format: {← e.toMessageData.toString}\nin: {stx}"
   Elab.Command.elabCommand stx
 
-def pushElab (stx : Syntax) : M Unit := elabCommand stx *> push stx
+def pushElab (stx : Syntax.Command) : M Unit := elabCommand stx *> push stx
 
 def modifyScope (f : Scope → Scope) : M Unit :=
   modify fun s => { s with current := f s.current }
@@ -581,11 +581,11 @@ def trNotationCmd (loc : LocalReserve) (attrs : Attributes) (nota : Notation)
   let n4 ← Elab.Command.withWeakNamespace (ns ++ (← getEnv).mainModule) $ do
     let n4 ← mkUnusedName nota.name4
     let nn ← `(Parser.Command.namedName| (name := $(mkIdent n4)))
-    try elabCommand (cmd (some nn) e).1
+    try elabCommand (cmd (some nn) e)
     catch e => dbg_trace "warning: failed to add syntax {repr n4}: {← e.toMessageData.toString}"
     pure $ (← getCurrNamespace) ++ n4
   printOutput s!"-- mathport name: {n}\n"
-  if ns == default then push (cmd none e).1
+  if ns == default then push (cmd none e)
   else pushM `(command| localized [$(← mkIdentR ns)] $(cmd none e))
   registerNotationEntry loc.1 ⟨n, n4, desc⟩
 
@@ -613,7 +613,7 @@ def trAttributeCmd (loc : Bool) (attrs : Attributes) (ns : Array (Spanned Name))
 def trCommand' : Command → M Unit
   | Command.initQuotient => pushM `(init_quot)
   | Command.mdoc doc =>
-    push $ mkNode ``Parser.Command.moduleDoc #[mkAtom "/-!", mkAtom (doc ++ "-/")]
+    push ⟨mkNode ``Parser.Command.moduleDoc #[mkAtom "/-!", mkAtom (doc ++ "-/")]⟩
   | Command.«universe» _ _ ns =>
     pushM `(universe $(ns.map fun n => mkIdent n.kind)*)
   | Command.«namespace» n => do

@@ -22,14 +22,14 @@ attribute [tr_tactic introI] trIntro
 attribute [tr_tactic introsI] trIntros
 attribute [tr_tactic exactI] trExact
 
-@[tr_tactic «haveI»] def trHaveI : TacM Syntax := do
+@[tr_tactic «haveI»] def trHaveI : TacM Syntax.Tactic := do
   let h := (← parse (ident)?).filter (· != `this) |>.map mkIdent
   let ty ← (← parse (tk ":" *> pExpr)?).mapM (trExpr ·)
   match ← parse (tk ":=" *> pExpr)? with
   | some pr => `(tactic| haveI $[$h:ident]? $[: $ty:term]? := $(← trExpr pr))
   | none => `(tactic| have $[$h:ident]? $[: $ty:term]?)
 
-@[tr_tactic «letI»] def trLetI : TacM Syntax := do
+@[tr_tactic «letI»] def trLetI : TacM Syntax.Tactic := do
   let h := (← parse (ident)?).filter (· != `this) |>.map mkIdent
   let ty ← (← parse (tk ":" *> pExpr)?).mapM (trExpr ·)
   match ← parse (tk ":=" *> pExpr)? with

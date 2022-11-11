@@ -13,7 +13,7 @@ open AST3 Parser
 
 -- # tactic.apply
 
-@[tr_tactic apply'] def trApply' : TacM Syntax := do
+@[tr_tactic apply'] def trApply' : TacM Syntax.Tactic := do
   `(tactic| apply $(← trExpr (← parse pExpr)))
 
 attribute [tr_tactic fapply'] trFApply
@@ -22,8 +22,8 @@ attribute [tr_tactic apply_with'] trApplyWith
 attribute [tr_tactic mapply'] trMApply
 attribute [tr_tactic reflexivity' refl'] trRefl
 
-@[tr_tactic symmetry'] def trSymmetry' : TacM Syntax := do
+@[tr_tactic symmetry'] def trSymmetry' : TacM Syntax.Tactic := do
   `(tactic| symm $(← trLoc (← parse location))?)
 
-@[tr_tactic transitivity'] def trTransitivity' : TacM Syntax := do
+@[tr_tactic transitivity'] def trTransitivity' : TacM Syntax.Tactic := do
   `(tactic| trans $[$(← liftM $ (← parse (pExpr)?).mapM trExpr)]?)

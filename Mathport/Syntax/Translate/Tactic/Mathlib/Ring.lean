@@ -12,7 +12,7 @@ namespace Mathport.Translate.Tactic
 open Parser
 
 -- # tactic.ring
-@[tr_tactic ring1 ring_exp_eq] def trRing1 : TacM Syntax := do
+@[tr_tactic ring1 ring_exp_eq] def trRing1 : TacM Syntax.Tactic := do
   match ← parse (tk "!")? with
   | none => `(tactic| ring1)
   | some _ => `(tactic| ring1!)
@@ -23,7 +23,7 @@ def trRingMode : Name → M (TSyntax ``Parser.Tactic.ringMode)
   | `raw => `(Parser.Tactic.ringMode| raw)
   | _ => warn! "bad ring mode" | `(Parser.Tactic.ringMode| horner)
 
-@[tr_tactic ring_nf] def trRingNF : TacM Syntax := do
+@[tr_tactic ring_nf] def trRingNF : TacM Syntax.Tactic := do
   let c ← parse (tk "!")?
   let mode ← liftM $ (← parse (ident)?).mapM trRingMode
   let loc ← trLoc (← parse location)
@@ -32,19 +32,19 @@ def trRingMode : Name → M (TSyntax ``Parser.Tactic.ringMode)
   | none => `(tactic| ring_nf $[(config := $cfg)]? $(mode)? $(loc)?)
   | some _ => `(tactic| ring_nf! $[(config := $cfg)]? $(mode)? $(loc)?)
 
-@[tr_tactic ring] def trRing : TacM Syntax := do
+@[tr_tactic ring] def trRing : TacM Syntax.Tactic := do
   match ← parse (tk "!")? with
   | none => `(tactic| ring)
   | some _ => `(tactic| ring!)
 
-@[tr_tactic ring_exp] def trRingExp : TacM Syntax := do
+@[tr_tactic ring_exp] def trRingExp : TacM Syntax.Tactic := do
   match ← parse (tk "!")?, ← trLoc (← parse location) with
   | none, none => `(tactic| ring)
   | some _, none => `(tactic| ring!)
   | none, some loc => `(tactic| ring_nf $loc:location)
   | some _, some loc => `(tactic| ring_nf! $loc:location)
 
-@[tr_conv ring_nf] def trRingNFConv : TacM Syntax := do
+@[tr_conv ring_nf] def trRingNFConv : TacM Syntax.Conv := do
   let c ← parse (tk "!")?
   let mode ← liftM $ (← parse (ident)?).mapM trRingMode
   let cfg ← liftM $ (← expr?).mapM trExpr
@@ -52,7 +52,7 @@ def trRingMode : Name → M (TSyntax ``Parser.Tactic.ringMode)
   | none => `(conv| ring_nf $[(config := $cfg)]? $(mode)?)
   | some _ => `(conv| ring_nf! $[(config := $cfg)]? $(mode)?)
 
-@[tr_conv ring ring_exp] def trRingConv : TacM Syntax := do
+@[tr_conv ring ring_exp] def trRingConv : TacM Syntax.Conv := do
   match ← parse (tk "!")? with
   | none => `(conv| ring)
   | some _ => `(conv| ring!)

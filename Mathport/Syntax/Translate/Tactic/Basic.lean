@@ -73,7 +73,7 @@ structure Parse1 (α) := run : TacM α
 def parse1 (p : Parser.ParserM α) (f : α → M β) : Parse1 β := ⟨do f (← parse p)⟩
 def parse0 (x : M α) : Parse1 α := parse1 (pure ()) fun _ => x
 
-def tagAttr (n : Name) : Parse1 Syntax := parse0 <| pure (mkSimpleAttr n)
+def tagAttr (n : Name) : Parse1 Syntax.Attr := parse0 <| pure (mkSimpleAttr n)
 
 def withNoMods (tac : Parse1 α) : Modifiers → Parse1 α
   | #[] => tac
@@ -87,12 +87,16 @@ def withDocString (tac : Option String → Parse1 α) : Modifiers → Parse1 α
   | _ => ⟨warn! "unsupported modifiers in user command" | (tac none).run⟩
 
 scoped instance : Coe (Option String → Parse1 α) (Modifiers → Parse1 α) := ⟨withDocString⟩
-scoped instance : Coe (α → Parse1 Syntax) (α → Parse1 Unit) :=
+scoped instance : Coe (α → Parse1 Syntax.Command) (α → Parse1 Unit) :=
   ⟨fun tac mods => ⟨do push (← (tac mods).run)⟩⟩
 
-abbrev NameExt := SimplePersistentEnvExtension (Name × Name) (NameMap Name)
+open Qq
+abbrev NameExt (_α : Q(Type)) :=
+  SimplePersistentEnvExtension (Name × Name) (NameMap Name)
 
-private def mkExt (attr : Name) (descr : String) (name : Name := by exact decl_name%) : IO NameExt := do
+open Meta Elab Term in
+private def mkExt (attr : Name) (descr : String)
+    (name : Name := by exact decl_name%) : IO (NameExt α) := do
   let addEntryFn m | (n3, n4) => m.insert n3 n4
   let ext ← registerSimplePersistentEnvExtension {
     name, addEntryFn
@@ -103,6 +107,7 @@ private def mkExt (attr : Name) (descr : String) (name : Name := by exact decl_n
     descr
     add := fun declName stx attrKind => do
       let s := ext.getState (← getEnv)
+      _ ← MetaM.run' <| TermElabM.run' <| Lean.Elab.Term.ensureHasType α (.const declName [])
       let ns ← stx[1].getArgs.mapM fun stx => do
         let n := stx.getId
         if s.contains n then throwErrorAt stx "translation for {n} already declared"
@@ -112,11 +117,11 @@ private def mkExt (attr : Name) (descr : String) (name : Name := by exact decl_n
   }
   pure ext
 
-private def mkElab (ext : NameExt) (ty : Lean.Expr) : Elab.Term.TermElabM Lean.Expr := do
+private def mkElab (ext : NameExt α) : Elab.Term.TermElabM Lean.Expr := do
   let mut stx := #[]
   for (n3, n4) in ext.getState (← getEnv) do
     stx := stx.push $ ← `(($(Quote.quote n3), $(mkIdent n4):ident))
-  Elab.Term.elabTerm (← `(#[$stx,*])) (some ty)
+  Elab.Term.elabTerm (← `(#[$stx,*])) q(Array (Name × $α))
 
 syntax (name := tr_tactic) "tr_tactic " ident+ : attr
 syntax (name := tr_ni_tactic) "tr_ni_tactic " ident+ : attr
@@ -125,16 +130,22 @@ syntax (name := tr_user_nota) "tr_user_nota " ident+ : attr
 syntax (name := tr_user_attr) "tr_user_attr " ident+ : attr
 syntax (name := tr_user_cmd) "tr_user_cmd " ident+ : attr
 
-initialize trTacExtension : NameExt ← mkExt `tr_tactic "lean 3 → 4 interactive tactic translation"
-initialize trNITacExtension : NameExt ← mkExt `tr_ni_tactic "lean 3 → 4 noninteractive tactic translation"
-initialize trConvExtension : NameExt ← mkExt `tr_conv "lean 3 → 4 interactive conv tactic translation"
-initialize trUserNotaExtension : NameExt ← mkExt `tr_user_nota "lean 3 → 4 user notation translation"
-initialize trUserAttrExtension : NameExt ← mkExt `tr_user_attr "lean 3 → 4 user attribute translation"
-initialize trUserCmdExtension : NameExt ← mkExt `tr_user_cmd "lean 3 → 4 user attribute translation"
+initialize trTacExtension : NameExt q(TacM Syntax.Tactic) ←
+  mkExt `tr_tactic "lean 3 → 4 interactive tactic translation"
+initialize trNITacExtension : NameExt q(AST3.Expr → M Syntax.Tactic) ←
+  mkExt `tr_ni_tactic "lean 3 → 4 noninteractive tactic translation"
+initialize trConvExtension : NameExt q(TacM Syntax.Conv) ←
+  mkExt `tr_conv "lean 3 → 4 interactive conv tactic translation"
+initialize trUserNotaExtension : NameExt q(TacM Syntax.Term) ←
+  mkExt `tr_user_nota "lean 3 → 4 user notation translation"
+initialize trUserAttrExtension : NameExt q(Parse1 Syntax.Attr) ←
+  mkExt `tr_user_attr "lean 3 → 4 user attribute translation"
+initialize trUserCmdExtension : NameExt q(Modifiers → Parse1 Unit) ←
+  mkExt `tr_user_cmd "lean 3 → 4 user attribute translation"
 
-elab "tr_tactics%" : term <= ty => mkElab trTacExtension ty
-elab "tr_ni_tactics%" : term <= ty => mkElab trNITacExtension ty
-elab "tr_convs%" : term <= ty => mkElab trConvExtension ty
-elab "tr_user_notas%" : term <= ty => mkElab trUserNotaExtension ty
-elab "tr_user_attrs%" : term <= ty => mkElab trUserAttrExtension ty
-elab "tr_user_cmds%" : term <= ty => mkElab trUserCmdExtension ty
+elab "tr_tactics%" : term => mkElab trTacExtension
+elab "tr_ni_tactics%" : term => mkElab trNITacExtension
+elab "tr_convs%" : term => mkElab trConvExtension
+elab "tr_user_notas%" : term => mkElab trUserNotaExtension
+elab "tr_user_attrs%" : term => mkElab trUserAttrExtension
+elab "tr_user_cmds%" : term => mkElab trUserCmdExtension

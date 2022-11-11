@@ -14,11 +14,11 @@ open AST3 Parser
 
 @[tr_user_attr hint_tactic] def trHintAttr := tagAttr `hint_tactic
 
-@[tr_user_cmd «add_hint_tactic»] def trAddHintTactic : Parse1 Syntax :=
+@[tr_user_cmd «add_hint_tactic»] def trAddHintTactic : Parse1 Syntax.Command :=
   parse1 (pExpr *> withInput pExpr) fun (e, _) => do
   let tac ← match e with
   | ⟨_, Expr.«`[]» tacs⟩ => trIdTactic ⟨false, none, none, tacs⟩
   | _ => warn! "unsupported (impossible)"
   `(command| add_hint_tactic $tac)
 
-@[tr_tactic hint] def trHint : TacM Syntax := `(tactic| hint)
+@[tr_tactic hint] def trHint : TacM Syntax.Tactic := `(tactic| hint)

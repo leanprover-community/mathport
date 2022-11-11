@@ -13,12 +13,12 @@ open AST3 Mathport.Translate.Parser
 
 -- # tactic.solve_by_elim
 
-@[tr_tactic apply_assumption] def trApplyAssumption : TacM Syntax := do
+@[tr_tactic apply_assumption] def trApplyAssumption : TacM Syntax.Tactic := do
   match ← expr?, ← expr?, ← expr? with
   | none, none, none => `(tactic| apply_assumption)
   | _, _, _ => warn! "unsupported: apply_assumption arguments" -- unattested
 
-@[tr_tactic solve_by_elim] def trSolveByElim : TacM Syntax := do
+@[tr_tactic solve_by_elim] def trSolveByElim : TacM Syntax.Tactic := do
   let star := optTk (← parse (tk "*")?).isSome
   let o := optTk (← parse onlyFlag)
   let hs ← trSimpArgs (← parse simpArgList)
