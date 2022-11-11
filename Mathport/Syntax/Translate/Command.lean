@@ -242,6 +242,8 @@ def trDeclId (n : Name) (us : LevelDecl) : M (Option Name × TSyntax ``Parser.Co
   let us := us.map $ Array.map fun u => mkIdent u.kind
   let orig := (← get).current.curNamespace ++ n
   let ((dubious, n4), id) ← renameIdentCore n #[orig]
+  if (← read).config.redundantAlign then
+    pushAlign orig n4
   let (n3, _) := Rename.getClashes (← getEnv) n4
   let mut msg := Format.nil
   let mut found := none

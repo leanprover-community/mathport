@@ -40,6 +40,7 @@ structure Config where
   skipDefEq          : Bool := true
   error2warning      : Bool := false
   replacementStyle   : ReplacementStyle := .comment
+  redundantAlign     : Bool := true
   deriving FromJson, Inhabited
 
 

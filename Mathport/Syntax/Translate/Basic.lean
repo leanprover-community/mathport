@@ -111,6 +111,7 @@ structure State where
   userAttrs : NameMap (Array (Spanned AST3.Param) → CommandElabM Syntax.Attr) := {}
   userCmds : NameMap (AST3.Modifiers → Array (Spanned AST3.Param) → CommandElabM Unit) := {}
   remainingComments : List Comment := {}
+  afterNextCommand : Array Syntax.Command := #[]
   deriving Inhabited
 
 def NotationEntries.insert (m : NotationEntries) : NotationData → NotationEntries
@@ -461,17 +462,25 @@ private def tryParenthesizeCommand (stx : Syntax) : CoreM <| Syntax × Format :=
     pure (stx,
       f!"/- failed to parenthesize: {← e.toMessageData.toString}\n{Format.joinSep traces "\n"}-/")
 
-def push (stx : Syntax.Command) : M Unit := do
+def commandToFmt (stx : Syntax.Command) : M Format := do
   let stx ← try (← read).transform stx catch ex =>
     warn! "failed to transform: {← ex.toMessageData.toString}" | pure stx
   let stx ← insertComments stx
-  let fmt ← liftCoreM $ do
+  liftCoreM $ do
     let (stx, parenthesizerErr) ← tryParenthesizeCommand stx
     pure $ parenthesizerErr ++ (←
       try Lean.PrettyPrinter.formatCommand stx
       catch e =>
         pure f!"-- failed to format: {← e.toMessageData.toString}\n{reprint stx}")
-  printOutput f!"{fmt}\n\n"
+
+def push (stx : Syntax.Command) : M Unit := do
+  if (← get).afterNextCommand.isEmpty then
+    printOutput f!"{← commandToFmt stx}\n\n"
+  else
+    printOutput f!"{← commandToFmt stx}\n"
+    for stx in ← modifyGet fun s => (s.afterNextCommand, { s with afterNextCommand := #[] }) do
+      printOutput f!"{← commandToFmt stx}\n"
+    printOutput f!"\n"
 
 def stripLastNewline : Format → Format
   | .append f₁ f₂ => .append f₁ (stripLastNewline f₂)
@@ -481,12 +490,16 @@ def stripLastNewline : Format → Format
 
 def pushM (stx : M Syntax.Command) : M Unit := stx >>= push
 
+def pushAlign (n3 n4 : Name) : M Unit := do
+  let stx ← `(command| #align $(mkIdent n3) $(mkIdent n4))
+  modify fun s => { s with afterNextCommand := s.afterNextCommand.push stx }
+
 def withReplacement (name : Option Name) (x : M Unit) : M Unit :=
   match name with
   | none => x
   | some n => do
     match (← read).config.replacementStyle with
-    | .skip => pure ()
+    | .skip => modify fun s => { s with afterNextCommand := #[] }
     | .comment =>
       printOutput f!"#print {n} /-\n"
       x
