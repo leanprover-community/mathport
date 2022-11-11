@@ -121,7 +121,7 @@ rm-tarballs:
 
 Oneshot/lean3-in/main.ast.json: Oneshot/lean3-in/*.lean
 	cd Oneshot/lean3-in && elan override set `cat ../../sources/mathlib/leanpkg.toml | grep lean_version | cut -d '"' -f2`
-	cd Oneshot/lean3-in && lean --make --recursive --ast --tlean .
+	cd Oneshot/lean3-in && lean --make --recursive --ast --tlean . || true
 
 Oneshot/lean4-in/build/lib/Oneshot.trace: Oneshot/lean4-in/*.lean
 	cd Oneshot/lean4-in && lake build
