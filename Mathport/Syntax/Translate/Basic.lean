@@ -461,7 +461,7 @@ private def tryParenthesizeCommand (stx : Syntax) : CoreM <| Syntax × Format :=
     pure (stx,
       f!"/- failed to parenthesize: {← e.toMessageData.toString}\n{Format.joinSep traces "\n"}-/")
 
-def push (stx : Syntax) : M Unit := do
+def push (stx : Syntax.Command) : M Unit := do
   let stx ← try (← read).transform stx catch ex =>
     warn! "failed to transform: {← ex.toMessageData.toString}" | pure stx
   let stx ← insertComments stx
@@ -479,7 +479,7 @@ def stripLastNewline : Format → Format
       let p := s.prev s.endPos; if s.get p == '\n' then s.extract 0 p else s
   | f => f
 
-def pushM (stx : M Syntax) : M Unit := stx >>= push
+def pushM (stx : M Syntax.Command) : M Unit := stx >>= push
 
 def withReplacement (name : Option Name) (x : M Unit) : M Unit :=
   match name with
