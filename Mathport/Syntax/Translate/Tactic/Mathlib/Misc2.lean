@@ -162,7 +162,8 @@ private def mkConfigStx (stx : Option Syntax) : M Syntax :=
 @[tr_tactic positivity] def trPositivity : TacM Syntax.Tactic := `(tactic| positivity)
 
 -- # tactic.compute_degree
-@[tr_tactic compute_degree] def trComputeDegree : TacM Syntax.Tactic := `(tactic| compute_degree)
+@[tr_tactic compute_degree_le] def trComputeDegreeLE : TacM Syntax.Tactic :=
+  `(tactic| compute_degree_le)
 
 -- # tactic.expand_exists
 @[tr_user_attr expand_exists] def trExpandExists : Parse1 Syntax.Attr :=

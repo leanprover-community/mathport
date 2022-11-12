@@ -30,21 +30,22 @@ def ParserM.run (p : ParserM α) (ctx : Context) : Except String α := do
 def next : ParserM (Spanned VMCall) := fun s i =>
   if h : i < s.arr.size then pure ((s.arr.get ⟨i, h⟩), i+1) else failure
 
-def ident : ParserM Name := do let ⟨_, VMCall.ident n⟩ ← next | failure; pure n
+def ident : ParserM Name := do let ⟨_, VMCall.ident n⟩ ← next | {failure}; pure n
 
-def smallNat : ParserM Nat := do let ⟨_, VMCall.nat n⟩ ← next | failure; pure n
+def smallNat : ParserM Nat := do let ⟨_, VMCall.nat n⟩ ← next | {failure}; pure n
 
 def pExpr : (pat :_:= false) → ParserM (Spanned Expr)
-  | false => do let ⟨m, VMCall.expr e⟩ ← next | failure; pure ⟨m, e⟩
-  | true => do let ⟨m, VMCall.pat e⟩ ← next | failure; pure ⟨m, e⟩
+  | false => do let ⟨m, VMCall.expr e⟩ ← next | {failure}; pure ⟨m, e⟩
+  | true => do let ⟨m, VMCall.pat e⟩ ← next | {failure}; pure ⟨m, e⟩
 
-def itactic : ParserM AST3.Block := do let ⟨_, VMCall.block bl⟩ ← next | failure; pure bl
+def itactic : ParserM AST3.Block := do let ⟨_, VMCall.block bl⟩ ← next | {failure}; pure bl
 
 def commandLike? : ParserM (Option (Spanned AST3.Command)) := do
-  let ⟨m, VMCall.command i⟩ ← next | failure; i.mapM fun i => return ⟨m, (← read).cmds[i]!⟩
+  let ⟨m, VMCall.command i⟩ ← next | failure
+  i.mapM fun i => return ⟨m, (← read).cmds[i]!⟩
 
 def commandLike : ParserM (Spanned AST3.Command) := do
-  let some i ← commandLike? | failure; pure i
+  let some i ← commandLike? | {failure}; pure i
 
 def skipAll : ParserM Unit := do set (← read).arr.size
 
@@ -105,7 +106,7 @@ def onlyFlag := (tk "only" *> pure true) <|> pure false
 
 def optTk (yes : Bool) : Option Syntax := if yes then some default else none
 
-def parseBinders : ParserM Binders := do let ⟨_, VMCall.binders bis⟩ ← next | failure; pure bis
+def parseBinders : ParserM Binders := do let ⟨_, VMCall.binders bis⟩ ← next | {failure}; pure bis
 
 def inductiveDecl : ParserM InductiveCmd := do
   let ⟨_, VMCall.inductive i⟩ ← next | failure

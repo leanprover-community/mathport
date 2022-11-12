@@ -17,20 +17,47 @@ open Parser
   | none => `(tactic| ring1)
   | some _ => `(tactic| ring1!)
 
-def trRingMode : Name → M (TSyntax ``Parser.Tactic.ringMode)
-  | `SOP => `(Parser.Tactic.ringMode| SOP)
-  | `horner => `(Parser.Tactic.ringMode| horner)
-  | `raw => `(Parser.Tactic.ringMode| raw)
-  | _ => warn! "bad ring mode" | `(Parser.Tactic.ringMode| horner)
+open Mathlib.Tactic.Ring
+def parseRingNFConfig : Option (Spanned AST3.Expr) → M RingNF.Config
+  | none
+  | some ⟨_, AST3.Expr.«{}»⟩ => pure {}
+  | some ⟨_, AST3.Expr.structInst _ none flds #[] false⟩ => do
+    let mut cfg : RingNF.Config := {}
+    for (⟨_, n⟩, e) in flds do
+      match n, e.kind with
+      | `recursive, e => cfg := parseSimpConfig.asBool e cfg fun cfg b => {cfg with recursive := b}
+      | _, _ => warn! "warning: unsupported ring_nf config option: {n}"
+    pure cfg
+  | some _ => warn! "warning: unsupported ring_nf config syntax" | pure {}
+
+instance : Quote RingMode where
+  quote x := Id.run `(.$(mkIdent <| match x with | .SOP => `SOP | .raw => `raw))
+
+open quoteSimpConfig (push)
+def quoteRingNFConfig (cfg : RingNF.Config) : Option Term := Id.run do
+  if cfg == {} then return none
+  --  `Quote Bool` fully qualifies true and false but we are trying to generate
+  --  the unqualified form here.
+  let _inst : Quote Bool := ⟨fun b => mkIdent (if b then `true else `false)⟩
+  let a := #[]
+    -- skip .red because this is handled by `!` (lean 3 can't write other red settings)
+    |> quoteSimpConfig.push cfg {} `recursive (·.recursive)
+    |> quoteSimpConfig.push cfg {} `mode (·.mode)
+  `({ $[$a:structInstField],* })
+
+def trRingMode : Option Name → M RingMode
+  | some `SOP | some `horner | none => pure .SOP
+  | some `raw => pure .raw
+  | some _ => warn! "bad ring mode" | pure .SOP
 
 @[tr_tactic ring_nf] def trRingNF : TacM Syntax.Tactic := do
   let c ← parse (tk "!")?
-  let mode ← liftM $ (← parse (ident)?).mapM trRingMode
+  let mode ← trRingMode (← parse (ident)?)
   let loc ← trLoc (← parse location)
-  let cfg ← liftM $ (← expr?).mapM trExpr
+  let cfg := quoteRingNFConfig { ← parseRingNFConfig (← expr?) with mode }
   match c with
-  | none => `(tactic| ring_nf $[(config := $cfg)]? $(mode)? $(loc)?)
-  | some _ => `(tactic| ring_nf! $[(config := $cfg)]? $(mode)? $(loc)?)
+  | none => `(tactic| ring_nf $[(config := $cfg)]? $(loc)?)
+  | some _ => `(tactic| ring_nf! $[(config := $cfg)]? $(loc)?)
 
 @[tr_tactic ring] def trRing : TacM Syntax.Tactic := do
   match ← parse (tk "!")? with
@@ -46,11 +73,11 @@ def trRingMode : Name → M (TSyntax ``Parser.Tactic.ringMode)
 
 @[tr_conv ring_nf] def trRingNFConv : TacM Syntax.Conv := do
   let c ← parse (tk "!")?
-  let mode ← liftM $ (← parse (ident)?).mapM trRingMode
-  let cfg ← liftM $ (← expr?).mapM trExpr
+  let mode ← trRingMode (← parse (ident)?)
+  let cfg := quoteRingNFConfig { ← parseRingNFConfig (← expr?) with mode }
   match c with
-  | none => `(conv| ring_nf $[(config := $cfg)]? $(mode)?)
-  | some _ => `(conv| ring_nf! $[(config := $cfg)]? $(mode)?)
+  | none => `(conv| ring_nf $[(config := $cfg)]?)
+  | some _ => `(conv| ring_nf! $[(config := $cfg)]?)
 
 @[tr_conv ring ring_exp] def trRingConv : TacM Syntax.Conv := do
   match ← parse (tk "!")? with

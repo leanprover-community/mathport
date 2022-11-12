@@ -25,7 +25,7 @@ open AST3 Parser
   warn! "unsupported: run_parser" -- unattested
 
 @[tr_ni_tactic tactic.classical] def trNIClassical (_ : AST3.Expr) : M Syntax.Tactic :=
-  `(tactic| classical)
+  return mkBlockTransform fun args => `(tactic| classical $args*)
 
 @[tr_user_attr higher_order] def trHigherOrderAttr : Parse1 Syntax.Attr :=
   parse1 (ident)? fun n => do

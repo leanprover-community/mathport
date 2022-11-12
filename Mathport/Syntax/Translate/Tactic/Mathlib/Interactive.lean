@@ -69,8 +69,8 @@ open AST3 Mathport.Translate.Parser
 
 @[tr_tactic classical] def trClassical : TacM Syntax.Tactic := do
   let force := (← parse (tk "!")?).isSome
-  if force then warn! "TODO classical! not yet supported"
-  `(tactic| classical)
+  if force then `(tactic| classical!)
+  else return mkBlockTransform fun args => `(tactic| classical $args*)
 
 @[tr_tactic generalize_hyp] def trGeneralizeHyp : TacM Syntax.Tactic := do
   let h := (← parse (ident)?).map mkIdent
