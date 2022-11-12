@@ -29,7 +29,7 @@ open AST3 Mathport.Translate.Parser
 @[tr_tactic unfold_aux] def trUnfoldAux : TacM Syntax.Tactic := `(tactic| unfold_aux)
 
 @[tr_tactic recover] def trRecover : TacM Syntax.Tactic :=
-  warn! "unsupported: recover tactic (now a combinator)"
+  return mkBlockTransform fun args => `(tactic| recover $args*)
 
 @[tr_tactic «continue»] def trContinue : TacM Syntax.Tactic := do
   `(tactic| continue $(← trBlock (← itactic)):tacticSeq)
