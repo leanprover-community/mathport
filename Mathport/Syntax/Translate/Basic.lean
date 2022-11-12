@@ -317,7 +317,7 @@ def trExprUnspanned (e : Expr) : M Term := do (← read).trExpr e
 def trExpr := spanningS trExprUnspanned
 
 def trTacticUnspanned (e : Tactic) : M Syntax.Tactic := do (← read).trTactic e
-def trTactic := spanningS trTacticUnspanned
+def trTacticRaw := spanningS trTacticUnspanned
 
 def trCommandUnspanned (e : Command) : M Unit := do (← read).trCommand e
 def trCommand := spanning trCommandUnspanned
@@ -546,11 +546,36 @@ def optTy (ty : Option Term) : M (Option (TSyntax ``Parser.Term.typeSpec)) :=
 def trCalcArg : Spanned Expr × Spanned Expr → M (TSyntax ``calcStep)
   | (lhs, rhs) => do `(calcStep| $(← trExpr lhs) := $(← trExpr rhs))
 
+def blockTransform : SyntaxNodeKind := decl_name%
+
+def mkBlockTransform (f : Array Syntax.Tactic → Id Syntax.Tactic) : Syntax.Tactic :=
+  ⟨mkNode blockTransform #[Id.run (f #[])]⟩
+
+partial def processBlockTransforms (tacs : Array Syntax.Tactic) : Array Syntax.Tactic :=
+  if let some i := tacs.findIdx? fun stx => stx.raw.getKind == blockTransform then
+    let (left, right) := tacs.splitAt (i + 1)
+    let right := processBlockTransforms right
+    let right := if right.isEmpty then #[Id.run `(tactic| skip)] else right
+    let block := left.back.raw[0]
+    let left := left.pop
+    -- assumes that the block tactic has the form `syntax "foo" tacticSeq : tactic`
+    let block := block.modifyArg 1 (·.modifyArg 0 (·.modifyArg 0 (·.setArgs right)))
+    left.push ⟨block⟩
+  else tacs
+
+def processBlockTransform (tac : Syntax.Tactic) : Syntax.Tactic :=
+  if tac.raw.getKind == blockTransform then
+    ⟨tac.raw[0].setArgs #[Id.run `(tactic| skip)]⟩
+  else tac
+
+def trTactic (tac : Spanned Tactic) : M (TSyntax `tactic) :=
+  processBlockTransform <$> trTacticRaw tac
+
 partial def trBlock : Block → M (TSyntax ``Parser.Tactic.tacticSeq)
   | ⟨_, none, none, #[]⟩ => do `(Parser.Tactic.tacticSeq| {})
   | ⟨_, none, none, tacs⟩ =>
     return mkNode ``Parser.Tactic.tacticSeq #[mkNode ``Parser.Tactic.tacticSeq1Indented #[
-      mkNullNode.mkSep $ ← tacs.mapM trTactic]]
+      mkNullNode.mkSep $ processBlockTransforms $ ← tacs.mapM trTacticRaw]]
   | ⟨_, _cl, _cfg, _tacs⟩ => warn! "unsupported (TODO): block with cfg"
 
 partial def trIdTactic : Block → M Syntax.Tactic
