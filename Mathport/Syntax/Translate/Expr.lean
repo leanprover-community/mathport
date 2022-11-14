@@ -249,6 +249,7 @@ partial def trLevel : Level → M Syntax.Level
   | Level.param u => pure $ mkIdent u
   | Level.paren l => trLevel l.kind -- do `(level| ($(← trLevel l.kind)))
 
+open Qq in
 def trExpr' : Expr → M Term
   | Expr.«...» => `(_)
   | Expr.sorry => `(sorry)
@@ -324,10 +325,10 @@ def trExpr' : Expr → M Term
       warn! "unsupported (impossible)"
   | Expr.«@» _ e => do `(@$(← trExpr e))
   | Expr.pattern e => trExpr e
-  | Expr.«`()» _ true e => do `(quote $(← trExpr e))
-  | Expr.«`()» false false e => do `(pquote $(← trExpr e))
-  | Expr.«`()» true false e => do `(ppquote $(← trExpr e))
-  | Expr.«%%» e => do `(%%ₓ$(← trExpr e))
+  | Expr.«`()» _ true e => do `(q($(← trExpr e)))
+  | Expr.«`()» false false e => do `(``($(← trExpr e)))
+  | Expr.«`()» true false e => do `(`($(← trExpr e)))
+  | Expr.«%%» e => do `($$($(← trExpr e)))
   | Expr.«`[]» _tacs => do
     warn! "warning: unsupported (TODO): `[tacs]"
     `(sorry)
