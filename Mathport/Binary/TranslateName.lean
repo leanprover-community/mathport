@@ -47,6 +47,7 @@ def translateSuffix (s : String) (eKind : ExprKind) : BinportM String :=
     | ExprKind.eProof => s
 
 partial def mkCandidateLean4NameForKind (n3 : Name) (eKind : ExprKind) : BinportM Name := do
+  if let some n4 ← lookupNameExt n3 then return n4
   if n3.isStr && n3.getString! == `_main then mkCandidateLean4NameForKind n3.getPrefix eKind else
     let pfix4 ← translatePrefix n3.getPrefix
     match n3 with
@@ -59,13 +60,11 @@ def getExprKind (type : Expr) : MetaM ExprKind := do
   if ← try returnsSort type catch _ => pure false then return ExprKind.eSort
   return ExprKind.eDef
 where
-  returnsSort (type : Expr) : MetaM Bool := withTransparency TransparencyMode.all do
-    forallTelescopeReducing type fun _ b => pure $ b matches Expr.sort ..
+  returnsSort (type : Expr) : MetaM Bool :=
+    forallTelescope type fun _ b => pure $ b matches Expr.sort ..
 
 def mkCandidateLean4Name (n3 : Name) (type : Expr) : BinportM Name := do
-  match ← lookupNameExt n3 with
-  | none => mkCandidateLean4NameForKind n3 (← liftMetaM <| getExprKind type)
-  | some n4 => pure n4
+  mkCandidateLean4NameForKind n3 (← liftMetaM <| getExprKind type)
 
 inductive ClashKind
   | found (msg : String) : ClashKind

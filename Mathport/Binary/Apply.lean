@@ -272,7 +272,7 @@ def applyInstance (_nc ni : Name) (prio : Nat) : BinportM Unit := do
   if (← read).config.disabledInstances.contains ni then return ()
   try
     liftMetaM $ addInstance (← lookupNameExt! ni) AttributeKind.global prio
-    setAttr { name := `inferTCGoalsRL } (← lookupNameExt! ni)
+    setAttr { name := `infer_tc_goals_rl } (← lookupNameExt! ni)
   catch ex => warn ex
 
 def applyAxiomVal (ax : AxiomVal) : BinportM Unit := do
