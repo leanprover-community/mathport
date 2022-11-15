@@ -59,7 +59,7 @@ jobs:
           echo $TAG > Outputs/oleans/leanbin/predata-tag
           echo $TAG > Outputs/oleans/mathbin/predata-tag
           cp sources/lean/library/upstream-rev Outputs/oleans/leanbin/
-          cp sources/mathlib/library/upstream-rev Outputs/oleans/mathbin/
+          cp sources/mathlib/upstream-rev Outputs/oleans/mathbin/
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
