@@ -72,14 +72,14 @@ lean3-predata: lean3-source
 	find sources/lean/library -name "*.olean" -delete # ast only exported when oleans not present
 	cd sources/lean && elan override set `cat ../mathlib/leanpkg.toml | grep lean_version | cut -d '"' -f2`
 	cd sources/lean && lean $(LEAN3_OPTS) --make --recursive --ast --tlean library
-	cd sources/lean/library && git rev-parse HEAD > rev
+	cd sources/lean/library && git rev-parse HEAD > upstream-rev
 
 # Build .ast and .tlean files for Mathlib 3.
 mathbin-predata: mathbin-source
 	find sources/mathlib -name "*.olean" -delete # ast only exported when oleans not present
 	# By changing into the directory, `elan` automatically dispatches to the correct binary.
 	cd sources/mathlib && lean $(LEAN3_OPTS) --make --recursive --ast --tlean src
-	cd sources/mathlib && git rev-parse HEAD > rev
+	cd sources/mathlib && git rev-parse HEAD > upstream-rev
 
 predata: lean3-predata mathbin-predata
 
@@ -101,8 +101,8 @@ port-mathbin: port-lean
 port: port-lean port-mathbin
 
 predata-tarballs:
-	find sources/lean/library/ -name "*.ast.json" -o -name "*.tlean" | tar -czvf lean3-predata.tar.gz -T -
-	find sources/mathlib/ -name "*.ast.json" -o -name "*.tlean" | tar -czvf mathlib3-predata.tar.gz -T -
+	find sources/lean/library/ -name "*.ast.json" -o -name "*.tlean" -o -name upstream-rev | tar -czvf lean3-predata.tar.gz -T -
+	find sources/mathlib/ -name "*.ast.json" -o -name "*.tlean" -o -name upstream-rev | tar -czvf mathlib3-predata.tar.gz -T -
 
 mathport-tarballs:
 	mkdir -p Outputs/src/leanbin Outputs/src/mathbin Outputs/oleans/leanbin Outputs/oleans/mathbin
