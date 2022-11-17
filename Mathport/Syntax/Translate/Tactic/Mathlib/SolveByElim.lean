@@ -14,7 +14,7 @@ open AST3 Mathport.Translate.Parser
 -- # tactic.solve_by_elim
 
 @[tr_tactic apply_assumption] def trApplyAssumption : TacM Syntax.Tactic := do
-  match ← expr?, ← expr?, ← expr? with
+  match ← parse (pExprList)?, ← expr?, ← expr? with
   | none, none, none => `(tactic| apply_assumption)
   | _, _, _ => warn! "unsupported: apply_assumption arguments" -- unattested
 

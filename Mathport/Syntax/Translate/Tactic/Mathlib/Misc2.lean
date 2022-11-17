@@ -76,6 +76,8 @@ def parseLinearComboConfig : Option (Spanned AST3.Expr) → M (Option Syntax.Tac
 @[tr_tactic fin_cases] def trFinCases : TacM Syntax.Tactic := do
   let hyp ← parse $ (tk "*" *> pure none) <|> (some <$> ident)
   let w ← liftM $ (← parse (tk "with" *> pExpr)?).mapM trExpr
+  if let some u ← parse (tk "using" *> ident)? then
+    warn! "warning: unsupported fin_cases 'using {u}' clause"
   match hyp with
   | none => `(tactic| fin_cases * $[with $w]?)
   | some h => `(tactic| fin_cases $(mkIdent h):ident $[with $w]?)

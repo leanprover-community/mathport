@@ -568,7 +568,8 @@ partial def processBlockTransforms (tacs : Array Syntax.Tactic) : Array Syntax.T
   if let some i := tacs.findIdx? fun stx => stx.raw.getKind == blockTransform then
     let (left, right) := tacs.splitAt (i + 1)
     let right := processBlockTransforms right
-    let right := if right.isEmpty then #[Id.run `(tactic| skip)] else right
+    let right : Array Syntax :=
+      if right.isEmpty then #[Id.run `(tactic| skip)] else mkSepArray right mkNullNode
     let block := left.back.raw[0]
     let left := left.pop
     -- assumes that the block tactic has the form `syntax "foo" tacticSeq : tactic`

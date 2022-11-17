@@ -44,7 +44,7 @@ def trInterpolatedStr' := trInterpolatedStr fun stx => `(← $stx)
   `(f! $(← trInterpolatedStr'))
 
 @[tr_user_nota tactic.fail_macro] def trFailMacro : TacM Syntax.Term := do
-  `(throwError $(← trInterpolatedStr'))
+  let stx ← trInterpolatedStr'; `(throwError $stx)
 
 @[tr_user_nota tactic.trace_macro] def trTraceMacro : TacM Syntax.Term := do
   let stx ← trInterpolatedStr'; `(← do dbg_trace $stx)
