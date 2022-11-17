@@ -34,8 +34,8 @@ open AST3 Parser
 @[tr_user_attr interactive] def trInteractiveAttr : Parse1 Syntax.Attr :=
   parse0 `(attr| interactive)
 
-@[tr_user_cmd «setup_tactic_parser»] def trSetupTacticParser : Parse1 Syntax.Command :=
-  parse1 emittedCodeHere fun _ => `(command| setup_tactic_parser)
+@[tr_user_cmd «setup_tactic_parser»] def trSetupTacticParser : Parse1 Unit :=
+  parse1 emittedCodeHere fun _ => warn! "unsupported: setup_tactic_parser"
 
 open TSyntax.Compat in
 def trInterpolatedStr' := trInterpolatedStr fun stx => `(← $stx)

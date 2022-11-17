@@ -29,8 +29,10 @@ mathport_rules
     | `(funBinder| {$vs* : $ty}) => `(letIdBinder| {$vs* : $ty})
     | `(funBinder| [$[$v :]? $ty]) => `(letIdBinder| [$[$v :]? $ty])
     | `(funBinder| $x:ident) => `(letIdBinder| $x:ident)
-    | `(funBinder| ($v1 $vs* $[: $ty]?)) => do
+    | `(funBinder| ($v1 $vs* : $(ty)?)) => do
       `(letIdBinder| ($(← ofTerm v1) $(← vs.mapM ofTerm)* $[: $ty]?))
+    | `(funBinder| ($v1 $vs*)) => do
+      `(letIdBinder| ($(← ofTerm v1) $(← vs.mapM ofTerm)*))
     | `(funBinder| _) => `(letIdBinder| _)
     | _ => throwUnsupported
     `(letDecl| $id:ident $(xs ++ ys)* := $val:term)

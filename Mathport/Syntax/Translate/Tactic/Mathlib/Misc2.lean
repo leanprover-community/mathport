@@ -39,10 +39,26 @@ open TSyntax.Compat in
 private def mkConfigStx (stx : Option Syntax) : M Syntax :=
   mkOpt stx fun stx => `(Lean.Parser.Tactic.config| (config := $stx))
 
+open Mathlib.Tactic.LinearCombination in
+def parseLinearComboConfig : Option (Spanned AST3.Expr) → M (Option Syntax.Tactic)
+  | none => pure none
+  | some ⟨_, AST3.Expr.«{}»⟩ => pure none
+  | some ⟨_, AST3.Expr.structInst _ none flds #[] false⟩ => do
+    let mut normalize := true
+    let mut norm? := none
+    for (⟨_, n⟩, e) in flds do
+      match n, e.kind with
+      | `normalize, e => normalize := parseSimpConfig.asBool e normalize fun _ b => b
+      | `normalization_tactic, _ =>
+        norm? ← Translate.trTactic (Spanned.dummy <| Tactic.expr e)
+      | _, _ => warn! "warning: unsupported linear_combination config option: {n}"
+    pure <| if normalize then norm? else some (← `(tactic| skip))
+  | some _ => warn! "warning: unsupported linear_combination config syntax" | pure none
+
 -- # tactic.linear_combination
 @[tr_tactic linear_combination] def trLinearCombination : TacM Syntax.Tactic := do
   let e ← liftM $ (← parse (pExpr)? <* parse (tk "with")?).mapM trExpr
-  `(tactic| linear_combination $[(config := $(← liftM $ (← expr?).mapM trExpr))]? $[$e]?)
+  `(tactic| linear_combination $[(norm := $(← parseLinearComboConfig (← expr?)))]? $[$e]?)
 
 -- # tactic.noncomm_ring
 @[tr_tactic noncomm_ring] def trNoncommRing : TacM Syntax.Tactic := `(tactic| noncomm_ring)

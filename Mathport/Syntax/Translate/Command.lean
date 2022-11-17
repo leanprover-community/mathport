@@ -104,10 +104,10 @@ def trAttr (_prio : Option Expr) : Attribute → M (Option TrAttr)
       return none
     pure $ TrAttr.add attr
 
-def trAttrKind : AttributeKind → M Syntax
-  | AttributeKind.global => `(Parser.Term.attrKind|)
-  | AttributeKind.scoped => `(Parser.Term.attrKind| scoped)
-  | AttributeKind.local => `(Parser.Term.attrKind| local)
+def trAttrKind : AttributeKind → M (TSyntax ``Parser.Term.attrKind)
+  | .global => `(Parser.Term.attrKind|)
+  | .scoped => `(Parser.Term.attrKind| scoped)
+  | .local => `(Parser.Term.attrKind| local)
 
 structure SpecialAttrs where
   prio : Option AST3.Expr := none
@@ -118,13 +118,13 @@ structure SpecialAttrs where
 def AttrState := SpecialAttrs × Array Syntax.EraseOrAttrInstance
 
 def trAttrInstance (attr : Attribute) (allowDel := false)
-  (kind : AttributeKind := AttributeKind.global) : StateT AttrState M Unit := do
+  (kind : AttributeKind := .global) : StateT AttrState M Unit := do
   match ← trAttr (← get).1.prio attr with
   | some (TrAttr.del stx) => do
     unless allowDel do warn! "unsupported (impossible)"
     modify fun s => { s with 2 := s.2.push stx }
   | some (TrAttr.add stx) => do
-    let stx := mkNode ``Parser.Term.attrInstance #[← trAttrKind kind, stx]
+    let stx ← `(Parser.Term.attrInstance| $(← trAttrKind kind) $stx)
     modify fun s => { s with 2 := s.2.push stx }
   | some (TrAttr.prio prio) => modify fun s => { s with 1.prio := prio }
   | some TrAttr.parsingOnly => modify fun s => { s with 1.parsingOnly := true }
@@ -133,7 +133,7 @@ def trAttrInstance (attr : Attribute) (allowDel := false)
   | none => pure ()
 
 def trAttributes (attrs : Attributes) (allowDel := false)
-  (kind : AttributeKind := AttributeKind.global) : StateT AttrState M Unit :=
+  (kind : AttributeKind := .global) : StateT AttrState M Unit :=
   attrs.forM fun attr => trAttrInstance attr.kind allowDel kind
 
 structure Modifiers4 where
@@ -153,21 +153,21 @@ where
 
   trModifier (s : Modifiers4) (m : Spanned Modifier) : M Modifiers4 :=
     match m.kind with
-    | Modifier.private => match s.vis with
-      | Visibility.regular => pure { s with vis := Visibility.private }
+    | .private => match s.vis with
+      | .regular => pure { s with vis := .private }
       | _ => throw! "unsupported (impossible)"
-    | Modifier.protected => match s.vis with
-      | Visibility.regular => pure { s with vis := Visibility.protected }
+    | .protected => match s.vis with
+      | .regular => pure { s with vis := .protected }
       | _ => throw! "unsupported (impossible)"
-    | Modifier.noncomputable => match s.noncomputable with
+    | .noncomputable => match s.noncomputable with
       | none => pure { s with «noncomputable» := some () }
       | _ => throw! "unsupported (impossible)"
-    | Modifier.meta => match s.safety with
-      | DefinitionSafety.safe => pure { s with safety := DefinitionSafety.unsafe }
+    | .meta => match s.safety with
+      | .safe => pure { s with safety := .unsafe }
       | _ => throw! "unsupported (impossible)"
-    | Modifier.mutual => pure s -- mutual is duplicated elsewhere in the grammar
-    | Modifier.attr loc _ attrs => trAttrs attrs (if loc then .local else .global) s
-    | Modifier.doc doc => match s.docComment with
+    | .mutual => pure s -- mutual is duplicated elsewhere in the grammar
+    | .attr loc _ attrs => trAttrs attrs (if loc then .local else .global) s
+    | .doc doc => match s.docComment with
       | none => pure { s with docComment := some doc }
       | _ => throw! "unsupported (impossible)"
   toSyntax : Modifiers4 → M (SpecialAttrs × TSyntax ``Parser.Command.declModifiers)
@@ -186,7 +186,7 @@ where
       | .partial => some <$> `(Parser.Command.partial| partial)
       | _ => pure none
     let uns ← match safety with
-      | DefinitionSafety.unsafe => some <$> `(Parser.Command.unsafe| unsafe)
+      | .unsafe => some <$> `(Parser.Command.unsafe| unsafe)
       | _ => pure none
     return (s, ← `(Parser.Command.declModifiersF|
       $[$doc]? $[$attrs]? $[$vis]? $[$nc]? $[$uns]? $[$part]?))
@@ -207,9 +207,9 @@ def trOpenCmd (ops : Array Open) : M Unit := do
         let mut hides := #[]
         for c in clauses do
           match c.kind with
-          | OpenClause.explicit ns => explicit := explicit ++ ns
-          | OpenClause.renaming ns => renames := renames ++ ns
-          | OpenClause.hiding ns => hides := hides ++ ns
+          | .explicit ns => explicit := explicit ++ ns
+          | .renaming ns => renames := renames ++ ns
+          | .hiding ns => hides := hides ++ ns
         match explicit.isEmpty, renames.isEmpty, hides.isEmpty with
         | true, true, true => pure ()
         | false, true, true =>
@@ -232,7 +232,7 @@ def trExportCmd : Open → M Unit
     let mut args := #[]
     for c in clauses do
       match c.kind with
-      | OpenClause.explicit ns =>
+      | .explicit ns =>
         for n in ns do args := args.push (← mkIdentF n.kind)
       | _ => warn! "unsupported: advanced export style"
     pushElab $ ← `(export $(← mkIdentN tgt.kind):ident ($args*))
@@ -536,28 +536,28 @@ private def trNotation3 (kind : TSyntax ``Parser.Term.attrKind)
   pure fun n e =>
     `($kind:attrKind notation3$[:$p]? $[$n:namedName]? $[$prio:namedPrio]? $lits* => $e)
 
-def trNotationCmd (loc : LocalReserve) (attrs : Attributes) (nota : Notation)
-  (ns : Name) : M Unit := do
-  let (s, attrs) := (← trAttributes attrs false AttributeKind.global |>.run ({}, #[])).2
+def trNotationCmd (kind : AttributeKind) (res : Bool) (attrs : Attributes) (nota : Notation)
+  (ns : Option Name := none) : M Unit := do
+  let (s, attrs) := (← trAttributes attrs false .global |>.run ({}, #[])).2
   unless s.derive.isEmpty do warn! "unsupported: @[derive] notation"
   unless attrs.isEmpty do warn! "unsupported (impossible)"
-  if loc.2 then
+  if res then
     match nota with
     | Notation.mixfix m _ (tk, some prec) _ =>
       registerPrecedenceEntry tk.kind.toString m (← trPrec prec.kind)
     | _ => warn! "warning: suppressing unsupported reserve notation"
     return
-  let kind ← if loc.1 then `(Parser.Term.attrKind| local) else `(Parser.Term.attrKind|)
   let n := nota.name3
   let skip : Bool := match ← getNotationEntry? n with
   | some ⟨_, _, _, skip⟩ => skip
   | none => false
-  if skip && !loc.1 then return
+  if skip && kind == .local then return
   let prio ← s.prio.mapM fun prio => do
     `(Parser.Command.namedPrio| (priority := $(← trPrio prio)))
+  let kindStx ← trAttrKind kind
   let (e, desc, cmd) ← match nota with
   | Notation.mixfix m _ (tk, prec) (some e) =>
-    pure (e, ← trMixfix kind prio m tk.kind.toString prec)
+    pure (e, ← trMixfix kindStx prio m tk.kind.toString prec)
   | Notation.notation _ lits (some e) =>
     let p := match lits.get? 0 with
     | some ⟨_, AST3.Literal.sym tk⟩ => tk.2
@@ -575,21 +575,25 @@ def trNotationCmd (loc : LocalReserve) (attrs : Attributes) (nota : Notation)
       | some lits => NotationDesc.nary lits
       | none => NotationDesc.fail
     let cmd ← match lits.all fun lit => isIdentPrec lit.kind with
-    | true => trNotation4 kind prio p lits
-    | false => trNotation3 kind prio p lits
+    | true => trNotation4 kindStx prio p lits
+    | false => trNotation3 kindStx prio p lits
     pure (e, desc, cmd)
   | _ => warn! "unsupported (impossible)" | default
   let e ← trExpr e
-  let n4 ← Elab.Command.withWeakNamespace (ns ++ (← getEnv).mainModule) $ do
+  let ns' := match ns with
+  | none => .anonymous
+  | some ns => rootNamespace ++ ns
+  let n4 ← Elab.Command.withWeakNamespace (ns' ++ (← getEnv).mainModule) $ do
     let n4 ← mkUnusedName nota.name4
     let nn ← `(Parser.Command.namedName| (name := $(mkIdent n4)))
     try elabCommand (cmd (some nn) e)
     catch e => dbg_trace "warning: failed to add syntax {repr n4}: {← e.toMessageData.toString}"
     pure $ (← getCurrNamespace) ++ n4
   printOutput s!"-- mathport name: {n}\n"
-  if ns == default then push (cmd none e)
-  else pushM `(command| localized [$(← mkIdentR ns)] $(cmd none e))
-  registerNotationEntry loc.1 ⟨n, n4, desc⟩
+  if let some ns := ns then
+    pushM `(command| scoped[$(← mkIdentR ns)] $(cmd none e))
+  else push (cmd none e)
+  registerNotationEntry (kind == .local) ⟨n, n4, desc⟩
 
 end
 
@@ -601,10 +605,9 @@ def trInductiveCmd : InductiveCmd → M Unit
     trMutual inds fun ⟨attrs, n, ty, intros⟩ => do
       trInductive cl mods attrs n us bis ty nota intros
 
-def trAttributeCmd (loc : Bool) (attrs : Attributes) (ns : Array (Spanned Name))
+def trAttributeCmd (kind : AttributeKind) (attrs : Attributes) (ns : Array (Spanned Name))
     (f : Syntax.Command → Syntax.Command) : M Unit := do
   if ns.isEmpty then return ()
-  let kind := if loc then AttributeKind.local else AttributeKind.global
   let (s, attrs) := (← trAttributes attrs true kind |>.run ({}, #[])).2
   let ns ← ns.mapM fun n => mkIdentI n.kind
   unless s.derive.isEmpty do
@@ -646,9 +649,11 @@ def trCommand' : Command → M Unit
   | Command.inductive ind => trInductiveCmd ind
   | Command.structure cl mods n us bis exts ty m flds =>
     trStructure cl mods n us bis exts ty m flds
-  | Command.attribute loc _ attrs ns => trAttributeCmd loc attrs ns id
+  | Command.attribute loc _ attrs ns =>
+    trAttributeCmd (if loc then .local else .global) attrs ns id
   | Command.precedence .. => warn! "warning: unsupported: precedence command"
-  | Command.notation loc attrs n => trNotationCmd loc attrs n default
+  | Command.notation (loc, res) attrs n =>
+    trNotationCmd (if loc then .local else .global) res attrs n
   | Command.open true ops => ops.forM trExportCmd
   | Command.open false ops => trOpenCmd ops
   | Command.include true ops => unless ops.isEmpty do

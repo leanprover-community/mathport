@@ -9,7 +9,7 @@ import Mathport.Syntax.Translate.Tactic.Lean3
 open Lean
 
 namespace Mathport.Translate.Tactic
-open Parser
+open Parser Mathlib.Tactic
 
 -- # tactic.ring
 @[tr_tactic ring1 ring_exp_eq] def trRing1 : TacM Syntax.Tactic := do
@@ -17,7 +17,6 @@ open Parser
   | none => `(tactic| ring1)
   | some _ => `(tactic| ring1!)
 
-open Mathlib.Tactic.Ring
 def parseRingNFConfig : Option (Spanned AST3.Expr) → M RingNF.Config
   | none
   | some ⟨_, AST3.Expr.«{}»⟩ => pure {}
@@ -30,7 +29,7 @@ def parseRingNFConfig : Option (Spanned AST3.Expr) → M RingNF.Config
     pure cfg
   | some _ => warn! "warning: unsupported ring_nf config syntax" | pure {}
 
-instance : Quote RingMode where
+instance : Quote RingNF.RingMode where
   quote x := Id.run `(.$(mkIdent <| match x with | .SOP => `SOP | .raw => `raw))
 
 open quoteSimpConfig (push)
@@ -45,7 +44,7 @@ def quoteRingNFConfig (cfg : RingNF.Config) : Option Term := Id.run do
     |> quoteSimpConfig.push cfg {} `mode (·.mode)
   `({ $[$a:structInstField],* })
 
-def trRingMode : Option Name → M RingMode
+def trRingMode : Option Name → M RingNF.RingMode
   | some `SOP | some `horner | none => pure .SOP
   | some `raw => pure .raw
   | some _ => warn! "bad ring mode" | pure .SOP

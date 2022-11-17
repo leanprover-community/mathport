@@ -96,7 +96,8 @@ def opt (f : AstId → M α) (i : AstId) : M (Option α) :=
 def getRaw (i : AstId) : M RawNode3 := do
   match (← read).ast[i]! with
   | some a => pure a
-  | none => throw $ if i = 0 then "unexpected null node" else "missing node"
+  | none => dbgStackTrace fun _ =>
+    throw $ if i = 0 then "unexpected null node" else "missing node"
 
 def withNodeK (f : String → Name → Array AstId → M α) (i : AstId) : M α := do
   let r ← getRaw i

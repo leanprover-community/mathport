@@ -16,7 +16,7 @@ open AST3 Parser
 @[tr_user_cmd «copy_doc_string»] def trCopyDocString : Parse1 Unit :=
   parse1 (return (← ident, ← tk "->" *> ident*)) fun (fr, to_) => do
   unless to_.isEmpty do
-    pushM `(command| copy_doc_string $(← mkIdentI fr) → $(← liftM $ to_.mapM mkIdentI)*)
+    pushM `(command| attribute [inherit_doc $(← mkIdentI fr)] $(← liftM $ to_.mapM mkIdentI)*)
 
 @[tr_user_cmd «library_note»] def trLibraryNote (doc : Option String) : Parse1 Syntax.Command :=
   parse1 pExpr fun e => do
