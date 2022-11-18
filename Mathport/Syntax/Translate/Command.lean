@@ -322,10 +322,8 @@ def trInductive (cl : Bool) (mods : Modifiers) (attrs : Attributes)
   unless nota.isNone do warn! "unsupported: (notation) in inductive"
   let ctors ← intros.mapM fun ⟨m, ⟨doc, name, ik, bis, ty⟩⟩ => withSpanS m do
     if let some ik := ik then warn! "infer kinds are unsupported in Lean 4: {name.2} {ik}"
-    `(ctor| |
-      $[$(doc.map trDocComment):docComment]?
-      $(← mkIdentI name.kind):ident
-      $(← trOptDeclSig bis ty):optDeclSig)
+    `(ctor| $[$(doc.map trDocComment):docComment]?
+      | $(← mkIdentI name.kind):ident $(← trOptDeclSig bis ty):optDeclSig)
   let ds ← trOptDeriving s.derive
   match cl with
   | true => `($mods:declModifiers class inductive
