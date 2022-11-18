@@ -537,7 +537,7 @@ def trNotationCmd (kind : AttributeKind) (res : Bool) (attrs : Attributes) (nota
   let skip : Bool := match ← getNotationEntry? n with
   | some ⟨_, _, _, skip⟩ => skip
   | none => false
-  if skip && kind == .local then return
+  if skip && kind != .local then return
   let prio ← s.prio.mapM fun prio => do `(namedPrio| (priority := $(← trPrio prio)))
   let kindStx ← trAttrKind kind
   let (e, desc, cmd) ← match nota with
