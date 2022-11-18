@@ -202,7 +202,7 @@ def trRwArgs : TacM (Array (TSyntax ``Parser.Tactic.rwRule) × Option (TSyntax `
 @[tr_tactic admit «sorry»] def trSorry : TacM Syntax.Tactic := do
   match ← parse (Parser.itactic)? with
   | none => `(tactic| sorry)
-  | some bl => `(tactic| sorry <;> ($(← trBlock bl):tacticSeq)) -- TODO: add sorry =>
+  | some bl => `(tactic| stop $(← trBlock bl):tacticSeq)
 
 @[tr_tactic contradiction] def trContradiction : TacM Syntax.Tactic := `(tactic| contradiction)
 
