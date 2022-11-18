@@ -577,8 +577,9 @@ inductive Command
   | «axiom» : AxiomKind → Modifiers → #Name → LevelDecl → Binders → #Expr → Command
   | «axioms» : AxiomKind → Modifiers → Binders → Command
   | decl : DeclKind → Modifiers → Option #Name →
-    LevelDecl → Binders → (ty : Option #Expr) → #DeclVal → Command
-  | mutualDecl : DeclKind → Modifiers → LevelDecl → Binders → Array (Mutual Arm) → Command
+    LevelDecl → Binders → (ty : Option #Expr) → #DeclVal → (uwf : Option #Expr) → Command
+  | mutualDecl : DeclKind → Modifiers → LevelDecl → Binders → Array (Mutual Arm) →
+    (uwf : Option #Expr) → Command
   | «inductive» : InductiveCmd → Command
   | «structure» («class» : Bool) :
     Modifiers → #Name → LevelDecl → Binders → Array #Parent → (ty : Option #Expr) →
@@ -1048,14 +1049,16 @@ instance : Repr Command where reprPrec c _ := match c with
     repr mods ++ repr ak ++ " " ++ n.kind.toString ++
     repr us ++ repr bis ++ optTy ty
   | Command.axioms ak mods bis => repr mods ++ repr ak ++ "s" ++ repr bis
-  | Command.decl dk mods n us bis ty val =>
+  | Command.decl dk mods n us bis ty val uwf =>
     repr mods ++ (repr dk ++
     (match n with | none => "" | some n => " " ++ n.kind.toString : String) ++
-    repr us ++ repr bis ++ optTy ty).group.nest 2 ++ repr val.kind
-  | Command.mutualDecl dk mods us bis arms =>
+    repr us ++ repr bis ++ optTy ty).group.nest 2 ++ repr val.kind ++
+    (match uwf with | none => "" | some e => "\nusing_well_founded " ++ (repr e).nest 2)
+  | Command.mutualDecl dk mods us bis arms uwf =>
     repr mods ++ repr dk ++ " " ++ repr us ++
     Format.joinSep (arms.toList.map fun m => m.name.kind.toString) ", " ++
-    repr bis ++ Format.join (arms.toList.map (Mutual_repr Arms_repr))
+    repr bis ++ Format.join (arms.toList.map (Mutual_repr Arms_repr)) ++
+    (match uwf with | none => "" | some e => "\nusing_well_founded " ++ (repr e).nest 2)
   | Command.inductive ind => repr ind
   | Command.structure cl mods n us bis exts ty mk flds =>
     repr mods ++ (if cl then "class " else "structure ") ++

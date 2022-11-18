@@ -273,9 +273,30 @@ def trAxiom (mods : Modifiers) (n : Name)
   withReplacement found do
     pushM `(command| $mods:declModifiers axiom $id $(← trDeclSig bis ty))
 
+def trUWF : Option (Spanned Expr) →
+    M (Option (TSyntax ``terminationByCore) × Option (TSyntax ``decreasingBy))
+  | none | some ⟨_, AST3.Expr.«{}»⟩ => pure (none, none)
+  | some ⟨_, AST3.Expr.structInst _ none flds #[] false⟩ => do
+    let mut tm := none; let mut dc := none
+    for (⟨_, n⟩, ⟨s, e⟩) in flds do
+      match n with
+      | `rel_tac =>
+        let .fun _ _ ⟨_, .«`[]» #[⟨_, .interactive `exact #[⟨_, .parse _ #[⟨s, .expr e⟩]⟩]⟩]⟩ := e
+          | warn! "warning: unsupported using_well_founded rel_tac: {repr e}"
+        tm := some (← `(terminationByCore| termination_by' $(← trExpr ⟨s, e⟩):term))
+      | `dec_tac =>
+        dc := some (← `(decreasingBy| decreasing_by $(← trTactic (.dummy <| .expr ⟨s, e⟩)):tactic))
+      | _ => warn! "warning: unsupported using_well_founded config option: {n}"
+    if let some dc' := dc then
+      -- this is a little optimistic, but let's hope that lean 4 doesn't need
+      -- `decreasing_by assumption` as much as lean 3 did
+      if dc' matches `(decreasingBy| decreasing_by assumption) then dc := none
+    pure (tm, dc)
+  | some _ => warn! "warning: unsupported using_well_founded config syntax" | pure (none, none)
+
 def trDecl (dk : DeclKind) (mods : Modifiers) (attrs : Attributes)
     (n : Option (Spanned Name)) (us : LevelDecl) (bis : Binders) (ty : Option (Spanned Expr))
-    (val : DeclVal) : M (Option Name × Syntax.Command) := do
+    (val : DeclVal) (uwf : Option (Spanned Expr)) : M (Option Name × Syntax.Command) := do
   let (s, mods) ← trModifiers mods attrs
   let id ← n.mapM fun n => trDeclId n.kind us
   (id >>= (·.1), ·) <$> do
@@ -287,25 +308,35 @@ def trDecl (dk : DeclKind) (mods : Modifiers) (attrs : Attributes)
   if s.irreducible then
     unless dk matches DeclKind.def do warn! "unsupported irreducible non-definition"
     unless s.derive.isEmpty do warn! "unsupported: @[derive, irreducible] def"
+    unless uwf.isNone do warn! "unsupported: @[irreducible] def + using_well_founded"
     return ← `($mods:declModifiers irreducible_def $id.get! $(← trOptDeclSig bis ty) $val:declVal)
   match dk with
   | DeclKind.abbrev => do
     unless s.derive.isEmpty do warn! "unsupported: @[derive] abbrev"
+    unless uwf.isNone do warn! "unsupported: abbrev + using_well_founded"
     `($mods:declModifiers abbrev $id.get! $(← trOptDeclSig bis ty):optDeclSig $val)
   | DeclKind.def => do
     let ds := s.derive.map mkIdent |>.asNonempty
-    `($mods:declModifiers def $id.get! $(← trOptDeclSig bis ty) $val:declVal $[deriving $ds,*]?)
+    let (tm, dc) ← trUWF uwf
+    `($mods:declModifiers
+      def $id.get! $(← trOptDeclSig bis ty) $val:declVal $[deriving $ds,*]? $(tm)? $(dc)?)
   | DeclKind.example => do
     unless s.derive.isEmpty do warn! "unsupported: @[derive] example"
+    unless uwf.isNone do warn! "unsupported: example + using_well_founded"
     `($mods:declModifiers example $(← trOptDeclSig bis ty):optDeclSig $val)
   | DeclKind.theorem => do
     unless s.derive.isEmpty do warn! "unsupported: @[derive] theorem"
-    `($mods:declModifiers theorem $id.get! $(← trDeclSig bis ty) $val)
+    let (tm, dc) ← trUWF uwf
+    `($mods:declModifiers
+      theorem $id.get! $(← trDeclSig bis ty) $val:declVal $(tm)? $(dc)?)
   | DeclKind.instance => do
     unless s.derive.isEmpty do warn! "unsupported: @[derive] instance"
     let prio ← s.prio.mapM fun prio => do
       `(namedPrio| (priority := $(← trPrio prio)))
-    `($mods:declModifiers instance $[$prio:namedPrio]? $[$id:declId]? $(← trDeclSig bis ty) $val)
+    let sig ← trDeclSig bis ty
+    let (tm, dc) ← trUWF uwf
+    `($mods:declModifiers
+      instance $[$prio:namedPrio]? $[$id:declId]? $sig $val:declVal $(tm)? $(dc)?)
 
 def trOptDeriving : Array Name → M (TSyntax ``optDeriving)
   | #[] => `(optDeriving|)
@@ -331,7 +362,7 @@ def trInductive (cl : Bool) (mods : Modifiers) (attrs : Attributes)
   | false => `($mods:declModifiers inductive
     $id:declId $sig:optDeclSig $[$ctors:ctor]* $ds:optDeriving)
 
-def trMutual (decls : Array (Mutual α))
+def trMutual (decls : Array (Mutual α)) (uwf : Option (Spanned Expr))
     (f : Mutual α → M (Option Name × Syntax.Command)) : M Unit := do
   let mut found := none
   let mut cmds := #[]
@@ -339,7 +370,8 @@ def trMutual (decls : Array (Mutual α))
     let (found', cmd) ← f decl
     found := found <|> found'
     cmds := cmds.push cmd
-  withReplacement found do pushM `(mutual $cmds* end)
+  let (tm, dc) ← trUWF uwf
+  withReplacement found do pushM `(mutual $cmds* end $(tm)? $(dc)?)
 
 def trField : Spanned Field → M (Array Syntax) := spanning fun
   | Field.binder bi ns ik bis ty dflt => do
@@ -587,7 +619,7 @@ def trInductiveCmd : InductiveCmd → M Unit
     let (found, cmd) ← trInductive cl mods #[] n us bis ty nota intros
     withReplacement found (push cmd)
   | InductiveCmd.mutual cl mods us bis nota inds =>
-    trMutual inds fun ⟨attrs, n, ty, intros⟩ => do
+    trMutual inds none fun ⟨attrs, n, ty, intros⟩ => do
       trInductive cl mods attrs n us bis ty nota intros
 
 def trAttributeCmd (kind : AttributeKind) (attrs : Attributes) (ns : Array (Spanned Name))
@@ -625,12 +657,12 @@ def trCommand' : Command → M Unit
       | ⟨_, BinderName.ident n⟩ => trAxiom mods n none bis ty
       | _ => warn! "unsupported (impossible)"
     | _ => warn! "unsupported (impossible)"
-  | Command.decl dk mods n us bis ty val => do
-    let (found, cmd) ← trDecl dk mods #[] n us bis ty val.kind
+  | Command.decl dk mods n us bis ty val uwf => do
+    let (found, cmd) ← trDecl dk mods #[] n us bis ty val.kind uwf
     withReplacement found (push cmd)
-  | Command.mutualDecl dk mods us bis arms =>
-    trMutual arms fun ⟨attrs, n, ty, vals⟩ =>
-      trDecl dk mods attrs n us bis ty (DeclVal.eqns vals)
+  | Command.mutualDecl dk mods us bis arms uwf =>
+    trMutual arms uwf fun ⟨attrs, n, ty, vals⟩ =>
+      trDecl dk mods attrs n us bis ty (DeclVal.eqns vals) none
   | Command.inductive ind => trInductiveCmd ind
   | Command.structure cl mods n us bis exts ty m flds =>
     trStructure cl mods n us bis exts ty m flds
