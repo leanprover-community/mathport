@@ -514,9 +514,8 @@ def trNIRefl (_ : AST3.Expr) : M Syntax.Tactic := `(tactic| rfl)
   | #[tac] => pure tac
   | _ => `(tactic| first $[| $tac:tactic]*)
 
-@[tr_tactic apply_opt_param] def trApplyOptParam : TacM Syntax.Tactic := `(tactic| infer_opt_param)
-
-@[tr_tactic apply_auto_param] def trApplyAutoParam : TacM Syntax.Tactic := `(tactic| infer_auto_param)
+@[tr_tactic apply_opt_param apply_auto_param]
+def trInferParam : TacM Syntax.Tactic := `(tactic| infer_param)
 
 @[tr_tactic fail_if_success success_if_fail] def trFailIfSuccess : TacM Syntax.Tactic := do
   `(tactic| fail_if_success $(← trBlock (← itactic)):tacticSeq)

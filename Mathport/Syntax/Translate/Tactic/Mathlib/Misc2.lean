@@ -308,3 +308,7 @@ def trUniqueDiffWithinAt_Ici_Iic_univ (_ : AST3.Expr) : M Syntax.Tactic := do
 -- # category_theory.monoidal.coherence
 @[tr_tactic coherence] def trCoherence : TacM Syntax.Tactic := `(tactic| coherence)
 @[tr_tactic pure_coherence] def trPureCoherence : TacM Syntax.Tactic := `(tactic| pure_coherence)
+
+-- # set_theory.game.pgame
+@[tr_ni_tactic pgame.pgame_wf_tac] def trPGameWFTac (_ : AST3.Expr) : M Syntax.Tactic :=
+  `(tactic| pgame_wf_tac)
