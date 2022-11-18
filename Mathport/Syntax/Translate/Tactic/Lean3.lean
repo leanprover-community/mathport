@@ -99,6 +99,8 @@ def trLoc : (loc : Location) → M (Option (TSyntax ``Parser.Tactic.location))
   `(tactic| refine' $(← trExpr (← parse pExpr)))
 
 @[tr_tactic assumption] def trAssumption : TacM Syntax.Tactic := do `(tactic| assumption)
+@[tr_ni_tactic tactic.assumption] def trNIAssumption (_ : AST3.Expr) : M Syntax.Tactic :=
+  `(tactic| assumption)
 
 @[tr_tactic assumption'] def trAssumption' : TacM Syntax.Tactic := do `(tactic| assumption')
 

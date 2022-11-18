@@ -10,7 +10,7 @@ namespace Mathport.Translate
 open Lean hiding Expr Expr.app Expr.const Expr.sort Level Level.imax Level.max Level.param Command
 open Lean.Elab (Visibility)
 open Lean.Elab.Command (CommandElabM liftCoreM)
-open AST3
+open Parser.Command AST3
 
 def elabCommand (stx : Syntax.Command) : CommandElabM Unit := do
   -- try dbg_trace "warning: elaborating:\n{← liftCoreM $
@@ -42,7 +42,7 @@ def trDerive (e : Spanned AST3.Expr) : M Name :=
   | e => warn! "unsupported derive handler {repr e}"
 
 inductive TrAttr
-  | del : TSyntax ``Parser.Command.eraseAttr → TrAttr
+  | del : TSyntax ``eraseAttr → TrAttr
   | add : Syntax.Attr → TrAttr
   | prio : Expr → TrAttr
   | parsingOnly : TrAttr
@@ -59,7 +59,7 @@ def trAttr (_prio : Option Expr) : Attribute → M (Option TrAttr)
     | `inline => pure `inline
     | `pattern => pure `match_pattern
     | _ => warn! "warning: unsupported attr -{n}"; return none
-    pure $ some $ TrAttr.del (← `(Parser.Command.eraseAttr| -$(← mkIdentI n)))
+    pure $ some $ TrAttr.del (← `(eraseAttr| -$(← mkIdentI n)))
   | AST3.Attribute.add `parsing_only none => pure TrAttr.parsingOnly
   | AST3.Attribute.add `irreducible none => pure TrAttr.irreducible
   | AST3.Attribute.add n arg => do
@@ -144,7 +144,7 @@ structure Modifiers4 where
   safety : DefinitionSafety := DefinitionSafety.safe
 
 def trModifiers (mods : Modifiers) (more : Attributes := #[]) :
-  M (SpecialAttrs × TSyntax ``Parser.Command.declModifiers) :=
+    M (SpecialAttrs × TSyntax ``declModifiers) :=
   mods.foldlM trModifier {} >>= trAttrs more >>= toSyntax
 where
   trAttrs (attrs : Attributes) (kind : AttributeKind := .global)
@@ -170,26 +170,24 @@ where
     | .doc doc => match s.docComment with
       | none => pure { s with docComment := some doc }
       | _ => throw! "unsupported (impossible)"
-  toSyntax : Modifiers4 → M (SpecialAttrs × TSyntax ``Parser.Command.declModifiers)
+  toSyntax : Modifiers4 → M (SpecialAttrs × TSyntax ``declModifiers)
   | ⟨doc, (s, attrs), vis, nc, safety⟩ => do
     let doc := doc.map trDocComment
     let attrs : Array (TSyntax ``Parser.Term.attrInstance) :=
       attrs.map fun s => ⟨s⟩ -- HACK HACK HACK ignores @[-attr]
     let attrs ← attrs.asNonempty.mapM fun attrs => `(Parser.Term.attributes| @[$[$attrs],*])
-    let vis ← show M (Option (TSyntax [``Parser.Command.private,
-        ``Parser.Command.protected])) from match vis with
+    let vis ← show M (Option (TSyntax [``«private», ``«protected»])) from match vis with
       | .regular => pure none
-      | .private => `(Parser.Command.private| private)
-      | .protected => `(Parser.Command.protected| protected)
-    let nc ← nc.mapM fun () => `(Parser.Command.noncomputable| noncomputable)
+      | .private => `(«private»| private)
+      | .protected => `(«protected»| protected)
+    let nc ← nc.mapM fun () => `(«noncomputable»| noncomputable)
     let part ← match safety with
-      | .partial => some <$> `(Parser.Command.partial| partial)
+      | .partial => some <$> `(«partial»| partial)
       | _ => pure none
     let uns ← match safety with
-      | .unsafe => some <$> `(Parser.Command.unsafe| unsafe)
+      | .unsafe => some <$> `(«unsafe»| unsafe)
       | _ => pure none
-    return (s, ← `(Parser.Command.declModifiersF|
-      $[$doc]? $[$attrs]? $[$vis]? $[$nc]? $[$uns]? $[$part]?))
+    return (s, ← `(declModifiersF| $(doc)? $(attrs)? $(vis)? $(nc)? $(uns)? $(part)?))
 
 def trOpenCmd (ops : Array Open) : M Unit := do
   let mut simple := #[]
@@ -217,8 +215,7 @@ def trOpenCmd (ops : Array Open) : M Unit := do
           pushElab $ ← `(command| open $(← mkIdentN tgt.kind):ident ($ns*))
         | true, false, true =>
           let rs ← renames.mapM fun ⟨a, b⟩ => do
-            `(Parser.Command.openRenamingItem|
-              $(← mkIdentF a.kind):ident → $(← mkIdentF b.kind):ident)
+            `(openRenamingItem| $(← mkIdentF a.kind):ident → $(← mkIdentF b.kind):ident)
           pushElab $ ← `(command| open $(← mkIdentN tgt.kind):ident renaming $rs,*)
         | true, true, false =>
           let ns ← hides.mapM fun n => mkIdentF n.kind
@@ -238,7 +235,7 @@ def trExportCmd : Open → M Unit
     pushElab $ ← `(export $(← mkIdentN tgt.kind):ident ($args*))
   | _ => warn! "unsupported: advanced export style"
 
-def trDeclId (n : Name) (us : LevelDecl) : M (Option Name × TSyntax ``Parser.Command.declId) := do
+def trDeclId (n : Name) (us : LevelDecl) : M (Option Name × TSyntax ``declId) := do
   let us := us.map $ Array.map fun u => mkIdent u.kind
   let orig := (← get).current.curNamespace ++ n
   let ((dubious, n4), id) ← renameIdentCore n #[orig]
@@ -257,22 +254,19 @@ def trDeclId (n : Name) (us : LevelDecl) : M (Option Name × TSyntax ``Parser.Co
     msg := msg ++ f!"warning: {orig} -> {n4} is a dubious translation:\n{dubious}\n"
   if !msg.isEmpty then
     logComment f!"{msg}Case conversion may be inaccurate. Consider using '#align {orig} {n4}ₓ'."
-  return (found, ← `(Parser.Command.declId| $(← mkIdentR id):ident $[.{$us,*}]?))
+  return (found, ← `(declId| $(← mkIdentR id):ident $[.{$us,*}]?))
 
-def trDeclSig (bis : Binders) (ty : Option (Spanned Expr)) :
-    M (TSyntax ``Parser.Command.declSig) := do
+def trDeclSig (bis : Binders) (ty : Option (Spanned Expr)) : M (TSyntax ``declSig) := do
   let bis ← trBinders {} bis
   let ty ← trExpr (ty.getD <| Spanned.dummy Expr.«_»)
-  `(Parser.Command.declSig| $[$bis]* : $ty)
+  `(declSig| $[$bis]* : $ty)
 
-def trOptDeclSig (bis : Binders) (ty : Option (Spanned Expr)) :
-    M (TSyntax ``Parser.Command.optDeclSig) := do
+def trOptDeclSig (bis : Binders) (ty : Option (Spanned Expr)) : M (TSyntax ``optDeclSig) := do
   let bis ← trBinders {} bis
-  let ty ← ty.mapM trExpr
-  `(Parser.Command.optDeclSig| $[$bis]* $[: $ty]?)
+  `(optDeclSig| $[$bis]* $[: $(← ty.mapM trExpr)]?)
 
 def trAxiom (mods : Modifiers) (n : Name)
-  (us : LevelDecl) (bis : Binders) (ty : Option (Spanned Expr)) : M Unit := do
+    (us : LevelDecl) (bis : Binders) (ty : Option (Spanned Expr)) : M Unit := do
   let (s, mods) ← trModifiers mods
   unless s.derive.isEmpty do warn! "unsupported: @[derive] axiom"
   let (found, id) ← trDeclId n us
@@ -280,16 +274,16 @@ def trAxiom (mods : Modifiers) (n : Name)
     pushM `(command| $mods:declModifiers axiom $id $(← trDeclSig bis ty))
 
 def trDecl (dk : DeclKind) (mods : Modifiers) (attrs : Attributes)
-  (n : Option (Spanned Name)) (us : LevelDecl) (bis : Binders) (ty : Option (Spanned Expr))
-  (val : DeclVal) : M (Option Name × Syntax.Command) := do
+    (n : Option (Spanned Name)) (us : LevelDecl) (bis : Binders) (ty : Option (Spanned Expr))
+    (val : DeclVal) : M (Option Name × Syntax.Command) := do
   let (s, mods) ← trModifiers mods attrs
   let id ← n.mapM fun n => trDeclId n.kind us
   (id >>= (·.1), ·) <$> do
   let id := (·.2) <$> id
   let val ← match val with
-    | DeclVal.expr e => do `(Parser.Command.declVal| := $(← trExprUnspanned e))
-    | DeclVal.eqns #[] => `(Parser.Command.declVal| := fun.)
-    | DeclVal.eqns arms => do `(Parser.Command.declVal| $[$(← arms.mapM trArm):matchAlt]*)
+    | DeclVal.expr e => `(declVal| := $(← trExprUnspanned e))
+    | DeclVal.eqns #[] => `(declVal| := fun.)
+    | DeclVal.eqns arms => `(declVal| $[$(← arms.mapM trArm):matchAlt]*)
   if s.irreducible then
     unless dk matches DeclKind.def do warn! "unsupported irreducible non-definition"
     unless s.derive.isEmpty do warn! "unsupported: @[derive, irreducible] def"
@@ -310,12 +304,12 @@ def trDecl (dk : DeclKind) (mods : Modifiers) (attrs : Attributes)
   | DeclKind.instance => do
     unless s.derive.isEmpty do warn! "unsupported: @[derive] instance"
     let prio ← s.prio.mapM fun prio => do
-      `(Parser.Command.namedPrio| (priority := $(← trPrio prio)))
+      `(namedPrio| (priority := $(← trPrio prio)))
     `($mods:declModifiers instance $[$prio:namedPrio]? $[$id:declId]? $(← trDeclSig bis ty) $val)
 
-def trOptDeriving : Array Name → M (TSyntax ``Parser.Command.optDeriving)
-  | #[] => `(Parser.Command.optDeriving|)
-  | ds => `(Parser.Command.optDeriving| deriving $[$(ds.map mkIdent):ident],*)
+def trOptDeriving : Array Name → M (TSyntax ``optDeriving)
+  | #[] => `(optDeriving|)
+  | ds => `(optDeriving| deriving $[$(ds.map mkIdent):ident],*)
 
 set_option linter.unusedVariables false in -- FIXME(Mario): spurious warning on let ctors ← ...
 def trInductive (cl : Bool) (mods : Modifiers) (attrs : Attributes)
@@ -328,7 +322,7 @@ def trInductive (cl : Bool) (mods : Modifiers) (attrs : Attributes)
   unless nota.isNone do warn! "unsupported: (notation) in inductive"
   let ctors ← intros.mapM fun ⟨m, ⟨doc, name, ik, bis, ty⟩⟩ => withSpanS m do
     if let some ik := ik then warn! "infer kinds are unsupported in Lean 4: {name.2} {ik}"
-    `(Parser.Command.ctor| |
+    `(ctor| |
       $[$(doc.map trDocComment):docComment]?
       $(← mkIdentI name.kind):ident
       $(← trOptDeclSig bis ty):optDeclSig)
@@ -355,21 +349,21 @@ def trField : Spanned Field → M (Array Syntax) := spanning fun
     if let some ik := ik then warn! "infer kinds are unsupported in Lean 4: {ns} {ik}"
     (#[·]) <$> match bi with
     | BinderInfo.implicit => do
-      `(Parser.Command.structImplicitBinder| {$ns* $(← trDeclSig bis ty):declSig})
+      `(structImplicitBinder| {$ns* $(← trDeclSig bis ty):declSig})
     | BinderInfo.instImplicit => do
-      `(Parser.Command.structInstBinder| [$ns* $(← trDeclSig bis ty):declSig])
+      `(structInstBinder| [$ns* $(← trDeclSig bis ty):declSig])
     | _ => do
       let sig ← trOptDeclSig bis ty
       let dflt ← dflt.mapM trBinderDefault
       if let #[n] := ns then
-        `(Parser.Command.structSimpleBinder| $n:ident $sig:optDeclSig $[$dflt]?)
+        `(structSimpleBinder| $n:ident $sig:optDeclSig $[$dflt]?)
       else
-        `(Parser.Command.structExplicitBinder| ($ns* $sig:optDeclSig $[$dflt]?))
+        `(structExplicitBinder| ($ns* $sig:optDeclSig $[$dflt]?))
   | Field.notation _ => warn! "unsupported: (notation) in structure"
 
-def trFields (flds : Array (Spanned Field)) : M (TSyntax ``Parser.Command.structFields) := do
+def trFields (flds : Array (Spanned Field)) : M (TSyntax ``structFields) := do
   let flds ← flds.concatMapM trField
-  pure $ mkNode ``Parser.Command.structFields #[mkNullNode flds]
+  pure $ mkNode ``structFields #[mkNullNode flds]
 
 def trStructure (cl : Bool) (mods : Modifiers) (n : Spanned Name) (us : LevelDecl)
   (bis : Binders) (exts : Array (Spanned Parent)) (ty : Option (Spanned Expr))
@@ -381,22 +375,22 @@ def trStructure (cl : Bool) (mods : Modifiers) (n : Spanned Name) (us : LevelDec
   let exts ← exts.mapM fun
     | ⟨_, false, none, ty, #[]⟩ => trExpr ty
     | _ => warn! "unsupported: advanced extends in structure"
-  let exts ← exts.asNonempty.mapM fun exts => `(Parser.Command.extends| extends $[$exts],*)
+  let exts ← exts.asNonempty.mapM fun exts => `(«extends»| extends $[$exts],*)
   let ty ← trOptType ty
   let (ctor, flds) ← match mk, flds with
     | none, #[] => pure (none, none)
     | mk, flds => do
       let mk ← mk.mapM fun ⟨_, n, ik⟩ => do
         if let some ik := ik then warn! "infer kinds are unsupported in Lean 4: {n.2} {ik}"
-        `(Parser.Command.structCtor| $(← mkIdentF n.kind):ident ::)
+        `(structCtor| $(← mkIdentF n.kind):ident ::)
       pure (some mk, some (← trFields flds))
   let deriv ← trOptDeriving s.derive
   let decl ←
     if cl then
-      `(Parser.Command.structure|
+      `(«structure»|
         class $id:declId $[$bis]* $[$exts]? $[$ty]? $[where $[$ctor]? $flds]? $deriv)
     else
-      `(Parser.Command.structure|
+      `(«structure»|
         structure $id:declId $[$bis]* $[$exts]? $[$ty]? $[where $[$ctor]? $flds]? $deriv)
   pushM `(command| $mods:declModifiers $decl:structure)
 
@@ -453,10 +447,9 @@ private def truncatePrec (prec : Precedence) : Precedence := Id.run do
       return Precedence.nat 1024
   return prec
 
-private def trMixfix (kind : TSyntax ``Parser.Term.attrKind)
-  (prio : Option (TSyntax ``Parser.Command.namedPrio))
-  (m : AST3.MixfixKind) (tk : String) (prec : Option (Spanned AST3.Precedence)) :
-  M (NotationDesc × (Option (TSyntax ``Parser.Command.namedName) → Term → Id Syntax.Command)) := do
+private def trMixfix (kind : TSyntax ``Parser.Term.attrKind) (prio : Option (TSyntax ``namedPrio))
+    (m : AST3.MixfixKind) (tk : String) (prec : Option (Spanned AST3.Precedence)) :
+    M (NotationDesc × (Option (TSyntax ``namedName) → Term → Id Syntax.Command)) := do
   let p ← match prec with
   | some p => trPrec p.kind
   | none => pure $ (← getPrecedence? tk m).getD (Precedence.nat 0)
@@ -478,23 +471,19 @@ private def trMixfix (kind : TSyntax ``Parser.Term.attrKind)
       `($kind:attrKind postfix:$p $[$n:namedName]? $[$prio:namedPrio]? $s => $e))
 
 private def trNotation4 (kind : TSyntax ``Parser.Term.attrKind)
-    (prio : Option (TSyntax ``Parser.Command.namedPrio)) (p : Option Prec)
-    (lits : Array (Spanned AST3.Literal)) :
-    M (Option (TSyntax ``Parser.Command.namedName) → Term → Id Syntax.Command) := do
+    (prio : Option (TSyntax ``namedPrio)) (p : Option Prec) (lits : Array (Spanned AST3.Literal)) :
+    M (Option (TSyntax ``namedName) → Term → Id Syntax.Command) := do
   let lits ← lits.mapM fun
-  | ⟨_, AST3.Literal.sym tk⟩ =>
-    `(Parser.Command.notationItem| $(Syntax.mkStrLit tk.1.kind.toString):str)
-  | ⟨_, AST3.Literal.var x none⟩ =>
-    `(Parser.Command.notationItem| $(mkIdent x.kind):ident)
+  | ⟨_, AST3.Literal.sym tk⟩ => `(notationItem| $(Syntax.mkStrLit tk.1.kind.toString):str)
+  | ⟨_, AST3.Literal.var x none⟩ => `(notationItem| $(mkIdent x.kind):ident)
   | ⟨_, AST3.Literal.var x (some ⟨_, Action.prec p⟩)⟩ => do
-    `(Parser.Command.notationItem| $(mkIdent x.kind):ident : $((← trPrec p).toSyntax))
+    `(notationItem| $(mkIdent x.kind):ident : $((← trPrec p).toSyntax))
   | _ => warn! "unsupported (impossible)"
   pure fun n e =>
     `($kind:attrKind notation$[:$p]? $[$n:namedName]? $[$prio:namedPrio]? $lits* => $e)
 
 open Lean.Parser.Command in
-private def trNotation3Item : (lit : AST3.Literal) →
-    M (Array (TSyntax ``Parser.Command.notation3Item))
+private def trNotation3Item : (lit : AST3.Literal) → M (Array (TSyntax ``notation3Item))
   | .sym tk => pure #[sym tk]
   | .binder .. | .binders .. => return #[← `(notation3Item| (...))]
   | .var x none
@@ -528,9 +517,8 @@ private def addSpaceBeforeBinders (lits : Array AST3.Literal) : Array AST3.Liter
   lits
 
 private def trNotation3 (kind : TSyntax ``Parser.Term.attrKind)
-    (prio : Option (TSyntax ``Parser.Command.namedPrio)) (p : Option Prec)
-    (lits : Array (Spanned AST3.Literal)) :
-    M (Option (TSyntax ``Parser.Command.namedName) → Term → Id Syntax.Command) := do
+    (prio : Option (TSyntax ``namedPrio)) (p : Option Prec) (lits : Array (Spanned AST3.Literal)) :
+    M (Option (TSyntax ``namedName) → Term → Id Syntax.Command) := do
   let lits := addSpaceBeforeBinders <| lits.map (·.kind)
   let lits ← lits.concatMapM trNotation3Item
   pure fun n e =>
@@ -552,8 +540,7 @@ def trNotationCmd (kind : AttributeKind) (res : Bool) (attrs : Attributes) (nota
   | some ⟨_, _, _, skip⟩ => skip
   | none => false
   if skip && kind == .local then return
-  let prio ← s.prio.mapM fun prio => do
-    `(Parser.Command.namedPrio| (priority := $(← trPrio prio)))
+  let prio ← s.prio.mapM fun prio => do `(namedPrio| (priority := $(← trPrio prio)))
   let kindStx ← trAttrKind kind
   let (e, desc, cmd) ← match nota with
   | Notation.mixfix m _ (tk, prec) (some e) =>
@@ -585,7 +572,7 @@ def trNotationCmd (kind : AttributeKind) (res : Bool) (attrs : Attributes) (nota
   | some ns => rootNamespace ++ ns
   let n4 ← Elab.Command.withWeakNamespace (ns' ++ (← getEnv).mainModule) $ do
     let n4 ← mkUnusedName nota.name4
-    let nn ← `(Parser.Command.namedName| (name := $(mkIdent n4)))
+    let nn ← `(namedName| (name := $(mkIdent n4)))
     try elabCommand (cmd (some nn) e)
     catch e => dbg_trace "warning: failed to add syntax {repr n4}: {← e.toMessageData.toString}"
     pure $ (← getCurrNamespace) ++ n4
@@ -618,7 +605,7 @@ def trAttributeCmd (kind : AttributeKind) (attrs : Attributes) (ns : Array (Span
 def trCommand' : Command → M Unit
   | Command.initQuotient => pushM `(init_quot)
   | Command.mdoc doc =>
-    push ⟨mkNode ``Parser.Command.moduleDoc #[mkAtom "/-!", mkAtom (doc ++ "-/")]⟩
+    push ⟨mkNode ``moduleDoc #[mkAtom "/-!", mkAtom (doc ++ "-/")]⟩
   | Command.«universe» _ _ ns =>
     pushM `(universe $(ns.map fun n => mkIdent n.kind)*)
   | Command.«namespace» n => do
