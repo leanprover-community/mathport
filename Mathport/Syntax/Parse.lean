@@ -727,15 +727,16 @@ where
   getVars (args : Array AstId) (f : Modifiers → Binders → Command) : M Command := do
     f (← getModifiers args[0]!) <$> args[1:].toArray.mapM getBinder
 
+  getUWF : AstId → M (Spanned Expr) := withNodeK fun _ _ args => getExpr args[0]!
+
   getDecl (dk) (args : Array AstId) : M Command := do
     let mods ← getModifiers args[0]!
     if args[1]! = 0 then
       let (us, n, bis, ty) ← getHeader args[2:6]
-      let val ← getDeclVal args[6]!
-      pure $ Command.decl dk mods n us bis ty val
+      pure $ .decl dk mods n us bis ty (← getDeclVal args[6]!) (← opt getUWF args[7]!)
     else
       let (us, bis) ← getMutualHeader args[2:5]
-      pure $ Command.mutualDecl dk mods us bis (← arr (getMutual getArm) args[5]!)
+      pure $ .mutualDecl dk mods us bis (← arr (getMutual getArm) args[5]!) (← opt getUWF args[6]!)
 
   getNotationCmd (mk : Option MixfixKind) (args : Array AstId) : M Command :=
     return Command.notation
