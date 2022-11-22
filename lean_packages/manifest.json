@@ -21,7 +21,7 @@
    "name": "Unicode",
    "inputRev": "main"},
   {"url": "https://github.com/leanprover-community/mathlib4",
-   "rev": "085e7ab46bbf282a3911e738f2407e2aef50e22c",
+   "rev": "03e5988a2473353281e2f3b1d7a3efe079d59838",
    "name": "mathlib",
    "inputRev": "master"},
   {"url": "https://github.com/leanprover/std4",
