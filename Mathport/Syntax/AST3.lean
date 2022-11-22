@@ -124,7 +124,7 @@ structure Meta where
 
 structure Spanned (α : Type u) where
   meta : Option Meta
-  kind  : α
+  kind : α
   deriving Inhabited
 
 instance [Repr α] : Repr (Spanned α) := ⟨fun n p => reprPrec n.kind p⟩

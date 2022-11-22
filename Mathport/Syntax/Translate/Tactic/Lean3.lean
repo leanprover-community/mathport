@@ -142,7 +142,8 @@ def trRwArgs : TacM (Array (TSyntax ``Parser.Tactic.rwRule) × Option (TSyntax `
   let (q, loc) ← trRwArgs; `(tactic| erw [$q,*] $(loc)?)
 
 @[tr_tactic with_cases] def trWithCases : TacM Syntax.Tactic := do
-  `(tactic| with_cases $(← trBlock (← itactic)):tacticSeq)
+  warn! "warning: unsupported: with_cases"
+  trIdTactic (← itactic)
 
 @[tr_tactic generalize] def trGeneralize : TacM Syntax.Tactic := do
   let h ← parse (ident)? <* parse (tk ":")
