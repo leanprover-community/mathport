@@ -93,6 +93,10 @@ def RawNode3.expr' (n : RawNode3) : M Lean3.Expr :=
 def opt (f : AstId → M α) (i : AstId) : M (Option α) :=
   if i = 0 then pure none else some <$> f i
 
+def opt' (f : AstId → M α) : (i : Option AstId) → M (Option α)
+  | none | some 0 => pure none
+  | some i => some <$> f i
+
 def getRaw (i : AstId) : M RawNode3 := do
   match (← read).ast[i]! with
   | some a => pure a
@@ -733,10 +737,10 @@ where
     let mods ← getModifiers args[0]!
     if args[1]! = 0 then
       let (us, n, bis, ty) ← getHeader args[2:6]
-      pure $ .decl dk mods n us bis ty (← getDeclVal args[6]!) (← opt getUWF args[7]!)
+      pure $ .decl dk mods n us bis ty (← getDeclVal args[6]!) (← opt' getUWF args[7]?)
     else
       let (us, bis) ← getMutualHeader args[2:5]
-      pure $ .mutualDecl dk mods us bis (← arr (getMutual getArm) args[5]!) (← opt getUWF args[6]!)
+      pure $ .mutualDecl dk mods us bis (← arr (getMutual getArm) args[5]!) (← opt' getUWF args[6]?)
 
   getNotationCmd (mk : Option MixfixKind) (args : Array AstId) : M Command :=
     return Command.notation
