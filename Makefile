@@ -86,12 +86,6 @@ predata: lean3-predata mathbin-predata
 init-logs:
 	mkdir -p Logs
 
-MATHLIB4_LIB=./lean_packages/mathlib/build/lib
-MATHPORT_LIB=./build/lib
-
-LEANBIN_LIB=./Outputs/oleans/leanbin
-MATHBIN_LIB=./Outputs/oleans/mathbin
-
 port-lean: init-logs build
 	./build/bin/mathport --make config.json Leanbin::all >> Logs/mathport.out 2> >(tee -a Logs/mathport.err >&2)
 
