@@ -582,6 +582,23 @@ def processBlockTransform (tac : Syntax.Tactic) : Syntax.Tactic :=
     ⟨tac.raw[0].setArgs #[Id.run `(tactic| skip)]⟩
   else tac
 
+def mkSemiSepArray (tacs : Array Syntax.Tactic) : Syntax := Id.run do
+  let mut i := 0
+  let mut lastLine := none
+  let mut r : Array Syntax := #[]
+  for a in tacs do
+    let thisLine := a.raw.getPos?.map stringPosToLine
+    if i > 0 then
+      let sameLine := match lastLine with
+        | some x => thisLine == some x
+        | _ => false
+      r := r.push (if sameLine then mkAtom ";" else mkNullNode) |>.push a
+    else
+      r := r.push a
+    i := i + 1
+    lastLine := thisLine
+  return mkNullNode r
+
 def trTactic (tac : Spanned Tactic) : M (TSyntax `tactic) :=
   processBlockTransform <$> trTacticRaw tac
 
@@ -589,7 +606,7 @@ partial def trBlock : Block → M (TSyntax ``Parser.Tactic.tacticSeq)
   | ⟨_, none, none, #[]⟩ => do `(Parser.Tactic.tacticSeq| {})
   | ⟨_, none, none, tacs⟩ =>
     return mkNode ``Parser.Tactic.tacticSeq #[mkNode ``Parser.Tactic.tacticSeq1Indented #[
-      mkNullNode.mkSep $ processBlockTransforms $ ← tacs.mapM trTacticRaw]]
+      mkSemiSepArray $ processBlockTransforms $ ← tacs.mapM trTacticRaw]]
   | ⟨_, _cl, _cfg, _tacs⟩ => warn! "unsupported (TODO): block with cfg"
 
 partial def trIdTactic : Block → M Syntax.Tactic
