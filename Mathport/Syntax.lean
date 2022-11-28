@@ -17,7 +17,7 @@ def synport1 (config : Config) (path : Path) : CommandElabM Unit := do
   let pcfg := config.pathConfig
   let (ast3, _) ← parseAST3 (path.toLean3 pcfg ".ast.json") false
   let ⟨fmt, _⟩ ← AST3toData4 ast3 config
-  IO.FS.writeFile (path.toLean4src pcfg) (toString fmt)
+  IO.FS.writeFile (path.toLean4src pcfg) (fmt.pretty 100)
 
 open Lean Lean.Elab Lean.Elab.Term Lean.Elab.Tactic
 open Lean.Parser Lean.PrettyPrinter
