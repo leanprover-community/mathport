@@ -17,38 +17,37 @@ partial def trTacticOrList : Spanned Tactic → M (Syntax.Tactic ⊕ Array Synta
   | tac => Sum.inl <$> trTactic tac
 
 partial def trTactic' : Tactic → M Syntax.Tactic
-  | Tactic.block bl => do `(tactic| · ($(← trBlock bl):tacticSeq))
-  | Tactic.by tac => do `(tactic| · $(← trTactic tac):tactic)
-  | Tactic.«;» tacs => do
-    let rec build (i : Nat) (lhs : Syntax.Tactic) : M Syntax.Tactic :=
-      if h : i < tacs.size then do
-        match ← trTacticOrList tacs[i] with
-        | Sum.inl tac => `(tactic| $lhs <;> $(← build (i+1) tac))
-        | Sum.inr tacs => build (i+1) (← `(tactic| $lhs <;> [$tacs,*]))
-      else pure lhs
+  | .block bl => do `(tactic| · ($(← trBlock bl):tacticSeq))
+  | .by tac => do `(tactic| · $(← trTactic tac):tactic)
+  | .«;» tacs => do
     if h : tacs.size > 0 then
-      build 1 (← trTactic tacs[0])
+      let mut lhs ← trTactic tacs[0]
+      for tac in tacs[1:] do
+        match ← trTacticOrList tac with
+        | .inl tac => lhs ← `(tactic| $lhs <;> $tac)
+        | .inr tacs => lhs ← `(tactic| $lhs <;> [$tacs,*])
+      pure lhs
     else
       `(tactic| skip)
-  | Tactic.«<|>» tacs => do
+  | .«<|>» tacs => do
     `(tactic| first $[| $(← tacs.mapM fun tac => trTactic tac):tactic]*)
-  | Tactic.«[]» _tacs => warn! "unsupported (impossible)"
-  | Tactic.exact_shortcut ⟨m, Expr.calc args⟩ => withSpanS m do
+  | .«[]» _tacs => warn! "unsupported (impossible)"
+  | .exact_shortcut ⟨m, Expr.calc args⟩ => withSpanS m do
     if h : args.size > 0 then
       `(tactic| calc $(← trCalcArg args[0]) $(← args[1:].toArray.mapM trCalcArg)*)
     else
       warn! "unsupported (impossible)"
-  | Tactic.exact_shortcut e => do `(tactic| exact $(← trExpr e))
-  | Tactic.expr e =>
+  | .exact_shortcut e => do `(tactic| exact $(← trExpr e))
+  | .expr e =>
     match e.unparen with
     | ⟨_, Expr.«`[]» tacs⟩ => trIdTactic ⟨true, none, none, tacs⟩
     | e => do
       let rec head
-      | Expr.const _ _ #[x] | Expr.const ⟨_, x⟩ _ _ | Expr.ident x => some x
-      | Expr.paren e => head e.kind
-      | Expr.app e _ => head e.kind
+      | .const _ _ #[x] | .const ⟨_, x⟩ _ _ | .ident x => some x
+      | .paren e => head e.kind
+      | .app e _ => head e.kind
       | _ => none
-      let fallback := do
+      let rec fallback := do
         match ← trExpr e with
         | `(do $[$els]*) => `(tactic| run_tac $[$els:doSeqItem]*)
         | stx => `(tactic| run_tac $stx:term)
