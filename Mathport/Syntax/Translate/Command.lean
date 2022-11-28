@@ -237,7 +237,7 @@ def trExportCmd : Open → M Unit
 
 def trDeclId (n : Name) (us : LevelDecl) : M (Option Name × TSyntax ``declId) := do
   let us := us.map $ Array.map fun u => mkIdent u.kind
-  let orig := (← get).current.curNamespace ++ n
+  let orig := Elab.Command.resolveNamespace (← get).current.curNamespace n
   let ((dubious, n4), id) ← renameIdentCore n #[orig]
   if (← read).config.redundantAlign then
     pushAlign orig n4
