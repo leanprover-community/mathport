@@ -30,9 +30,11 @@ mathport_rules
     | `(funBinder| [$[$v :]? $ty]) => `(letIdBinder| [$[$v :]? $ty])
     | `(funBinder| $x:ident) => `(letIdBinder| $x:ident)
     | `(funBinder| ($v1 $vs* : $(ty)?)) => do
-      `(letIdBinder| ($(← ofTerm v1) $(← vs.mapM ofTerm)* $[: $ty]?))
+      let v1' ← ofTerm v1
+      `(letIdBinder| ($v1' $(← vs.mapM ofTerm)* $[: $ty]?))
     | `(funBinder| ($v1 $vs*)) => do
-      `(letIdBinder| ($(← ofTerm v1) $(← vs.mapM ofTerm)*))
+      let v1' ← ofTerm v1
+      `(letIdBinder| ($v1' $(← vs.mapM ofTerm)*))
     | `(funBinder| _) => `(letIdBinder| _)
     | _ => throwUnsupported
     `(letDecl| $id:ident $(xs ++ ys)* := $val:term)

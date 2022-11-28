@@ -7,9 +7,9 @@
             "Oneshot": "Oneshot/lean3-in"
         },
         "leanPath": [
-            "./lean_packages/mathlib/build/lib",
-            "./lean_packages/Qq/build/lib",
-            "./lean_packages/std/build/lib",
+            "./lake-packages/mathlib/build/lib",
+            "./lake-packages/Qq/build/lib",
+            "./lake-packages/std/build/lib",
             "./Oneshot/lean4-in/build/lib",
             "./Outputs/oleans/leanbin",
             "./Outputs/oleans/mathbin",

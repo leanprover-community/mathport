@@ -4,8 +4,7 @@ build/
 Logs/
 PreData/
 Outputs/
-lean_packages/*
-!lean_packages/manifest.json
+lake-packages
 sources/
 *.tar.gz
 config.oneshot.json

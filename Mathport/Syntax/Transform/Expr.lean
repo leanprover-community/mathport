@@ -8,3 +8,4 @@ import Mathport.Syntax.Transform.Basic
 mathport_rules
   | `($x:term <| fun $y:basicFun) => `($x:term fun $y:basicFun)
   | `($x:term <| fun $y:matchAlts) => `($x:term fun $y:matchAlts)
+  | `($x:term <| do $s:doSeq) => `($x:term do $s:doSeq)
