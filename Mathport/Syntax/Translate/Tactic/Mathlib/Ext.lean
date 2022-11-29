@@ -16,7 +16,9 @@ open AST3 Parser
 @[tr_user_attr ext] def trExtAttr : Parse1 Syntax.Attr :=
   parse1 (ident)? fun n => do
   if n.isSome then warn! "unsupported: attribute [ext id]"
-  `(attr| ext)
+  return mkSimpleAttr `ext
+  -- This creates a hygienic name, which might be pretty-printed as ext.1:
+  -- `(attr| ext)
 
 @[tr_tactic ext1] def trExt1 : TacM Syntax.Tactic := do
   let hint ← parse (tk "?")?
