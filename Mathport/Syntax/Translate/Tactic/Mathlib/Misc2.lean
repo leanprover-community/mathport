@@ -140,19 +140,22 @@ def parseLinearComboConfig : Option (Spanned AST3.Expr) → M (Option Syntax.Tac
   `(tactic| equiv_rw_type $[(config := $cfg)]? $e)
 
 -- # tactic.nth_rewrite
+-- The indexing scheme for occurrences has changed between
+-- mathlib3 and mathlib4, so we need to increment here.
+-- See https://github.com/leanprover-community/mathlib4/pull/823
 
 @[tr_tactic nth_rewrite] def trNthRewrite : TacM Syntax.Tactic := do
-  `(tactic| nth_rw $(Quote.quote (← parse smallNat))
+  `(tactic| nth_rw $(Quote.quote ((← parse smallNat) + 1))
     [$(← liftM $ (← parse rwRules).mapM trRwRule),*]
     $(← trLoc (← parse location))?)
 
 @[tr_tactic nth_rewrite_lhs] def trNthRewriteLHS : TacM Syntax.Tactic := do
-  `(tactic| nth_rw_lhs $(Quote.quote (← parse smallNat))
+  `(tactic| nth_rw_lhs $(Quote.quote ((← parse smallNat) + 1))
     [$(← liftM $ (← parse rwRules).mapM trRwRule),*]
     $(← trLoc (← parse location))?)
 
 @[tr_tactic nth_rewrite_rhs] def trNthRewriteRHS : TacM Syntax.Tactic := do
-  `(tactic| nth_rw_rhs $(Quote.quote (← parse smallNat))
+  `(tactic| nth_rw_rhs $(Quote.quote ((← parse smallNat) + 1))
     [$(← liftM $ (← parse rwRules).mapM trRwRule),*]
     $(← trLoc (← parse location))?)
 
