@@ -6,7 +6,7 @@ on:
   #     - 'trying.tmp*'
   #     - 'staging*.tmp'
   schedule:
-    - cron: '0 7 * * *'  # 8AM CET/11PM PT
+    - cron: '0 10,22 * * *'  # 11AM CET/2AM PT and 11PM CET/2PM PT
   workflow_dispatch:
 
 name: predata
@@ -50,7 +50,7 @@ jobs:
         run: make predata-tarballs
 
       - name: set tag
-        run: echo "TAG=predata-nightly-$(date -u +%F)" >> $GITHUB_ENV
+        run: echo "TAG=predata-nightly-$(date -u +%F-%H)" >> $GITHUB_ENV
 
       - name: release
         uses: softprops/action-gh-release@v1
