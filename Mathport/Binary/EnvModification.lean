@@ -57,6 +57,7 @@ inductive EnvModification : Type
   | «export»       : ExportDecl → EnvModification
   | «projection»   : ProjectionInfo → EnvModification
   | position       : (name : Name) → (line col : Nat) → EnvModification
+  | toAdditive     : (src tgt : Name) → EnvModification
 
 def EnvModification.toName : EnvModification → Name
   | EnvModification.decl d             => d.toName
@@ -70,6 +71,7 @@ def EnvModification.toName : EnvModification → Name
   | EnvModification.export _           => `inExport
   | EnvModification.projection p       => p.projName
   | EnvModification.position n _ _     => n
+  | EnvModification.toAdditive n _     => n
 
 open EnvModification in
 instance : ToString EnvModification where
@@ -85,5 +87,6 @@ instance : ToString EnvModification where
     | «export» _         => "export"
     | «projection» _     => "projection"
     | position n _ _     => s!"position {n}"
+    | toAdditive src tgt => s!"toAdditive {src} {tgt}"
 
 end Mathport.Binary
