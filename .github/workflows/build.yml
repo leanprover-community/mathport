@@ -8,7 +8,7 @@ on:
       - 'trying.tmp*'
       - 'staging*.tmp'
   schedule:
-    - cron: '0 17 * * *'  # 6PM CET/9AM PT
+    - cron: '0 4,16 * * *'  # 5AM CET/8PM PT and 5PM CET/8AM PT
   workflow_dispatch:
 
 name: mathport
@@ -78,7 +78,7 @@ jobs:
 
       - name: set tag (master)
         if: github.ref == 'refs/heads/master'
-        run: echo "TAG=nightly-$(date -u +%F)" >> $GITHUB_ENV
+        run: echo "TAG=nightly-$(date -u +%F-%H)" >> $GITHUB_ENV
 
       - name: release (non-master)
         if: github.ref != 'refs/heads/master'
