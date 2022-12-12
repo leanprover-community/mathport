@@ -87,10 +87,12 @@ init-logs:
 	mkdir -p Logs
 
 port-lean: init-logs build
-	./build/bin/mathport --make config.json Leanbin::all >> Logs/mathport.out 2> >(tee -a Logs/mathport.err >&2)
+	MATHPORT_SOURCE_COMMIT=$$(cat sources/lean/library/upstream-rev) \
+		./build/bin/mathport --make config.json Leanbin::all >> Logs/mathport.out 2> >(tee -a Logs/mathport.err >&2)
 
 port-mathbin: port-lean
-	./build/bin/mathport --make config.json Leanbin::all Mathbin::all >> Logs/mathport.out 2> >(tee -a Logs/mathport.err >&2)
+	MATHPORT_SOURCE_COMMIT=$$(cat sources/mathlib/upstream-rev) \
+		./build/bin/mathport --make config.json Leanbin::all Mathbin::all >> Logs/mathport.out 2> >(tee -a Logs/mathport.err >&2)
 
 port: port-lean port-mathbin
 

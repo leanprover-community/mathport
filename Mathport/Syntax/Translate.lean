@@ -47,8 +47,8 @@ def M.run (m : M α) (comments : Array Comment) :
       remainingComments := comments.qsort (positionToStringPos ·.start < positionToStringPos ·.start) |>.toList }
     m
 
-def AST3toData4 : Path → AST3 → M Data4
-  | path, ⟨prel, imp, commands, _, _, _⟩ => do
+def AST3toData4 (path : Path) (sha : Option String) : AST3 → M Data4
+  | ⟨prel, imp, commands, _, _, _⟩ => do
     let prel := prel.map fun _ => mkNode ``Parser.Module.prelude #[mkAtom "prelude"]
     let imp ← imp.foldlM (init := #[]) fun imp ns =>
       ns.foldlM (init := imp) fun imp n =>
@@ -58,7 +58,7 @@ def AST3toData4 : Path → AST3 → M Data4
       mkNode ``Parser.Module.header #[mkOptionalNode prel, mkNullNode imp]
     let msg : String :=
       "🤖 This file was ported from Lean 3 source module " ++ path.mod3.toString ++ "\n" ++
-      "🤖 SHA unknown\n"
+      "🤖 commit " ++ sha.getD "unknown" ++ "\n"
     printFirstLineComments (some msg)
     printOutput fmt
     commands.forM fun c => do
@@ -73,8 +73,8 @@ def AST3toData4 : Path → AST3 → M Data4
 
 end Translate
 
-def AST3toData4 (path : Path) (ast : AST3) : (config : Config) → CommandElabM Data4 :=
-  (Translate.AST3toData4 path ast).run ast.comments ast.indexed_nota ast.indexed_cmds
+def AST3toData4 (path : Path) (sha : Option String) (ast : AST3) : (config : Config) → CommandElabM Data4 :=
+  (Translate.AST3toData4 path sha ast).run ast.comments ast.indexed_nota ast.indexed_cmds
 
 def tactic3toSyntax (containingFile : AST3) (tac3 : Spanned AST3.Tactic) : (config : Config) → CommandElabM Syntax.Tactic :=
   (Translate.trTactic tac3).run #[] containingFile.indexed_nota containingFile.indexed_cmds
