@@ -86,13 +86,17 @@ predata: lean3-predata mathbin-predata
 init-logs:
 	mkdir -p Logs
 
-port-lean: init-logs build
-	MATHPORT_COMMIT_INFO="leanprover-community/lean commit $$(cat sources/lean/library/upstream-rev)" \
-		./build/bin/mathport --make config.json Leanbin::all >> Logs/mathport.out 2> >(tee -a Logs/mathport.err >&2)
+config.lean.json: config.json
+	jq --arg COMMITINFO "leanprover-community/lean commit $$(cat sources/lean/library/upstream-rev)" '.commitInfo = $$COMMITINFO' < config.json > config.lean.json
 
-port-mathbin: port-lean
-	MATHPORT_COMMIT_INFO="leanprover-community/mathlib commit $$(cat sources/mathlib/upstream-rev)" \
-		./build/bin/mathport --make config.json Leanbin::all Mathbin::all >> Logs/mathport.out 2> >(tee -a Logs/mathport.err >&2)
+port-lean: init-logs build config.lean.json
+	./build/bin/mathport --make config.lean.json Leanbin::all >> Logs/mathport.out 2> >(tee -a Logs/mathport.err >&2)
+
+config.mathlib.json: config.json
+	jq --arg COMMITINFO "leanprover-community/mathlib commit $$(cat sources/mathlib/upstream-rev)" '.commitInfo = $$COMMITINFO' < config.json > config.mathlib.json
+
+port-mathbin: port-lean config.mathlib.json
+	./build/bin/mathport --make config.mathlib.json Leanbin::all Mathbin::all >> Logs/mathport.out 2> >(tee -a Logs/mathport.err >&2)
 
 port: port-lean port-mathbin
 

@@ -43,11 +43,10 @@ def mathport1 (config : Config) (path : Path) : IO Unit := do
       }
       let cmdState : Elab.Command.State := Lean.Elab.Command.mkState (env := env) (opts := opts)
 
-      let commitInfo ← IO.getEnv "MATHPORT_COMMIT_INFO"
       CommandElabM.toIO (ctx := cmdCtx) (s := cmdState) do
         -- let _ ← IO.FS.withIsolatedStreams' $ binport1 config path
         binport1 config path
-        synport1 { config with commitInfo := commitInfo } path
+        synport1 config path
         writeModule (← getEnv) $ path.toLean4olean pcfg
 
       println! "\n[mathport] END   {path.mod3}\n"
