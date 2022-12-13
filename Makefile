@@ -124,6 +124,7 @@ config.oneshot.json: config.json
 	jq '.extraModules += ["Oneshot"]' < config.json > config.oneshot.json
 
 Outputs/src/oneshot/Oneshot/Main.lean: Oneshot/lean3-in/main.ast.json Oneshot/lean4-in/build/lib/Oneshot.trace config.oneshot.json
+	mkdir -p Logs/
 	./build/bin/mathport config.oneshot.json Oneshot::main >> Logs/oneshot.out 2> >(tee -a Logs/oneshot.err >&2)
 
 oneshot: Outputs/src/oneshot/Oneshot/Main.lean
