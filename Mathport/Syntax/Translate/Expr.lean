@@ -378,11 +378,10 @@ def trExpr' : Expr → M Term
         `(Parser.Term.structInstFieldAbbrev| $lhsId:ident)
       else
         `(Parser.Term.structInstField| $lhsId:ident := $(← trExpr rhs))
-    -- TODO(Mario): formatter has trouble if you omit the commas
     if catchall then
-      `({ $[$srcs,* with]? $[$flds],* .. })
+      `({ $[$srcs,* with]? $[$flds]* .. })
     else
-      `({ $[$srcs,* with]? $[$flds],* })
+      `({ $[$srcs,* with]? $[$flds]* })
   | Expr.atPat lhs rhs => do `($(mkIdent lhs.kind)@ $(← trExpr rhs))
   | Expr.notation n args => trNotation n args
   | Expr.userNotation n args => do
