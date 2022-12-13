@@ -47,7 +47,7 @@ def M.run (m : M α) (comments : Array Comment) :
       remainingComments := comments.qsort (positionToStringPos ·.start < positionToStringPos ·.start) |>.toList }
     m
 
-def AST3toData4 (path : Path) (sha : Option String) : AST3 → M Data4
+def AST3toData4 (path : Path) (commitInfo : Option String) : AST3 → M Data4
   | ⟨prel, imp, commands, _, _, _⟩ => do
     let prel := prel.map fun _ => mkNode ``Parser.Module.prelude #[mkAtom "prelude"]
     let imp ← imp.foldlM (init := #[]) fun imp ns =>
@@ -57,8 +57,13 @@ def AST3toData4 (path : Path) (sha : Option String) : AST3 → M Data4
     let fmt ← liftCoreM $ PrettyPrinter.format Parser.Module.header.formatter $
       mkNode ``Parser.Module.header #[mkOptionalNode prel, mkNullNode imp]
     let msg : String :=
-      "🤖 This file was ported from Lean 3 source module " ++ path.mod3.toString ++ "\n" ++
-      "🤖 commit " ++ sha.getD "unknown" ++ "\n"
+      "! This file was ported from Lean 3 source module " ++ path.mod3.toString ++ "\n" ++
+      (if let some ci := commitInfo
+        then
+        "! " ++ ci ++ "\n" ++
+        "! Please do not edit these lines, except to modify the commit id\n" ++
+        "! if you have ported upstream changes.\n"
+        else "")
     printFirstLineComments (some msg)
     printOutput fmt
     commands.forM fun c => do
@@ -73,8 +78,8 @@ def AST3toData4 (path : Path) (sha : Option String) : AST3 → M Data4
 
 end Translate
 
-def AST3toData4 (path : Path) (sha : Option String) (ast : AST3) : (config : Config) → CommandElabM Data4 :=
-  (Translate.AST3toData4 path sha ast).run ast.comments ast.indexed_nota ast.indexed_cmds
+def AST3toData4 (path : Path) (commitInfo : Option String) (ast : AST3) : (config : Config) → CommandElabM Data4 :=
+  (Translate.AST3toData4 path commitInfo ast).run ast.comments ast.indexed_nota ast.indexed_cmds
 
 def tactic3toSyntax (containingFile : AST3) (tac3 : Spanned AST3.Tactic) : (config : Config) → CommandElabM Syntax.Tactic :=
   (Translate.trTactic tac3).run #[] containingFile.indexed_nota containingFile.indexed_cmds
