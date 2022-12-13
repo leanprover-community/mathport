@@ -22,7 +22,7 @@ def trSimpaCore (autoUnfold trace : Bool) (parseCfg : TacM (Option (Spanned AST3
   let e ← liftM $ (← parse (tk "using" *> pExpr)?).mapM trExpr
   let (cfg, disch) ← parseSimpConfig (← parseCfg)
   let cfg ← mkConfigStx? (cfg.bind quoteSimpConfig)
-  let rest ← `(Std.Tactic.simpaArgsRest|
+  let rest ← `(Std.Tactic.Simpa.simpaArgsRest|
     $[$cfg:config]? $(disch)? $[only%$o]? $[[$hs,*]]? $[using $e]?)
   match autoUnfold, trace with
   | true, true => `(tactic| simpa?! $rest)
