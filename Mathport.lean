@@ -47,7 +47,7 @@ def mathport1 (config : Config) (path : Path) : IO Unit := do
       CommandElabM.toIO (ctx := cmdCtx) (s := cmdState) do
         -- let _ ← IO.FS.withIsolatedStreams' $ binport1 config path
         binport1 config path
-        synport1 config path commitInfo
+        synport1 { config with commitInfo := commitInfo } path
         writeModule (← getEnv) $ path.toLean4olean pcfg
 
       println! "\n[mathport] END   {path.mod3}\n"

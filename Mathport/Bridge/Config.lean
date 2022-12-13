@@ -28,6 +28,7 @@ inductive ReplacementStyle where
 
 structure Config where
   pathConfig         : Path.Config
+  commitInfo         : Option String := none
   baseModules        : Array Name := #[`Mathlib]
   extraModules       : Array Name := #[]
   defEqConstructions : HashSet String := {}
