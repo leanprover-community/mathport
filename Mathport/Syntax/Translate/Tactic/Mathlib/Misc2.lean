@@ -145,7 +145,7 @@ def parseLinearComboConfig : Option (Spanned AST3.Expr) → M (Option Syntax.Tac
 -- See https://github.com/leanprover-community/mathlib4/pull/823
 
 @[tr_tactic nth_rewrite] def trNthRewrite : TacM Syntax.Tactic := do
-  `(tactic| nth_rw $(Quote.quote ((← parse smallNat) + 1))
+  `(tactic| nth_rw $(Quote.quote ((← parse smallNat) + 1)):num
     [$(← liftM $ (← parse rwRules).mapM trRwRule),*]
     $(← trLoc (← parse location))?)
 
@@ -189,6 +189,37 @@ def parseLinearComboConfig : Option (Spanned AST3.Expr) → M (Option Syntax.Tac
 -- # tactic.expand_exists
 @[tr_user_attr expand_exists] def trExpandExists : Parse1 Syntax.Attr :=
   parse1 (ident)* fun n => do `(attr| expand_exists $[$(← liftM $ n.mapM mkIdentI)]*)
+
+-- # tactic.move_add
+
+@[tr_tactic move_add] def trMoveAdd : TacM Syntax.Tactic := do
+  `(tactic| move_add $(← liftM $ (← parse rwRules).mapM trRwRule),* $(← trLoc (← parse location))?)
+
+@[tr_tactic move_mul] def trMoveMul : TacM Syntax.Tactic := do
+  `(tactic| move_mul $(← liftM $ (← parse rwRules).mapM trRwRule),* $(← trLoc (← parse location))?)
+
+@[tr_tactic move_oper] def trMoveOper : TacM Syntax.Tactic := do
+  let #[e] ← parse pExprList | warn! "unsupported: move_oper with multiple ops"
+  `(tactic| move_op $(← trExpr e)
+    $(← liftM $ (← parse rwRules).mapM trRwRule),* $(← trLoc (← parse location))?)
+
+-- # tactic.print_sorry
+@[tr_user_cmd «#print_sorry_in»] def trPrintSorryIn : Parse1 Syntax.Command :=
+  parse1 ident fun n => do `(command| #print_sorry_in $(← mkIdentI n))
+
+-- # tactic.assert_exists
+
+@[tr_user_cmd «assert_exists»] def trAssertExists : Parse1 Syntax.Command :=
+  parse1 ident fun n => do `(command| assert_exists $(← mkIdentI n))
+
+@[tr_user_cmd «assert_not_exists»] def trAssertNotExists : Parse1 Syntax.Command :=
+  parse1 ident fun n => do `(command| assert_not_exists $(← mkIdentI n))
+
+@[tr_user_cmd «assert_instance»] def trAssertInstance : Parse1 Syntax.Command :=
+  parse1 pExpr fun e => do `(command| assert_instance $(← trExpr e))
+
+@[tr_user_cmd «assert_no_instance»] def trAssertNoInstance : Parse1 Syntax.Command :=
+  parse1 pExpr fun e => do `(command| assert_no_instance $(← trExpr e))
 
 -- # algebra.group.defs
 attribute [tr_ni_tactic try_refl_tac] trControlLawsTac
