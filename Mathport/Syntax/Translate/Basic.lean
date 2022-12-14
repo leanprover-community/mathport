@@ -419,10 +419,13 @@ partial def insertComments (stx : Syntax) : M Syntax := do
     | Syntax.node .. => pure <| stx.setArgs (← stx.getArgs.mapM insertComments)
     | _ => pure stx
 
-partial def printFirstLineComments : M Unit := do
+partial def printFirstLineComments (extraComments : Option String) : M Unit := do
   if let some comment ← nextCommentIf (·.start.line ≤ 1) then
+    let comment := match extraComments with
+    | some extra => { comment with text := comment.text ++ "\n" ++ extra }
+    | none => comment
     printOutput (mkCommentString comment)
-    printFirstLineComments
+    printFirstLineComments none
 
 def printRemainingComments : M Unit := do
   for comment in (← get).remainingComments do
