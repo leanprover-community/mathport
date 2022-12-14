@@ -16,19 +16,30 @@ partial def trTacticOrList : Spanned Tactic → M (Syntax.Tactic ⊕ Array Synta
   | ⟨_, Tactic.«[]» args⟩ => Sum.inr <$> args.mapM fun arg => trTactic arg
   | tac => Sum.inl <$> trTactic tac
 
+def trSeqFocusList : List (Spanned Tactic) → M Syntax.Tactic
+  | [] => `(tactic| skip)
+  | tac::rest => do
+    let tac ← trTacticRaw tac
+    if tac.raw.getKind == blockTransform then
+      match rest with
+      | [] => pure (fillBlockTransform tac #[])
+      | tac2::rest => do
+        let res ← go rest (← trTactic tac2)
+        pure ⟨tac.raw.modifyArgs (·.push res)⟩
+    else
+      go rest tac
+where
+  go : List (Spanned Tactic) → Syntax.Tactic → M Syntax.Tactic
+  | [], lhs => pure lhs
+  | tac::rest, lhs => do
+    match ← trTacticOrList tac with
+    | .inl tac => go rest <|← `(tactic| $lhs <;> $tac)
+    | .inr tacs => go rest <|← `(tactic| $lhs <;> [$tacs,*])
+
 partial def trTactic' : Tactic → M Syntax.Tactic
   | .block bl => do `(tactic| · ($(← trBlock bl):tacticSeq))
   | .by tac => do `(tactic| · $(← trTactic tac):tactic)
-  | .«;» tacs => do
-    if h : tacs.size > 0 then
-      let mut lhs ← trTactic tacs[0]
-      for tac in tacs[1:] do
-        match ← trTacticOrList tac with
-        | .inl tac => lhs ← `(tactic| $lhs <;> $tac)
-        | .inr tacs => lhs ← `(tactic| $lhs <;> [$tacs,*])
-      pure lhs
-    else
-      `(tactic| skip)
+  | .«;» tacs => trSeqFocusList tacs.toList
   | .«<|>» tacs => do
     `(tactic| first $[| $(← tacs.mapM fun tac => trTactic tac):tactic]*)
   | .«[]» _tacs => warn! "unsupported (impossible)"

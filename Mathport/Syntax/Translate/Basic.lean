@@ -564,26 +564,27 @@ def trCalcArg : Spanned Expr × Spanned Expr → M (TSyntax ``calcStep)
 
 def blockTransform : SyntaxNodeKind := decl_name%
 
-def mkBlockTransform (f : Array Syntax.Tactic → Id Syntax.Tactic) : Syntax.Tactic :=
-  ⟨mkNode blockTransform #[Id.run (f #[])]⟩
+def mkBlockTransform (f : Array Syntax.Tactic → Id Syntax.Tactic)
+    (args : Array Syntax.Tactic := #[]) : Syntax.Tactic :=
+  ⟨mkNode blockTransform (#[Id.run (f #[])] ++ args)⟩
+
+def fillBlockTransform (block : Syntax.Tactic) (args : Array Syntax.Tactic) : Syntax.Tactic :=
+  let args := block.raw.getArgs[1:].toArray ++ args
+  let args : Array Syntax :=
+    if args.isEmpty then #[Id.run `(tactic| skip)] else mkSepArray args mkNullNode
+  -- assumes that the block tactic has the form `syntax "foo" tacticSeq : tactic`
+  ⟨block.raw[0].modifyArg 1 (·.modifyArg 0 (·.modifyArg 0 (·.setArgs args)))⟩
 
 partial def processBlockTransforms (tacs : Array Syntax.Tactic) : Array Syntax.Tactic :=
   if let some i := tacs.findIdx? fun stx => stx.raw.getKind == blockTransform then
     let (left, right) := tacs.splitAt (i + 1)
     let right := processBlockTransforms right
-    let right : Array Syntax :=
-      if right.isEmpty then #[Id.run `(tactic| skip)] else mkSepArray right mkNullNode
-    let block := left.back.raw[0]
-    let left := left.pop
-    -- assumes that the block tactic has the form `syntax "foo" tacticSeq : tactic`
-    let block := block.modifyArg 1 (·.modifyArg 0 (·.modifyArg 0 (·.setArgs right)))
-    left.push ⟨block⟩
+    let block := fillBlockTransform left.back right
+    left.pop.push block
   else tacs
 
 def processBlockTransform (tac : Syntax.Tactic) : Syntax.Tactic :=
-  if tac.raw.getKind == blockTransform then
-    ⟨tac.raw[0].setArgs #[Id.run `(tactic| skip)]⟩
-  else tac
+  if tac.raw.getKind == blockTransform then fillBlockTransform tac #[] else tac
 
 def mkSemiSepArray (tacs : Array Syntax.Tactic) : Syntax := Id.run do
   let mut i := 0
