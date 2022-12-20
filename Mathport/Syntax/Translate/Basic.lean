@@ -631,14 +631,11 @@ def expandBinderCollection
   (n : Name) (e : Spanned Expr) : M (Array (TSyntax ks)) := do
   warn! "warning: expanding binder collection {
     bi.bracket true $ spaced repr vars ++ " " ++ n.toString ++ " " ++ repr e}"
-  let vars := vars.map $ Spanned.map fun | BinderName.ident v => v | _ => `_x
-  let vars1 := vars.map $ Spanned.map BinderName.ident
-  let mut out ← trBinder vars1 none
   let H := #[Spanned.dummy BinderName._]
-  for v in vars do
+  vars.concatMapM fun v => do
+    let v := v.map fun | BinderName.ident v => v | _ => `_x
     let ty := Expr.notation (Choice.one n) #[v.map $ Arg.expr ∘ Expr.ident, e.map Arg.expr]
-    out := out ++ (← trBinder H (some (Spanned.dummy ty)))
-  pure out
+    return (← trBinder #[v.map BinderName.ident] none) ++ (← trBinder H (some (Spanned.dummy ty)))
 
 def trBasicBinder : BinderContext → BinderInfo → Option (Array (Spanned BinderName)) →
     Binders → Option (Spanned Expr) → Option Default → M Syntax.BracketedBinder
