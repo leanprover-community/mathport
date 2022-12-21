@@ -7,7 +7,7 @@ import Mathport.Util.Json
 import Mathport.Util.Misc
 import Mathlib.Mathport.Syntax
 import Std.Util.ExtendedBinder
-import Mathlib.Init.Set
+import Std.Classes.SetNotation
 import Mathlib.Algebra.Abs
 
 open Lean
