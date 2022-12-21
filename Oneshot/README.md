@@ -12,3 +12,5 @@ git clone https://github.com/leanprover-community/mathport/
 6. Put Lean 3 code in `Oneshot/lean3-in/main.lean`.
 7. Put extra `#align` in `Oneshot/lean4-in/Oneshot.lean`
 8. Run `make oneshot`
+
+After the first run, you only have to repeat steps 6-8, unless you want to update mathlib (step 5) or mathport itself (`git pull` and then steps 3-8).
