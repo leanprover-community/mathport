@@ -243,7 +243,9 @@ open AST3 Mathport.Translate.Parser
   let cfg ← liftM $ (← expr?).mapM trExpr
   match c with
   | none => `(tactic| tauto $[(config := $cfg)]?)
-  | some _ => `(tactic| tauto! $[(config := $cfg)]?)
+  | some _ =>
+    warn! "tauto! no longer supported, replacing with tauto"
+    `(tactic| tauto $[(config := $cfg)]?)
 
 -- # tactic.unify_equations
 @[tr_tactic unify_equations] def trUnifyEquations : TacM Syntax.Tactic := do
