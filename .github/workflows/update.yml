@@ -3,7 +3,7 @@ on:
     - cron: '0 10 * * *'  # 11AM CET/2AM PT
   workflow_dispatch:
 
-name: mathport
+name: update
 
 jobs:
   update:
