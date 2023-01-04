@@ -1,6 +1,6 @@
 on:
   schedule:
-    - cron: '0 10 * * *'  # 11AM CET/2AM PT
+    - cron: '0 2,14 * * *'  # 3AM CET/6PM PT and 3PM CET/6AM PT
   workflow_dispatch:
 
 name: update
