@@ -1,8 +1,16 @@
 ## One-shot translation of lean 3 files
 
-This is a template which you can use to quickly play with the translation of snippets of lean 3 code. There are two inputs:
+This is a template which you can use to quickly play with the translation of snippets of lean 3 code. The procedure is:
 
-* `Oneshot/lean3-in/main.lean`: Put your lean code here.
-* `Oneshot/lean4-in/Oneshot.lean`: All alignments in `Mathlib` will be used, but you can add additional alignments here.
+1. Clone `https://github.com/leanprover-community/mathport/`
+   ```
+   git clone https://github.com/leanprover-community/mathport/
+   ```
+2. get in the folder: `cd mathport`
+3. Run `make build` (if needed, run `sudo apt install cmake gmp gmp-devel jq`)
+4. Get a mathport release with `./download-release.sh $my_choice`, where $mychoice = `nightly-2022-12-13-04` works, **or just** `./download_release` to get the latest one automatically.
+5. Put Lean 3 code in `Oneshot/lean3-in/main.lean`.
+6. Put extra `#align` in `Oneshot/lean4-in/Oneshot.lean`
+7. Run `make oneshot`
 
-To compile everything, (from the root of the repository) first run `make lean3-predata` beforehand, then run `make oneshot` after changing the inputs. The output is placed in `Outputs/src/oneshot/Oneshot/Main.lean`.
+After the first run, you only have to repeat steps 5-7, unless you want to update mathlib (step 4) or mathport itself (`git pull` and then steps 3-7).
