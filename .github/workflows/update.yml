@@ -35,6 +35,7 @@ jobs:
 
       - name: push update commit
         run: |
+          git diff --exit-code && exit
           git config --global user.email "leanprover.community@gmail.com"
           git config --global user.name "leanprover-community-bot"
           git commit -am 'chore: bump mathlib'
