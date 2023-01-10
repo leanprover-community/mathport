@@ -138,10 +138,16 @@ open AST3 Mathport.Translate.Parser
   let hs ← liftM $ (← parse optPExprList).mapM trExpr
   let hs := hs ++ (← parse (tk "with" *> ident*)).map mkIdent
   let n ← (← expr?).mapM fun
-  | ⟨_, AST3.Expr.nat n⟩ => pure $ Quote.quote n
+  | ⟨_, AST3.Expr.nat n⟩ => pure n
   | _ => warn! "unsupported: weird nat"
-  let cfg ← liftM $ (← expr?).mapM trExpr
-  `(tactic| apply_rules $[(config := $cfg)]? [$hs,*] $(n)?)
+  let mut cfg ← liftM $ (← expr?).mapM trExpr
+  if let some n := n then
+    match cfg.getD (← `({})) with
+    | `(Parser.Term.structInst| { $field,* }) =>
+      cfg ← `(Parser.Term.structInst| { $field,*, maxDepth := $(quote n) })
+    | _ =>
+      warn!"unsupported configuration syntax, cannot add bound {n}"
+  `(tactic| apply_rules $[(config := $cfg)]? [$[$hs:term],*])
 
 @[tr_tactic h_generalize] def trHGeneralize : TacM Syntax.Tactic := do
   let rev ← parse (tk "!")?
