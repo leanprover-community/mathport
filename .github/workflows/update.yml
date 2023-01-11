@@ -30,6 +30,9 @@ jobs:
           lake update
           cp lake-packages/mathlib/lean-toolchain .
 
+      - name: get cache
+        run: lake exe cache get
+
       - name: build mathport
         run: lake build
 
