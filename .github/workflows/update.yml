@@ -1,6 +1,6 @@
 on:
   schedule:
-    - cron: '0 2,14 * * *'  # 3AM CET/6PM PT and 3PM CET/6AM PT
+    - cron: '30 1,3,5,7,9,11,13,15,17,19,21,23 * * *'  # every two hours (30 minutes ahead of build workflow)
   workflow_dispatch:
 
 name: update
