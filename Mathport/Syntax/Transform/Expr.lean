@@ -6,6 +6,9 @@ Authors: Gabriel Ebner
 import Mathport.Syntax.Transform.Basic
 
 mathport_rules
+  | `($x:term $args* <| fun $y:basicFun) => `($x:term $args* fun $y:basicFun)
+  | `($x:term $args* <| fun $y:matchAlts) => `($x:term $args* fun $y:matchAlts)
+  | `($x:term $args* <| do $s:doSeq) => `($x:term $args* do $s:doSeq)
   | `($x:term <| fun $y:basicFun) => `($x:term fun $y:basicFun)
   | `($x:term <| fun $y:matchAlts) => `($x:term fun $y:matchAlts)
   | `($x:term <| do $s:doSeq) => `($x:term do $s:doSeq)
