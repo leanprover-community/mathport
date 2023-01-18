@@ -239,11 +239,11 @@ open AST3 Mathport.Translate.Parser
 
 -- # tactic.tauto
 @[tr_tactic tauto tautology] def trTauto : TacM Syntax.Tactic := do
-  let c ← parse (tk "!")?
+  let _ ← parse (tk "!")?
+  -- Ignore the !.  The new tauto is equivalent to the old tauto!, and the old
+  -- tauto is just a half baked weak version of the same thing.
   let cfg ← liftM $ (← expr?).mapM trExpr
-  match c with
-  | none => `(tactic| tauto $[(config := $cfg)]?)
-  | some _ => `(tactic| tauto! $[(config := $cfg)]?)
+  `(tactic| tauto $[(config := $cfg)]?)
 
 -- # tactic.unify_equations
 @[tr_tactic unify_equations] def trUnifyEquations : TacM Syntax.Tactic := do

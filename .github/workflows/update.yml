@@ -1,0 +1,51 @@
+on:
+  schedule:
+    - cron: '30 1,3,5,7,9,11,13,15,17,19,21,23 * * *'  # every two hours (30 minutes ahead of build workflow)
+  workflow_dispatch:
+
+name: update
+
+jobs:
+  update:
+    name: Auto-update mathlib4
+    runs-on: mathport
+    steps:
+      - name: clean up working directory
+        run: rm -rf *
+
+      - name: clean up elan
+        run: rm -rf $HOME/.elan
+
+      - name: install elan
+        run: |
+          set -o pipefail
+          curl -sSfL https://github.com/leanprover/elan/releases/download/v1.4.2/elan-x86_64-unknown-linux-gnu.tar.gz | tar xz
+          ./elan-init -y --default-toolchain none
+          echo "$HOME/.elan/bin" >> $GITHUB_PATH
+
+      - uses: actions/checkout@v2
+
+      - name: lake update
+        run: |
+          lake update
+          cp lake-packages/mathlib/lean-toolchain .
+
+      - name: get cache
+        run: lake exe cache get
+
+      - name: build mathport
+        run: lake build
+
+      - name: push update commit
+        run: |
+          git diff --exit-code && exit
+          git config --global user.email "leanprover.community@gmail.com"
+          git config --global user.name "leanprover-community-bot"
+          git commit -am 'chore: bump mathlib'
+          git push
+
+      - name: clean up working directory
+        run: rm -rf *
+
+      - name: clean up elan
+        run: rm -rf $HOME/.elan

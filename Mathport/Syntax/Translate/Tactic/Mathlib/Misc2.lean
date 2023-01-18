@@ -83,12 +83,14 @@ def parseLinearComboConfig : Option (Spanned AST3.Expr) → M (Option Syntax.Tac
   | some h => `(tactic| fin_cases $(mkIdent h):ident $[with $w]?)
 
 -- # tactic.interval_cases
-@[tr_tactic interval_cases] def trIntervalCases : TacM Syntax.Tactic :=
-  return ⟨mkNode ``Parser.Tactic.intervalCases #[mkAtom "interval_cases",
-    ← mkOpt (← parse (pExpr)?) (fun e => return (← trExpr e).1),
-    ← mkOptionalNodeM (← parse (tk "using" *> return (← ident, ← ident))?) fun (x, y) =>
-      return #[mkAtom "using", mkIdent x, mkAtom ",", mkIdent y],
-    mkOptionalNode' (← parse (tk "with" *> ident)?) fun h => #[mkAtom "with", mkIdent h]]⟩
+@[tr_tactic interval_cases] def trIntervalCases : TacM Syntax.Tactic := do
+  let e ← (← parse (pExpr)?).mapM (trExpr ·)
+  let lu ← parse (tk "using" *> return (← ident, ← ident))?
+  let (l, u) := (lu.map (mkIdent ·.1), lu.map (mkIdent ·.2))
+  let w ← parse (tk "with" *> ident)?
+  let e := if e.isNone && w.isSome then some (← `(_)) else e
+  let w := w.map (some <| mkIdent ·)
+  `(tactic| interval_cases $[$[$w:ident :]? $e]? $[using $l, $u]?)
 
 -- # tactic.subtype_instance
 @[tr_tactic subtype_instance] def trSubtypeInstance : TacM Syntax.Tactic := `(tactic| subtype_instance)
@@ -236,12 +238,13 @@ attribute [tr_ni_tactic try_refl_tac] trControlLawsTac
 
 @[tr_user_attr to_additive] def trToAdditiveAttr : Parse1 Syntax.Attr :=
   parse1 (return (optTk (← (tk "!")?).isSome, optTk (← (tk "?")?).isSome, ← (ident)?, ← (pExpr)?))
-  fun (bang, ques, tgt, doc) => do
+  fun (_bang, ques, tgt, doc) => do
+    -- ! heuristic no longer necessary
     let tgt ← liftM $ tgt.mapM mkIdentI
     let doc : Option (TSyntax strLitKind) ← doc.mapM fun doc => match doc.unparen with
     | ⟨m, Expr.string s⟩ => pure ⟨setInfo m $ Syntax.mkStrLit s⟩
     | _ => warn! "to_additive: weird doc string"
-    `(attr| to_additive $[!%$bang]? $[?%$ques]? $[$tgt:ident]? $[$doc:str]?)
+    `(attr| to_additive $[?%$ques]? $[$tgt:ident]? $[$doc:str]?)
 
 -- # meta.coinductive_predicates
 @[tr_user_attr monotonicity] def trMonotonicityAttr := tagAttr `monotonicity
