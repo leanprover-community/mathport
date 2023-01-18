@@ -23,12 +23,12 @@ open AST3 Parser
     let old ← mkIdentI old
     match args with
     | Sum.inl ns =>
-      ns.forM (do _ ← trDeclId · none)
+      ns.forM (do _ ← trDeclId · none false)
       `(command| $[$doc]? alias $old ← $(← liftM $ ns.mapM mkIdentI)*)
     | Sum.inr none =>
       warn! "warning: don't know how to generate #align statements for .."
       `(command| $[$doc]? alias $old ↔ ..)
     | Sum.inr (some (l, r)) => do
-      if let .ident li := l then _ ← trDeclId li none
-      if let .ident ri := r then _ ← trDeclId ri none
+      if let .ident li := l then _ ← trDeclId li none false
+      if let .ident ri := r then _ ← trDeclId ri none false
       `(command| $[$doc]? alias $old ↔ $(← trBinderIdentI l) $(← trBinderIdentI r))
