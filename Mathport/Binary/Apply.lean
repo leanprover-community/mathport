@@ -78,6 +78,8 @@ def refineAddDecl (decl : Declaration) : BinportM (Declaration × ClashKind) := 
   | ClashKind.freshDecl =>
     println! "[addDecl] START CHECK  {path.mod3} {decl.toName}"
     try
+      if (← read).config.error2warning && decl matches .thmDecl .. then
+        throwError "skipping proof of theorem"
       liftCoreM <| Lean.addDecl decl
     catch ex =>
       println! "[kernel] {← ex.toMessageData.toString}"
