@@ -13,6 +13,7 @@ As of now, Lean4 uses:
 import Lean
 import Mathport.Util.Misc
 import Mathport.Util.String
+import Mathport.Util.SmartNaming
 import Mathport.Binary.Basic
 
 
@@ -36,23 +37,24 @@ partial def translatePrefix (pfix3 : Name) : BinportM Name := do
       let s := if (← read).config.stringsToKeep.contains s then s else s.snake2pascal
       pure $ Name.mkStr (← translatePrefix pfix3) s
 
-def translateSuffix (s : String) (eKind : ExprKind) : BinportM String :=
-  return if (← read).config.stringsToKeep.contains s then s else
+def translateSuffix (s : String) (eKind : ExprKind) (ty : Option Expr) : BinportM String := do
+  if (← read).config.stringsToKeep.contains s then return s else
     match eKind with
     | ExprKind.eSort  =>
       -- TODO: consider re-enabling this, but be warned you will need to propagate elsewhere
       -- let s := if s.startsWith "has_" then s.drop 4 else s
-      s.snake2pascal
-    | ExprKind.eDef   => s.snake2camel
-    | ExprKind.eProof => s
+      return s.snake2pascal
+    | ExprKind.eDef   => return s.snake2camel
+    | ExprKind.eProof => smartName s ty
 
-partial def mkCandidateLean4NameForKind (n3 : Name) (eKind : ExprKind) : BinportM Name := do
+partial def mkCandidateLean4NameForKind (n3 : Name) (eKind : ExprKind)
+    (ty : Option Expr := none) : BinportM Name := do
   if let some n4 ← lookupNameExt n3 then return n4
-  if n3.isStr && n3.getString! == `_main then mkCandidateLean4NameForKind n3.getPrefix eKind else
+  if n3.isStr && n3.getString! == `_main then mkCandidateLean4NameForKind n3.getPrefix eKind ty else
     let pfix4 ← translatePrefix n3.getPrefix
     match n3 with
     | Name.num _ k ..  => pure $ Name.mkNum pfix4 k
-    | Name.str _ s ..  => pure $ Name.mkStr pfix4 (← translateSuffix s eKind)
+    | Name.str _ s ..  => pure $ Name.mkStr pfix4 (← translateSuffix s eKind ty)
     | _                => pure Name.anonymous
 
 def getExprKind (type : Expr) : MetaM ExprKind := do
@@ -64,7 +66,7 @@ where
     forallTelescope type fun _ b => pure $ b matches Expr.sort ..
 
 def mkCandidateLean4Name (n3 : Name) (type : Expr) : BinportM Name := do
-  mkCandidateLean4NameForKind n3 (← liftMetaM <| getExprKind type)
+  mkCandidateLean4NameForKind n3 (← liftMetaM <| getExprKind type) type
 
 inductive ClashKind
   | found (msg : String) : ClashKind
