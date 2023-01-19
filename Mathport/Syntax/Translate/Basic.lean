@@ -494,7 +494,7 @@ def stripLastNewline : Format → Format
 def pushM (stx : M Syntax.Command) : M Unit := stx >>= push
 
 def pushAlign (n3 n4 : Name) : M Unit := do
-  let str := s!"#align {mkIdent n3} {mkIdent n4}"
+  let str := s!"#align {n3} {n4}"
   modify fun s => { s with alignStatements := s.alignStatements.push str }
 
 def withReplacement (name : Option Name) (x : M Unit) : M Unit :=
