@@ -177,25 +177,27 @@ def parseLine (line : String) : ParseM Unit := do
 
       -- TODO: look at the 'deleted' bit
       | ("#ATTR" :: a :: p :: n :: _ :: rest)    => do
-        let attrName ← str2name a
-        if attrName == "simp" then
-          emit $ EnvModification.simp (← str2name n) (← parseNat p)
-        else if attrName == "reducibility" then
-          match rest with
-          | [status] => emit $ EnvModification.reducibility (← str2name n) (← parseReducibilityStatus status)
-          | _        => throw $ IO.userError s!"[reducibility] expected name"
-        else
-          pure ()
+        let n ← str2name n
+        match ← str2name a with
+        | "simp" => emit $ EnvModification.simp n (← parseNat p)
+        | "reducibility" =>
+          let [status] := rest | throw $ IO.userError s!"[reducibility] expected name"
+          emit $ EnvModification.reducibility n (← parseReducibilityStatus status)
+        | "to_additive_aux" =>
+          let ["#USER_ATTR_DATA", e] := rest | throw $ IO.userError s!"[to_additive] expected expr"
+          let .app _ (.const tgt _) ← str2expr e | throw $ IO.userError s!"[to_additive] malformed expr"
+          emit $ EnvModification.toAdditive n tgt
+        | _ => pure ()
 
       | ["#CLASS", c]                => emit $ EnvModification.class (← str2name c)
       | ["#CLASS_INSTANCE", c, i, p] => emit $ EnvModification.instance (← str2name c) (← str2name i) (← parseNat p)
 
       | ["#PROJECTION", proj, mk, nParams, i, ii] => do
         emit $ EnvModification.projection {
-          projName     := ← str2name proj,
-          ctorName     := ← str2name mk,
-          nParams      := ← parseNat nParams,
-          index        := ← parseNat i,
+          projName     := ← str2name proj
+          ctorName     := ← str2name mk
+          nParams      := ← parseNat nParams
+          index        := ← parseNat i
           fromClass    := ← parseBool ii
         }
 

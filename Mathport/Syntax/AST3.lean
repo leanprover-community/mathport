@@ -1124,6 +1124,14 @@ def Notation.name (sp : Char) (f : PrecSymbol → String) (withTerm : Bool) (sta
 def Notation.name3 := Notation.name ' ' (·.1.kind.trim) true "expr"
 def Notation.name4 := Notation.name '_' (·.1.kind.trim) false "term"
 
+def Attributes.hasToAdditive (attrs : Attributes) : Bool :=
+  attrs.any (· matches ⟨_, .add `to_additive _⟩)
+
+def Modifiers.hasToAdditive (mods : Modifiers) : Bool :=
+  mods.any fun
+    | ⟨_, .attr _ _ attrs⟩ => attrs.hasToAdditive
+    | _ => false
+
 structure Hyp where
   name : Name
   pp : Name
