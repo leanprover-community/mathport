@@ -2,7 +2,7 @@ import Mathport.Binary.Basic
 
 open Lean
 
--- Ways to write xs as ys ++ zs, with ys nonempty.
+-- Ways to write `xs` as `ys ++ zs`, with `ys` nonempty.
 def List.splits1 : List a → List (List a × List a)
 | [] => []
 | (x :: xs) => ([x], xs) :: (splits1 xs).map (fun (ys, zs) => (x :: ys, zs))
