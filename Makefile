@@ -42,7 +42,7 @@ MATHBIN_COMMIT=origin/master
 # Clone mathlib3 and create `all.lean`.
 mathbin-source:
 	mkdir -p sources
-	if [ ! -d "sources/mathlib" ]; then \
+	if [ ! -d "sources/mathlib/.git" ]; then \
 		cd sources && git clone https://github.com/leanprover-community/mathlib.git; \
 	fi
 	cd sources/mathlib && git clean -xfd && git fetch && git checkout $(MATHBIN_COMMIT)
@@ -55,7 +55,7 @@ mathbin-source:
 # * Create `all.lean`.
 lean3-source: mathbin-source
 	mkdir -p sources
-	if [ ! -d "sources/lean" ]; then \
+	if [ ! -d "sources/lean/.git" ]; then \
 		cd sources && git clone https://github.com/leanprover-community/lean.git; \
 	fi
 	cd sources/lean && git clean -xfd && git checkout `cd ../mathlib && lean --version | sed -e "s/.*commit \([0-9a-f]*\).*/\1/"`
