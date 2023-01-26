@@ -544,10 +544,6 @@ def trIdent_ : BinderName → Syntax.Ident_
   | .ident n => mkIdent n
   | .«_» => Id.run `(Parser.Term.hole| _)
 
-def trIdent_' : BinderName → Syntax.Ident_'
-  | .ident n => mkIdent n
-  | .«_» => ⟨mkAtom "_"⟩ -- TODO revisit after https://github.com/leanprover/lean4/issues/1275
-
 def trBinderIdent : BinderName → Syntax.BinderIdent
   | .ident n => Id.run `(binderIdent| $(mkIdent n):ident)
   | .«_» => Id.run `(binderIdent| _)

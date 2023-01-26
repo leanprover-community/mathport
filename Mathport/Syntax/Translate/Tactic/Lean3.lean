@@ -306,11 +306,11 @@ where
 
 @[tr_tactic injection] def trInjection : TacM Syntax.Tactic := do
   let e ← trExpr (← parse pExpr)
-  let hs := (← parse withIdentList).map trIdent_' |>.asNonempty
+  let hs := (← parse withIdentList).map trIdent_ |>.asNonempty
   `(tactic| injection $e $[with $hs*]?)
 
 @[tr_tactic injections] def trInjections : TacM Syntax.Tactic := do
-  let hs := (← parse withIdentList).map trIdent_'
+  let hs := (← parse withIdentList).map trIdent_
   `(tactic| injections $hs*)
 
 def parseSimpConfig : Option (Spanned AST3.Expr) →
