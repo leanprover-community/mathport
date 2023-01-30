@@ -31,7 +31,7 @@ def main (args : List String) : IO Unit := do
     searchPathRef.set (lean_dir% :: config.pathConfig.leanPath)
     mathport1 config path
 
-  | ("--make" :: pathToConfig :: pmod3s@(_ :: _)) =>
+  | "--make" :: pathToConfig :: pmod3s@(_ :: _) =>
     let config ← parseJsonFile Config pathToConfig
     let paths ← parsePaths pmod3s
     searchPathRef.set (lean_dir% :: config.pathConfig.leanPath)
