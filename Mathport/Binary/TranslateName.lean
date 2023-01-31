@@ -25,6 +25,7 @@ inductive ExprKind
   | eSort
   | eDef
   | eProof
+deriving BEq
 
 partial def translatePrefix (pfix3 : Name) : BinportM Name := do
   match ← lookupNameExt pfix3 with
@@ -47,6 +48,15 @@ def translateSuffix (s : String) (eKind : ExprKind) (ty : Option Expr) : Binport
     | ExprKind.eDef   => return s.snake2camel
     | ExprKind.eProof => smartName s ty
 
+-- Add `Cat` to the end of a name of a type,
+-- if necessary to disambiguate it from an existing name.
+def addCat (eKind : ExprKind) (n : Name) : BinportM Name := do
+  let rm := Mathlib.Prelude.Rename.getRenameMap (← getEnv)
+  if eKind == .eSort && rm.toLean3.contains n
+    then if let Name.str p s := n
+      then return Name.str p (s ++ "Cat")
+  return n
+
 partial def mkCandidateLean4NameForKind (n3 : Name) (eKind : ExprKind)
     (ty : Option Expr := none) : BinportM Name := do
   if let some n4 ← lookupNameExt n3 then return n4
@@ -54,7 +64,7 @@ partial def mkCandidateLean4NameForKind (n3 : Name) (eKind : ExprKind)
     let pfix4 ← translatePrefix n3.getPrefix
     match n3 with
     | Name.num _ k ..  => pure $ Name.mkNum pfix4 k
-    | Name.str _ s ..  => pure $ Name.mkStr pfix4 (← translateSuffix s eKind ty)
+    | Name.str _ s ..  => addCat eKind $ Name.mkStr pfix4 (← translateSuffix s eKind ty)
     | _                => pure Name.anonymous
 
 def getExprKind (type : Expr) : MetaM ExprKind := do
