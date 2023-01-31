@@ -295,12 +295,12 @@ mutual
       | none => throw s!"getBinder parse error, unknown kind {k}"
 
   partial def getArg : AstId → M (Spanned Arg) :=
-    withNode fun
-    | "exprs", _, args => Arg.exprs <$> args.mapM getExpr
-    | "binders", _, args => Arg.binders <$> args.mapM getBinder
-    | k, v, args => if k.startsWith "binder"
+    withNodeP fun
+    | "exprs", _, args, _ => Arg.exprs <$> args.mapM getExpr
+    | "binders", _, args, _ => Arg.binders <$> args.mapM getBinder
+    | k, v, args, pexpr => if k.startsWith "binder"
       then Arg.binder <$> getBinder_aux k v args
-      else Arg.expr <$> getExpr_aux k v args none
+      else Arg.expr <$> getExpr_aux k v args pexpr
 
   partial def getExpr_aux : String → Name → Array AstId → Option ExprId → M Expr
     | "notation", v, args, _ => match v with
@@ -554,9 +554,9 @@ def getAttr : AstId → M (Spanned Attribute) := withNode fun
 
 open DeclVal in
 def getDeclVal : AstId → M (Spanned DeclVal) :=
-  withNode fun
-  | "eqns", _, args => eqns <$> args.mapM getArm
-  | k, v, args => expr <$> getExpr_aux k v args none
+  withNodeP fun
+  | "eqns", _, args, _ => eqns <$> args.mapM getArm
+  | k, v, args, pexpr => expr <$> getExpr_aux k v args pexpr
 
 open Modifier in
 def getModifier : AstId → M (Spanned Modifier) := withNode fun
