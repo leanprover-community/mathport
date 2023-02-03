@@ -342,6 +342,7 @@ def mkIdentA (n : Name) : M Ident := do mkIdentR (← renameAttr n)
 def mkIdentN (n : Name) : M Ident := do mkIdentR (← renameNamespace n)
 def mkIdentF (n : Name) : M Ident := do mkIdentR (← renameField n)
 def mkIdentO (n : Name) : M Ident := do mkIdentR (← renameOption n)
+def mkIdentL (n : Name) : M Ident := do mkIdentR n
 
 def Parser.ParserM.run' (p : ParserM α) (args : Array (Spanned VMCall)) : M α := do
   match p.run ⟨(← read).commands, args⟩ with

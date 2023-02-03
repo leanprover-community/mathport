@@ -70,7 +70,7 @@ source: mathbin-source lean3-source
 # Build .ast and .tlean files for Lean 3
 lean3-predata: lean3-source
 	find sources/lean/library -name "*.olean" -delete # ast only exported when oleans not present
-	cd sources/lean && elan override set `cat ../mathlib/leanpkg.toml | grep lean_version | cut -d '"' -f2`
+	cd sources/lean && elan override set local # `cat ../mathlib/leanpkg.toml | grep lean_version | cut -d '"' -f2`
 	cd sources/lean && lean $(LEAN3_OPTS) --make --recursive --ast --tlean library
 	cd sources/lean/library && git rev-parse HEAD > upstream-rev
 
@@ -120,7 +120,7 @@ rm-tarballs:
 	rm lean3-predata.tar.gz lean3-synport.tar.gz lean3-binport.tar.gz mathlib3-predata.tar.gz mathlib3-synport.tar.gz mathlib3-binport.tar.gz
 
 Oneshot/lean3-in/main.ast.json: Oneshot/lean3-in/*.lean
-	cd Oneshot/lean3-in && elan override set `cat ../../sources/mathlib/leanpkg.toml | grep lean_version | cut -d '"' -f2`
+	cd Oneshot/lean3-in && elan override set local # `cat ../../sources/mathlib/leanpkg.toml | grep lean_version | cut -d '"' -f2`
 	cd Oneshot/lean3-in && lean --make --recursive --ast --tlean . || true
 
 Oneshot/lean4-in/build/lib/Oneshot.trace: Oneshot/lean4-in/*.lean

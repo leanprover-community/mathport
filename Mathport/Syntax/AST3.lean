@@ -21,12 +21,14 @@ namespace Lean3
 inductive Proj
   | nat : Nat → Proj
   | ident : Name → Proj
+  | resolved : (ident full_name : Name) → Proj
   deriving Inhabited
 
 instance : Repr Proj where
   reprPrec
   | Proj.nat n, _ => repr n
   | Proj.ident n, _ => n.toString
+  | Proj.resolved ident full_name, _ => s!"\{ident := {ident}, full_name := {full_name}}"
 
 open Lean (Level)
 

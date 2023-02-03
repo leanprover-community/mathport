@@ -187,10 +187,14 @@ def getChoice : AstId → M Choice :=
   | k, _, _ => throw s!"getChoice parse error, unknown kind {k}"
 
 def getProj : AstId → M (Spanned Proj) :=
-  withNode fun
-  | "nat", v, _ => pure $ Proj.nat (decodeNat! v)
-  | "ident", v, _ => pure $ Proj.ident v.getString!
-  | k, _, _ => throw s!"getSym parse error, unknown kind {k}"
+  withNodeP fun
+  | "nat", v, _, _ => pure $ Proj.nat (decodeNat! v)
+  | "ident", v, _, none => pure $ Proj.ident v.getString!
+  | "ident", v, _, some pexprId => do
+    match (← read).expr[pexprId]! with
+    | Lean3.Expr.const resolved _ => pure $ Proj.resolved v resolved
+    | pexpr => throw s!"getProj parse error, [ident.pexpr] is not a const: {repr pexpr}"
+  | k, _, _, _ => throw s!"getSym parse error, unknown kind {k}"
 
 def getOptionVal : AstId → M (Spanned OptionVal) :=
   withNode fun
@@ -313,11 +317,17 @@ mutual
     | "_", _, _, _ => pure Expr.«_»
     | "()", _, _, _ => pure Expr.«()»
     | "{}", _, _, _ => pure Expr.«{}»
-    | "ident", v, _, _ => pure $ Expr.ident v
-    | "const", _, #[n, us], none => return Expr.const (← getName n) (← opt (arr getLevel) us) #[]
+    | "ident", v, _, none => pure $ Expr.ident v
+    | "ident", v, _, some pexprId => do
+      match (← read).expr[pexprId]! with
+      | Lean3.Expr.const resolved _ => pure $ Expr.const ⟨none, v⟩ none #[resolved]
+      | Lean3.Expr.local .. => pure $ Expr.ident v
+      | pexpr => pure $ Expr.ident v -- throw s!"[ident.pexpr] not a const or local: {repr pexpr}"
+    | "const", _, #[n, us], none => do
+        return Expr.const (← getName n) (← opt (arr getLevel) us) #[]
     | "const", _, #[n, us], some pexprId => do
       match (← read).expr[pexprId]! with
-      | Lean3.Expr.const resolved _ =>
+      | Lean3.Expr.const resolved _ => do
         return Expr.const (← getName n) (← opt (arr getLevel) us) #[resolved]
       | pexpr => throw s!"[const.pexpr] not a const: {repr pexpr}"
     | "choice_const", _, #[n, us], none => do

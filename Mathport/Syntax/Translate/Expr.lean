@@ -256,7 +256,7 @@ def trExpr' : Expr → M Term
   | Expr.«_» => `(_)
   | Expr.«()» => `(())
   | Expr.«{}» => `(Parser.Term.structInst| {})
-  | Expr.ident n => mkIdentI n
+  | Expr.ident n => mkIdentL n  -- bound variable or local constant, hopefully?
   | Expr.const n none choices => mkIdentI n.kind choices
   | Expr.const n (some #[]) choices => mkIdentI n.kind choices
   | Expr.const n (some l) choices => do
@@ -310,7 +310,8 @@ def trExpr' : Expr → M Term
       $(← trExpr e))
   | Expr.«.» _ e pr => open Lean.TSyntax.Compat in do
     let pr ← match pr.kind with
-    | Lean3.Proj.ident e => mkIdentF e
+    | Lean3.Proj.ident e => mkIdentF e -- Should only happen with older .ast.json files
+    | Lean3.Proj.resolved ident full_name => mkIdentI ident #[full_name]
     | Lean3.Proj.nat n => pure $ Syntax.mkLit fieldIdxKind (toString n)
     pure $ mkNode ``Parser.Term.proj #[← trExpr e, mkAtom ".", pr]
   | Expr.if none c t e => do
