@@ -255,12 +255,16 @@ open AST3 Mathport.Translate.Parser
 
 -- # tactic.tfae
 open TSyntax.Compat in
-@[tr_tactic tfae_have] def trTfaeHave : TacM Syntax.Tactic :=
-  return mkNode ``Parser.Tactic.tfaeHave #[mkAtom "tfae_have",
-    mkOptionalNode' (← parse ((ident)? <* tk ":")) fun h => #[mkIdent h, mkAtom ":"],
-    quote (k := numLitKind) (← parse smallNat),
-    mkAtom (← parse ((tk "->" *> pure "→") <|> (tk "↔" *> pure "↔") <|> (tk "<-" *> pure "←"))),
-    quote (k := numLitKind) (← parse smallNat)]
+@[tr_tactic tfae_have] def trTfaeHave : TacM Syntax.Tactic := do
+  let h := (← parse ((ident)? <* tk ":")).map mkIdent
+  let n1 := Quote.quote (← parse smallNat)
+  let tk ← parse <| (tk "->" *> pure "→") <|> (tk "↔" *> pure "↔") <|> (tk "<-" *> pure "←")
+  let n2 := Quote.quote (← parse smallNat)
+  match tk with
+  | "→" => `(tactic| tfae_have $[$h :]? $n1 → $n2)
+  | "↔" => `(tactic| tfae_have $[$h :]? $n1 ↔ $n2)
+  | "←" => `(tactic| tfae_have $[$h :]? $n1 ← $n2)
+  | _ => unreachable!
 
 @[tr_tactic tfae_finish] def trTfaeFinish : TacM Syntax.Tactic := `(tactic| tfae_finish)
 
