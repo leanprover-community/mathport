@@ -331,13 +331,12 @@ open TSyntax.Compat in
 
 -- # tactic.wlog
 @[tr_tactic wlog] def trWlog : TacM Syntax.Tactic := do
-  let h := (← parse (ident)?).map mkIdent
-  let pat ← liftM $ (← parse (tk ":" *> pExpr)?).mapM trExpr
-  let cases ← liftM $ (← parse (tk ":=" *> pExpr)?).mapM trExpr
-  let perms ← parse (tk "using" *> (listOf ident* <|> return #[← ident*]))?
-  let perms := (perms.getD #[]).map (·.map mkIdent) |>.asNonempty
-  let disch ← liftM $ (← expr?).mapM trExpr
-  `(tactic| wlog $[(discharger := $disch)]? $(h)? $[: $pat]? $[:= $cases]? $[using $[$perms*],*]?)
+  let h ← parse (mkIdent <$> ident)
+  let pat ← trExpr (← parse (tk ":" *> pExpr))
+  let revert ← parse <| tk "generalizing" *>
+    ((tk "*" *> pure none) <|> (some <$> (mkIdent <$> ident)*)) <|> pure none
+  let H ← parse (tk "with" *> mkIdent <$> ident)?
+  `(tactic| wlog $h:ident : $pat:term $[generalizing $[$revert]*]? $[with $H:ident]?)
 
 -- # tactic.algebra
 @[tr_user_attr ancestor] def trAncestorAttr : Parse1 Syntax.Attr :=
