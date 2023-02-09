@@ -41,6 +41,20 @@ def collectLean3Names (ty : Expr) : BinportM (NameMap String) := do
     | _ => return nm
   visit ty (mkNameMap _)
 
+/--
+Decapitalize the string `s`, which is supposed to be the Lean 4 name
+of something being referred to in the name of a theorem.
+In some cases, we do something else--currently:
+don't decapitalize the names of the intervals.
+-/
+def smartDecapitalize (s : String) : String :=
+  match exceptions.lookup s with
+  | some s' => s'
+  | none => s.decapitalize
+where
+  exceptions : List (String × String) :=
+    ["Ioo", "Ico", "Iio", "Icc", "Iic", "Ioc", "Ici", "Ioi", "Ixx"].map (fun s => (s, s))
+
 -- Greedily try to translate parts of the name `s` (separated by underscores)
 -- from Lean 3 to Lean 4, guided by the constants appearing within `ty`
 -- (which is a Lean 4 expression) and their Lean 3 counterparts.
@@ -53,7 +67,7 @@ partial def smartNameAux (s : String) (ty : Expr) : BinportM String := do
     for (first, rest) in l.splits1.reverse do
       let n3 := "_".intercalate first
       if let some n4 := nm.find? n3
-        then return n4.decapitalize :: (← go rest)
+        then return smartDecapitalize n4 :: (← go rest)
     -- Didn't manage to use first component.
     match l with
     | [] => return []

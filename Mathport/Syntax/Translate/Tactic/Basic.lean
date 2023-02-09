@@ -59,7 +59,7 @@ def expr? : TacM (Option (Spanned AST3.Expr)) := do
   match ← next? with
   | none => pure none
   | some (Param.expr e) => pure e
-  | _ => warn! "parse error"
+  | some e => warn! "parse error: {repr e}"
 
 def expr! : TacM (Spanned AST3.Expr) := do
   match ← expr? with | some p => pure p | none => warn! "missing argument"

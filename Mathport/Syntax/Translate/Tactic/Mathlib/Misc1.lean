@@ -255,12 +255,16 @@ open AST3 Mathport.Translate.Parser
 
 -- # tactic.tfae
 open TSyntax.Compat in
-@[tr_tactic tfae_have] def trTfaeHave : TacM Syntax.Tactic :=
-  return mkNode ``Parser.Tactic.tfaeHave #[mkAtom "tfae_have",
-    mkOptionalNode' (← parse ((ident)? <* tk ":")) fun h => #[mkIdent h, mkAtom ":"],
-    quote (k := numLitKind) (← parse smallNat),
-    mkAtom (← parse ((tk "->" *> pure "→") <|> (tk "↔" *> pure "↔") <|> (tk "<-" *> pure "←"))),
-    quote (k := numLitKind) (← parse smallNat)]
+@[tr_tactic tfae_have] def trTfaeHave : TacM Syntax.Tactic := do
+  let h := (← parse ((ident)? <* tk ":")).map mkIdent
+  let n1 := Quote.quote (← parse smallNat)
+  let tk ← parse <| (tk "->" *> pure "→") <|> (tk "↔" *> pure "↔") <|> (tk "<-" *> pure "←")
+  let n2 := Quote.quote (← parse smallNat)
+  match tk with
+  | "→" => `(tactic| tfae_have $[$h :]? $n1 → $n2)
+  | "↔" => `(tactic| tfae_have $[$h :]? $n1 ↔ $n2)
+  | "←" => `(tactic| tfae_have $[$h :]? $n1 ← $n2)
+  | _ => unreachable!
 
 @[tr_tactic tfae_finish] def trTfaeFinish : TacM Syntax.Tactic := `(tactic| tfae_finish)
 
@@ -327,13 +331,12 @@ open TSyntax.Compat in
 
 -- # tactic.wlog
 @[tr_tactic wlog] def trWlog : TacM Syntax.Tactic := do
-  let h := (← parse (ident)?).map mkIdent
-  let pat ← liftM $ (← parse (tk ":" *> pExpr)?).mapM trExpr
-  let cases ← liftM $ (← parse (tk ":=" *> pExpr)?).mapM trExpr
-  let perms ← parse (tk "using" *> (listOf ident* <|> return #[← ident*]))?
-  let perms := (perms.getD #[]).map (·.map mkIdent) |>.asNonempty
-  let disch ← liftM $ (← expr?).mapM trExpr
-  `(tactic| wlog $[(discharger := $disch)]? $(h)? $[: $pat]? $[:= $cases]? $[using $[$perms*],*]?)
+  let h ← parse (mkIdent <$> ident)
+  let pat ← trExpr (← parse (tk ":" *> pExpr))
+  let revert ← parse <| tk "generalizing" *>
+    ((tk "*" *> pure none) <|> (some <$> (mkIdent <$> ident)*)) <|> pure none
+  let H ← parse (tk "with" *> mkIdent <$> ident)?
+  `(tactic| wlog $h:ident : $pat:term $[generalizing $[$revert]*]? $[with $H:ident]?)
 
 -- # tactic.algebra
 @[tr_user_attr ancestor] def trAncestorAttr : Parse1 Syntax.Attr :=

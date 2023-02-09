@@ -136,7 +136,7 @@ open AST3 Mathport.Translate.Parser
 
 @[tr_tactic apply_rules] def trApplyRules : TacM Syntax.Tactic := do
   let hs ← liftM $ (← parse optPExprList).mapM trExpr
-  let hs := hs ++ (← parse (tk "with" *> ident*)).map mkIdent
+  let hs := hs ++ (← parse ((tk "with" *> ident*) <|> pure #[])).map (mkIdent ·)
   let n ← (← expr?).mapM fun
   | ⟨_, AST3.Expr.nat n⟩ => pure n
   | _ => warn! "unsupported: weird nat"
