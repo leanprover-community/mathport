@@ -329,19 +329,25 @@ mutual
       match (← read).expr[pexprId]! with
       | Lean3.Expr.const resolved _ => do
         return Expr.const (← getName n) (← opt (arr getLevel) us) #[resolved]
-      | pexpr => throw s!"[const.pexpr] not a const: {repr pexpr}"
+      -- Sometimes the Lean 3 parser thinks a name appearing in a tactic is a constant (why?),
+      -- when it's actually a local variable. E.g. in `by rw ← w`, where `w` is a hypothesis.
+      | Lean3.Expr.local .. => pure $ Expr.ident (← getName n).kind
+      | pexpr => throw s!"[const.pexpr] not a const or a local: {repr pexpr}"
     | "choice_const", _, #[n, us], none => do
         dbg_trace "[getExpr_aux.warn] choice_const {(← getName n).kind} has no choices"
         pure $ Expr.const (← getName n) (← opt (arr getLevel) us) #[]
     | "choice_const", _, #[n, us], some pexprId => do
       match (← read).expr[pexprId]! with
+      -- The elaborator may have resolved the choice.
+      | Lean3.Expr.const resolved _ => do
+        return Expr.const (← getName n) (← opt (arr getLevel) us) #[resolved]
       | Lean3.Expr.choice args =>
         let choices ← args.mapM fun
         | Lean3.Expr.const n _ => pure n
         | choice => do throw s!"[getExpr_aux.error] choice_const {
           (← getName n).kind} expecting constants, found {repr choice}"
         return Expr.const (← getName n) (← opt (arr getLevel) us) choices
-      | _ => throw s!"choice_const: expecting choice"
+      | pexpr => throw s!"choice_const: expecting choice, but got {repr pexpr}"
     | "nat", v, _, _ => pure $ Expr.nat $ decodeNat! v
     | "decimal", v, _, _ => let (n, d) := decodeDecimal! v; pure $ Expr.decimal n d
     | "string", v, _, _ => pure $ Expr.string v.getString!

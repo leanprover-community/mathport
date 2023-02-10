@@ -44,6 +44,11 @@ export Mathlib.Prelude.Rename (binportTag)
 
 namespace Rename
 
+def _root_.Lean.Name.asRoot : Name → Name
+| .anonymous => `_root_
+| .str pre s => .str pre.asRoot s
+| .num pre n => .num pre.asRoot n
+
 variable (env : Environment)
 
 -- For both binport and synport
@@ -56,7 +61,9 @@ def resolveIdent? (n3 : Name) (removeX : Bool) (choices : Array Name := #[]) :
     getRenameMap env |>.find? n3 |>.map fun target => (target, clean' target.2)
 where
   clipLike target n3 orig :=
-    if orig.getNumParts == target.getNumParts then
+    if Name.isPrefixOf `_root_ n3 then
+      target.asRoot
+    else if orig.getNumParts == target.getNumParts then
       componentsToName <| target.components.drop (target.getNumParts - n3.getNumParts)
     else target
 
