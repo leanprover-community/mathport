@@ -298,11 +298,15 @@ attribute [tr_ni_tactic try_refl_tac] trControlLawsTac
 @[tr_tactic continuity] def trContinuity : TacM Syntax.Tactic := do
   let bang ← parse (tk "!")?; let ques ← parse (tk "?")?
   let cfg ← liftM $ (← expr?).mapM trExpr
-  match bang, ques with
-  | none, none => `(tactic| continuity $[(config := $cfg)]?)
-  | some _, none => `(tactic| continuity! $[(config := $cfg)]?)
-  | none, some _ => `(tactic| continuity? $[(config := $cfg)]?)
-  | some _, some _ => `(tactic| continuity!? $[(config := $cfg)]?)
+  if bang.isSome then warn! "continuitity! not supported at the moment"
+  if ques.isSome then warn! "continuitity? not supported at the moment"
+  if cfg.isSome then warn! "continuitity (config := ...) not supported at the moment"
+  `(tactic| continuity)
+  -- match bang, ques with
+  -- | none, none => `(tactic| continuity $[(config := $cfg)]?)
+  -- | some _, none => `(tactic| continuity! $[(config := $cfg)]?)
+  -- | none, some _ => `(tactic| continuity? $[(config := $cfg)]?)
+  -- | some _, some _ => `(tactic| continuity!? $[(config := $cfg)]?)
 
 @[tr_tactic continuity'] def trContinuity' : TacM Syntax.Tactic := `(tactic| continuity)
 @[tr_ni_tactic tactic.interactive.continuity'] def trNIContinuity'
