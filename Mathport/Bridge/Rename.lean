@@ -107,7 +107,7 @@ def renameField? (n : Name) : Option Name :=
   match n with
   | Name.str Name.anonymous s .. =>
     match getFieldNameMap env |>.find? s with
-    | some (c::_) => Name.mkSimple c.getString!
+    | some (.str _ c :: _) => Name.mkSimple c
     | _ => none
   | _ => none
 
