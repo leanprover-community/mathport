@@ -15,6 +15,7 @@ import Mathport.Util.Misc
 import Mathport.Util.String
 import Mathport.Util.SmartNaming
 import Mathport.Binary.Basic
+import Mathport.Util.Heartbeats
 
 
 namespace Mathport.Binary
@@ -217,7 +218,7 @@ where
   isDefEqUpto (lvls₁ : List Name) (t₁ : Expr) (lvls₂ : List Name) (t₂ : Expr) : BinportM Bool := do
     if lvls₁.length ≠ lvls₂.length then return false
     let t₂ := t₂.instantiateLevelParams lvls₂ $ lvls₁.map mkLevelParam
-    let result := Kernel.isDefEq (← getEnv) {} t₁ t₂
+    let result := withMaxHeartbeatPure (50000 * 1000) <| Kernel.isDefEq (← getEnv) {} t₁ t₂
     if (← read).config.skipDefEq then
       return match result with
         | .ok defeq => defeq
