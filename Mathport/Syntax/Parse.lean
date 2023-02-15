@@ -177,7 +177,7 @@ def getSym : AstId → M (Spanned Symbol) :=
 def getBinderName : AstId → M (Spanned BinderName) :=
   withNode fun
   | "_", _, _ => pure BinderName.«_»
-  | "ident", v, _ => pure $ BinderName.ident v.getString!
+  | "ident", v, _ => pure $ BinderName.ident v
   | k, _, _ => throw s!"getBinderName parse error, unknown kind {k}"
 
 def getChoice : AstId → M Choice :=
@@ -189,7 +189,7 @@ def getChoice : AstId → M Choice :=
 def getProj : AstId → M (Spanned Proj) :=
   withNode fun
   | "nat", v, _ => pure $ Proj.nat (decodeNat! v)
-  | "ident", v, _ => pure $ Proj.ident v.getString!
+  | "ident", v, _ => pure $ Proj.ident v
   | k, _, _ => throw s!"getSym parse error, unknown kind {k}"
 
 def getOptionVal : AstId → M (Spanned OptionVal) :=
@@ -244,7 +244,7 @@ def wrapperNotations : Lean.NameHashSet :=
   List.foldl (·.insert ·) {} [
     `by, `have, `assume, `show, `suffices, `if, `«(», `«⟨», `«{», `«{!», `«.(», `«._»,
     `«```(», `«``(», `«`(», `«`[», `«`», `«%%», `«#[», `«(:», `«()», `«(::)», `fun, `Type,
-    `«Type*», `Sort, `«Sort*», `let, `calc, `«@», `«@@», `begin, `sorry, `match, `do, `«^.»]
+    `«Type*», `Sort, `«Sort*», `let, `calc, `«@», `«@@», `begin, `sorry, `match, `do]
 
 mutual
 
@@ -306,6 +306,7 @@ mutual
     | "notation", v, args, _ => match v with
       | `«->» => return Expr.«→» (← getExpr args[0]!) (← getExpr args[1]!)
       | `Pi => return Expr.«Pi» (← getBinders args[0]!) (← getExpr args[1]!)
+      | `«^.» => Spanned.kind <$> getExpr args[1]!
       | _ => if wrapperNotations.contains v
         then Spanned.kind <$> getExpr args[0]!
         else Expr.notation (Choice.one v) <$> args.mapM getArg
