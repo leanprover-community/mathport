@@ -306,6 +306,10 @@ mutual
       then Arg.binder <$> getBinder_aux k v args
       else Arg.expr <$> getExpr_aux k v args pexpr
 
+  -- Accepts 
+  partial def getExpr_nestedFields (n : Name) : Lean3.Expr → M Expr
+    
+
   partial def getExpr_aux : String → Name → Array AstId → Option ExprId → M Expr
     | "notation", v, args, _ => match v with
       | `«->» => return Expr.«→» (← getExpr args[0]!) (← getExpr args[1]!)
@@ -322,6 +326,7 @@ mutual
       match (← read).expr[pexprId]! with
       | Lean3.Expr.const resolved _ => pure $ Expr.const ⟨none, v⟩ none #[resolved]
       | Lean3.Expr.local .. => pure $ Expr.ident v
+      | Lean3.Expr.field e f => throw s!"[ident.pexpr] BOO {repr e} {repr f}"
       | pexpr => pure $ Expr.ident v -- throw s!"[ident.pexpr] not a const or local: {repr pexpr}"
     | "const", _, #[n, us], none => do
         return Expr.const (← getName n) (← opt (arr getLevel) us) #[]
@@ -332,6 +337,8 @@ mutual
       -- Sometimes the Lean 3 parser thinks a name appearing in a tactic is a constant (why?),
       -- when it's actually a local variable. E.g. in `by rw ← w`, where `w` is a hypothesis.
       | Lean3.Expr.local .. => pure $ Expr.ident (← getName n).kind
+      | Lean3.Expr.field .. => pure $ Expr.ident (← getName n).kind -- todo
+      | Lean3.Expr.choice .. => pure $ Expr.ident (← getName n).kind -- todo
       | pexpr => throw s!"[const.pexpr] not a const or a local: {repr pexpr}"
     | "choice_const", _, #[n, us], none => do
         dbg_trace "[getExpr_aux.warn] choice_const {(← getName n).kind} has no choices"
@@ -363,7 +370,11 @@ mutual
     | "show", _, #[ty, e], _ => return Expr.show (← getExpr ty) (← getProof e)
     | "have", _, args, _ => getHave false args
     | "suffices", _, args, _ => getHave true args
-    | "field", _, #[e, pr], _ => return Expr.«.» true (← getExpr e) (← getProj pr)
+    | "field", _, #[e, pr], none => return Expr.«.» true (← getExpr e) (← getProj pr)
+    | "field", _, #[e, pr], some pexprId =>  do
+      match (← read).expr[pexprId]! with
+      | Lean3.Expr.field _ pr => return Expr.«.» true (← getExpr e) (Spanned.dummy pr)
+      | _ => throw s!"field notation is not a field"
     | "^.", _, #[e, pr], _ => return Expr.«.» false (← getExpr e) (← getProj pr)
     | "if", _, #[h, c, t, e], _ =>
       return Expr.if (← opt getName h) (← getExpr c) (← getExpr t) (← getExpr e)
@@ -860,7 +871,7 @@ inductive RawExpr where
   | «local» (name pp : Name) (bi : BinderInfo) (type : ExprId)
   | mvar (name pp : Name) (type : ExprId)
   | annotation (name : Annotation) (args : Array ExprId)
-  | field_notation (field : Name) (idx : Nat) (args : Array ExprId)
+  | field_notation (field resolved_field : Name) (idx : Nat) (args : Array ExprId)
   | typed_expr (args : Array ExprId)
   | «structure instance» (struct : Name) (catchall : Bool) (fields : Array Name) (args : Array ExprId)
   | projection_macro (I constr proj : Name) (idx : Nat) (params : Array Name)
@@ -987,8 +998,8 @@ def RawExpr.build : RawExpr → Expr
   | mvar n pp t => Expr.mvar n pp exprs[t]!
   | «local» n pp bi t => Expr.local n pp bi exprs[t]!
   | annotation n args => Expr.annotation n.build exprs[args[0]!]!
-  | field_notation field idx args => Expr.field exprs[args[0]!]! $
-    if field.isAnonymous then Proj.ident field else Proj.nat idx
+  | field_notation field resolved_field idx args => Expr.field exprs[args[0]!]! $
+    if field.isAnonymous then Proj.resolved field resolved_field else Proj.nat idx
   | typed_expr args => Expr.typed_expr exprs[args[0]!]! exprs[args[1]!]!
   | «structure instance» s ca flds args => Expr.structinst s ca
     (flds.zipWith args fun n a => (n, exprs[a]!))
