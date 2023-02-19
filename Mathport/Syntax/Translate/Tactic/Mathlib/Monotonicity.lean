@@ -21,11 +21,12 @@ open Parser
   | none => `(attr| mono)
   | _ => warn! "unsupported (impossible)"
 
+open Mathlib.Tactic.Monotonicity in
 @[tr_tactic mono] def trMono : TacM Syntax.Tactic := do
   let star := optTk (← parse (tk "*")?).isSome
   let side ← match ← parse (ident)? with
-  | some `left => some <$> `(Lean.Parser.Tactic.mono.side| left)
-  | some `right => some <$> `(Lean.Parser.Tactic.mono.side| right)
+  | some `left => some <$> `(mono.side| left)
+  | some `right => some <$> `(mono.side| right)
   | some `both => pure none
   | none => pure none
   | _ => warn! "unsupported (impossible)"
