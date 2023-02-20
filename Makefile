@@ -82,7 +82,7 @@ lean3-predata: lean3-source
 mathbin-predata: mathbin-source
 	find sources/mathlib -name "*.olean" -delete # ast only exported when oleans not present
 	# By changing into the directory, `elan` automatically dispatches to the correct binary.
-	# cd sources/mathlib && lean $(LEAN3_OPTS) --make --recursive --ast --tlean src
+	cd sources/mathlib && lean $(LEAN3_OPTS) --make --recursive --ast --tlean src
 	cd sources/mathlib && git rev-parse HEAD > upstream-rev
 	cd sources/mathlib && \
 		while IFS= read -r -d '' file; do \
