@@ -63,7 +63,7 @@ def AST3toData4 (path : Path) : AST3 → M Data4
         then
         "! " ++ ci.repo ++ " commit " ++ ci.fileRevs.findD (path.mod3.toFilePath.toString ++ ".lean") ci.commit ++ "\n" ++
         "! Please do not edit these lines, except to modify the commit id\n" ++
-        "! if you have ported upstream changes.\n" ++
+        "! if you have ported upstream changes.\n"
         else "")
     printFirstLineComments (some msg)
     printOutput fmt
