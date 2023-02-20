@@ -73,10 +73,6 @@ lean3-predata: lean3-source
 	cd sources/lean && elan override set `cat ../mathlib/leanpkg.toml | grep lean_version | cut -d '"' -f2`
 	cd sources/lean && lean $(LEAN3_OPTS) --make --recursive --ast --tlean library
 	cd sources/lean/library && git rev-parse HEAD > upstream-rev
-	cd sources/lean/library && \
-		while IFS= read -r -d '' file; do \
-			printf "%s %s\0" $(git rev-list -1 HEAD -- "$$file") "$$file"; \
-		done < <(git ls-files -z) | jq -Rs 'reduce (split("\u0000")[] | capture("^(?<sha>[a-z0-9]*) (?<path>.*)$$")) as $$i ({}; .[$$i.path] = $$i.sha)' > file-revs.json
 
 # Build .ast and .tlean files for Mathlib 3.
 mathbin-predata: mathbin-source
@@ -84,11 +80,6 @@ mathbin-predata: mathbin-source
 	# By changing into the directory, `elan` automatically dispatches to the correct binary.
 	cd sources/mathlib && lean $(LEAN3_OPTS) --make --recursive --ast --tlean src
 	cd sources/mathlib && git rev-parse HEAD > upstream-rev
-	cd sources/mathlib && \
-		while IFS= read -r -d '' file; do \
-			printf "%s %s\0" $$(git rev-list -1 HEAD -- "src/$$file") "$$file"; \
-		done < <(cd src && git ls-files -z) | jq -Rs 'reduce (split("\u0000")[] | capture("^(?<sha>[a-z0-9]*) (?<path>.*)$$")) as $$i ({}; .[$$i.path] = $$i.sha)' > file-revs.json
-
 predata: lean3-predata mathbin-predata
 
 init-logs:
@@ -103,6 +94,37 @@ config.lean.json: config.json sources/lean/library/upstream-rev sources/lean/lib
 
 port-lean: init-logs build config.lean.json
 	./build/bin/mathport --make config.lean.json Leanbin::all >> Logs/mathport.out 2> >(tee -a Logs/mathport.err >&2)
+
+sources/lean/library/file-revs.json: sources/lean/library/upstream-rev
+	REV=$$(cat $<); \
+	cd sources/lean; \
+	if [ ! -d ".git" ]; then \
+		git init -q \
+			&& git remote add origin https://github.com/leanprover-community/lean.git; \
+	fi; \
+	git fetch origin $$REV: --refmap= --no-tags; \
+	cd library && \
+		while IFS= read -r -d '' file; do \
+			printf "%s %s\0" $$(git rev-list -1 $$REV -- "$$file") "$$file"; \
+		done < <(git ls-tree -rz --name-only $$REV) \
+			| jq -Rs 'reduce (split("\u0000")[] | capture("^(?<sha>[a-z0-9]*) (?<path>.*)$$")) as $$i ({}; .[$$i.path] = $$i.sha)' \
+			> file-revs.json
+
+
+sources/mathlib/file-revs.json: sources/mathlib/upstream-rev
+	REV=$$(cat $<); \
+	cd sources/mathlib; \
+	if [ ! -d ".git" ]; then \
+		git init -q \
+			&& git remote add origin https://github.com/leanprover-community/mathlib.git; \
+	fi; \
+	git fetch origin $$REV: --refmap=; \
+	while IFS= read -r -d '' file; do \
+		printf "%s %s\0" $$(git rev-list -1 $$REV -- "src/$$file") "$$file"; \
+	done < <(cd src && git ls-tree -rz --name-only $$REV) \
+		| jq -Rs 'reduce (split("\u0000")[] | capture("^(?<sha>[a-z0-9]*) (?<path>.*)$$")) as $$i ({}; .[$$i.path] = $$i.sha)' \
+		> file-revs.json
+
 
 config.mathlib.json: config.json sources/mathlib/upstream-rev sources/mathlib/file-revs.json
 	jq '.commitInfo = {repo: $$repo, commit: $$commit, fileRevs: $$revs[0]}' \
