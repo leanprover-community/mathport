@@ -26,9 +26,15 @@ inductive ReplacementStyle where
   | keep
   deriving FromJson, Inhabited
 
+structure CommitInfo where
+  repo : String
+  commit : String
+  fileRevs : HashMap String String
+  deriving FromJson, Inhabited
+
 structure Config where
   pathConfig         : Path.Config
-  commitInfo         : Option String := none
+  commitInfo         : Option CommitInfo := none
   baseModules        : Array Name := #[`Mathlib]
   extraModules       : Array Name := #[]
   defEqConstructions : HashSet String := {}

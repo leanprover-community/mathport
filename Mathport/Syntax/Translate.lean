@@ -61,7 +61,7 @@ def AST3toData4 (path : Path) : AST3 → M Data4
       "! This file was ported from Lean 3 source module " ++ path.mod3.toString ++ "\n" ++
       (if let some ci := commitInfo
         then
-        "! " ++ ci ++ "\n" ++
+        "! " ++ ci.repo ++ " " ++ ci.fileRevs.get path.mod3.toFilePath ++ "\n" ++
         "! Please do not edit these lines, except to modify the commit id\n" ++
         "! if you have ported upstream changes.\n"
         else "")

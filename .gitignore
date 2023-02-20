@@ -8,3 +8,5 @@ lake-packages
 sources/
 *.tar.gz
 config.oneshot.json
+config.lean.json
+config.mathlib.json

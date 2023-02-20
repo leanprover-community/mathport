@@ -73,27 +73,43 @@ lean3-predata: lean3-source
 	cd sources/lean && elan override set `cat ../mathlib/leanpkg.toml | grep lean_version | cut -d '"' -f2`
 	cd sources/lean && lean $(LEAN3_OPTS) --make --recursive --ast --tlean library
 	cd sources/lean/library && git rev-parse HEAD > upstream-rev
+	cd sources/lean/library && \
+		while IFS= read -r -d '' file; do \
+			printf "%s %s\0" $(git rev-list -1 HEAD -- "$$file") "$$file"; \
+		done < <(git ls-files -z) | jq -Rs 'reduce (split("\u0000")[] | capture("^(?<sha>[a-z0-9]*) (?<path>.*)$$")) as $$i ({}; .[$$i.path] = $$i.sha)' > file-revs.json
 
 # Build .ast and .tlean files for Mathlib 3.
 mathbin-predata: mathbin-source
 	find sources/mathlib -name "*.olean" -delete # ast only exported when oleans not present
 	# By changing into the directory, `elan` automatically dispatches to the correct binary.
-	cd sources/mathlib && lean $(LEAN3_OPTS) --make --recursive --ast --tlean src
+	# cd sources/mathlib && lean $(LEAN3_OPTS) --make --recursive --ast --tlean src
 	cd sources/mathlib && git rev-parse HEAD > upstream-rev
+	cd sources/mathlib && \
+		while IFS= read -r -d '' file; do \
+			printf "%s %s\0" $$(git rev-list -1 HEAD -- "src/$$file") "$$file"; \
+		done < <(cd src && git ls-files -z) | jq -Rs 'reduce (split("\u0000")[] | capture("^(?<sha>[a-z0-9]*) (?<path>.*)$$")) as $$i ({}; .[$$i.path] = $$i.sha)' > file-revs.json
 
 predata: lean3-predata mathbin-predata
 
 init-logs:
 	mkdir -p Logs
 
-config.lean.json: config.json
-	jq --arg COMMITINFO "leanprover-community/lean commit $$(cat sources/lean/library/upstream-rev)" '.commitInfo = $$COMMITINFO' < config.json > config.lean.json
+config.lean.json: config.json sources/lean/library/upstream-rev sources/lean/library/file-revs.json
+	jq '.commitInfo = {repo: $$repo, commit: $$commit, fileRevs: $$revs[0]}' \
+			--arg repo leanprover-community/mathlib \
+			--arg commit "$$(cat sources/lean/library/upstream-rev)
+			--slurpfile revs sources/lean/librar/file-revs.json \
+		< config.json > config.lean.json
 
 port-lean: init-logs build config.lean.json
 	./build/bin/mathport --make config.lean.json Leanbin::all >> Logs/mathport.out 2> >(tee -a Logs/mathport.err >&2)
 
-config.mathlib.json: config.json
-	jq --arg COMMITINFO "leanprover-community/mathlib commit $$(cat sources/mathlib/upstream-rev)" '.commitInfo = $$COMMITINFO' < config.json > config.mathlib.json
+config.mathlib.json: config.json sources/mathlib/upstream-rev sources/mathlib/file-revs.json
+	jq '.commitInfo = {repo: $$repo, commit: $$commit, fileRevs: $$revs[0]}' \
+			--arg repo leanprover-community/mathlib \
+			--arg commit "$$(cat sources/mathlib/upstream-rev)" \
+			--slurpfile revs sources/mathlib/file-revs.json \
+		< config.json > config.mathlib.json
 
 port-mathbin: port-lean config.mathlib.json
 	./build/bin/mathport --make config.mathlib.json Leanbin::all Mathbin::all >> Logs/mathport.out 2> >(tee -a Logs/mathport.err >&2)
@@ -101,8 +117,8 @@ port-mathbin: port-lean config.mathlib.json
 port: port-lean port-mathbin
 
 predata-tarballs:
-	find sources/lean/library/ -name "*.ast.json" -o -name "*.tlean" -o -name upstream-rev | tar -czvf lean3-predata.tar.gz -T -
-	find sources/mathlib/ -name "*.ast.json" -o -name "*.tlean" -o -name upstream-rev | tar -czvf mathlib3-predata.tar.gz -T -
+	find sources/lean/library/ -name "*.ast.json" -o -name "*.tlean" -o -name upstream-rev -o file-revs.json | tar -czvf lean3-predata.tar.gz -T -
+	find sources/mathlib/ -name "*.ast.json" -o -name "*.tlean" -o -name upstream-rev -o file-revs.json | tar -czvf mathlib3-predata.tar.gz -T -
 
 mathport-tarballs:
 	mkdir -p Outputs/src/leanbin Outputs/src/mathbin Outputs/oleans/leanbin Outputs/oleans/mathbin
