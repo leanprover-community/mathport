@@ -8,7 +8,7 @@ USER root
 
 RUN apt-get update && \
     # mathport specific
-    apt-get install -y git libgmp-dev cmake ccache clang && \\
+    apt-get install -y git libgmp-dev cmake ccache clang jq && \\
     # mathlib4
     apt-get install sudo git curl git bash-completion python3 -y && \
     apt-get clean
