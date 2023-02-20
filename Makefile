@@ -132,7 +132,6 @@ config.mathlib.json: config.json sources/mathlib/upstream-rev sources/mathlib/fi
 			--arg commit "$$(cat sources/mathlib/upstream-rev)" \
 			--slurpfile revs sources/mathlib/file-revs.json \
 		< config.json > config.mathlib.json
-	cat config.mathlib.json  # TODO: for debugging, remove
 
 port-mathbin: port-lean config.mathlib.json
 	./build/bin/mathport --make config.mathlib.json Leanbin::all Mathbin::all >> Logs/mathport.out 2> >(tee -a Logs/mathport.err >&2)
