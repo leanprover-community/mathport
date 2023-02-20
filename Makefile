@@ -88,8 +88,8 @@ init-logs:
 config.lean.json: config.json sources/lean/library/upstream-rev sources/lean/library/file-revs.json
 	jq '.commitInfo = {repo: $$repo, commit: $$commit, fileRevs: $$revs[0]}' \
 			--arg repo leanprover-community/mathlib \
-			--arg commit "$$(cat sources/lean/library/upstream-rev)
-			--slurpfile revs sources/lean/librar/file-revs.json \
+			--arg commit "$$(cat sources/lean/library/upstream-rev)" \
+			--slurpfile revs sources/lean/library/file-revs.json \
 		< config.json > config.lean.json
 
 port-lean: init-logs build config.lean.json
