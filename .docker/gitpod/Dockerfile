@@ -39,5 +39,4 @@ ENV VSCODE_API_VERSION="1.50.0"
 RUN ssh -o StrictHostKeyChecking=no github.com || true
 
 # run sudo once to suppress usage info
-
 RUN sudo echo finished
