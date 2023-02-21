@@ -8,7 +8,7 @@ USER root
 
 RUN apt-get update && \
     # mathport specific
-    apt-get install -y git libgmp-dev cmake ccache clang jq && \\
+    apt-get install -y git libgmp-dev cmake ccache clang jq && \
     # mathlib4
     apt-get install sudo git curl git bash-completion python3 -y && \
     apt-get clean
@@ -39,4 +39,5 @@ ENV VSCODE_API_VERSION="1.50.0"
 RUN ssh -o StrictHostKeyChecking=no github.com || true
 
 # run sudo once to suppress usage info
+
 RUN sudo echo finished
