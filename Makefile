@@ -139,8 +139,8 @@ port-mathbin: port-lean config.mathlib.json
 port: port-lean port-mathbin
 
 predata-tarballs:
-	find sources/lean/library/ -name "*.ast.json" -o -name "*.tlean" -o -name upstream-rev -o file-revs.json | tar -czvf lean3-predata.tar.gz -T -
-	find sources/mathlib/ -name "*.ast.json" -o -name "*.tlean" -o -name upstream-rev -o file-revs.json | tar -czvf mathlib3-predata.tar.gz -T -
+	find sources/lean/library/ -name "*.ast.json" -o -name "*.tlean" -o -name upstream-rev -o -name file-revs.json | tar -czvf lean3-predata.tar.gz -T -
+	find sources/mathlib/ -name "*.ast.json" -o -name "*.tlean" -o -name upstream-rev -o -name file-revs.json | tar -czvf mathlib3-predata.tar.gz -T -
 
 mathport-tarballs:
 	mkdir -p Outputs/src/leanbin Outputs/src/mathbin Outputs/oleans/leanbin Outputs/oleans/mathbin
