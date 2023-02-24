@@ -70,6 +70,7 @@ def Declaration.collectNames : Declaration → List Name
   | Declaration.defnDecl defn          => [defn.name]
   | Declaration.thmDecl thm            => [thm.name]
   | Declaration.axiomDecl ax           => [ax.name]
+  | Declaration.opaqueDecl defn        => [defn.name]
   | Declaration.inductDecl _ _ [ind] _ => ind.name :: (ind.name ++ `rec) :: ind.ctors.map Constructor.name
   | _ => panic! "unexpected declaration type"
 
@@ -78,6 +79,7 @@ def Declaration.toName : Declaration → Name
   | Declaration.thmDecl thm            => thm.name
   | Declaration.axiomDecl ax           => ax.name
   | Declaration.inductDecl _ _ [ind] _ => ind.name
+  | Declaration.opaqueDecl defn        => defn.name
   | _ => panic! "unexpected declaration type"
 
 end Lean
