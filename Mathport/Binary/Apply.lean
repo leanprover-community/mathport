@@ -66,6 +66,10 @@ where
     | _ => .zero
     mkConst ``PUnit [u]
 
+def addDecl (decl : Declaration) : CoreM Unit :=
+  withMaxHeartbeat (50000 * 1000) do
+    Lean.addDecl decl
+
 def refineAddDecl (decl : Declaration) : BinportM (Declaration × ClashKind) := do
   let path := (← read).path
   println! "[addDecl] START REFINE {path.mod3} {decl.toName}"
@@ -80,7 +84,7 @@ def refineAddDecl (decl : Declaration) : BinportM (Declaration × ClashKind) := 
     try
       if (← read).config.error2warning && decl matches .thmDecl .. then
         throwError "skipping proof of theorem"
-      liftCoreM <| Lean.addDecl decl
+      liftCoreM do addDecl decl
     catch ex =>
       println! "[kernel] {← ex.toMessageData.toString}"
       if (← read).config.error2warning then
@@ -88,15 +92,14 @@ def refineAddDecl (decl : Declaration) : BinportM (Declaration × ClashKind) := 
         try
           println! "[addDecl] stubbing value of {decl.toName}"
           let decl ← liftMetaM <| stubValue decl
-          liftCoreM <| Lean.addDecl decl
+          liftCoreM do addDecl decl
         catch _ =>
           println! "[addDecl] stubbing type of {decl.toName}"
           let decl ← liftMetaM <| stubType decl
           try
-            liftCoreM <| Lean.addDecl decl
+            liftCoreM do addDecl decl
           catch _ =>
             println! "[addDecl] failed to port {decl.toName}"
-            throw ex
       else throw ex
 
     modifyEnv fun env => binportTag.ext.addEntry env decl.toName
