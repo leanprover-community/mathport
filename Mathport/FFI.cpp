@@ -10,9 +10,15 @@ using namespace std;
 
 namespace lean {
   void set_max_heartbeat(size_t max);
+  void reset_heartbeat();
 
   extern "C" lean_object *lean_set_max_heartbeat(size_t max) {
     set_max_heartbeat(max);
+    return lean_io_result_mk_ok(lean_box(0));
+  }
+
+  extern "C" lean_object *lean_reset_heartbeat() {
+    reset_heartbeat();
     return lean_io_result_mk_ok(lean_box(0));
   }
 }

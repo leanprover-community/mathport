@@ -9,8 +9,12 @@ namespace Mathport
 @[extern "lean_set_max_heartbeat"]
 opaque setMaxHeartbeat (max : USize) : BaseIO Unit
 
+@[extern "lean_reset_heartbeat"]
+opaque resetHeartbeat : BaseIO Unit
+
 def withMaxHeartbeat [Monad m] [MonadFinally m] [MonadLiftT BaseIO m]
     (max : USize) (k : m α) : m α := do
+  resetHeartbeat
   setMaxHeartbeat max
   try
     k
