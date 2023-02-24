@@ -98,8 +98,9 @@ def refineAddDecl (decl : Declaration) : BinportM (Declaration × ClashKind) := 
           let decl ← liftMetaM <| stubType decl
           try
             liftCoreM do addDecl decl
-          catch _ =>
+          catch ex =>
             println! "[addDecl] failed to port {decl.toName}"
+            throw ex
       else throw ex
 
     modifyEnv fun env => binportTag.ext.addEntry env decl.toName
