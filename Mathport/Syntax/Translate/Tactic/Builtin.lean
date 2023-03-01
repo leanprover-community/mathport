@@ -44,10 +44,7 @@ partial def trTactic' : Tactic → M Syntax.Tactic
     `(tactic| first $[| $(← tacs.mapM fun tac => trTactic tac):tactic]*)
   | .«[]» _tacs => warn! "unsupported (impossible)"
   | .exact_shortcut ⟨m, Expr.calc args⟩ => withSpanS m do
-    if h : args.size > 0 then
-      `(tactic| calc $(← trCalcArg args[0]) $(← args[1:].toArray.mapM trCalcArg)*)
-    else
-      warn! "unsupported (impossible)"
+    `(tactic| calc $(← trCalcSteps args))
   | .exact_shortcut e => do `(tactic| exact $(← trExpr e))
   | .expr e =>
     match e.unparen with

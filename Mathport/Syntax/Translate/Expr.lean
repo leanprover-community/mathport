@@ -319,11 +319,7 @@ def trExpr' : Expr → M Term
   | Expr.if (some h) c t e => do
     `(if $(mkIdent h.kind):ident : $(← trExpr c)
       then $(← trExpr t) else $(← trExpr e))
-  | Expr.calc args => do
-    if h : args.size > 0 then
-      `(calc $(← trCalcArg args[0]) $(← args[1:].toArray.mapM trCalcArg)*)
-    else
-      warn! "unsupported (impossible)"
+  | Expr.calc args => do `(calc $(← trCalcSteps args))
   | Expr.«@» _ e => do `(@$(← trExpr e))
   | Expr.pattern e => trExpr e
   | Expr.«`()» _ true e => do `(q($(← trExpr e)))

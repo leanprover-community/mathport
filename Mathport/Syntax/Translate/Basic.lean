@@ -555,8 +555,15 @@ def trBinderIdentI : BinderName → M (Syntax.BinderIdent)
 def optTy (ty : Option Term) : M (Option (TSyntax ``Parser.Term.typeSpec)) :=
   ty.mapM fun stx => do `(Parser.Term.typeSpec| : $stx)
 
-def trCalcArg : Spanned Expr × Spanned Expr → M (TSyntax ``calcStep)
-  | (lhs, rhs) => do `(calcStep| $(← trExpr lhs) := $(← trExpr rhs))
+def trCalcSteps (steps : Array (Spanned Expr × Spanned Expr)) : M (TSyntax ``calcSteps) := do
+  if h : steps.size > 0 then
+    let restLhs ← steps[1:].toArray.mapM (trExpr ·.1)
+    let restRhs ← steps[1:].toArray.mapM (trExpr ·.2)
+    `(calcSteps|
+      $(← trExpr steps[0].1) := $(← trExpr steps[0].2)
+      $[$restLhs := $restRhs]*)
+  else
+    `(calcSteps| _)
 
 def blockTransform : SyntaxNodeKind := decl_name%
 
