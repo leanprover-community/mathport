@@ -31,7 +31,7 @@ open AST3 Parser
   `(tactic| convert $[←%$sym]? $r $[using $(n.map quote)]?)
 
 @[tr_tactic convert_to] def trConvertTo : TacM Syntax.Tactic := do
-  `(tactic| convert_to $(← trExpr (← parse pExpr))
+  `(tactic| convert_to $(← trExpr (← parse pExpr)):term
     $[using $((← parse (tk "using" *> smallNat)?).map Quote.quote)]?)
 
 @[tr_tactic ac_change] def trAcChange : TacM Syntax.Tactic := do
