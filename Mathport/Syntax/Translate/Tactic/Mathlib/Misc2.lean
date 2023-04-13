@@ -353,3 +353,8 @@ def trUniqueDiffWithinAt_Ici_Iic_univ (_ : AST3.Expr) : M Syntax.Tactic := do
 -- # set_theory.game.pgame
 @[tr_ni_tactic pgame.pgame_wf_tac] def trPGameWFTac (_ : AST3.Expr) : M Syntax.Tactic :=
   `(tactic| pgame_wf_tac)
+
+-- # data.matrix.notation
+@[tr_user_nota matrix.notation] def trMatrixNotation : TacM Syntax.Term := do
+  let args ← parse (sepBy (tk ";") (sepBy (tk ",") pExpr) <* tk "]")
+  `(!![$[$(← liftM <| args.mapM (·.mapM trExpr)),*];*])
