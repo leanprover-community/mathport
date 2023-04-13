@@ -356,5 +356,12 @@ def trUniqueDiffWithinAt_Ici_Iic_univ (_ : AST3.Expr) : M Syntax.Tactic := do
 
 -- # data.matrix.notation
 @[tr_user_nota matrix.notation] def trMatrixNotation : TacM Syntax.Term := do
-  let args ← parse (sepBy (tk ";") (sepBy (tk ",") pExpr) <* tk "]")
-  `(!![$[$(← liftM <| args.mapM (·.mapM trExpr)),*];*])
+  let args ← parse (
+      (Sum.inl <$> sepBy (tk ";") (sepBy (tk ",") pExpr) <|>
+       Sum.inr <$> (Sum.inl <$> (tk ";")* <|> Sum.inr <$> (tk ",")*)) <* tk "]")
+  match args with
+  | .inl args => `(!![$[$(← liftM <| args.mapM (·.mapM trExpr)),*];*])
+  | .inr (.inl rxz) => pure ⟨mkNode ``Parser.Term.matrixNotationRx0 #[mkAtom "!![",
+      mkNullNode <| mkArray rxz.size <| mkAtom ";", mkAtom "]"]⟩
+  | .inr (.inr zxc) => pure ⟨mkNode ``Parser.Term.matrixNotation0xC #[mkAtom "!![",
+      mkNullNode <| mkArray zxc.size <| mkAtom ";", mkAtom "]"]⟩
