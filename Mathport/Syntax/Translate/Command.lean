@@ -317,7 +317,7 @@ def trDecl (dk : DeclKind) (mods : Modifiers) (attrs : Attributes)
     unless dk matches DeclKind.def do warn! "unsupported irreducible non-definition"
     unless s.derive.isEmpty do warn! "unsupported: @[derive, irreducible] def"
     unless uwf.isNone do warn! "unsupported: @[irreducible] def + using_well_founded"
-    return ← `($mods:declModifiers irreducible_def $id.get! $(← trOptDeclSig bis ty) $val:declVal)
+    return ← `($mods:declModifiers irreducible_def $id.get! $(← trOptDeclSig bis ty):optDeclSig $val:declVal)
   match dk with
   | DeclKind.abbrev => do
     unless s.derive.isEmpty do warn! "unsupported: @[derive] abbrev"
