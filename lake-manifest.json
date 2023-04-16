@@ -4,7 +4,7 @@
  [{"git":
    {"url": "https://github.com/leanprover-community/mathlib4",
     "subDir?": null,
-    "rev": "ab8e9be32c497992915b8beb99117503a166b4e9",
+    "rev": "2d048efe112e48b8395b636a2c994affc854e8a5",
     "name": "mathlib",
     "inputRev?": "master"}},
   {"git":
