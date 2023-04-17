@@ -359,6 +359,7 @@ def trUniqueDiffWithinAt_Ici_Iic_univ (_ : AST3.Expr) : M Syntax.Tactic := do
   let args ← parse (
       (Sum.inl <$> sepBy (tk ";") (sepBy (tk ",") pExpr) <|>
        Sum.inr <$> (Sum.inl <$> (tk ";")* <|> Sum.inr <$> (tk ",")*)) <* tk "]")
+  parse (pure ()) -- the body doesn't parse anything
   match args with
   | .inl args => `(!![$[$(← liftM <| args.mapM (·.mapM trExpr)),*];*])
   | .inr (.inl rxz) => pure ⟨mkNode ``Parser.Term.matrixNotationRx0 #[mkAtom "!![",
