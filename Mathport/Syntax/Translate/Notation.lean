@@ -157,7 +157,8 @@ def predefinedNotations : NameMap NotationEntry := [
     ("exprsformat! ", unary id),
     ("exprpformat! ", unary id),
     ("exprfail! ", unary id),
-    ("exprtrace! ", unary id)
+    ("exprtrace! ", unary id),
+    ("expr!![ ", unary id)
   ].foldl (fun m (a, k) => m.insert a ⟨Name.anonymous, NotationDesc.builtin, k, true⟩) ∅
 where
   exist := binder
