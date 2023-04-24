@@ -126,7 +126,12 @@ def trAttrInstance (attr : Attribute) (allowDel := false)
   | some (TrAttr.add stx) => do
     let stx ← `(Parser.Term.attrInstance| $(← trAttrKind kind) $stx)
     modify fun s => { s with 2 := s.2.push stx }
-  | some (TrAttr.prio prio) => modify fun s => { s with 1.prio := prio }
+  | some (TrAttr.prio prio) =>
+    if let some stx := (← get).2.back? then
+      if let `(Parser.Term.attrInstance| $kind instance) := stx then
+        let stx ← `(Parser.Term.attrInstance| $kind instance $(← trPrio prio))
+        modify fun s => { s with 2 := s.2.pop.push stx }
+    modify fun s => { s with 1.prio := prio }
   | some TrAttr.parsingOnly => modify fun s => { s with 1.parsingOnly := true }
   | some TrAttr.irreducible => modify fun s => { s with 1.irreducible := true }
   | some (TrAttr.derive ns) => modify fun s => { s with 1.derive := s.1.derive ++ ns }
