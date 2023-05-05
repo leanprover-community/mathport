@@ -58,7 +58,7 @@ lean3-source: mathbin-source
 	if [ ! -d "sources/lean/.git" ]; then \
 		cd sources && git clone https://github.com/leanprover-community/lean.git; \
 	fi
-  SHA="$$(cd ../mathlib && lean --version | sed -e "s/.*commit \([0-9a-f]*\).*/\1/")"
+	SHA="$$(cd ../mathlib && lean --version | sed -e "s/.*commit \([0-9a-f]*\).*/\1/")"
 	cd sources/lean && git clean -xfd && git fetch origin "$$SHA" && git checkout "$$SHA" --
 	mkdir -p sources/lean/build/release
 	# Run cmake, to create `version.lean` from `version.lean.in`.
