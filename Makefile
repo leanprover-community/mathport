@@ -45,7 +45,7 @@ mathbin-source:
 	if [ ! -d "sources/mathlib/.git" ]; then \
 		cd sources && git clone https://github.com/leanprover-community/mathlib.git; \
 	fi
-	cd sources/mathlib && git clean -xfd && git fetch && git checkout $(MATHBIN_COMMIT)
+	cd sources/mathlib && git clean -xfd && git fetch && git checkout "$(MATHBIN_COMMIT)" --
 	cd sources/mathlib && echo -n 'mathlib commit: ' && git rev-parse HEAD
 	cd sources/mathlib && leanpkg configure && ./scripts/mk_all.sh
 
@@ -58,7 +58,8 @@ lean3-source: mathbin-source
 	if [ ! -d "sources/lean/.git" ]; then \
 		cd sources && git clone https://github.com/leanprover-community/lean.git; \
 	fi
-	cd sources/lean && git clean -xfd && git fetch && git checkout `cd ../mathlib && lean --version | sed -e "s/.*commit \([0-9a-f]*\).*/\1/"`
+  SHA="$$(cd ../mathlib && lean --version | sed -e "s/.*commit \([0-9a-f]*\).*/\1/")"
+	cd sources/lean && git clean -xfd && git fetch origin "$$SHA" && git checkout "$$SHA" --
 	mkdir -p sources/lean/build/release
 	# Run cmake, to create `version.lean` from `version.lean.in`.
 	cd sources/lean/build/release && cmake ../../src
@@ -87,7 +88,7 @@ init-logs:
 
 config.lean.json: config.json sources/lean/library/upstream-rev sources/lean/library/file-revs.json
 	jq '.commitInfo = {repo: $$repo, commit: $$commit, fileRevs: $$revs[0]}' \
-			--arg repo leanprover-community/mathlib \
+			--arg repo leanprover-community/lean \
 			--arg commit "$$(cat sources/lean/library/upstream-rev)" \
 			--slurpfile revs sources/lean/library/file-revs.json \
 		< config.json > config.lean.json
