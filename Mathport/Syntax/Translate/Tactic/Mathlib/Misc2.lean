@@ -171,7 +171,10 @@ def parseLinearComboConfig : Option (Spanned AST3.Expr) → M (Option Syntax.Tac
 -- # tactic.elementwise
 
 @[tr_user_attr elementwise] def trElementwiseAttr : Parse1 Syntax.Attr :=
-  parse1 (ident)? fun n => do `(attr| elementwise $(← liftM $ n.mapM mkIdentI)?)
+  parse1 (ident)? fun n => do
+    let ns ← liftM $ n.mapM mkIdentI
+    if let some ns := ns then warn! "unsupported lemma name {ns} in elementwise attr"
+    `(attr| elementwise)
 
 @[tr_tactic elementwise] def trElementwise : TacM Syntax.Tactic := do
   match ← parse (tk "!")?, (← parse ident*).map mkIdent with
@@ -362,7 +365,7 @@ def trUniqueDiffWithinAt_Ici_Iic_univ (_ : AST3.Expr) : M Syntax.Tactic := do
   parse (pure ()) -- the body doesn't parse anything
   match args with
   | .inl args => `(!![$[$(← liftM <| args.mapM (·.mapM trExpr)),*];*])
-  | .inr (.inl rxz) => pure ⟨mkNode ``Parser.Term.matrixNotationRx0 #[mkAtom "!![",
+  | .inr (.inl rxz) => pure ⟨mkNode ``Matrix.matrixNotationRx0 #[mkAtom "!![",
       mkNullNode <| mkArray rxz.size <| mkAtom ";", mkAtom "]"]⟩
-  | .inr (.inr zxc) => pure ⟨mkNode ``Parser.Term.matrixNotation0xC #[mkAtom "!![",
+  | .inr (.inr zxc) => pure ⟨mkNode ``Matrix.matrixNotation0xC #[mkAtom "!![",
       mkNullNode <| mkArray zxc.size <| mkAtom ";", mkAtom "]"]⟩

@@ -86,10 +86,18 @@ open AST3 Mathport.Translate.Parser
 
 -- # tactic.lift
 @[tr_tactic lift] def trLift : TacM Syntax.Tactic := do
-  `(tactic| lift $(← trExpr (← parse pExpr))
-    to $(← trExpr (← parse (tk "to" *> pExpr)))
-    $[using $(← liftM $ (← parse (tk "using" *> pExpr)?).mapM trExpr)]?
-    $[with $(((← parse withIdentList).map trBinderIdent).asNonempty)*]?)
+  let what ← trExpr (← parse pExpr)
+  let to_ ← trExpr (← parse (tk "to" *> pExpr))
+  let using_ ← liftM <| (← parse (tk "using" *> pExpr)?).mapM trExpr
+  let with_ := (← parse withIdentList).map trBinderIdent
+  letI : Coe Syntax.BinderIdent Ident := ⟨fun s => ⟨s⟩⟩ -- FIXME
+  let (with1, with2, with3) := (← match with_ with
+    | #[] => pure (none, none, none)
+    | #[w1] => pure (some w1, none, none)
+    | #[w1, w2] => pure (some w1, some (some w2), none)
+    | #[w1, w2, w3] => pure (some w1, some (some w2), some (some w3))
+    | _ => warn! "unsupported with" | pure (none, none, none))
+  `(tactic| lift $what to $to_ $[using $using_]? $[with $with1 $[$with2:ident]? $[$with3:ident]?]?)
 
 -- # tactic.lift
 
@@ -278,7 +286,10 @@ open TSyntax.Compat in
 -- # tactic.reassoc_axiom
 
 @[tr_user_attr reassoc] def trReassocAttr : Parse1 Syntax.Attr :=
-  parse1 (ident)? fun n => do `(attr| reassoc $(← liftM $ n.mapM mkIdentI)?)
+  parse1 (ident)? fun n => do
+    let ns ← liftM $ n.mapM mkIdentI
+    if let some ns := ns then warn! "unsupported lemma name {ns} in reassoc attr"
+    `(attr| reassoc)
 
 @[tr_user_cmd «reassoc_axiom»] def trReassocAxiom : Parse1 Syntax.Command :=
   parse1 ident fun n => do `(command| reassoc_axiom $(← mkIdentI n))
