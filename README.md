@@ -31,6 +31,15 @@ In the mathport folder:
 - `make source`
 
 Next, you'll need to prepare your project.
+
+If it is possible to bump your mathlib dependency to the latest mathlib3,
+mathport will have a better chance.
+If you really want to run against an older mathlib3 (good luck!):
+
+- In `sources/mathlib` run `git --fetch unshallow`
+- `git checkout SHA`
+- `leanproject get-cache`
+
 It is probably best to clone a fresh copy for this
 (outside of the `mathport` directory).
 
@@ -44,11 +53,14 @@ Now, in mathport, edit `config-project.json` as follows:
 - Under `pathConfig/packages/`, change the string after the `"Project"` key
   to the relative path from the mathport directory to your
   external project's `src/` directory.
-- Under `pathConfig/leanPath/`, add `"./Outputs/oleans/project"`.
 
 Then run
 
 - `./download-release.sh`
+  (Or `./download-release.sh [relevant-release]`
+  if you are running against an old mathlib;
+  see [mathport releases](https://github.com/leanprover-community/mathport/releases),
+  and find the nearest `nightly`.)
 - `./build/bin/mathport --make config-project.json Project::all`
 
 If it succeeds, you should find Lean4 lean files in `Outputs/src/project/`.

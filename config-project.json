@@ -5,7 +5,7 @@
             "Leanbin": "sources/lean/library",
             "Mathbin": "sources/mathlib/src",
             "Oneshot": "Oneshot/lean3-in",
-            "Project": "[relative path from mathport to your src/ directory]"
+            "Project": "../lean-liquid/src"
         },
         "leanPath": [
             "./lake-packages/mathlib/build/lib",
