@@ -1,0 +1,71 @@
+{
+    "pathConfig": {
+        "outRoot": "Outputs",
+        "packages": {
+            "Leanbin": "sources/lean/library",
+            "Mathbin": "sources/mathlib/src",
+            "Oneshot": "Oneshot/lean3-in",
+            "Project": "[relative path from mathport to your src/ directory]"
+        },
+        "leanPath": [
+            "./lake-packages/mathlib/build/lib",
+            "./lake-packages/Qq/build/lib",
+            "./lake-packages/std/build/lib",
+            "./lake-packages/aesop/build/lib",
+            "./Oneshot/lean4-in/build/lib",
+            "./Outputs/oleans/leanbin",
+            "./Outputs/oleans/mathbin",
+            "./Outputs/oleans/oneshot",
+            "./Outputs/oleans/project"
+        ]
+    },
+    "baseModules": ["Mathlib"],
+    "extraModules": [],
+    "stringsToKeep": [
+        "_sunfold",
+        "equations",
+        "private",
+        "below",
+        "ibelow"
+    ],
+    "forceAbbrevs": [
+        "lift",
+        "lift_t",
+        "coe_b",
+        "coe_t",
+        "coe_fn_b"
+    ],
+    "defEqConstructions": [],
+    "defEqConstructions-disabled-because-sometimes-different-in-lean4": [
+        "casesOn",
+        "noConfusion",
+        "ibelow",
+        "brecOn",
+        "bInductionOn"
+    ],
+    "disabledInstances": [
+        "bool.decidable_eq",
+        "nat.decidable_eq",
+        "and.decidable",
+        "or.decidable",
+        "iff.decidable",
+        "not.decidable",
+        "implies.decidable",
+        "decidable.true",
+        "decidable.false",
+        "exists_prop_decidable",
+        "forall_prop_decidable",
+        "int.decidable_eq",
+        "nat.decidable_lt",
+        "nat.decidable_le"
+    ],
+    "neverSorries": [
+        "of_as_true"
+    ],
+    "sorries": [],
+    "skipProofs": false,
+    "skipDefEq": true,
+    "replacementStyle": "comment",
+    "redundantAlign": false,
+    "error2warning" : true
+}

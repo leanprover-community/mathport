@@ -6,9 +6,6 @@ Authors: Mario Carneiro, Daniel Selsam
 import Mathport.Binary
 import Mathport.Syntax
 
--- We import all of mathlib here so that `lake build` keeps the `Mathlib.olean` up to date.
-import Mathlib
-
 namespace Mathport
 
 open Lean Lean.Elab.Command
