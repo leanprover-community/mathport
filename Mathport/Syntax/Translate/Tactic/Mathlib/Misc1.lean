@@ -88,16 +88,15 @@ open AST3 Mathport.Translate.Parser
 @[tr_tactic lift] def trLift : TacM Syntax.Tactic := do
   let what ← trExpr (← parse pExpr)
   let to_ ← trExpr (← parse (tk "to" *> pExpr))
-  let using_ ← liftM <| (← parse (tk "using" *> pExpr)?).mapM trExpr
-  let with_ := (← parse withIdentList).map trBinderIdent
-  letI : Coe Syntax.BinderIdent Ident := ⟨fun s => ⟨s⟩⟩ -- FIXME
-  let (with1, with2, with3) := (← match with_ with
-    | #[] => pure (none, none, none)
-    | #[w1] => pure (some w1, none, none)
-    | #[w1, w2] => pure (some w1, some (some w2), none)
-    | #[w1, w2, w3] => pure (some w1, some (some w2), some (some w3))
-    | _ => warn! "unsupported with" | pure (none, none, none))
-  `(tactic| lift $what to $to_ $[using $using_]? $[with $with1 $[$with2:ident]? $[$with3:ident]?]?)
+  let using_ ← liftM $ (← parse (tk "using" *> pExpr)?).mapM trExpr
+  let with_ ← (← parse withIdentList).toList.mapM fun
+    | .ident n => pure <| mkIdent n
+    | _ => warn! "unsupported: lift with _" | pure <| mkIdent `_
+  match with_ with
+  | [] => `(tactic| lift $what to $to_ $[using $using_]?)
+  | [w1] => `(tactic| lift $what to $to_ $[using $using_]? with $w1)
+  | [w1, w2] => `(tactic| lift $what to $to_ $[using $using_]? with $w1 $w2)
+  | w1::w2::w3::_ => `(tactic| lift $what to $to_ $[using $using_]? with $w1 $w2 $w3)
 
 -- # tactic.lift
 
