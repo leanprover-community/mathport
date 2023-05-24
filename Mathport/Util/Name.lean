@@ -16,3 +16,6 @@ def toFilePath (n : Name) : System.FilePath :=
   ⟨"/".intercalate (n.components.map Name.getString!)⟩
 
 end Lean.Name
+
+def String.toName' (n : String) : Lean.Name :=
+  (Lean.Syntax.decodeNameLit ("`" ++ n)).get!

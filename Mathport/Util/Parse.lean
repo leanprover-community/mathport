@@ -4,6 +4,7 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Daniel Selsam
 -/
 import Lean
+import Mathport.Util.Name
 
 open Lean
 open System (FilePath)
@@ -36,5 +37,5 @@ def parseTLeanImports (tlean : FilePath) : IO (Array Name) := do
   let mut paths := #[]
   for i in [:nImports] do
     if tokens[2+2*i+1]! ≠ "-1" then throw $ IO.userError "found relative import!"
-    paths := paths.push $ tokens[2+2*i]!.toName
+    paths := paths.push $ tokens[2+2*i]!.toName'
   return paths
