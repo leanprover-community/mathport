@@ -29,24 +29,34 @@ In the mathport folder:
   This step is somewhat expensive as we need to compile (not just build)
   all of the dependencies of tactics.
 - `make source`
-
-Next, you'll need to prepare your project.
+- `./download-release.sh`
+  (Or `./download-release.sh [relevant-release]`
+  if you need to run against an old mathlib;
+  see [mathport releases](https://github.com/leanprover-community/mathport/releases),
+  and find the nearest `nightly`.)
 
 If it is possible to bump your mathlib dependency to the latest mathlib3,
 mathport will have a better chance.
 If you really want to run against an older mathlib3 (good luck!):
 
 - In `sources/mathlib` run `git --fetch unshallow`
-- `git checkout SHA`
+- `git checkout SHA` for the mathlib3 SHA you need.
 - `leanproject get-cache`
 
+Next, you'll need to prepare your project.
 It is probably best to clone a fresh copy for this
 (outside of the `mathport` directory).
 
+In your project, run:
+
+- `leanproject mk-all`
+- make sure that `leanproject build` runs cleanly.
 - In `leanpkg.path`, change the line `path _target/deps/mathlib/src` to
-  `path [path-mathport]/sources/mathlib/src`
-- In your project, run `leanproject mk-all`.
-- In your project, run `lean --make --recursive --ast --tlean src`.
+  `path ../mathport/sources/mathlib/src`
+  (this should be the relative path from your project
+  to mathport's copy of `mathlib/src`.)
+- `leanproject clean`
+- `lean --make --recursive --ast --tlean src` (get coffee).
 
 Now, in mathport, edit `config-project.json` as follows:
 
@@ -56,11 +66,6 @@ Now, in mathport, edit `config-project.json` as follows:
 
 Then run
 
-- `./download-release.sh`
-  (Or `./download-release.sh [relevant-release]`
-  if you are running against an old mathlib;
-  see [mathport releases](https://github.com/leanprover-community/mathport/releases),
-  and find the nearest `nightly`.)
 - `./build/bin/mathport --make config-project.json Project::all`
 
 If it succeeds, you should find Lean4 lean files in `Outputs/src/project/`.
@@ -134,7 +139,10 @@ where `<tag>` is a release from https://github.com/leanprover-community/mathport
 ## Running mathport locally
 
 See the `Makefile` for usage (it takes several hours to rebuild the mathlib3 port from scratch).
-Basic usage is `lake exe cache get` and then `make build source predata port`.
+Basic usage is `lake exe cache get` and then `make build source`.
+
+After that you can try just `make predata port`,
+but you probably should download artifacts first as described below.
 
 We provide artifacts for various stages of the build on the releases page of the `mathport` repository.
 The script `./download-release.sh nightly-YYYY-MM-DD` downloads one of these,
