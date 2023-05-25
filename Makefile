@@ -177,6 +177,9 @@ oneshot: Outputs/src/oneshot/Oneshot/Main.lean
 clean-oneshot:
 	find Oneshot/lean3-in -name "*.olean" -delete
 	rm Oneshot/lean3-in/main.ast.json || true
-	cd Oneshot/lean4-in && lake clean
+	rm -rf Oneshot/lean4-in/build || true
 	rm config.oneshot.json || true
-	rm -rf Outputs/olean/oneshot || true
+	rm -rf Outputs/oleans/oneshot || true
+	rm -rf Outputs/src/oneshot || true
+	true > Logs/oneshot.out
+	true > Logs/oneshot.err

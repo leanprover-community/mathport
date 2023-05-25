@@ -30,12 +30,15 @@ def parseJsonFile (α : Type) [FromJson α] (filePath : FilePath) : IO α := do
     | Except.error err => throw $ IO.userError s!"Error decoding JSON: {err}"
     | Except.ok x      => pure x
 
-def parseTLeanImports (tlean : FilePath) : IO (Array Name) := do
+def parseTLeanImports (tlean : FilePath) (mod : Name) : IO (Array Name) := do
   let line ← IO.FS.withFile tlean IO.FS.Mode.read fun h => h.getLine
   let tokens := line.trim.splitOn " " |>.toArray
   let nImports := tokens[1]!.toNat!
   let mut paths := #[]
   for i in [:nImports] do
-    if tokens[2+2*i+1]! ≠ "-1" then throw $ IO.userError "found relative import!"
-    paths := paths.push $ tokens[2+2*i]!.toName'
+    let mod2 := tokens[2+2*i]!.toName'
+    let mod2 ← match tokens[2+2*i+1]! with
+      | "-1" => pure mod2
+      | n => pure <| ((← parseNat n) + 1).repeat Name.getPrefix mod ++ mod2
+    paths := paths.push mod2
   return paths

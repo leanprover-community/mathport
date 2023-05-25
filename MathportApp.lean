@@ -11,7 +11,7 @@ partial def visit (pathToConfig : String) (config : Config) (path : Path) :
   if let some task := (← get).find? path then return task
   if ← path.toLean4olean pcfg |>.pathExists then
     return Task.pure (Except.ok ())
-  let deps ← (← parseTLeanImports (path.toLean3 pcfg ".tlean")).mapM
+  let deps ← (← parseTLeanImports (path.toLean3 pcfg ".tlean") path.mod3).mapM
     fun mod3 => do visit pathToConfig config (← resolveMod3 pcfg mod3)
   let task ← IO.mapTasks (tasks := deps.toList) fun deps => do
     for dep in deps do if let .error err := dep then throw err
