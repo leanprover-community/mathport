@@ -161,15 +161,15 @@ Oneshot/lean3-in/main.ast.json: Oneshot/lean3-in/*.lean
 	cd Oneshot/lean3-in && elan override set `cat ../../sources/mathlib/leanpkg.toml | grep lean_version | cut -d '"' -f2`
 	cd Oneshot/lean3-in && lean --make --recursive --ast --tlean . || true
 
-Oneshot/lean4-in/build/lib/Oneshot.trace: Oneshot/lean4-in/*.lean
+Oneshot/lean4-in/build/lib/Extra.trace: Oneshot/lean4-in/*.lean
 	cd Oneshot/lean4-in && lake build
 
 config.oneshot.json: config.json
-	jq '.extraModules += ["Oneshot"]' < config.json > config.oneshot.json
+	jq '.extraModules += ["Extra"]' < config.json > config.oneshot.json
 
-Outputs/src/oneshot/Oneshot/Main.lean: Oneshot/lean3-in/main.ast.json Oneshot/lean4-in/build/lib/Oneshot.trace config.oneshot.json
+Outputs/src/oneshot/Oneshot/Main.lean: Oneshot/lean3-in/main.ast.json Oneshot/lean4-in/build/lib/Extra.trace config.oneshot.json
 	mkdir -p Logs/
-	./build/bin/mathport config.oneshot.json Oneshot::main >> Logs/oneshot.out 2> >(tee -a Logs/oneshot.err >&2)
+	./build/bin/mathport --make config.oneshot.json Oneshot::main >> Logs/oneshot.out 2> >(tee -a Logs/oneshot.err >&2)
 
 oneshot: Outputs/src/oneshot/Oneshot/Main.lean
 	# output is in Outputs/src/oneshot/Oneshot/Main.lean
@@ -179,3 +179,4 @@ clean-oneshot:
 	rm Oneshot/lean3-in/main.ast.json || true
 	cd Oneshot/lean4-in && lake clean
 	rm config.oneshot.json || true
+	rm -rf Outputs/olean/oneshot || true
