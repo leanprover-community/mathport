@@ -84,11 +84,18 @@ to match the toolchain in current `mathlib4`).
 Then you can `mv Outputs/src/project/Project ../MyProject/MyProject`,
 and then inside `MyProject` run `lake update` and `lake exe cache get`.
 
-After that you should be able to edit files in VS Code,
-and begin fixing remaining errors.
-
 You will need to edit the imports to change
 `import Mathbin.XYZ` to `import Mathlib.XYZ`.
+
+Depending on the layout of your project, you may need to adjust imports
+or create secondary libraries in your `lakefile.lean`, e.g.
+```
+lean_lib ForMathlib where
+  roots := #[`ForMathlib]
+```
+
+After that you should be able to edit files in VS Code,
+and begin fixing remaining errors.
 
 Please expect errors if any of your filenames require escaping via `«...»`.
 (In particular if your filenames start with numerals.)
