@@ -35,8 +35,10 @@ In the mathport folder:
   see [mathport releases](https://github.com/leanprover-community/mathport/releases),
   and find the nearest `nightly`.)
 
-If it is possible to bump your mathlib dependency to the latest mathlib3,
-mathport will have a better chance.
+Make sure that your project is using the same version of Lean 3 as the latest
+mathlib3, if at all possible.
+Similarly bump your mathlib dependency to the lastest mathlib3 if possible.
+
 If you really want to run against an older mathlib3 (good luck!):
 
 - In `sources/mathlib` run `git --fetch unshallow`
