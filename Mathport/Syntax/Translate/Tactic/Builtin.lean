@@ -34,7 +34,7 @@ where
   | tac::rest, lhs => do
     match ← trTacticOrList tac with
     | .inl tac => go rest <|← `(tactic| $lhs <;> $tac)
-    | .inr tacs => go rest <|← `(tactic| $lhs <;> [$tacs,*])
+    | .inr tacs => go rest <|← `(tactic| $lhs <;> [$tacs;*])
 
 partial def trTactic' : Tactic → M Syntax.Tactic
   | .block bl => do `(tactic| · ($(← trBlock bl):tacticSeq))

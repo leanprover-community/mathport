@@ -20,7 +20,8 @@ def mathport1 (config : Config) (path : Path) : IO Unit := do
 
   println! s!"\n[mathport] START {path.mod3}\n"
 
-  let mut imports : Array Import ← (← parseTLeanImports (path.toLean3 pcfg ".tlean")).mapM fun mod3 => do
+  let imports3 ← parseTLeanImports (path.toLean3 pcfg ".tlean") path.mod3
+  let mut imports : Array Import ← imports3.mapM fun mod3 => do
     let ipath : Path ← resolveMod3 pcfg mod3
     pure { module := ipath.package ++ ipath.mod4 : Import }
 
@@ -45,7 +46,7 @@ def mathport1 (config : Config) (path : Path) : IO Unit := do
       CommandElabM.toIO (ctx := cmdCtx) (s := cmdState) do
         -- let _ ← IO.FS.withIsolatedStreams' $ binport1 config path
         binport1 config path
-        synport1 config path
+        synport1 config path imports3
         writeModule (← getEnv) $ path.toLean4olean pcfg
 
       println! "\n[mathport] END   {path.mod3}\n"

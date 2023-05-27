@@ -1,5 +1,6 @@
 -- Insert lean 4 alignment code here.
 import Mathlib.Mathport.Rename
+set_option align.precheck false
 
 set_option align.precheck false
 #align foo.foo Foo.bar
