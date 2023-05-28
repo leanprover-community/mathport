@@ -65,5 +65,7 @@
     "skipDefEq": true,
     "replacementStyle": "comment",
     "redundantAlign": true,
-    "error2warning" : true
+    "error2warning" : true,
+    "dubiousMsgMaxDepth": 30,
+    "dubiousMsgMaxSize": 10000
 }

@@ -109,6 +109,8 @@ partial def normalizeBVars : Expr → Expr → Expr
 def mkMismatchMessage (defEq : Bool)
     (lvls3 : List Name) (ty3 : Expr) (lvls4 : List Name) (ty4 : Expr) : BinportM String := do
   if defEq then return ""
+  let max := (← read).config.dubiousMsgMaxDepth
+  if ty3.approxDepth.1 > max || ty4.approxDepth.1 > max then return "<too large>"
   let mut (ty3, ty4) := (ty3, ty4)
   if lvls3.length = lvls4.length then
     let lvls := normalizeLevels lvls3
@@ -116,7 +118,8 @@ def mkMismatchMessage (defEq : Bool)
     ty4 := ty4.instantiateLevelParams lvls4 lvls
   ty4 := normalizeBVars ty3 ty4
   let msg := m!"lean 3 declaration is{indentExpr ty3}\nbut is expected to have type{indentExpr ty4}"
-  msg.toString
+  let s ← msg.toString
+  return if s.length > (← read).config.dubiousMsgMaxSize then "<too large>" else s
 
 -- Given a declaration whose expressions have already been translated to Lean4
 -- (i.e. the names *occurring* in the expressions have been translated
