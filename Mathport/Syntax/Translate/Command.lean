@@ -110,6 +110,7 @@ def trAttrKind : AttributeKind → M (TSyntax ``Parser.Term.attrKind)
   | .local => `(Parser.Term.attrKind| local)
 
 structure SpecialAttrs where
+  vis : Visibility := Visibility.regular
   prio : Option AST3.Expr := none
   parsingOnly := false
   irreducible := false
@@ -144,7 +145,6 @@ def trAttributes (attrs : Attributes) (allowDel := false)
 structure Modifiers4 where
   docComment : Option String := none
   attrs : AttrState := ({}, #[])
-  vis : Visibility := Visibility.regular
   «noncomputable» : Option Unit := none
   safety : DefinitionSafety := DefinitionSafety.safe
 
@@ -158,11 +158,11 @@ where
 
   trModifier (s : Modifiers4) (m : Spanned Modifier) : M Modifiers4 :=
     match m.kind with
-    | .private => match s.vis with
-      | .regular => pure { s with vis := .private }
+    | .private => match s.attrs.1.vis with
+      | .regular => pure { s with attrs.1.vis := .private }
       | _ => throw! "unsupported (impossible)"
-    | .protected => match s.vis with
-      | .regular => pure { s with vis := .protected }
+    | .protected => match s.attrs.1.vis with
+      | .regular => pure { s with attrs.1.vis := .protected }
       | _ => throw! "unsupported (impossible)"
     | .noncomputable => match s.noncomputable with
       | none => pure { s with «noncomputable» := some () }
@@ -176,12 +176,12 @@ where
       | none => pure { s with docComment := some doc }
       | _ => throw! "unsupported (impossible)"
   toSyntax : Modifiers4 → M (SpecialAttrs × TSyntax ``declModifiers)
-  | ⟨doc, (s, attrs), vis, nc, safety⟩ => do
+  | ⟨doc, (s, attrs), nc, safety⟩ => do
     let doc := doc.map trDocComment
     let attrs : Array (TSyntax ``Parser.Term.attrInstance) :=
       attrs.map fun s => ⟨s⟩ -- HACK HACK HACK ignores @[-attr]
     let attrs ← attrs.asNonempty.mapM fun attrs => `(Parser.Term.attributes| @[$[$attrs],*])
-    let vis ← show M (Option (TSyntax [``«private», ``«protected»])) from match vis with
+    let vis ← show M (Option (TSyntax [``«private», ``«protected»])) from match s.vis with
       | .regular => pure none
       | .private => `(«private»| private)
       | .protected => `(«protected»| protected)
@@ -240,12 +240,12 @@ def trExportCmd : Open → M Unit
     pushElab $ ← `(export $(← mkIdentN tgt.kind):ident ($args*))
   | _ => warn! "unsupported: advanced export style"
 
-def trDeclId (n : Name) (us : LevelDecl) (translateToAdditive : Bool) :
+def trDeclId (n : Name) (us : LevelDecl) (vis : Visibility) (translateToAdditive : Bool) :
     M (Option Name × TSyntax ``declId) := do
   let us := us.map $ Array.map fun u => mkIdent u.kind
   let orig := Elab.Command.resolveNamespace (← get).current.curNamespace n
   let ((dubious, n4), id) ← renameIdentCore n #[orig]
-  if (← read).config.redundantAlign then
+  if !(vis matches .private) && (← read).config.redundantAlign then
     pushAlign orig n4
     if translateToAdditive then
       if let some add4 := ToAdditive.findTranslation? (← getEnv) n4 then
@@ -281,7 +281,7 @@ def trAxiom (mods : Modifiers) (n : Name)
   let toAdd := mods.hasToAdditive
   let (s, mods) ← trModifiers mods
   unless s.derive.isEmpty do warn! "unsupported: @[derive] axiom"
-  let (found, id) ← trDeclId n us toAdd
+  let (found, id) ← trDeclId n us s.vis toAdd
   withReplacement found do
     pushM `(command| $mods:declModifiers axiom $id $(← trDeclSig bis ty))
 
@@ -311,7 +311,7 @@ def trDecl (dk : DeclKind) (mods : Modifiers) (attrs : Attributes)
     (val : DeclVal) (uwf : Option (Spanned Expr)) : M (Option Name × Syntax.Command) := do
   let toAdd := mods.hasToAdditive || attrs.hasToAdditive
   let (s, mods) ← trModifiers mods attrs
-  let id ← n.mapM fun n => trDeclId n.kind us toAdd
+  let id ← n.mapM fun n => trDeclId n.kind us s.vis toAdd
   (id >>= (·.1), ·) <$> do
   let id := (·.2) <$> id
   let val ← match val with
@@ -361,7 +361,7 @@ def trInductive (cl : Bool) (mods : Modifiers) (attrs : Attributes)
   (nota : Option Notation) (intros : Array (Spanned Intro)) : M (Option Name × Syntax.Command) := do
   let toAdd := mods.hasToAdditive || attrs.hasToAdditive
   let (s, mods) ← trModifiers mods attrs
-  let (found, id) ← trDeclId n.kind us toAdd
+  let (found, id) ← trDeclId n.kind us s.vis toAdd
   (found, ·) <$> do
   let sig ← trOptDeclSig bis ty
   unless nota.isNone do warn! "unsupported: (notation) in inductive"
@@ -414,7 +414,7 @@ def trStructure (cl : Bool) (mods : Modifiers) (n : Spanned Name) (us : LevelDec
   (mk : Option (Spanned Mk)) (flds : Array (Spanned Field)) : M Unit := do
   let toAdd := mods.hasToAdditive
   let (s, mods) ← trModifiers mods
-  let (found, id) ← trDeclId n.kind us toAdd
+  let (found, id) ← trDeclId n.kind us s.vis toAdd
   withReplacement found do
   let bis ← trBracketedBinders {} bis
   let exts ← exts.mapM fun
