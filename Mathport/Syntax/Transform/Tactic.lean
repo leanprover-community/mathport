@@ -25,23 +25,26 @@ def transformConsecutiveTactics : Syntax.Tactic → Syntax.Tactic → M Syntax.T
     `(tactic| obtain $[$pat]? $[: $ty]? := by $tacs:tactic*)
   | _, _ => throwUnsupported
 
-def transformConsecutiveTacticsArray (tacs : Array Syntax.Tactic) : M (Array Syntax.Tactic) := do
-  for i in [1:tacs.size] do
-    if let some tac' ← catchUnsupportedSyntax do withRef tacs[i-1]! do
-        transformConsecutiveTactics tacs[i-1]! tacs[i]! then
-      return tacs[0:i-1] ++ #[tac'] ++ tacs[i+1:tacs.size]
+def transformConsecutiveTacticsArray (tacAndSeps : Array Syntax) : M (Array Syntax) := do
+  for i in [1:(tacAndSeps.size+1)/2] do
+    if let some tac' ← catchUnsupportedSyntax do withRef tacAndSeps[2*(i-1)]! do
+        transformConsecutiveTactics ⟨tacAndSeps[2*(i-1)]!⟩ ⟨tacAndSeps[2*i]!⟩  then
+      return tacAndSeps[:2*(i-1)] ++ #[tac'] ++ tacAndSeps[2*i+1:]
   throwUnsupported
 
 -- expand `by (skip; skip)` to `by skip; skip`
-def transformInlineTactics (tacs : Array Syntax.Tactic) : M (Array Syntax.Tactic) := do
+def transformInlineTactics (tacAndSeps : Array Syntax) : M (Array Syntax) := do
   let mut tacs' := #[]
   let mut modified := false
-  for tac in tacs do
-    match tac.1 with
-    | `(tactic| ($[$seq:tactic]*)) =>
-      tacs' := tacs' ++ seq
+  for i in [:(tacAndSeps.size+1)/2] do
+    let tac := tacAndSeps[2*i]!
+    match tac with
+    | `(tactic| ($seq:tacticSeq1Indented)) =>
+      tacs' := tacs' ++ seq.1[0].getArgs
       modified := true
     | _ => tacs' := tacs'.push tac
+    if let some sep := tacAndSeps[2*i+1]? then
+      tacs' := tacs'.push sep
   unless modified do throwUnsupported
   pure tacs'
 
@@ -57,18 +60,19 @@ def transformInlineConvs (tacs : Array Syntax.Conv) : M (Array Syntax.Conv) := d
   unless modified do throwUnsupported
   pure tacs'
 
-def transformTacticsArray (tacs : Array Syntax.Tactic) : M (Array Syntax.Tactic) := do
+def transformTacticsArray (tacAndSeps : Array Syntax) : M (Array Syntax) := do
   for fn in #[transformConsecutiveTacticsArray, transformInlineTactics] do
-    if let some tacs' ← catchUnsupportedSyntax <| fn tacs then
+    if let some tacs' ← catchUnsupportedSyntax <| fn tacAndSeps then
       return tacs'
   throwUnsupported
 
-open Parser.Tactic in
+open Parser.Tactic TSyntax.Compat in
 mathport_rules
-  | `(tacticSeq1Indented| $[$tac:tactic]*) => do
-    `(tacticSeq1Indented| $[$(← transformTacticsArray tac):tactic]*)
-  | `(tactic| · $[$tac:tactic]*) => do
-    `(tactic| · $[$(← transformTacticsArray tac):tactic]*)
+  | stx@`(tacticSeq1Indented| $[$_:tactic]*) => do
+    (stx.setArg 0 ∘ stx[0].setArgs) <$> transformTacticsArray stx[0].getArgs
+  | `(tactic| · $stx:tacticSeq1Indented) => do
+    let args ← transformTacticsArray stx.1[0].getArgs
+    `(tactic| · $(stx.1.setArg 0 <| stx.1[0].setArgs args):tacticSeq1Indented)
   | `(Conv.convSeq| $[$tac:conv]*) => do
     `(Conv.convSeq| $[$(← transformInlineConvs tac):conv]*)
 
@@ -97,7 +101,7 @@ mathport_rules
 mathport_rules | `(by exact $t) => pure t
 
 mathport_rules
-  | `(tactic| · · $seq:tactic*) => `(tactic| · $seq:tactic*)
+  | `(tactic| · · $seq:tacticSeq) => `(tactic| · $seq:tacticSeq)
   | `(conv| · · $seq:convSeq) => `(conv| · $seq:convSeq)
 
 mathport_rules | `(by · $seq:tactic*) => `(by $seq:tactic*)
