@@ -105,7 +105,7 @@ open AST3 Mathport.Translate.Parser
 @[tr_user_cmd «open_locale»] def trOpenLocale : Parse1 Unit :=
   parse1 (ident* <* skipAll) fun ids => do
   unless ids.isEmpty do
-    pushM `(command| open $[$(← liftM $ ids.mapM mkIdentN)]*)
+    pushM `(command| open scoped $(← liftM $ ids.mapM mkIdentN)*)
 
 @[tr_user_cmd «localized»] def trLocalized : Parse1 Unit :=
   parse1 (return (← pExpr *> emittedCodeHere, ← tk "in" *> ident)) fun (cmd, loc) => do
