@@ -4,6 +4,8 @@
         "packages": {
             "Leanbin": "sources/lean/library",
             "Mathbin": "sources/mathlib/src",
+            "Archive": "sources/mathlib/archive",
+            "Counterexamples": "sources/mathlib/counterexamples",
             "Oneshot": "Oneshot/lean3-in"
         },
         "leanPath": [
@@ -14,6 +16,8 @@
             "./Oneshot/lean4-in/build/lib",
             "./Outputs/oleans/leanbin",
             "./Outputs/oleans/mathbin",
+            "./Outputs/oleans/archive",
+            "./Outputs/oleans/counterexamples",
             "./Outputs/oleans/oneshot"
         ]
     },

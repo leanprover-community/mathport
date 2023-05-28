@@ -27,7 +27,7 @@ SHELL := bash   # so we can use process redirection
 
 .PHONY: all build \
 	mathbin-source lean3-source source \
-	lean3-predata mathbin-predata predata \
+	clean-predata lean3-predata mathbin-predata predata \
 	init-logs oneshot unport port-lean port-mathbin port \
 	predata-tarballs mathport-tarballs tarballs rm-tarballs \
 
@@ -48,6 +48,12 @@ mathbin-source:
 	cd sources/mathlib && git clean -xfd && git fetch && git checkout "$(MATHBIN_COMMIT)" --
 	cd sources/mathlib && echo -n 'mathlib commit: ' && git rev-parse HEAD
 	cd sources/mathlib && leanpkg configure && ./scripts/mk_all.sh
+	cd sources/mathlib/archive && git ls-files \
+		| sed -n '/\.lean/ { s=\.lean$== ; s=/=».«=g; s=^=import «= ; s=$=»= ; p }' > all.lean
+	cd sources/mathlib/counterexamples && git ls-files \
+		| sed -n '/\.lean/ { s=\.lean$== ; s=/=».«=g; s=^=import «= ; s=$=»= ; p }' > all.lean
+	echo path ./archive >> leanpkg.path
+	echo path ./counterexamples >> leanpkg.path
 
 # Clone Lean 3, and some preparatory work:
 # * Obtain the commit from (community edition) Lean 3 which mathlib is using
@@ -59,6 +65,7 @@ lean3-source: mathbin-source
 		cd sources && git clone https://github.com/leanprover-community/lean.git; \
 	fi
 	cd sources/lean && git clean -xfd && git checkout "`cd ../mathlib && lean --version | sed -e "s/.*commit \([0-9a-f]*\).*/\1/"`" --
+	cd sources/lean && elan override set `cat ../mathlib/leanpkg.toml | grep lean_version | cut -d '"' -f2`
 	mkdir -p sources/lean/build/release
 	# Run cmake, to create `version.lean` from `version.lean.in`.
 	cd sources/lean/build/release && cmake ../../src
@@ -67,18 +74,19 @@ lean3-source: mathbin-source
 
 source: mathbin-source lean3-source
 
-# Build .ast and .tlean files for Lean 3
-lean3-predata: lean3-source
+clean-predata:
 	find sources/lean/library -name "*.olean" -delete # ast only exported when oleans not present
-	cd sources/lean && elan override set `cat ../mathlib/leanpkg.toml | grep lean_version | cut -d '"' -f2`
+	find sources/mathlib -name "*.olean" -delete # ast only exported when oleans not present
+
+# Build .ast and .tlean files for Lean 3
+lean3-predata:
 	cd sources/lean && lean $(LEAN3_OPTS) --make --recursive --ast --tlean library
 	cd sources/lean/library && git rev-parse HEAD > upstream-rev
 
 # Build .ast and .tlean files for Mathlib 3.
-mathbin-predata: mathbin-source
-	find sources/mathlib -name "*.olean" -delete # ast only exported when oleans not present
+mathbin-predata:
 	# By changing into the directory, `elan` automatically dispatches to the correct binary.
-	cd sources/mathlib && lean $(LEAN3_OPTS) --make --recursive --ast --tlean src
+	cd sources/mathlib && lean $(LEAN3_OPTS) --make --recursive --ast --tlean src archive counterexamples
 	cd sources/mathlib && git rev-parse HEAD > upstream-rev
 predata: lean3-predata mathbin-predata
 
@@ -110,7 +118,6 @@ sources/lean/library/file-revs.json: sources/lean/library/upstream-rev
 			| jq -Rs 'reduce (split("\u0000")[] | capture("^(?<sha>[a-z0-9]*) (?<path>.*)$$")) as $$i ({}; .[$$i.path] = $$i.sha)' \
 			> file-revs.json
 
-
 sources/mathlib/file-revs.json: sources/mathlib/upstream-rev
 	REV=$$(cat $<); \
 	cd sources/mathlib; \
@@ -120,11 +127,10 @@ sources/mathlib/file-revs.json: sources/mathlib/upstream-rev
 	fi; \
 	git fetch origin $$REV: --refmap=; \
 	while IFS= read -r -d '' file; do \
-		printf "%s %s\0" $$(git rev-list -1 $$REV -- "src/$$file") "$$file"; \
-	done < <(cd src && git ls-tree -rz --name-only $$REV) \
+		printf "%s %s\0" $$(git rev-list -1 $$REV -- "$$file") "$$(echo "$$file" | cut -d'/' -f2-)"; \
+	done < <(git ls-tree -rz --name-only $$REV src archive counterexamples) \
 		| jq -Rs 'reduce (split("\u0000")[] | capture("^(?<sha>[a-z0-9]*) (?<path>.*)$$")) as $$i ({}; .[$$i.path] = $$i.sha)' \
 		> file-revs.json
-
 
 config.mathlib.json: config.json sources/mathlib/upstream-rev sources/mathlib/file-revs.json
 	jq '.commitInfo = {repo: $$repo, commit: $$commit, fileRevs: $$revs[0]}' \
@@ -134,7 +140,7 @@ config.mathlib.json: config.json sources/mathlib/upstream-rev sources/mathlib/fi
 		< config.json > config.mathlib.json
 
 port-mathbin: port-lean config.mathlib.json
-	./build/bin/mathport --make config.mathlib.json Leanbin::all Mathbin::all >> Logs/mathport.out 2> >(tee -a Logs/mathport.err >&2)
+	./build/bin/mathport --make config.mathlib.json Leanbin::all Mathbin::all Archive::all Counterexamples::all >> Logs/mathport.out 2> >(tee -a Logs/mathport.err >&2)
 
 port: port-lean port-mathbin
 
@@ -143,11 +149,13 @@ predata-tarballs:
 	find sources/mathlib/ -name "*.ast.json" -o -name "*.tlean" -o -name upstream-rev -o -name file-revs.json | tar -czvf mathlib3-predata.tar.gz -T -
 
 mathport-tarballs:
-	mkdir -p Outputs/src/leanbin Outputs/src/mathbin Outputs/oleans/leanbin Outputs/oleans/mathbin
+	mkdir -p Outputs/src/leanbin Outputs/src/mathbin Outputs/src/archive Outputs/src/counterexamples Outputs/oleans/leanbin Outputs/oleans/mathbin
 	tar -czvf lean3-synport.tar.gz -C Outputs/src/leanbin .
 	tar -czvf lean3-binport.tar.gz -C Outputs/oleans/leanbin .
 	tar -czvf mathlib3-synport.tar.gz -C Outputs/src/mathbin .
 	tar -czvf mathlib3-binport.tar.gz -C Outputs/oleans/mathbin .
+	tar -czvf archive-synport.tar.gz -C Outputs/src/archive .
+	tar -czvf counterexamples-synport.tar.gz -C Outputs/src/counterexamples .
 
 tarballs: predata-tarballs mathport-tarballs
 
@@ -155,7 +163,9 @@ unport:
 	rm -rf Outputs/* Logs/*
 
 rm-tarballs:
-	rm lean3-predata.tar.gz lean3-synport.tar.gz lean3-binport.tar.gz mathlib3-predata.tar.gz mathlib3-synport.tar.gz mathlib3-binport.tar.gz
+	rm lean3-predata.tar.gz lean3-synport.tar.gz lean3-binport.tar.gz \
+		mathlib3-predata.tar.gz mathlib3-synport.tar.gz mathlib3-binport.tar.gz \
+		archive-synport.tar.gz counterexamples-synport.tar.gz
 
 Oneshot/lean3-in/main.ast.json: Oneshot/lean3-in/*.lean
 	cd Oneshot/lean3-in && elan override set `cat ../../sources/mathlib/leanpkg.toml | grep lean_version | cut -d '"' -f2`
