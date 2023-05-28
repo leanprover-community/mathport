@@ -109,6 +109,7 @@ partial def normalizeBVars : Expr → Expr → Expr
 def mkMismatchMessage (defEq : Bool)
     (lvls3 : List Name) (ty3 : Expr) (lvls4 : List Name) (ty4 : Expr) : BinportM String := do
   if defEq then return ""
+  if !(← read).config.dubiousMsg then return "!"
   let max := (← read).config.dubiousMsgMaxDepth
   if ty3.approxDepth.1 > max || ty4.approxDepth.1 > max then return "<too large>"
   let mut (ty3, ty4) := (ty3, ty4)

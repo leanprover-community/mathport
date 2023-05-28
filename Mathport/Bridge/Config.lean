@@ -48,6 +48,7 @@ structure Config where
   error2warning      : Bool := false
   replacementStyle   : ReplacementStyle := .comment
   redundantAlign     : Bool := true
+  dubiousMsg         : Bool := false
   dubiousMsgMaxDepth : Nat := 30
   dubiousMsgMaxSize  : Nat := 10000
   deriving FromJson, Inhabited

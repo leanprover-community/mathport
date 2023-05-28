@@ -66,6 +66,7 @@
     "replacementStyle": "comment",
     "redundantAlign": true,
     "error2warning" : true,
+    "dubiousMsg": false,
     "dubiousMsgMaxDepth": 30,
     "dubiousMsgMaxSize": 10000
 }

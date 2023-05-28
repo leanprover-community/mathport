@@ -261,7 +261,7 @@ def trDeclId (n : Name) (us : LevelDecl) (vis : Visibility) (translateToAdditive
     if dubious.isEmpty then
       found := n4 -- if the clash is authoritative, abort the current command
     msg := msg ++ f!"warning: {orig} clashes with {n3} -> {n4}\n"
-  if !dubious.isEmpty then
+  if !dubious.isEmpty && (← read).config.dubiousMsg then
     msg := msg ++ f!"warning: {orig} -> {n4} is a dubious translation:\n{dubious}\n"
   if !msg.isEmpty then
     logComment f!"{msg}Case conversion may be inaccurate. Consider using '#align {orig} {n4}ₓ'."
