@@ -43,7 +43,7 @@ MATHBIN_COMMIT=origin/master
 mathbin-source:
 	mkdir -p sources
 	if [ ! -d "sources/mathlib/.git" ]; then \
-		cd sources && git clone https://github.com/leanprover-community/mathlib.git; \
+		cd sources && git clone --depth 1 https://github.com/leanprover-community/mathlib.git; \
 	fi
 	cd sources/mathlib && git clean -xfd && git fetch && git checkout "$(MATHBIN_COMMIT)" --
 	cd sources/mathlib && echo -n 'mathlib commit: ' && git rev-parse HEAD
@@ -56,7 +56,7 @@ mathbin-source:
 lean3-source: mathbin-source
 	mkdir -p sources
 	if [ ! -d "sources/lean/.git" ]; then \
-		cd sources && git clone https://github.com/leanprover-community/lean.git; \
+		cd sources && git clone --depth 1 https://github.com/leanprover-community/lean.git; \
 	fi
 	cd sources/lean && git clean -xfd && git checkout "`cd ../mathlib && lean --version | sed -e "s/.*commit \([0-9a-f]*\).*/\1/"`" --
 	mkdir -p sources/lean/build/release
