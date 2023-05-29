@@ -27,7 +27,7 @@ SHELL := bash   # so we can use process redirection
 
 .PHONY: all build \
 	mathbin-source lean3-source source \
-	lean3-predata mathbin-predata predata \
+	clean-predata lean3-predata mathbin-predata predata \
 	init-logs oneshot unport port-lean port-mathbin port \
 	predata-tarballs mathport-tarballs tarballs rm-tarballs \
 
@@ -59,6 +59,7 @@ lean3-source: mathbin-source
 		cd sources && git clone --depth 1 https://github.com/leanprover-community/lean.git; \
 	fi
 	cd sources/lean && git clean -xfd && git checkout "`cd ../mathlib && lean --version | sed -e "s/.*commit \([0-9a-f]*\).*/\1/"`" --
+	cd sources/lean && elan override set `cat ../mathlib/leanpkg.toml | grep lean_version | cut -d '"' -f2`
 	mkdir -p sources/lean/build/release
 	# Run cmake, to create `version.lean` from `version.lean.in`.
 	cd sources/lean/build/release && cmake ../../src
@@ -67,16 +68,17 @@ lean3-source: mathbin-source
 
 source: mathbin-source lean3-source
 
-# Build .ast and .tlean files for Lean 3
-lean3-predata: lean3-source
+clean-predata:
 	find sources/lean/library -name "*.olean" -delete # ast only exported when oleans not present
-	cd sources/lean && elan override set `cat ../mathlib/leanpkg.toml | grep lean_version | cut -d '"' -f2`
+	find sources/mathlib -name "*.olean" -delete # ast only exported when oleans not present
+
+# Build .ast and .tlean files for Lean 3
+lean3-predata:
 	cd sources/lean && lean $(LEAN3_OPTS) --make --recursive --ast --tlean library
 	cd sources/lean/library && git rev-parse HEAD > upstream-rev
 
 # Build .ast and .tlean files for Mathlib 3.
-mathbin-predata: mathbin-source
-	find sources/mathlib -name "*.olean" -delete # ast only exported when oleans not present
+mathbin-predata:
 	# By changing into the directory, `elan` automatically dispatches to the correct binary.
 	cd sources/mathlib && lean $(LEAN3_OPTS) --make --recursive --ast --tlean src
 	cd sources/mathlib && git rev-parse HEAD > upstream-rev
@@ -110,7 +112,6 @@ sources/lean/library/file-revs.json: sources/lean/library/upstream-rev
 			| jq -Rs 'reduce (split("\u0000")[] | capture("^(?<sha>[a-z0-9]*) (?<path>.*)$$")) as $$i ({}; .[$$i.path] = $$i.sha)' \
 			> file-revs.json
 
-
 sources/mathlib/file-revs.json: sources/mathlib/upstream-rev
 	REV=$$(cat $<); \
 	cd sources/mathlib; \
@@ -124,7 +125,6 @@ sources/mathlib/file-revs.json: sources/mathlib/upstream-rev
 	done < <(cd src && git ls-tree -rz --name-only $$REV) \
 		| jq -Rs 'reduce (split("\u0000")[] | capture("^(?<sha>[a-z0-9]*) (?<path>.*)$$")) as $$i ({}; .[$$i.path] = $$i.sha)' \
 		> file-revs.json
-
 
 config.mathlib.json: config.json sources/mathlib/upstream-rev sources/mathlib/file-revs.json
 	jq '.commitInfo = {repo: $$repo, commit: $$commit, fileRevs: $$revs[0]}' \
