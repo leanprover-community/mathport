@@ -47,13 +47,15 @@ namespace Rename
 variable (env : Environment)
 
 -- For both binport and synport
-def resolveIdent? (n3 : Name) (removeX : Bool) (choices : Array Name := #[]) :
+def resolveIdent? (n3 : Name) (removeX : Bool)
+    (allowNoAlign := false) (choices : Array Name := #[]) :
     Option ((String × Name) × Name) :=
+  let f := if allowNoAlign then id else fun | some (_, .anonymous) => none | x => x
   if h : choices.size > 0 then
-    getRenameMap env |>.find? choices[0] |>.map fun target =>
+    getRenameMap env |>.find? choices[0] |> f |>.map fun target =>
       (target, clean' (clipLike target.2 n3 choices[0]))
   else
-    getRenameMap env |>.find? n3 |>.map fun target => (target, clean' target.2)
+    getRenameMap env |>.find? n3 |> f |>.map fun target => (target, clean' target.2)
 where
   clipLike target n3 orig :=
     if orig.getNumParts == target.getNumParts then
@@ -76,12 +78,14 @@ where
     | (c::cs) => c ++ componentsToName cs
 
 -- For synport only
-def resolveIdentCore! (n3 : Name) (removeX : Bool) (choices : Array Name := #[]) : (String × Name) × Name :=
-  resolveIdent? env n3 removeX choices |>.getD (("", choices.getD 0 n3), n3)
+def resolveIdentCore! (n3 : Name) (removeX : Bool)
+    (allowNoAlign := false) (choices : Array Name := #[]) : (String × Name) × Name :=
+  resolveIdent? env n3 removeX allowNoAlign choices |>.getD (("", choices.getD 0 n3), n3)
 
 -- For both binport and synport
-def resolveIdent! (n3 : Name) (removeX : Bool) (choices : Array Name := #[]) : Name :=
-  (resolveIdentCore! env n3 removeX choices).2
+def resolveIdent! (n3 : Name) (removeX : Bool)
+    (allowNoAlign := false) (choices : Array Name := #[]) : Name :=
+  (resolveIdentCore! env n3 removeX allowNoAlign choices).2
 
 -- For synport only
 def getClashes (n4 : Name) : Name × List Name :=
