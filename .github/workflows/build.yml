@@ -95,6 +95,8 @@ jobs:
             lean3-synport.tar.gz
             mathlib3-binport.tar.gz
             mathlib3-synport.tar.gz
+            archive-synport.tar.gz
+            counterexamples-synport.tar.gz
 
       - name: release (master)
         if: github.ref == 'refs/heads/master'
@@ -108,6 +110,8 @@ jobs:
             lean3-synport.tar.gz
             mathlib3-binport.tar.gz
             mathlib3-synport.tar.gz
+            archive-synport.tar.gz
+            counterexamples-synport.tar.gz
 
       - name: update port repos (master)
         if: github.ref == 'refs/heads/master'
