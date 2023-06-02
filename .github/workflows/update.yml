@@ -26,17 +26,26 @@ jobs:
       - uses: actions/checkout@v2
 
       - name: lake update
+        id: update
         run: |
           lake update
           cp lake-packages/mathlib/lean-toolchain .
+          if git describe --exact-match --tags HEAD 2> /dev/null \
+             && git diff --exit-code lake-manifest.json > /dev/null
+          then
+            echo "nothing_to_do=true" >> $GITHUB_OUTPUT
+          fi
 
       - name: get cache
+        if: success() && ${{ steps.update.outputs.nothing_to_do != 'true' }}
         run: lake exe cache get
 
       - name: build mathport
+        if: success() && ${{ steps.update.outputs.nothing_to_do != 'true' }}
         run: lake build
 
       - name: push update commit
+        if: success() && ${{ steps.update.outputs.nothing_to_do != 'true' }}
         run: |
           git diff --exit-code && exit
           git config --global user.email "leanprover.community@gmail.com"
