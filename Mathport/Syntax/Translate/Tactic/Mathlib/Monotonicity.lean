@@ -45,4 +45,4 @@ private def mkConfigStx (stx : Option Syntax) : M Syntax :=
   let arg ← parse ((tk ":=" *> return (":=", ← pExpr)) <|> (tk ":" *> return (":", ← pExpr)))?
   let arg ← mkOptionalNodeM arg fun (s, e) => return #[mkAtom s, ← trExpr e]
   let cfg ← mkConfigStx $ ← liftM $ (← expr?).mapM trExpr
-  pure ⟨mkNode ``Parser.Tactic.acMono #[mkAtom "ac_mono", mkNullNode arity, cfg, arg]⟩
+  pure ⟨mkNode ``Mathlib.Tactic.acMono #[mkAtom "ac_mono", mkNullNode arity, cfg, arg]⟩

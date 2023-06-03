@@ -66,7 +66,7 @@ def parseLinearComboConfig : Option (Spanned AST3.Expr) → M (Option Syntax.Tac
 -- # tactic.omega
 @[tr_tactic omega] def trOmega : TacM Syntax.Tactic := do
   let args ← parse ident*
-  pure ⟨mkNode ``Parser.Tactic.omega #[mkAtom "omega",
+  pure ⟨mkNode ``Mathlib.Tactic.omega #[mkAtom "omega",
     mkNullNode $ if args.contains `manual then #[mkAtom "manual"] else #[],
     mkNullNode $
       if args.contains `int then #[mkAtom "int"] else
