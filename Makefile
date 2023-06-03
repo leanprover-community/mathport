@@ -48,10 +48,11 @@ mathbin-source:
 	cd sources/mathlib && git clean -xfd && git fetch && git checkout "$(MATHBIN_COMMIT)" --
 	cd sources/mathlib && echo -n 'mathlib commit: ' && git rev-parse HEAD
 	cd sources/mathlib && leanpkg configure && ./scripts/mk_all.sh
+
 	cd sources/mathlib/archive && git ls-files \
-		| sed -n '/\.lean/ { s=\.lean$== ; s=/=».«=g; s=^=import «= ; s=$=»= ; p }' > all.lean
+		| sed -n '/\.lean/ { s=\.lean$$== ; s=/=».«=g; s=^=import «= ; s=$$=»= ; p }' > all.lean
 	cd sources/mathlib/counterexamples && git ls-files \
-		| sed -n '/\.lean/ { s=\.lean$== ; s=/=».«=g; s=^=import «= ; s=$=»= ; p }' > all.lean
+		| sed -n '/\.lean/ { s=\.lean$$== ; s=/=».«=g; s=^=import «= ; s=$$=»= ; p }' > all.lean
 	echo path ./archive >> leanpkg.path
 	echo path ./counterexamples >> leanpkg.path
 
