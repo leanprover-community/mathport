@@ -4,6 +4,7 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Mario Carneiro, Daniel Selsam
 -/
 import Mathport.Syntax.Translate.Basic
+import Mathlib.Mathport.Notation
 
 namespace Mathport.Translate
 
@@ -527,7 +528,7 @@ private def trNotation4 (kind : TSyntax ``Parser.Term.attrKind)
   pure fun n e =>
     `($kind:attrKind notation$[:$p]? $[$n:namedName]? $[$prio:namedPrio]? $lits* => $e)
 
-open Lean.Parser.Command in
+open Mathlib.Notation3 in
 private def trNotation3Item : (lit : AST3.Literal) → M (Array (TSyntax ``notation3Item))
   | .sym tk => pure #[sym tk]
   | .binder .. | .binders .. => return #[← `(notation3Item| (...))]
@@ -567,7 +568,7 @@ private def trNotation3 (kind : TSyntax ``Parser.Term.attrKind)
   let lits := addSpaceBeforeBinders <| lits.map (·.kind)
   let lits ← lits.concatMapM trNotation3Item
   pure fun n e =>
-    `($kind:attrKind notation3$[:$p]? $[$n:namedName]? $[$prio:namedPrio]? $lits* => $e)
+    `(command| $kind:attrKind notation3$[:$p]? $(n)? $(prio)? $lits:notation3Item* => $e)
 
 def trNotationCmd (kind : AttributeKind) (res : Bool) (attrs : Attributes) (nota : Notation)
   (ns : Option Name := none) : M Unit := do
