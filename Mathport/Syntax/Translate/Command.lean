@@ -533,24 +533,26 @@ private def trNotation3Item : (lit : AST3.Literal) → M (Array (TSyntax ``notat
   | .sym tk => pure #[sym tk]
   | .binder .. | .binders .. => return #[← `(notation3Item| (...))]
   | .var x none
-  | .var x (some ⟨_, .prec _⟩)
-  | .var x (some ⟨_, .prev⟩) => pure #[var x]
-  | .var x (some ⟨_, .scoped _ sc⟩) => return #[← scope x sc]
-  | .var x (some ⟨_, .fold r _ sep «rec» (some ini) term⟩) => do
-    let f ← fold x r sep «rec» ini
+  | .var x (some ⟨_, .prev⟩) => pure #[var x none]
+  | .var x (some ⟨_, .prec p⟩) => return #[var x (some (← trPrec p).toSyntax)]
+  | .var x (some ⟨_, .scoped p sc⟩) => return #[← scope x sc p]
+  | .var x (some ⟨_, .fold r p sep rec (some ini) term⟩) => do
+    let f ← fold x r p sep rec ini
     pure $ match term.map sym with | none => #[f] | some a => #[f, a]
   | lit => warn! "unsupported: advanced notation ({repr lit})"
 where
   sym tk := Id.run `(notation3Item| $(Syntax.mkStrLit tk.1.kind.toString):str)
-  var x := Id.run `(notation3Item| $(mkIdent x.kind):ident)
-  scope x sc := do
+  var x p := Id.run `(notation3Item| $(mkIdent x.kind):ident$[:$p]?)
+  scope x sc prec := do
     let (p, e) := match sc with
       | none => (`x, Spanned.dummy $ Expr.ident `x)
       | some (p, e) => (p.kind, e)
-    `(notation3Item| $(mkIdent x.kind):ident : (scoped $(mkIdent p) => $(← trExpr e)))
-  fold x r sep | (y, z, «rec»), ini => do
+    let prec ← prec.mapM fun p => return (← trPrec p.kind).toSyntax
+    `(notation3Item| $(mkIdent x.kind):ident $[:$prec]? : (scoped $(mkIdent p) => $(← trExpr e)))
+  fold x r prec sep | (y, z, rec), ini => do
     let kind ← if r then `(foldKind| foldr) else `(foldKind| foldl)
-    `(notation3Item| ($(mkIdent x.kind) $(Syntax.mkStrLit sep.1.kind.toString)* =>
+    let prec ← prec.mapM fun p => return (← trPrec p.kind).toSyntax
+    `(notation3Item| ($(mkIdent x.kind) $(Syntax.mkStrLit sep.1.kind.toString)* $[:$prec]? =>
         $kind ($(mkIdent y.kind) $(mkIdent z.kind) => $(← trExpr rec)) $(← trExpr ini)))
 
 private def addSpaceBeforeBinders (lits : Array AST3.Literal) : Array AST3.Literal := Id.run do
