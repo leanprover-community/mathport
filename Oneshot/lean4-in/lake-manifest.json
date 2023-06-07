@@ -1,7 +1,9 @@
 {"version": 4,
- "packagesDir": "../../lake-packages",
+ "packagesDir": "lake-packages",
  "packages":
- [{"path": {"name": "mathlib", "dir": "./../../lake-packages/mathlib"}},
+ [{"path":
+   {"name": "proofwidgets", "dir": "./../../lake-packages/proofwidgets"}},
+  {"path": {"name": "mathlib", "dir": "./../../lake-packages/mathlib"}},
   {"path": {"name": "Qq", "dir": "./../../lake-packages/Qq"}},
   {"path": {"name": "aesop", "dir": "./../../lake-packages/aesop"}},
   {"path": {"name": "std", "dir": "./../../lake-packages/std"}}]}
