@@ -472,12 +472,12 @@ def commandToFmt (stx : Syntax.Command) : M Format := do
   let stx ← insertComments stx
   liftCoreM $ do
     let (stx, parenthesizerErr) ← tryParenthesizeCommand stx
-    pure $ parenthesizerErr ++ (←
-      try Lean.PrettyPrinter.formatCommand stx
-      catch e =>
-        return
-          f!"-- PLEASE REPORT THIS TO MATHPORT DEVS, THIS SHOULD NOT HAPPEN.\n" ++
-          f!"-- failed to format: {← e.toMessageData.toString}\n{reprint stx}")
+    try
+      pure $ parenthesizerErr ++ (← Lean.PrettyPrinter.formatCommand stx)
+    catch e =>
+      pure $
+        f!"-- PLEASE REPORT THIS TO MATHPORT DEVS, THIS SHOULD NOT HAPPEN.\n" ++
+        f!"-- failed to format: {← e.toMessageData.toString}\n{reprint stx}"
 
 def push (stx : Syntax.Command) : M Unit := do
   if (← get).alignStatements.isEmpty then
