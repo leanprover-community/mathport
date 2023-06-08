@@ -463,6 +463,7 @@ private def tryParenthesizeCommand (stx : Syntax) : CoreM <| Syntax × Format :=
         try Lean.PrettyPrinter.parenthesizeCommand stx catch _ => pure stx
     let traces ← traces.toList.mapM (·.msg.format)
     pure (stx,
+      f!"-- PLEASE REPORT THIS TO MATHPORT DEVS, THIS SHOULD NOT HAPPEN.\n" ++
       f!"/- failed to parenthesize: {← e.toMessageData.toString}\n{Format.joinSep traces "\n"}-/")
 
 def commandToFmt (stx : Syntax.Command) : M Format := do
@@ -474,7 +475,9 @@ def commandToFmt (stx : Syntax.Command) : M Format := do
     pure $ parenthesizerErr ++ (←
       try Lean.PrettyPrinter.formatCommand stx
       catch e =>
-        pure f!"-- failed to format: {← e.toMessageData.toString}\n{reprint stx}")
+        return
+          f!"-- PLEASE REPORT THIS TO MATHPORT DEVS, THIS SHOULD NOT HAPPEN.\n" ++
+          f!"-- failed to format: {← e.toMessageData.toString}\n{reprint stx}")
 
 def push (stx : Syntax.Command) : M Unit := do
   if (← get).alignStatements.isEmpty then
