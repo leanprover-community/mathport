@@ -16,7 +16,7 @@ def trHaveArgs (id : TSyntax ``optBinderIdent) (bs : TSyntaxArray ``Parser.Term.
   | `(optBinderIdent| $id:ident) => `(Parser.Term.haveIdDecl| $id:ident $bs* $[: $ty]? := $val)
   | `(optBinderIdent| _%$id) => `(Parser.Term.haveIdDecl| _%$id $bs* $[: $ty]? := $val)
   | `(optBinderIdent| $id:hygieneInfo) =>
-    `(Parser.Term.haveIdDecl| $(⟨id.raw.setKind hygieneInfoKind⟩):hygieneInfo $bs* $[: $ty]? := $val)
+    `(Parser.Term.haveIdDecl| $id:hygieneInfo $bs* $[: $ty]? := $val)
   | _ => throwUnsupported
 
 def transformConsecutiveTactics : Syntax.Tactic → Syntax.Tactic → M Syntax.Tactic
