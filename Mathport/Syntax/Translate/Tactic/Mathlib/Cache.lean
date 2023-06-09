@@ -25,16 +25,17 @@ attribute [tr_tactic exactI] trExact
 @[tr_tactic «haveI»] def trHaveI : TacM Syntax.Tactic := do
   let h := (← parse (ident)?).filter (· != `this) |>.map mkIdent
   let ty ← (← parse (tk ":" *> pExpr)?).mapM (trExpr ·)
-  match ← parse (tk ":=" *> pExpr)? with
-  | some pr => `(tactic| haveI $[$h:ident]? $[: $ty:term]? := $(← trExpr pr))
-  | none => `(tactic| have $[$h:ident]? $[: $ty:term]?)
+  match h, ← (← parse (tk ":=" *> pExpr)?).mapM (trExpr ·) with
+  | none, none => `(tactic| have $[: $ty]?)
+  | some h, none => `(tactic| have $h:ident $[: $ty]?)
+  | none, some pr => `(tactic| haveI $[: $ty]? := $pr)
+  | some h, some pr => `(tactic| haveI $h $[: $ty]? := $pr)
 
 @[tr_tactic «letI»] def trLetI : TacM Syntax.Tactic := do
   let h := (← parse (ident)?).filter (· != `this) |>.map mkIdent
   let ty ← (← parse (tk ":" *> pExpr)?).mapM (trExpr ·)
-  match ← parse (tk ":=" *> pExpr)? with
-  | some pr => match h with
-    | some h => `(tactic| letI $h:ident $[: $ty:term]? := $(← trExpr pr))
-    | none => `(tactic| letI $[: $ty:term]? := $(← trExpr pr))
-  | none =>
-    `(tactic| let $[$h:ident]? $[: $ty:term]?)
+  match h, ← (← parse (tk ":=" *> pExpr)?).mapM (trExpr ·)  with
+  | none, none => `(tactic| let $[: $ty]?)
+  | some h, none => `(tactic| let $h:ident $[: $ty]?)
+  | none, some pr => `(tactic| letI $[: $ty]? := $pr)
+  | some h, some pr => `(tactic| letI $h:ident $[: $ty]? := $pr)

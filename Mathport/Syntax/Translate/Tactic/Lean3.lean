@@ -259,24 +259,27 @@ where
 @[tr_tactic «have»] def trHave : TacM Syntax.Tactic := do
   let h := (← parse (ident)?).filter (· != `this) |>.map mkIdent
   let ty ← (← parse (tk ":" *> pExpr)?).mapM (trExpr ·)
-  match ← parse (tk ":=" *> pExpr)? with
-  | some pr => `(tactic| have $[$h:ident]? $[: $ty:term]? := $(← trExpr pr))
-  | none => `(tactic| have $[$h:ident]? $[: $ty:term]?)
+  match h, ← (← parse (tk ":=" *> pExpr)?).mapM (trExpr ·) with
+  | none, none => `(tactic| have $[: $ty]?)
+  | some h, none => `(tactic| have $h:ident $[: $ty]?)
+  | none, some pr => `(tactic| have $[: $ty]? := $pr)
+  | some h, some pr => `(tactic| have $h $[: $ty]? := $pr)
 
 @[tr_tactic «let»] def trLet : TacM Syntax.Tactic := do
   let h := (← parse (ident)?).filter (· != `this) |>.map mkIdent
   let ty ← (← parse (tk ":" *> pExpr)?).mapM (trExpr ·)
-  match ← parse (tk ":=" *> pExpr)? with
-  | some pr => match h with
-    | some h => `(tactic| let $h:ident $[: $ty:term]? := $(← trExpr pr))
-    | none => `(tactic| let this $[: $ty:term]? := $(← trExpr pr))
-  | none =>
-    `(tactic| let $[$h:ident]? $[: $ty:term]?)
+  match h, ← (← parse (tk ":=" *> pExpr)?).mapM (trExpr ·) with
+  | none, none => `(tactic| let $[: $ty]?)
+  | some h, none => `(tactic| let $h:ident $[: $ty]?)
+  | none, some pr => `(tactic| let this $[: $ty]? := $pr)
+  | some h, some pr => `(tactic| let $h:ident $[: $ty]? := $pr)
 
 @[tr_tactic «suffices»] def trSuffices : TacM Syntax.Tactic := do
   let h := (← parse (ident)?).map mkIdent
   let ty ← (← parse (tk ":" *> pExpr)?).mapM (trExpr ·)
-  `(tactic| suffices $[$h:ident]? $[: $ty:term]?)
+  match h with
+  | none => `(tactic| suffices $[: $ty]?)
+  | some h => `(tactic| suffices $h:ident $[: $ty]?)
 
 @[tr_tactic trace_state] def trTraceState : TacM Syntax.Tactic := `(tactic| trace_state)
 

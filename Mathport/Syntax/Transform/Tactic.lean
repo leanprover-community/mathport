@@ -8,21 +8,32 @@ import Lean
 
 namespace Mathport
 namespace Transform
-open Lean Elab
+open Lean Elab Mathlib.Tactic
+
+def trHaveArgs (id : TSyntax ``optBinderIdent) (bs : TSyntaxArray ``Parser.Term.letIdBinder)
+    (ty : Option Term) (val : Term) : M (TSyntax ``Parser.Term.haveIdDecl) :=
+  match id with
+  | `(optBinderIdent| $id:ident) => `(Parser.Term.haveIdDecl| $id:ident $bs* $[: $ty]? := $val)
+  | `(optBinderIdent| _%$id) => `(Parser.Term.haveIdDecl| _%$id $bs* $[: $ty]? := $val)
+  | `(optBinderIdent| $id:hygieneInfo) =>
+    `(Parser.Term.haveIdDecl| $(⟨id.raw.setKind hygieneInfoKind⟩):hygieneInfo $bs* $[: $ty]? := $val)
+  | _ => throwUnsupported
 
 def transformConsecutiveTactics : Syntax.Tactic → Syntax.Tactic → M Syntax.Tactic
-  | `(tactic| suffices : $ty:term), `(tactic|· $tacs:tactic*) =>
-    `(tactic| suffices $ty:term by $tacs:tactic*)
-  | `(tactic| have $[$id:ident]? $[: $ty:term]?), `(tactic|· $tacs:tactic*) =>
-    `(tactic| have $[$id:ident]? $[: $ty:term]? := by $tacs:tactic*)
-  | `(tactic| have $[$id:ident]? $[: $ty:term]?), `(tactic|exact $t) =>
-    `(tactic| have $[$id:ident]? $[: $ty:term]? := $t)
-  | `(tactic| let $id:ident $[: $ty:term]?), `(tactic|· $tacs:tactic*) =>
-    `(tactic| let $id:ident $[: $ty:term]? := by $tacs:tactic*)
-  | `(tactic| let $[: $ty:term]?), `(tactic|· $tacs:tactic*) =>
-    `(tactic| let this $[: $ty:term]? := by $tacs:tactic*)
-  | `(tactic| obtain $[$pat]? $[: $ty]?), `(tactic|· $tacs:tactic*) =>
-    `(tactic| obtain $[$pat]? $[: $ty]? := by $tacs:tactic*)
+  | `(tactic| suffices : $ty), `(tactic|· $tacs*) =>
+    `(tactic| suffices $ty by $tacs*)
+  | `(tactic| have $id:optBinderIdent $bs* $[: $ty]?), `(tactic|· $tacs*) => do
+    `(tactic| have $(← trHaveArgs id bs ty <|← `(by $tacs*)):haveIdDecl)
+  | `(tactic| have $id:optBinderIdent $bs* $[: $ty]?), `(tactic|exact $t) => do
+    `(tactic| have $(← trHaveArgs id bs ty t):haveIdDecl)
+  | `(tactic| let $id:ident $bs* $[: $ty]?), `(tactic|· $tacs*) =>
+    `(tactic| let $id:ident $bs* $[: $ty]? := by $tacs*)
+  | `(tactic| let _%$id $bs* $[: $ty]?), `(tactic|· $tacs*) =>
+    `(tactic| let _%$id $bs* $[: $ty]? := by $tacs*)
+  | `(tactic| let $bs:letIdBinder* $[: $ty]?), `(tactic|· $tacs*) =>
+    `(tactic| let this $bs* $[: $ty]? := by $tacs*)
+  | `(tactic| obtain $(pat)? $[: $ty]?), `(tactic|· $tacs*) =>
+    `(tactic| obtain $(pat)? $[: $ty]? := by $tacs*)
   | _, _ => throwUnsupported
 
 def transformConsecutiveTacticsArray (tacAndSeps : Array Syntax) : M (Array Syntax) := do

@@ -300,13 +300,19 @@ def trExpr' : Expr → M Term
   | Expr.show t pr => do
     `(show $(← trExpr t) from $(← trProof pr.kind))
   | Expr.have true h t pr e => do
-    let h := h.map (mkIdent ·.kind)
-    `(suffices $[$h:ident :]? $(← trExpr t) from $(← trProof pr.kind)
+    let t ← trExpr t; let pr ← trProof pr.kind
+    let decl ← match h with
+    | none => `(Parser.Term.sufficesDecl| $t from $pr)
+    | some h => `(Parser.Term.sufficesDecl| $(mkIdent h.kind) $t from $pr)
+    `(suffices $decl:sufficesDecl
       $(← trExpr e))
   | Expr.have false h t pr e => do
     let t ← match t.kind with | Expr._ => pure none | _ => some <$> trExpr t
-    let h := h.map (mkIdent ·.kind)
-    `(have $[$h:ident]? $[: $t:term]? := $(← trProof pr.kind)
+    let pr ← trProof pr.kind
+    let decl ← match h with
+    | none => `(Parser.Term.haveIdDecl| $[: $t]? := $pr)
+    | some h => `(Parser.Term.haveIdDecl| $(mkIdent h.kind) $[: $t]? := $pr)
+    `(have $decl:haveIdDecl
       $(← trExpr e))
   | Expr.«.» _ e pr => open Lean.TSyntax.Compat in do
     let e ← trExpr e

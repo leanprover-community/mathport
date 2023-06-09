@@ -63,9 +63,11 @@ open AST3 Mathport.Translate.Parser
 @[tr_tactic replace] def trReplace : TacM Syntax.Tactic := do
   let h := (← parse (ident)?).map mkIdent
   let ty ← (← parse (tk ":" *> pExpr)?).mapM (trExpr ·)
-  match ← parse (tk ":=" *> pExpr)? with
-  | some pr => `(tactic| replace $[$h]? $[: $ty]? := $(← trExpr pr))
-  | none =>  `(tactic| replace $[$h]? $[: $ty]?)
+  match h, ← (← parse (tk ":=" *> pExpr)?).mapM (trExpr ·) with
+  | none, none => `(tactic| replace $[: $ty]?)
+  | some h, none => `(tactic| replace $h:ident $[: $ty]?)
+  | none, some pr => `(tactic| replace $[: $ty]? := $pr)
+  | some h, some pr => `(tactic| replace $h $[: $ty]? := $pr)
 
 @[tr_tactic classical] def trClassical : TacM Syntax.Tactic := do
   let force := (← parse (tk "!")?).isSome
