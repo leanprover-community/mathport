@@ -256,15 +256,14 @@ def trDeclId (n : Name) (us : LevelDecl) (vis : Visibility) (translateToAdditive
   let (n3, _) := Rename.getClashes (← getEnv) n4
   let mut msg := Format.nil
   let mut found := none
-  if dubious.isEmpty && (← getEnv).contains n4 && !binportTag.hasTag (← getEnv) n4 then
+  if (← getEnv).contains n4 && !binportTag.hasTag (← getEnv) n4 then
     found := n4 -- if the definition already exists, abort the current command
   if orig != n3 then
-    if dubious.isEmpty then
-      found := n4 -- if the clash is authoritative, abort the current command
+    found := n4 -- if the clash is authoritative, abort the current command
     msg := msg ++ f!"warning: {orig} clashes with {n3} -> {n4}\n"
   if !dubious.isEmpty && (← read).config.dubiousMsg then
     msg := msg ++ f!"warning: {orig} -> {n4} is a dubious translation:\n{dubious}\n"
-  if !msg.isEmpty then
+  if !msg.isEmpty && !(found.isSome && (← read).config.replacementStyle matches .skip) then
     logComment f!"{msg}Case conversion may be inaccurate. Consider using '#align {orig} {n4}ₓ'."
   return (found, ← `(declId| $(← mkIdentR id):ident $[.{$us,*}]?))
 
