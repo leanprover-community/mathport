@@ -624,7 +624,6 @@ def trNotationCmd (kind : AttributeKind) (res : Bool) (attrs : Attributes) (nota
     try elabCommand (cmd (some nn) e)
     catch e => dbg_trace "warning: failed to add syntax {repr n4}: {← e.toMessageData.toString}"
     pure $ (← getCurrNamespace) ++ n4
-  printOutput s!"-- mathport name: {n}\n"
   if let some ns := ns then
     pushM `(command| scoped[$(← mkIdentR ns)] $(cmd none e))
   else push (cmd none e)
@@ -691,10 +690,11 @@ def trCommand' : Command → M Unit
     trNotationCmd (if loc then .local else .global) res attrs n
   | Command.open true ops => ops.forM trExportCmd
   | Command.open false ops => trOpenCmd ops
-  | Command.include true ops => unless ops.isEmpty do
-      pushM `(include $(ops.map fun n => mkIdent n.kind)*)
-  | Command.include false ops => unless ops.isEmpty do
-      pushM `(omit $(ops.map fun n => mkIdent n.kind)*)
+  | Command.include _ _ => pure ()
+  -- | Command.include true ops => unless ops.isEmpty do
+  --     pushM `(include $(ops.map fun n => mkIdent n.kind)*)
+  -- | Command.include false ops => unless ops.isEmpty do
+  --     pushM `(omit $(ops.map fun n => mkIdent n.kind)*)
   | Command.hide ops => unless ops.isEmpty do
       warn! "unsupported: hide command"
       -- pushM `(hide $(ops.map fun n => mkIdent n.kind)*)
