@@ -286,7 +286,8 @@ attribute [tr_ni_tactic try_refl_tac] trControlLawsTac
 
 -- # data.opposite
 @[tr_tactic op_induction] def trOpInduction : TacM Syntax.Tactic := do
-  `(tactic| op_induction $[$((← parse (ident)?).map mkIdent):ident]?)
+  warn! "op_induction is unnecessary now and has been dropped from mathlib4: https://github.com/leanprover-community/mathlib4/pull/5035"
+  `(tactic| skip)
 
 -- # data.qpf.multivariate.constructions.cofix
 @[tr_tactic mv_bisim] def trMvBisim : TacM Syntax.Tactic := do
