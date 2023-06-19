@@ -29,7 +29,7 @@ open AST3 Parser
 
 @[tr_tactic ext] def trExt : TacM Syntax.Tactic := do
   let hint ← parse (tk "?")?
-  let pats ← liftM $ (← parse rintroPat*).mapM trRIntroPat
+  let pats ← liftM $ (← parse rintroPatHi*).mapM trRIntroPat
   let depth := (← parse (tk ":" *> smallNat)?).map Quote.quote
   match hint with
   | none => `(tactic| ext $[$pats]* $[: $depth]?)
