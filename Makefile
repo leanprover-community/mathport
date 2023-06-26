@@ -54,6 +54,7 @@ mathbin-source:
 		| sed -n '/\.lean/ { s/\.lean$$// ; s/\//».«/g ; s/^/import «/ ; s/$$/»/ ; p ; }' > all.lean
 	echo path ./archive >> sources/mathlib/leanpkg.path
 	echo path ./counterexamples >> sources/mathlib/leanpkg.path
+	cd sources/mathlib && leanproject get-cache
 
 # Clone Lean 3, and some preparatory work:
 # * Obtain the commit from (community edition) Lean 3 which mathlib is using
@@ -64,7 +65,7 @@ lean3-source: mathbin-source
 	if [ ! -d "sources/lean/.git" ]; then \
 		cd sources && git clone --depth 1 https://github.com/leanprover-community/lean.git; \
 	fi
-	cd sources/lean && git clean -xfd && git checkout "`cd ../mathlib && lean --version | sed -e "s/.*commit \([0-9a-f]*\).*/\1/"`" --
+	cd sources/lean && git clean -xfd && git fetch && git checkout "`cd ../mathlib && lean --version | sed -e "s/.*commit \([0-9a-f]*\).*/\1/"`" --
 	cd sources/lean && elan override set `cat ../mathlib/leanpkg.toml | grep lean_version | cut -d '"' -f2`
 	mkdir -p sources/lean/build/release
 	# Run cmake, to create `version.lean` from `version.lean.in`.

@@ -7,7 +7,7 @@ This is a template which you can use to quickly play with the translation of sni
    git clone https://github.com/leanprover-community/mathport/
    ```
 2. get in the folder: `cd mathport`
-3. install dependencies `cmake`, `gmp`, `gmp-devel`, `jq` if needed (debian/ubuntu `sudo apt install cmake gmp gmp-devel jq`, mac `brew install cmake jq`, etc)
+3. install dependencies `cmake`, `gmp`, `gmp-devel`, `jq` if needed. On debian/ubuntu: `sudo apt install cmake gmp gmp-devel jq` (or `libgmp3-dev` instead of `gmp` and `gmp-devel`). On mac: `brew install cmake jq`. On windows this script might not work.
 4. Run `lake exe cache get`
 5. Run `make build` (go get some coffee!)
 6. Run `make lean3-source`

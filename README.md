@@ -22,6 +22,7 @@ Install dependencies if needed:
 - debian/ubuntu: `sudo apt install cmake jq gmp gmp-devel`
   (possibly `libgmp3-dev` instead of `gmp` and `gmp-devel`?)
 - mac: `brew install cmake jq`
+- On windows this script might not work
 
 In the mathport folder:
 
