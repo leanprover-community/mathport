@@ -20,7 +20,7 @@ A template is set up in the `Oneshot/` directory. See [`Oneshot/README.md`](Ones
 Install dependencies if needed:
 
 - debian/ubuntu: `sudo apt install cmake jq gmp gmp-devel`
-  (possibly `sudo apt install cmake jq libgmp3-dev libgmp3-dev` instead)
+  (possibly `sudo apt install cmake jq libgmp3-dev` instead)
 - mac: `brew install cmake jq`
 
 Get the mathport repo:
