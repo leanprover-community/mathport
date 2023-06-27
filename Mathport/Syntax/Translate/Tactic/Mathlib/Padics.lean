@@ -5,6 +5,7 @@ Authors: Mario Carneiro
 -/
 import Mathport.Syntax.Translate.Tactic.Basic
 import Mathport.Syntax.Translate.Tactic.Lean3
+import Mathlib.RingTheory.WittVector.InitTail
 
 open Lean
 
@@ -22,7 +23,7 @@ open Parser
   `(tactic| ghost_fun_tac $(← trExpr (← parse pExpr)), $(← trExpr (← parse pExpr)))
 
 @[tr_tactic ghost_calc] def trGhostCalc : TacM Syntax.Tactic := do
-  `(tactic| ghost_calc $[$((← parse ident_*).map trBinderIdent)]*)
+  `(tactic| ghost_calc $[$((← parse ident_*).map trIdent_)]*)
 
 @[tr_tactic init_ring] def trInitRing : TacM Syntax.Tactic := do
   `(tactic| init_ring $[using $(← liftM $ (← parse (tk "using" *> pExpr)?).mapM trExpr)]?)
