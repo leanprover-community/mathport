@@ -22,6 +22,7 @@ Install dependencies if needed:
 - debian/ubuntu: `sudo apt install cmake jq gmp gmp-devel`
   (possibly `sudo apt install cmake jq libgmp3-dev` instead)
 - mac: `brew install cmake jq`
+- On windows this script might not work
 
 Get the mathport repo:
 - `git clone https://github.com/leanprover-community/mathport.git`
