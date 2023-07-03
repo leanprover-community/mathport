@@ -54,7 +54,8 @@ mathbin-source:
 		| sed -n '/\.lean/ { s/\.lean$$// ; s/\//».«/g ; s/^/import «/ ; s/$$/»/ ; p ; }' > all.lean
 	echo path ./archive >> sources/mathlib/leanpkg.path
 	echo path ./counterexamples >> sources/mathlib/leanpkg.path
-	cd sources/mathlib && leanproject get-cache
+	# Github CI is going to rebuild `mathlib` anyway, no need to download `olean`s
+	if [ -z "${GITHUB_PATH}" ]; then cd sources/mathlib && leanproject get-cache; fi
 
 # Clone Lean 3, and some preparatory work:
 # * Obtain the commit from (community edition) Lean 3 which mathlib is using
