@@ -1,6 +1,7 @@
 on:
   schedule:
-    - cron: '30 1,3,5,7,9,11,13,15,17,19,21,23 * * *'  # every two hours (30 minutes ahead of build workflow)
+    # Please reenable once mathport builds again with current mathlib4.
+    # - cron: '30 1,3,5,7,9,11,13,15,17,19,21,23 * * *'  # every two hours (30 minutes ahead of build workflow)
   workflow_dispatch:
 
 name: update
