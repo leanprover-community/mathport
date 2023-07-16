@@ -19,10 +19,10 @@ open AST3 Parser
   match ← parse (tk "with" *> return (← rintroPat*, ← (tk ":" *> smallNat)?))? with
   | none => `(tactic| congr $(n)?)
   | some (pats, ks) =>
-    `(tactic| congr $(n)? with $(← liftM <| pats.mapM trRIntroPat)* $[: $(ks.map quote)]?)
+    `(tactic| congr $[$(n):num]? with $(← liftM <| pats.mapM trRIntroPat)* $[: $(ks.map quote)]?)
 
 @[tr_tactic rcongr] def trRCongr : TacM Syntax.Tactic := do
-  `(tactic| rcongr $(← liftM $ (← parse rintroPat*).mapM trRIntroPat)*)
+  `(tactic| rcongr $(← liftM $ (← parse rintroPat*).mapM trRIntroPat):rintroPat*)
 
 @[tr_tactic convert] def trConvert : TacM Syntax.Tactic := do
   let sym := optTk (← parse (tk "<-")?).isSome
