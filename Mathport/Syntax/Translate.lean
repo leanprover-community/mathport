@@ -62,9 +62,9 @@ def AST3toData4 (path : Path) : AST3 → M Data4
     -- todo: use the pretty-printer?
     if let some ci := commitInfo then
       let commit := ci.fileRevs.findD (path.mod3.toFilePath.toString ++ ".lean") ci.commit
-      printOutput f!"#align_import {path.mod3} from {repr ci.repo}@{repr commit}"
+      printOutput f!"#align_import {path.mod3} from {repr ci.repo}@{repr commit}\n\n"
     else
-      printOutput f!"#align_import {path.mod3}"
+      printOutput f!"#align_import {path.mod3}\n\n"
     commands.forM fun c => do
       try trCommand c
       catch e =>
