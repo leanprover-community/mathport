@@ -69,7 +69,7 @@
     "sorries": [],
     "skipProofs": false,
     "skipDefEq": true,
-    "replacementStyle": "comment",
+    "replacementStyle": "keep",
     "redundantAlign": true,
     "error2warning" : true,
     "dubiousMsg": false,
