@@ -170,7 +170,7 @@ open AST3 Mathport.Translate.Parser
 @[tr_tactic triv] def trTriv : TacM Syntax.Tactic := `(tactic| triv)
 
 @[tr_tactic use] def trUse : TacM Syntax.Tactic := do
-  `(tactic| use $(← liftM $ (← parse pExprListOrTExpr).mapM trExpr),*)
+  `(tactic| use $(← liftM $ (← parse pExprListOrTExpr).mapM trExpr):term,*)
 
 @[tr_tactic clear_aux_decl] def trClearAuxDecl : TacM Syntax.Tactic := `(tactic| clear_aux_decl)
 
