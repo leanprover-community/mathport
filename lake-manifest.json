@@ -18,7 +18,7 @@
     "subDir?": null,
     "rev": "fb232849b87afc525453e515a23a2677710a1739",
     "name": "mathlib",
-    "inputRev?": "master"}},
+    "inputRev?": "port-complete"}},
   {"git":
    {"url": "https://github.com/gebner/quote4",
     "subDir?": null,

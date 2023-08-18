@@ -37,7 +37,7 @@ build:
 	lake build
 
 # Select which commit of mathlib3 to use.
-MATHBIN_COMMIT=origin/master
+MATHBIN_COMMIT=origin/port-complete
 
 # Clone mathlib3 and create `all.lean`.
 mathbin-source:
