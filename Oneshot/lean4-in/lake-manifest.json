@@ -2,9 +2,32 @@
  "packagesDir": "lake-packages",
  "packages":
  [{"path":
-   {"name": "proofwidgets", "dir": "./../../lake-packages/proofwidgets"}},
-  {"path": {"name": "mathlib", "dir": "./../../lake-packages/mathlib"}},
-  {"path": {"name": "Qq", "dir": "./../../lake-packages/Qq"}},
-  {"path": {"name": "aesop", "dir": "./../../lake-packages/aesop"}},
-  {"path": {"name": "Cli", "dir": "./../../lake-packages/Cli"}},
-  {"path": {"name": "std", "dir": "./../../lake-packages/std"}}]}
+   {"opts": {},
+    "name": "proofwidgets",
+    "inherited": false,
+    "dir": "./../../lake-packages/proofwidgets"}},
+  {"path":
+   {"opts": {},
+    "name": "Cli",
+    "inherited": false,
+    "dir": "./../../lake-packages/Cli"}},
+  {"path":
+   {"opts": {},
+    "name": "mathlib",
+    "inherited": false,
+    "dir": "./../../lake-packages/mathlib"}},
+  {"path":
+   {"opts": {},
+    "name": "Qq",
+    "inherited": false,
+    "dir": "./../../lake-packages/Qq"}},
+  {"path":
+   {"opts": {},
+    "name": "aesop",
+    "inherited": false,
+    "dir": "./../../lake-packages/aesop"}},
+  {"path":
+   {"opts": {},
+    "name": "std",
+    "inherited": false,
+    "dir": "./../../lake-packages/std"}}]}
