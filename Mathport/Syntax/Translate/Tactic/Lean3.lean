@@ -497,8 +497,8 @@ def trNIRefl (_ : AST3.Expr) : M Syntax.Tactic := `(tactic| rfl)
 
 @[tr_tactic unfold_projs] def trUnfoldProjs : TacM Syntax.Tactic := do
   let loc ← parse location
-  let cfg ← mkConfigStx? $ (← parseSimpConfig (← expr?)).1.bind quoteSimpConfig
-  `(tactic| unfold_projs $[$cfg:config]? $[$(← trLoc loc):location]?)
+  if (← expr?).isSome then warn! "warning: unsupported: unfold_projs config"
+  `(tactic| unfold_projs $[$(← trLoc loc):location]?)
 
 @[tr_tactic unfold] def trUnfold : TacM Syntax.Tactic := do
   let cs ← parse ident*
