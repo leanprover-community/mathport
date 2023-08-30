@@ -200,10 +200,11 @@ open Mathlib.Tactic in
 @[tr_tactic extract_goal] def trExtractGoal : TacM Syntax.Tactic := do
   let hSimp ← parse (tk "!")?
   let n := (← parse (ident)?).map mkIdent
-  let vs := (← parse (tk "with" *> ident*)?).map (·.map mkIdent)
+  if let some _ ← parse (tk "with" *> ident*)? then
+    warn! "unsupported: extract_goal with"
   match hSimp with
-  | none => `(tactic| extract_goal $[$n:ident]? $[with $[$vs]*]?)
-  | some _ => `(tactic| extract_goal! $[$n:ident]? $[with $[$vs]*]?)
+  | none => `(tactic| extract_goal $(n)?)
+  | some _ => `(tactic| extract_goal! $(n)?)
 
 @[tr_tactic inhabit] def trInhabit : TacM Syntax.Tactic := do
   let t ← trExpr (← parse pExpr)
