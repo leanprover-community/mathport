@@ -198,13 +198,13 @@ open Mathlib.Tactic in
   `(tactic| clear* - $((← parse ident*).map mkIdent)*)
 
 @[tr_tactic extract_goal] def trExtractGoal : TacM Syntax.Tactic := do
-  let hSimp ← parse (tk "!")?
+  _ ← parse (tk "!")?
   let n := (← parse (ident)?).map mkIdent
-  if let some _ ← parse (tk "with" *> ident*)? then
-    warn! "unsupported: extract_goal with"
-  match hSimp with
-  | none => `(tactic| extract_goal $(n)?)
-  | some _ => `(tactic| extract_goal! $(n)?)
+  match ← parse (tk "with" *> ident*)? with
+  | none => `(tactic| extract_goal* $(n)?)
+  | some vs =>
+    if !vs.isEmpty then warn! "unsupported: extract_goal with <names>"
+    `(tactic| extract_goal $(n)?)
 
 @[tr_tactic inhabit] def trInhabit : TacM Syntax.Tactic := do
   let t ← trExpr (← parse pExpr)
