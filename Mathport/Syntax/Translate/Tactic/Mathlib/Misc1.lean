@@ -186,9 +186,9 @@ open AST3 Mathport.Translate.Parser
     $(← trLoc (← parse location))?)
 
 -- # tactic.restate_axiom
-@[tr_user_cmd «restate_axiom»] def trRestateAxiom : Parse1 Syntax.Command :=
-  parse1 (return (← ident, ← (ident)?)) fun (a, b) => do
-  `(command| restate_axiom $(← mkIdentI a) $(← liftM $ b.mapM mkIdentI)?)
+@[tr_user_cmd «restate_axiom»] def trRestateAxiom : Parse1 Unit :=
+  parse1 (return (← ident, ← (ident)?)) fun (_, _) => do
+  pure () -- `(command| restate_axiom $(← mkIdentI a) $(← liftM $ b.mapM mkIdentI)?)
 
 -- # tactic.rewrite
 @[tr_tactic assoc_rewrite assoc_rw] def trAssocRw : TacM Syntax.Tactic := do
