@@ -34,7 +34,7 @@ def mathport1 (config : Config) (path : Path) : IO Unit := do
     |>.setBool `pp.rawOnError true
 
   try
-    withImportModulesConst imports.toList (opts := opts) (trustLevel := 0) $ λ env => do
+    withImportModulesConst imports (opts := opts) (trustLevel := 0) $ λ env => do
       let env := env.setMainModule path.mod4
       let cmdCtx : Elab.Command.Context := {
         fileName := path.toLean3 pcfg ".lean" |>.toString

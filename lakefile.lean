@@ -11,7 +11,7 @@ target ffi.o pkg : FilePath := do
   let oFile := pkg.buildDir / "c" / "ffi.o"
   let srcJob ← inputFile <| pkg.dir / "Mathport" / "FFI.cpp"
   let flags := #["-I", (← getLeanIncludeDir).toString, "-fPIC"]
-  buildO "FFI.c" oFile srcJob flags "c++"
+  buildO "FFI.c" oFile srcJob flags (compiler := "c++")
 
 extern_lib libleanffi (pkg : NPackage `mathport) := do
   let name := nameToStaticLib "leanffi"

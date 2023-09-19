@@ -2,6 +2,14 @@
  "packagesDir": "lake-packages",
  "packages":
  [{"git":
+   {"url": "https://github.com/leanprover-community/mathlib4",
+    "subDir?": null,
+    "rev": "8da7f369150d3ab5cb843226b2d91d84c55c0e7e",
+    "opts": {},
+    "name": "mathlib",
+    "inputRev?": "master",
+    "inherited": false}},
+  {"git":
    {"url": "https://github.com/EdAyers/ProofWidgets4",
     "subDir?": null,
     "rev": "44e6673a20fc0449d003983d1e1f472df40f7107",
@@ -17,14 +25,6 @@
     "name": "Cli",
     "inputRev?": "nightly",
     "inherited": true}},
-  {"git":
-   {"url": "https://github.com/leanprover-community/mathlib4",
-    "subDir?": null,
-    "rev": "193761250a9869327056b499a7f49d676ed5e3a9",
-    "opts": {},
-    "name": "mathlib",
-    "inputRev?": "master",
-    "inherited": false}},
   {"git":
    {"url": "https://github.com/gebner/quote4",
     "subDir?": null,
@@ -44,7 +44,7 @@
   {"git":
    {"url": "https://github.com/leanprover/std4",
     "subDir?": null,
-    "rev": "ba5e5e3af519b4fc5221ad0fa4b2c87276f1d323",
+    "rev": "67855403d60daf181775fa1ec63b04e70bcc3921",
     "opts": {},
     "name": "std",
     "inputRev?": "main",
