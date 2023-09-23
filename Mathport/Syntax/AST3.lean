@@ -80,7 +80,8 @@ mutual
     | annotation : Annotation → Expr → Expr
     | field : Expr → Proj → Expr
     | typed_expr (ty val : Expr)
-    | structinst (struct : Name) (catchall : Bool) (fields : Array (Name × Expr)) (sources : Array Expr)
+    | structinst (struct : Name) (catchall : Bool)
+      (fields : Array (Name × Expr)) (sources : Array Expr)
     | prenum (value : Nat)
     | nat (value : Nat)
     | quote (value : Expr) (expr : Bool)
@@ -699,7 +700,10 @@ mutual
     | Expr.paren e, p => Expr_repr e.kind p
     | Expr.sort ty st u, p => Format.parenPrec max_prec p $
       (if ty then "Type" else "Sort") ++
-      if st then ("*" : Format) else match u with | none => "" | some u => " " ++ Level_repr u.kind max_prec
+      if st then ("*" : Format) else
+        match u with
+        | none => ""
+        | some u => " " ++ Level_repr u.kind max_prec
     | Expr.«→» lhs rhs, p => Format.parenPrec 25 p $
       Expr_repr lhs.kind 25 ++ " → " ++ Expr_repr rhs.kind 24
     | Expr.fun as bis e, p => Format.parenPrec max_prec p $
@@ -764,7 +768,8 @@ mutual
       let s := Format.line ++ (("," ++ Format.line).joinSep
         (els.toList.map fun el => DoElem_repr el.kind)).nest 2
       if braces then "do" ++ s else "do {" ++ s ++ " }"
-    | Expr.«{,}» es, _ => (Format.joinSep (es.toList.map fun e => Expr_repr e.kind) ", ").bracket "{" "}"
+    | Expr.«{,}» es, _ =>
+      (Format.joinSep (es.toList.map fun e => Expr_repr e.kind) ", ").bracket "{" "}"
     | Expr.subtype setOf x ty p, _ =>
       "{" ++ x.kind.toString ++ optTy ty ++
       (if setOf then " | " else " // ") ++ Expr_repr p.kind ++ "}"
@@ -774,7 +779,9 @@ mutual
       "{(" ++ Expr_repr e.kind ++ ") |" ++ Binders_repr bis false ++ "}"
     | Expr.structInst S src flds srcs catchall, _ => Format.nest 2 $ Format.group $ "{ " ++
       (match S with | none => "" | some S => S.kind.toString ++ " ." ++ Format.line : Format) ++
-      (match src with | none => "" | some s => Expr_repr s.kind ++ " with" ++ Format.line : Format) ++
+      (match src with
+        | none => ""
+        | some s => Expr_repr s.kind ++ " with" ++ Format.line : Format) ++
       (("," ++ Format.line).joinSep $
         flds.toList.map (fun (i, s) => i.kind.toString ++ " := " ++ Expr_repr s.kind) ++
         srcs.toList.map (fun s => ".." ++ Expr_repr s.kind) ++
@@ -836,7 +843,8 @@ mutual
       let s₂ : Format := match cfg with | none => "" | some e => " with " ++ Expr_repr e.kind ++ ","
       let s₃ := ("," ++ Format.line).joinSep (tacs.toList.map fun t => Tactic_repr t.kind)
       if curly then
-        ("{" ++ s₁ ++ s₂ ++ (if cl.isSome || cfg.isSome then Format.line else " ") ++ s₃ ++ " }").nest 2
+        ("{" ++ s₁ ++ s₂ ++
+          (if cl.isSome || cfg.isSome then Format.line else " ") ++ s₃ ++ " }").nest 2
       else
         ("begin" ++ s₁ ++ s₂ ++ Format.line ++ s₃).nest 2 ++ Format.line ++ "end"
 
@@ -1071,7 +1079,8 @@ instance : Repr Command where reprPrec c _ := match c with
     ((Format.join $ flds.toList.map fun f => Format.line ++ repr f).group).nest 2
   | Command.attribute loc mods attrs ns =>
     repr mods ++ (if loc then "local " else "") ++ "attribute" ++
-    (if attrs.isEmpty then "" else " " ++ repr attrs : Format) ++ spacedBefore (fun n => n.kind.toString) ns
+    (if attrs.isEmpty then "" else " " ++ repr attrs : Format) ++
+    spacedBefore (fun n => n.kind.toString) ns
   | Command.precedence sym prec => "precedence " ++ repr sym ++ ":" ++ repr prec
   | Command.notation loc attrs n => repr loc ++ Notation_repr n attrs
   | Command.open exp ops => (if exp then "export" else "open") ++ spacedBefore repr ops

@@ -57,7 +57,8 @@ def lookupNameExt! (n3 : Name) : BinportM Name := do
   | some n4 => pure n4
   | _       => throwError "[lookupNameExt!] name not found, {n3}"
 
-def BinportM.toIO (x : BinportM α) (ctx : Context) (st : State) : Elab.Command.Context → Elab.Command.State → IO α :=
+def BinportM.toIO (x : BinportM α) (ctx : Context) (st : State) :
+    Elab.Command.Context → Elab.Command.State → IO α :=
   ((x ctx).run' st).toIO
 
 def BinportM.runIO (x : BinportM α) (ctx : Context) (env : Environment) : IO α := do

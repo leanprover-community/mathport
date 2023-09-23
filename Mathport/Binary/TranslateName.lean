@@ -124,8 +124,10 @@ def mkMismatchMessage (defEq : Bool)
 
 -- Given a declaration whose expressions have already been translated to Lean4
 -- (i.e. the names *occurring* in the expressions have been translated
--- TODO: this is awkward, the `List Name` is just the list of constructor names for defEq inductive clashes
-partial def refineLean4Names (decl : Declaration) : BinportM (Declaration × ClashKind × List Name) := do
+-- TODO: this is awkward, the `List Name` is just the list of constructor names
+-- for defEq inductive clashes
+partial def refineLean4Names (decl : Declaration) :
+    BinportM (Declaration × ClashKind × List Name) := do
   match decl with
   | Declaration.axiomDecl ax =>
     refineAx { ax with name := ← mkCandidateLean4Name ax.name ax.type }
@@ -185,7 +187,8 @@ where
         | _ => pure false
         pure <| if ok then some true else none
       if let some defEqType := ok then
-        let msg ← mkMismatchMessage defEqType defn3.levelParams defn3.type defn4.levelParams defn4.type
+        let msg ← mkMismatchMessage defEqType
+          defn3.levelParams defn3.type defn4.levelParams defn4.type
         pure (.defnDecl defn3, .found msg, [])
       else
         println! "[clash] {defn3.name}"
@@ -196,7 +199,8 @@ where
     println! "[refineInd] {indType3.name}"
     let recurse := do
       println! "[clash] {indType3.name}"
-      refineInd lps numParams (indType3.updateNames indType3.name (extendName indType3.name)) isUnsafe
+      refineInd lps numParams
+        (indType3.updateNames indType3.name (extendName indType3.name)) isUnsafe
     match (← getEnv).find? indType3.name with
     | some (.inductInfo indVal) =>
       let ok ← (do

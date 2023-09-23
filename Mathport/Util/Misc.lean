@@ -40,24 +40,27 @@ def Expr.replaceConstNames (e : Expr) (f : Name → Option Name) : Expr :=
 
 def InductiveType.selfPlaceholder : Name := `_indSelf
 
-def InductiveType.replaceSelfWithPlaceholder (indType : InductiveType) : InductiveType := { indType with
-  ctors := indType.ctors.map fun ctor => { ctor with
-    name := ctor.name.replacePrefix indType.name selfPlaceholder
-    type := renameSelf ctor.type }
-  }
+def InductiveType.replaceSelfWithPlaceholder (indType : InductiveType) : InductiveType :=
+  { indType with
+    ctors := indType.ctors.map fun ctor => { ctor with
+      name := ctor.name.replacePrefix indType.name selfPlaceholder
+      type := renameSelf ctor.type } }
 where
-  renameSelf (ctorType : Expr) := ctorType.replaceConstNames fun n => if n == indType.name then selfPlaceholder else none
+  renameSelf (ctorType : Expr) := ctorType.replaceConstNames fun n =>
+    if n == indType.name then selfPlaceholder else none
 
-def InductiveType.replacePlaceholder (indType : InductiveType) (newName : Name) : InductiveType := { indType with
-  name := newName,
-  ctors := indType.ctors.map fun ctor => { ctor with
-    name := ctor.name.replacePrefix selfPlaceholder newName,
-    type := renameSelf ctor.type }
-  }
+def InductiveType.replacePlaceholder (indType : InductiveType) (newName : Name) : InductiveType :=
+  { indType with
+    name := newName,
+    ctors := indType.ctors.map fun ctor => { ctor with
+      name := ctor.name.replacePrefix selfPlaceholder newName,
+      type := renameSelf ctor.type } }
 where
-  renameSelf (ctorType : Expr) := ctorType.replaceConstNames fun n => if n == selfPlaceholder then newName else none
+  renameSelf (ctorType : Expr) := ctorType.replaceConstNames fun n =>
+    if n == selfPlaceholder then newName else none
 
-def InductiveType.updateNames (indType : InductiveType) (oldIndName newIndName : Name) : InductiveType := Id.run do
+def InductiveType.updateNames (indType : InductiveType) (oldIndName newIndName : Name) :
+    InductiveType := Id.run do
   let map : HashMap Name Name := ({} : HashMap Name Name).insert oldIndName newIndName
   { indType with
     name  := newIndName,
@@ -71,7 +74,8 @@ def Declaration.collectNames : Declaration → List Name
   | Declaration.thmDecl thm            => [thm.name]
   | Declaration.axiomDecl ax           => [ax.name]
   | Declaration.opaqueDecl defn        => [defn.name]
-  | Declaration.inductDecl _ _ [ind] _ => ind.name :: (ind.name ++ `rec) :: ind.ctors.map Constructor.name
+  | Declaration.inductDecl _ _ [ind] _ =>
+    ind.name :: (ind.name ++ `rec) :: ind.ctors.map Constructor.name
   | _ => panic! "unexpected declaration type"
 
 def Declaration.toName : Declaration → Name
@@ -99,7 +103,8 @@ instance : Coe (Array α) (Subarray α) := ⟨(·[0:])⟩
 -- TODO: This broke when bumping Lean 4 to nightly-2021-12-15.
 -- However it is not actually used in `mathport`, so I've just commented it out for now.
 -- /-- Run action with `stdin` emptied and `stdout+stderr` captured into a `String`. -/
--- def IO.FS.withIsolatedStreams' [Monad m] [MonadFinally m] [MonadLiftT IO m] (x : m α) : m (String × α) := do
+-- def IO.FS.withIsolatedStreams' [Monad m] [MonadFinally m] [MonadLiftT IO m] (x : m α) :
+--     m (String × α) := do
 --   let bIn ← mkRef { : Stream.Buffer }
 --   let bOut ← mkRef { : Stream.Buffer }
 --   let r ← withStdin (Stream.ofBuffer bIn) <|
@@ -137,7 +142,8 @@ def Array.asNonempty : Array α → Option (Array α)
   | hs => some hs
 
 -- TODO: faster version
-def Lean.HashMap.insertWith [Hashable α] [BEq α] (m : HashMap α β) (merge : β → β → β) (a : α) (b : β) : HashMap α β :=
+def Lean.HashMap.insertWith [Hashable α] [BEq α]
+    (m : HashMap α β) (merge : β → β → β) (a : α) (b : β) : HashMap α β :=
   match m.find? a with
   | none => m.insert a b
   | some c => m.insert a (merge c b)
@@ -147,7 +153,8 @@ namespace Lean.Elab.Command
 def CommandElabM.toIO (x : CommandElabM α) (ctx : Context) (s : State) : IO α := do
   match ← x ctx |>.run' s |>.toIO' with
   | Except.error (Exception.error _ msg)   => do throw $ IO.userError (← msg.toString)
-  | Except.error (Exception.internal id _) => throw $ IO.userError $ "internal exception #" ++ toString id.idx
+  | Except.error (Exception.internal id _) =>
+    throw $ IO.userError $ "internal exception #" ++ toString id.idx
   | Except.ok a => pure a
 
 def CommandElabM.toIO' (x : CommandElabM α) (ctx : Context) (env : Environment) : IO α := do

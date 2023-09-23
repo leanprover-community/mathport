@@ -395,7 +395,8 @@ def addTrailingComment' (comment : Comment) (info : SourceInfo) : SourceInfo :=
 partial def addTrailingComment (comment : Comment) (stx : Syntax) : Option Syntax :=
   if let Syntax.node i k args := stx then Id.run do
     for h : j in [0:args.size] do
-      let j := ⟨args.size - j - 1, Nat.sub_lt (m := j+1) (by exact lt_of_le_of_lt h.1 h.2) j.succ_pos⟩
+      let j := ⟨args.size - j - 1,
+        Nat.sub_lt (m := j+1) (by exact lt_of_le_of_lt h.1 h.2) j.succ_pos⟩
       if let some a' := addTrailingComment comment args[j] then
         return Syntax.node i k (args.set j a')
     pure none

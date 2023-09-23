@@ -8,7 +8,8 @@ import Mathport.Syntax.Transform.Basic
 mathport_rules
   | `($mods:declModifiers $attr:attrKind instance $[$prio:namedPrio]? $[$id:declId]? $sig:declSig :=
       { $[$fieldName:ident := $fieldVal:term],* }) =>
-    `($mods:declModifiers $attr:attrKind instance $[$prio:namedPrio]? $[$id:declId]? $sig:declSig where
+    `($mods:declModifiers $attr:attrKind
+      instance $[$prio:namedPrio]? $[$id:declId]? $sig:declSig where
         $[$fieldName:ident := $fieldVal:term]*)
   | `($mods:declModifiers def $id:declId $sig:optDeclSig :=
         { $[$fieldName:ident := $fieldVal:term],* }) =>

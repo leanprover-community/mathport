@@ -63,7 +63,8 @@ def withInput (p : ParserM α) : ParserM (α × Nat) := do
   let ⟨_, VMCall.withInput arr n⟩ ← next | throw "withInput failed"
   fun c i => (return (← p { c with arr } |>.run' 0, n), i)
 
-def emittedCommandHere : ParserM (Option Command) := return (← withInput commandLike?).1.map (·.kind)
+def emittedCommandHere : ParserM (Option Command) :=
+  return (← withInput commandLike?).1.map (·.kind)
 
 partial def emittedCodeHere : ParserM (Array Command) := aux #[]
 where
@@ -285,7 +286,8 @@ return Sum.inl (← rintroPatHi*, ← (tk ":" *> pExpr)?)
  (This is almost the same as `rcasesPat false`,
 but it allows the pattern part to be empty.) -/
 def obtainArg :
-  ParserM ((Option RCasesPat × Option (Spanned AST3.Expr)) × Option (Array (Spanned AST3.Expr))) := do
+    ParserM ((Option RCasesPat × Option (Spanned AST3.Expr)) ×
+      Option (Array (Spanned AST3.Expr))) := do
   let (pat, tp) ←
     (return match ← rcasesPat false with
       | RCasesPat.typed pat tp => (some pat, some tp)

@@ -100,23 +100,30 @@ def parseLine (line : String) : ParseM Unit := do
   where
     parseTerm (tokens : List String) : ParseM Unit := do
       match tokens with
-      | (i :: "#NS" :: j :: rest)  => writeName  i $ (← str2name j).mkStr (" ".intercalate rest)
-      | [i, "#NI", j, k]           => writeName  i $ (← str2name j).mkNum (← parseNat k)
-      | [i, "#US", j]              => writeLevel i $ mkLevelSucc (← str2level j)
-      | [i, "#UM", j₁, j₂]         => writeLevel i $ mkLevelMax (← str2level j₁) (← str2level j₂)
-      | [i, "#UIM", j₁, j₂]        => writeLevel i $ mkLevelIMax (← str2level j₁) (← str2level j₂)
-      | [i, "#UP", j]              => writeLevel i $ mkLevelParam (← str2name j)
-      | [i, "#EV", j]              => writeExpr  i $ mkBVar (← parseNat j)
-      | [i, "#EMVAR"]              => writeExpr  i $ mkMVar ⟨.anonymous⟩
-      | [i, "#ELC"]                => writeExpr  i $ mkFVar ⟨.anonymous⟩
-      | [i, "#ES", j]              => writeExpr  i $ mkSort (← str2level j)
-      | (i :: "#EC" :: j :: us)    => writeExpr  i $ mkConst (← str2name j) (← us.mapM str2level)
-      | [i, "#EA", j₁, j₂]         => writeExpr  i $ mkApp (← str2expr j₁) (← str2expr j₂)
-      | [i, "#EL", bi, j₁, j₂, j₃] => writeExpr  i $ mkLambda (← str2name j₁) (← parseBinderInfo bi) (← str2expr j₂) (← str2expr j₃)
-      | [i, "#EP", bi, j₁, j₂, j₃] => writeExpr  i $ mkForall (← str2name j₁) (← parseBinderInfo bi) (← str2expr j₂) (← str2expr j₃)
-      | [i, "#EZ", j₁, j₂, j₃, j₄] => writeExpr  i $ mkLet (← str2name j₁) (← str2expr j₂) (← str2expr j₃) (← str2expr j₄)
-      | [i, "#SORRY_MACRO", j]     => writeExpr  i $ mkSorryPlaceholder (← str2expr j)
-      | [i, "#QUOTE_MACRO", _r,_j] => writeExpr  i $ .app (.app (.const `expr.sort []) (.const `bool.tt [])) (.const `level.zero []) -- TODO
+      | (i :: "#NS" :: j :: rest)  => writeName i <| (← str2name j).mkStr (" ".intercalate rest)
+      | [i, "#NI", j, k]           => writeName i <| (← str2name j).mkNum (← parseNat k)
+      | [i, "#US", j]              => writeLevel i <| mkLevelSucc (← str2level j)
+      | [i, "#UM", j₁, j₂]         => writeLevel i <| mkLevelMax (← str2level j₁) (← str2level j₂)
+      | [i, "#UIM", j₁, j₂]        => writeLevel i <| mkLevelIMax (← str2level j₁) (← str2level j₂)
+      | [i, "#UP", j]              => writeLevel i <| mkLevelParam (← str2name j)
+      | [i, "#EV", j]              => writeExpr i <| mkBVar (← parseNat j)
+      | [i, "#EMVAR"]              => writeExpr i <| mkMVar ⟨.anonymous⟩
+      | [i, "#ELC"]                => writeExpr i <| mkFVar ⟨.anonymous⟩
+      | [i, "#ES", j]              => writeExpr i <| mkSort (← str2level j)
+      | (i :: "#EC" :: j :: us)    => writeExpr i <| mkConst (← str2name j) (← us.mapM str2level)
+      | [i, "#EA", j₁, j₂]         => writeExpr i <| mkApp (← str2expr j₁) (← str2expr j₂)
+      | [i, "#EL", bi, j₁, j₂, j₃] =>
+        writeExpr i <|
+          mkLambda (← str2name j₁) (← parseBinderInfo bi) (← str2expr j₂) (← str2expr j₃)
+      | [i, "#EP", bi, j₁, j₂, j₃] =>
+        writeExpr i <|
+          mkForall (← str2name j₁) (← parseBinderInfo bi) (← str2expr j₂) (← str2expr j₃)
+      | [i, "#EZ", j₁, j₂, j₃, j₄] =>
+        writeExpr i <| mkLet (← str2name j₁) (← str2expr j₂) (← str2expr j₃) (← str2expr j₄)
+      | [i, "#SORRY_MACRO", j]     => writeExpr i <| mkSorryPlaceholder (← str2expr j)
+      | [i, "#QUOTE_MACRO", _r,_j] =>
+        writeExpr i <|
+          .app (.app (.const `expr.sort []) (.const `bool.tt [])) (.const `level.zero []) -- TODO
       | [i, "#PROJ_MACRO", iName, _cName, _pName, idx, arg] =>
         let (iName, idx, arg) := (← str2name iName, ← parseNat idx, ← str2expr arg)
         let some numParams := (← get).ind2params.find? iName
@@ -136,7 +143,8 @@ def parseLine (line : String) : ParseM Unit := do
         }
 
       | ("#DEF" :: n :: thm :: h :: t :: v :: ups) =>
-        let (n, h, t, v, ups) := (← str2name n, ← parseHints h, ← str2expr t, ← str2expr v, ← ups.mapM str2name)
+        let (n, h, t, v, ups) :=
+          (← str2name n, ← parseHints h, ← str2expr t, ← str2expr v, ← ups.mapM str2name)
         let thm ← parseNat thm
         -- TODO: why can't I synthesize `thm > 0` any more?
         if Nat.ble 1 thm then
@@ -152,7 +160,7 @@ def parseLine (line : String) : ParseM Unit := do
             levelParams := ups,
             type        := t,
             value       := v,
-            safety      := DefinitionSafety.safe, -- TODO: confirm only safe things are being exported
+            safety      := .safe -- TODO: confirm only safe things are being exported
             hints       := h,
           }
 
@@ -170,10 +178,15 @@ def parseLine (line : String) : ParseM Unit := do
 
       | ["#QUOT"]                                => pure ()
 
-      | ("#MIXFIX" :: kind :: n :: prec :: tok)  => emit $ EnvModification.mixfix (← parseMixfixKind kind) (← str2name n) (← parseNat prec) (" ".intercalate tok)
-      | ["#PRIVATE", pretty, real]               => emit $ EnvModification.private (← str2name pretty) (← str2name real)
-      | ["#PROTECTED", n]                        => emit $ EnvModification.protected (← str2name n)
-      | ["#POS_INFO", n, line, col]              => emit $ EnvModification.position (← str2name n) (← parseNat line) (← parseNat col)
+      | ("#MIXFIX" :: kind :: n :: prec :: tok)  =>
+        emit <| .mixfix (← parseMixfixKind kind) (← str2name n)
+          (← parseNat prec) (" ".intercalate tok)
+      | ["#PRIVATE", pretty, real]               =>
+        emit <| EnvModification.private (← str2name pretty) (← str2name real)
+      | ["#PROTECTED", n]                        =>
+        emit <| EnvModification.protected (← str2name n)
+      | ["#POS_INFO", n, line, col]              =>
+        emit <| EnvModification.position (← str2name n) (← parseNat line) (← parseNat col)
 
       -- TODO: look at the 'deleted' bit
       | ("#ATTR" :: a :: p :: n :: _ :: rest)    => do
@@ -185,12 +198,14 @@ def parseLine (line : String) : ParseM Unit := do
           emit $ EnvModification.reducibility n (← parseReducibilityStatus status)
         | "to_additive_aux" =>
           let ["#USER_ATTR_DATA", e] := rest | throw $ IO.userError s!"[to_additive] expected expr"
-          let .app _ (.const tgt _) ← str2expr e | throw $ IO.userError s!"[to_additive] malformed expr"
+          let .app _ (.const tgt _) ← str2expr e
+            | throw $ IO.userError s!"[to_additive] malformed expr"
           emit $ EnvModification.toAdditive n tgt
         | _ => pure ()
 
       | ["#CLASS", c]                => emit $ EnvModification.class (← str2name c)
-      | ["#CLASS_INSTANCE", c, i, p] => emit $ EnvModification.instance (← str2name c) (← str2name i) (← parseNat p)
+      | ["#CLASS_INSTANCE", c, i, p] =>
+        emit $ EnvModification.instance (← str2name c) (← str2name i) (← parseNat p)
 
       | ["#PROJECTION", proj, mk, nParams, i, ii] => do
         emit $ EnvModification.projection {

@@ -107,7 +107,8 @@ def withNode (f : String → Name → Array AstId → M α) (i : AstId) : M (Spa
   let r ← getRaw i
   pure { meta := some ⟨i, r.start, r.end'⟩, kind := ← f r.kind r.value r.children' }
 
-def withNodeP (f : String → Name → Array AstId → Option ExprId → M α) (i : AstId) : M (Spanned α) := do
+def withNodeP (f : String → Name → Array AstId → Option ExprId → M α) (i : AstId) :
+    M (Spanned α) := do
   let r ← getRaw i
   pure { meta := some ⟨i, r.start, r.end'⟩, kind := ← f r.kind r.value r.children' r.pexpr }
 
@@ -148,7 +149,8 @@ mutual
 
   partial def getNode : AstId → M Node := withNode mkNodeK
 
-  partial def mkNodeK (k : String) (v : Name) (c : Array AstId) : M NodeK := NodeK.mk k v <$> c.mapM (opt getNode)
+  partial def mkNodeK (k : String) (v : Name) (c : Array AstId) : M NodeK :=
+    NodeK.mk k v <$> c.mapM (opt getNode)
 
 end
 
@@ -379,7 +381,8 @@ mutual
     | "subtype", _, args, _ => getSubtype false args
     | "set_of", _, args, _ => getSubtype true args
     | "sep", _, #[x, S, p], _ => return Expr.sep (← getName x) (← getExpr S) (← getExpr p)
-    | "set_replacement", _, #[e, bis], _ => return Expr.setReplacement (← getExpr e) (← getBinders bis)
+    | "set_replacement", _, #[e, bis], _ =>
+      return Expr.setReplacement (← getExpr e) (← getBinders bis)
     | "structinst", _, #[S, src, flds, srcs, catchall], _ =>
       return Expr.structInst (← opt getName S) (← opt getExpr src)
         (← arr getField flds) (← arr getExpr srcs) (catchall ≠ 0)
@@ -390,7 +393,8 @@ mutual
       return Expr.notation (Choice.many (← arr getNameK args[0]!)) (← args[1:].toArray.mapM getArg)
     | "user_notation", v, args, _ => Expr.userNotation v <$> args.mapM getParam
     | k, _v, _args, _ => do
-      throw s!"getExpr parse error, unknown kind {k}" -- at\n {repr (← Expr.other <$> mkNodeK k v args)}"
+      throw s!"getExpr parse error, unknown kind {k}"
+        -- at\n {repr (← Expr.other <$> mkNodeK k v args)}"
   where
     getHave (suff : Bool) (args) : M _ :=
       return Expr.have suff (← opt getName args[0]!)
@@ -648,7 +652,8 @@ def getPrintCmd (args : Array AstId) : M PrintCmd := do
 
 def getHeader (args : Subarray AstId) :
   M (LevelDecl × Option (Spanned Name) × Binders × Option (Spanned Expr)) := do
-  pure (← getLevelDecl args[0]!, ← opt getName args[1]!, ← getBinders args[2]!, ← opt getExpr args[3]!)
+  pure (← getLevelDecl args[0]!, ← opt getName args[1]!,
+    ← getBinders args[2]!, ← opt getExpr args[3]!)
 
 def getMutualHeader (args : Subarray AstId) : M (LevelDecl × Binders) := do
   pure (← getLevelDecl args[0]!, /- ← arr getName args[1]!, -/ ← getBinders args[2]!)
@@ -752,9 +757,11 @@ where
 
   getAttribute (args) : M Command := do
     let mods ← getModifiers args[0]!
-    pure $ «attribute» (args[1]! ≠ 0) mods (← arr getAttr args[2]!) (← args[3:].toArray.mapM getName)
+    pure $ «attribute» (args[1]! ≠ 0) mods
+      (← arr getAttr args[2]!) (← args[3:].toArray.mapM getName)
 
-def getAST (comments : Array Comment) : AstId → M (AST3 × HashMap AstId (Spanned AST3.Tactic)) := withNodeK fun
+def getAST (comments : Array Comment) :
+    AstId → M (AST3 × HashMap AstId (Spanned AST3.Tactic)) := withNodeK fun
   | "file", _, #[prel, imp, cmds] => do
     let prel ← opt (withNode fun _ _ _ => pure ()) prel
     let imp ← arr (withNodeK fun _ _ args => args.mapM getName) imp
@@ -847,7 +854,8 @@ inductive RawExpr where
   | annotation (name : Annotation) (args : Array ExprId)
   | field_notation (field : Name) (idx : Nat) (args : Array ExprId)
   | typed_expr (args : Array ExprId)
-  | «structure instance» (struct : Name) (catchall : Bool) (fields : Array Name) (args : Array ExprId)
+  | «structure instance» (struct : Name) (catchall : Bool)
+    (fields : Array Name) (args : Array ExprId)
   | projection_macro (I constr proj : Name) (idx : Nat) (params : Array Name)
     (type val : ExprId) (args : Array ExprId)
   | «sorry» (synthetic : Bool) (args : Array ExprId)
@@ -1029,11 +1037,13 @@ def RawTacticInvocation.build
   (states : Array (Name × Array AST3.Goal))
   (tacs : HashMap AstId (Spanned AST3.Tactic)) :
   RawTacticInvocation → AST3.TacticInvocation
-  | ⟨ast, start, end_, success⟩ => ⟨states[start]!.1, tacs.find? ast, states[start]!.2, states[end_]!.2, success⟩
+  | ⟨ast, start, end_, success⟩ =>
+    ⟨states[start]!.1, tacs.find? ast, states[start]!.2, states[end_]!.2, success⟩
 
 end
 
-def RawAST3.build : RawAST3 → (invocs :_:= true) → Except String (AST3 × Array AST3.TacticInvocation)
+def RawAST3.build :
+    RawAST3 → (invocs :_:= true) → Except String (AST3 × Array AST3.TacticInvocation)
 | ⟨ast, file, level, expr, tactics, states, comments⟩, invocs => do
   let level := buildLevels level
   let expr := buildExprs level expr
@@ -1058,20 +1068,3 @@ def parseAST3 (filename : System.FilePath) (invocs :_:= true) :
   let rawAST3 ← fromJson? json (α := Parse.RawAST3)
   -- println! "Converting RawAST3 to AST3..."
   rawAST3.build invocs
-
--- #eval show IO Unit from do
---   let (_, invocs) ← parseAST3 "/home/mario/Documents/lean/lean/library/init/data/nat/lemmas.ast.json"
---   for i in invocs[0:10] do
---     println! "{repr i}\n\n"
-
--- #eval show IO Unit from do
---   let s ← IO.FS.readFile "/home/mario/Documents/lean/lean/library/init/data/nat/lemmas.ast.json"
---   let json ← Json.parse s
---   let rawAST3@⟨ast, file, level, expr⟩ ← fromJson? json (α := Parse.RawAST3)
---   let level := Parse.buildLevels level
---   let expr := Parse.buildExprs level expr
---   -- println! "{repr rawAST3.toAST3}"
---   let commands := ast[ast[file].get!.children'[2]].get!.children'
---   for c in commands[0:] do
---     println! (repr (← Parse.getNode c |>.run ⟨ast, expr⟩)).group ++ "\n"
---     println! (repr (← Parse.getCommand c |>.run ⟨ast, expr⟩).kind).group ++ "\n"

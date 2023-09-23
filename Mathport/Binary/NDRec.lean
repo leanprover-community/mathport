@@ -34,7 +34,8 @@ def mkNDRec (indTy ndRecName : Name) : MetaM (Option Declaration) := do
       let oldMotiveTy ← Meta.mkForallFVars indices (mkSort elimLevel)
       withLocalDecl `C BinderInfo.implicit oldMotiveTy $ fun oldMotive => do
         let newMotive ← Meta.mkLambdaFVars (indices.push majorPremise) (mkAppN oldMotive indices)
-        let val ← Meta.mkLambdaFVars ((params).push oldMotive) $ mkAppN crec ((params).push newMotive)
+        let val ← Meta.mkLambdaFVars ((params).push oldMotive) <|
+          mkAppN crec ((params).push newMotive)
         let ty ← inferType val
         pure $ Declaration.defnDecl {
             name        := ndRecName,

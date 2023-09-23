@@ -28,7 +28,8 @@ abbrev TacM := ReaderT Context $ StateT State M
 def TacM.run (m : TacM α) (name : Name) (args : Array (Spanned Param)) : M α := do
   let (a, ⟨n⟩) ← (m ⟨args⟩).run {}
   unless args.size = n do
-    warn! "unsupported: too many args: {name} ... {(repr <| args.extract n args.size).pretty 999999}"
+    warn! "unsupported: too many args: {name} ... {
+      (repr <| args.extract n args.size).pretty 999999}"
   pure a
 
 def next? : TacM (Option Param) := do

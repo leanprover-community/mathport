@@ -24,7 +24,8 @@ inductive NotationKind
   | nary : (Array Syntax → Term) → NotationKind
   | exprs : (Array Term → Term) → NotationKind
   | binder : (TSyntax ``explicitBinders → Term → Term) →
-      (extended : Option (TSyntax ``binderIdent → TSyntax `binderPred → Term → Term) := none) → NotationKind
+      (extended : Option (TSyntax ``binderIdent → TSyntax `binderPred → Term → Term) := none) →
+      NotationKind
   deriving Inhabited
 
 inductive Literal

@@ -48,7 +48,8 @@ def M.run (m : M α) (comments : Array Comment) :
     let userCmds ← Tactic.builtinUserCmds
     modify fun s => { s with
       tactics, niTactics, convs, userNotas, userAttrs, userCmds,
-      remainingComments := comments.qsort (positionToStringPos ·.start < positionToStringPos ·.start) |>.toList }
+      remainingComments :=
+        comments.qsort (positionToStringPos ·.start < positionToStringPos ·.start) |>.toList }
     m
 
 def AST3toData4 (path : Path) : AST3 → M Data4
@@ -86,5 +87,6 @@ end Translate
 def AST3toData4 (path : Path) (ast : AST3) : (config : Config) → CommandElabM Data4 :=
   (Translate.AST3toData4 path ast).run ast.comments ast.indexed_nota ast.indexed_cmds
 
-def tactic3toSyntax (containingFile : AST3) (tac3 : Spanned AST3.Tactic) : (config : Config) → CommandElabM Syntax.Tactic :=
+def tactic3toSyntax (containingFile : AST3) (tac3 : Spanned AST3.Tactic) :
+    (config : Config) → CommandElabM Syntax.Tactic :=
   (Translate.trTactic tac3).run #[] containingFile.indexed_nota containingFile.indexed_cmds

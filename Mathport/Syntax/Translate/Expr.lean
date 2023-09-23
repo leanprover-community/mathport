@@ -233,7 +233,8 @@ def trInfixFn (n : Choice) (e : Option (Spanned Expr)) : M Term := do
     | some e => trExpr e
   `(($stx))
 
-def isSimpleBindersOnlyOptType? (bis : Array (Spanned Binder)) : Option (Array (Spanned BinderName) × Option (Spanned Expr)) := do
+def isSimpleBindersOnlyOptType? (bis : Array (Spanned Binder)) :
+    Option (Array (Spanned BinderName) × Option (Spanned Expr)) := do
   if let #[⟨_, .binder .default (some bns) #[] ty none⟩] := bis then
     return (bns, ty)
   (·, none) <$> bis.concatMapM fun

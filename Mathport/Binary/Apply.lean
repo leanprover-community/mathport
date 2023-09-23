@@ -34,7 +34,8 @@ def printDeclDebug (decl : Declaration) : BinportM Unit := do
 
 def stubValue : Declaration → MetaM Declaration
   | .thmDecl val => return .thmDecl { val with value := ← mkSorry val.type true }
-  | .defnDecl val => return .opaqueDecl { val with value := ← mkSorry val.type true, isUnsafe := false }
+  | .defnDecl val =>
+    return .opaqueDecl { val with value := ← mkSorry val.type true, isUnsafe := false }
   | .mutualDefnDecl defns => .mutualDefnDecl <$> defns.mapM fun defn =>
     return { defn with value := ← mkSorry defn.type true }
   | d => pure d
@@ -137,7 +138,8 @@ def equationFor? (n : Name) : Option Name :=
 def maybeRegisterEquation (eqn : Name) : BinportM Unit := do
   -- example: list.nth.equations._eqn_1
   match equationFor? eqn with
-  | some defn => modify λ s => { s with name2equations := s.name2equations.insertWith (· ++ ·) defn [eqn] }
+  | some defn => modify fun s =>
+    { s with name2equations := s.name2equations.insertWith (· ++ ·) defn [eqn] }
   | none => pure ()
 
 def applyExport (d : ExportDecl) : BinportM Unit := do
@@ -184,18 +186,22 @@ try
       `(postfix:$stxPrec $[(name := $stxName)]? $[(priority := $stxPrio)]? $stxOp => $stxFun)
     | MixfixKind.singleton =>
       let correctPrec : Option Syntax.Prec := some (quote Parser.maxPrec)
-      `(notation $[: $correctPrec]? $[(name := $stxName)]? $[(priority := $stxPrio)]? $stxOp:str => $stxFun)
+      `(notation $[: $correctPrec]? $[(name := $stxName)]? $[(priority := $stxPrio)]?
+          $stxOp:str => $stxFun)
 
   let nextIdx : Nat := (← get).nNotations
-  modify λ s => { s with nNotations := nextIdx + 1 }
-  let ns : Syntax.Ident := mkIdent s!"{"__".intercalate ((← read).path.mod4.components.map Name.getString!)}_{nextIdx}"
+  modify fun s => { s with nNotations := nextIdx + 1 }
+  let ns : Syntax.Ident :=
+    mkIdent s!"{"__".intercalate ((← read).path.mod4.components.map Name.getString!)}_{nextIdx}"
   let stx ← `(namespace $ns $stx end $ns)
   elabCommand stx
 catch ex => warn ex
 
 def applySimpLemma (n : Name) (prio : Nat) : BinportM Unit := do
-  -- TODO: remove these once https://github.com/leanprover-community/mathlib/pull/8738 (+ friends) are merged
-  let badSimps := #[`set.eq_on_empty, `punit.eq_punit, `list.cons_injective, `list.length_injective, `list.reverse_injective]
+  -- TODO: remove these once https://github.com/leanprover-community/mathlib/pull/8738 (+ friends)
+  -- are merged
+  let badSimps := #[`set.eq_on_empty, `punit.eq_punit, `list.cons_injective,
+    `list.length_injective, `list.reverse_injective]
   if badSimps.contains n then return ()
 
   tryAddSimpLemma (← lookupNameExt! n) prio
@@ -204,7 +210,8 @@ def applySimpLemma (n : Name) (prio : Nat) : BinportM Unit := do
 where
   tryAddSimpLemma (n : Name) (prio : Nat) : BinportM Unit :=
     try
-      liftMetaM $ addSimpTheorem (ext := simpExtension) (declName := n) (post := True) (inv := False) (attrKind := AttributeKind.global) (prio := prio)
+      liftMetaM $ addSimpTheorem (ext := simpExtension) (declName := n)
+        (post := True) (inv := False) (attrKind := AttributeKind.global) (prio := prio)
       println! "[simp] {n} {prio}"
     catch ex => warn ex
 
@@ -231,11 +238,15 @@ def applyProjection (proj : ProjectionInfo) : BinportM Unit := do
     match (← getEnv).find? ctorName with
     | some (ConstantInfo.ctorInfo ctor) =>
       let fieldInfo ← mkFieldInfo ctor.numParams ctor.type projName proj.projName
-      modify fun s => { s with structures := s.structures.insert structName ⟨descr.structName, descr.fields.push fieldInfo⟩ }
+      modify fun s => {
+        s with structures :=
+          s.structures.insert structName ⟨descr.structName, descr.fields.push fieldInfo⟩
+      }
     | _ => warnStr "projection for something other than constructor {projName}, {ctorName}"
   catch ex => warn ex
 where
-  mkFieldInfo (numParams : Nat) (ctorType : Expr) (projName projName3 : Name) : BinportM StructureFieldInfo := do
+  mkFieldInfo (numParams : Nat) (ctorType : Expr) (projName projName3 : Name) :
+      BinportM StructureFieldInfo := do
     match projName, projName3 with
     | Name.str _ fieldName .., Name.str _ fieldName3 .. =>
       pure {
@@ -327,17 +338,23 @@ where
       | some v => pure $ Option.isNone $ v.find? fun e =>
         e.isConst && e.constName!.isStr && e.constName!.getString! == "brec_on"
       | _ => throwError "should have value"
-    | _ => return false /- this can happen when e.g. `nat.add._main -> Nat.add` (which may be needed due to eqn lemmas) -/
+    | _ =>
+      -- this can happen when e.g. `nat.add._main -> Nat.add`
+      -- (which may be needed due to eqn lemmas)
+      return false
 
-def applyInductiveDecl (lps : List Name) (nParams : Nat) (indType : InductiveType) (isUnsafe : Bool) : BinportM Unit := do
-  -- The `Module` inductive type includes `module` in its constructor types, which gets mapped to `Module`, causing confusion.
-  -- In the past, we worked around this by changing `module` -> `ModuleS`, but this is highly undesirable.
+def applyInductiveDecl (lps : List Name) (nParams : Nat) (indType : InductiveType)
+    (isUnsafe : Bool) : BinportM Unit := do
+  -- The `Module` inductive type includes `module` in its constructor types, which gets mapped to
+  -- `Module`, causing confusion. In the past, we worked around this by changing
+  -- `module` -> `ModuleS`, but this is highly undesirable.
   -- Now, we simple first change all the `Module` names to `_indSelf`, then change `_indSelf` later.
   let indType := indType.replaceSelfWithPlaceholder
   let ind? := some (indType.name, indType.type, lps)
   let decl := Declaration.inductDecl lps nParams [{ indType with
-    type  := (← trExpr indType.type),
-    ctors := (← indType.ctors.mapM fun ctor => do pure { ctor with type := (← trExpr ctor.type (ind? := ind?)) })
+    type  := ← trExpr indType.type
+    ctors := ← indType.ctors.mapM fun ctor => do
+      pure { ctor with type := (← trExpr ctor.type (ind? := ind?)) }
   }] isUnsafe
 
   let (decl, clashKind) ← refineAddDecl decl
@@ -345,7 +362,8 @@ def applyInductiveDecl (lps : List Name) (nParams : Nat) (indType : InductiveTyp
 
   match ← liftMetaM $ mkNDRec decl.toName (indType.name ++ `ndrec /- old name -/) with
   | some ndRec => do
-    -- TODO: this will create a spurious alignment, and will *miss* the alignment `eq.rec` -> `Eq.ndrec`
+    -- TODO: this will create a spurious alignment, and will *miss* the alignment
+    -- `eq.rec` -> `Eq.ndrec`
     -- For now, we just add the missing alignment manually
     let (ndRecDecl, clashKind) ← refineAddDecl ndRec
     addNameAlignment (indType.name ++ `rec) ndRecDecl.toName
@@ -356,7 +374,8 @@ where
   mkAuxDecls (name : Name) : BinportM Unit := do
     try
       -- these may fail for the invalid inductive types currently being accepted
-      -- by the temporary patch https://github.com/dselsam/lean4/commit/1bef1cb3498cf81f93095bda16ed8bc65af42535
+      -- by the temporary patch
+      -- https://github.com/dselsam/lean4/commit/1bef1cb3498cf81f93095bda16ed8bc65af42535
       mkRecOn name
       mkCasesOn name
       liftMetaM $ Lean.mkNoConfusion name
@@ -394,27 +413,28 @@ def applyToAdditive (src tgt : Name) : BinportM Unit := do
   else
     liftCoreM $ ToAdditive.insertTranslation src4 tgt4
 
-def applyModification (mod : EnvModification) : BinportM Unit := withReader (fun ctx => { ctx with currDecl := mod.toName }) do
-  println! "[apply] {mod}"
-  match mod with
-  | EnvModification.mixfix .. -- synport handles notation
-  | EnvModification.private ..
-  | EnvModification.protected ..
-  | EnvModification.position ..         => pure ()
-  | EnvModification.export d            => applyExport d
-  | EnvModification.simp n prio         => applySimpLemma n prio
-  | EnvModification.reducibility n kind => applyReducibility n kind
-  | EnvModification.projection proj     => applyProjection proj
-  | EnvModification.class n             => applyClass n
-  | EnvModification.instance nc ni prio => applyInstance nc ni prio
-  | EnvModification.toAdditive src tgt  => applyToAdditive src tgt
-  | EnvModification.decl d              =>
-    match d with
-    | Declaration.axiomDecl ax                => applyAxiomVal ax
-    | Declaration.thmDecl thm                 => applyTheoremVal thm
-    | Declaration.defnDecl defn               => applyDefinitionVal defn
-    | Declaration.inductDecl lps nps [ind] iu => applyInductiveDecl lps nps ind iu
-    | _                                       => throwError "unexpected declaration type"
+def applyModification (mod : EnvModification) : BinportM Unit :=
+  withReader (fun ctx => { ctx with currDecl := mod.toName }) do
+    println! "[apply] {mod}"
+    match mod with
+    | EnvModification.mixfix .. -- synport handles notation
+    | EnvModification.private ..
+    | EnvModification.protected ..
+    | EnvModification.position ..         => pure ()
+    | EnvModification.export d            => applyExport d
+    | EnvModification.simp n prio         => applySimpLemma n prio
+    | EnvModification.reducibility n kind => applyReducibility n kind
+    | EnvModification.projection proj     => applyProjection proj
+    | EnvModification.class n             => applyClass n
+    | EnvModification.instance nc ni prio => applyInstance nc ni prio
+    | EnvModification.toAdditive src tgt  => applyToAdditive src tgt
+    | EnvModification.decl d              =>
+      match d with
+      | Declaration.axiomDecl ax                => applyAxiomVal ax
+      | Declaration.thmDecl thm                 => applyTheoremVal thm
+      | Declaration.defnDecl defn               => applyDefinitionVal defn
+      | Declaration.inductDecl lps nps [ind] iu => applyInductiveDecl lps nps ind iu
+      | _                                       => throwError "unexpected declaration type"
 
 def applyModificationPost (mod : EnvModification) : BinportM Unit := do
   match mod with

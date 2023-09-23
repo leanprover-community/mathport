@@ -125,7 +125,8 @@ def trRwRule (r : RwRule) : M (TSyntax ``Parser.Tactic.rwRule) := do
   let e ← trExpr r.rule
   if r.symm then `(Parser.Tactic.rwRule| ← $e) else `(Parser.Tactic.rwRule| $e:term)
 
-def trRwArgs : TacM (Array (TSyntax ``Parser.Tactic.rwRule) × Option (TSyntax ``Parser.Tactic.location)) := do
+def trRwArgs :
+    TacM (Array (TSyntax ``Parser.Tactic.rwRule) × Option (TSyntax ``Parser.Tactic.location)) := do
   let q ← liftM $ (← parse rwRules).mapM trRwRule
   let loc ← trLoc (← parse location)
   if let some cfg ← expr? then
@@ -283,7 +284,8 @@ where
 
 @[tr_tactic trace_state] def trTraceState : TacM Syntax.Tactic := `(tactic| trace_state)
 
-@[tr_tactic trace] def trTrace : TacM Syntax.Tactic := do `(tactic| trace $(← trExpr (← expr!)):term)
+@[tr_tactic trace] def trTrace : TacM Syntax.Tactic := do
+  `(tactic| trace $(← trExpr (← expr!)):term)
 
 @[tr_tactic existsi] def trExistsI : TacM Syntax.Tactic := do
   `(tactic| exists $(← liftM $ (← parse pExprListOrTExpr).mapM trExpr),*)
@@ -557,7 +559,8 @@ def trInferParam : TacM Syntax.Tactic := `(tactic| infer_param)
 
 @[tr_tactic done] def trDone : TacM Syntax.Tactic := do `(tactic| done)
 
-@[tr_tactic «show»] def trShow : TacM Syntax.Tactic := do `(tactic| show $(← trExpr (← parse pExpr)))
+@[tr_tactic «show»] def trShow : TacM Syntax.Tactic := do
+  `(tactic| show $(← trExpr (← parse pExpr)))
 
 @[tr_tactic specialize] def trSpecialize : TacM Syntax.Tactic := do
   let (head, args) ← trAppArgs (← parse pExpr) fun e =>

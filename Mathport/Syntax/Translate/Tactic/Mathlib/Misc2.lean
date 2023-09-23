@@ -93,7 +93,8 @@ def parseLinearComboConfig : Option (Spanned AST3.Expr) → M (Option Syntax.Tac
   `(tactic| interval_cases $[$[$w:ident :]? $e]? $[using $l, $u]?)
 
 -- # tactic.subtype_instance
-@[tr_tactic subtype_instance] def trSubtypeInstance : TacM Syntax.Tactic := `(tactic| subtype_instance)
+@[tr_tactic subtype_instance]
+def trSubtypeInstance : TacM Syntax.Tactic := `(tactic| subtype_instance)
 
 -- # tactic.derive_fintype
 
@@ -286,7 +287,8 @@ attribute [tr_ni_tactic try_refl_tac] trControlLawsTac
 
 -- # data.opposite
 @[tr_tactic op_induction] def trOpInduction : TacM Syntax.Tactic := do
-  warn! "op_induction is unnecessary now and has been dropped from mathlib4: https://github.com/leanprover-community/mathlib4/pull/5035"
+  warn! "op_induction is unnecessary now and has been dropped from mathlib4: {
+    ""}https://github.com/leanprover-community/mathlib4/pull/5035"
   `(tactic| skip)
 
 -- # data.qpf.multivariate.constructions.cofix

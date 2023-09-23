@@ -51,6 +51,7 @@ def mathport1 (config : Config) (path : Path) : IO Unit := do
 
       println! "\n[mathport] END   {path.mod3}\n"
   catch err =>
-    throw $ IO.userError s!"failed to port {path.package}:{path.mod4} with imports {imports.toList}:\n{err}"
+    throw $ IO.userError
+      s!"failed to port {path.package}:{path.mod4} with imports {imports.toList}:\n{err}"
 
 end Mathport
