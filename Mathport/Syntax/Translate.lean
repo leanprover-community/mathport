@@ -24,8 +24,12 @@ open AST3
 partial def M.run' (m : M α) (notations : Array Notation) (commands : Array Command)
     (config : Config) : CommandElabM α := do
   let s ← ST.mkRef {}
+  let mut renameImport := {}
+  for arr in (Mathlib.Prelude.Rename.renameImportExtension.getState (← getEnv)).extern do
+    for (n4, entry) in arr do
+      renameImport := renameImport.insert entry.mod3 n4
   let rec ctx := {
-    config, notations, commands
+    config, notations, commands, renameImport
     transform := Transform.transform
     trExpr := fun e => trExpr' e ctx s
     trTactic := fun e => trTactic' e ctx s
@@ -59,12 +63,14 @@ def AST3toData4 (path : Path) : AST3 → M Data4
     let commitInfo := (← read).config.commitInfo
     printFirstLineComments
     printOutput fmt
+    let origin := commitInfo.map fun ci =>
+      (ci.repo, ci.fileRevs.findD (path.mod3.toFilePath.toString ++ ".lean") ci.commit)
+    modifyEnv fun env => Mathlib.Prelude.Rename.renameImportExtension.addEntry env
+      (env.header.mainModule, { mod3 := path.mod3, origin })
     -- todo: use the pretty-printer?
-    if let some ci := commitInfo then
-      let commit := ci.fileRevs.findD (path.mod3.toFilePath.toString ++ ".lean") ci.commit
-      printOutput f!"#align_import {path.mod3} from {repr ci.repo}@{repr commit}\n\n"
-    else
-      printOutput f!"#align_import {path.mod3}\n\n"
+    printOutput <| match origin with
+    | some (repo, commit) => f!"#align_import {path.mod3} from {repr repo}@{repr commit}\n\n"
+    | none => f!"#align_import {path.mod3}\n\n"
     commands.forM fun c => do
       try trCommand c
       catch e =>

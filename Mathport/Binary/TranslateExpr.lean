@@ -86,13 +86,13 @@ where
     e ← Meta.transform e (post := replaceSorryPlaceholders)
     e ← expandCoe e
     e ← translateNumbers e
-    if let some (_, ap4) := (getRenameMap cmdState.env).find? `auto_param then
+    if let some (_, ap4) := (renameExtension.getState cmdState.env).find? `auto_param then
       e ← Meta.transform e (pre := translateAutoParams ap4)
     e ← heterogenize e
     reflToRfl e
 
   replaceConstNames (e : Expr) : MetaM Expr := pure <|
-    e.replaceConstNames fun n => (getRenameMap cmdState.env).find? n |>.map (·.2)
+    e.replaceConstNames fun n => (renameExtension.getState cmdState.env).find? n |>.map (·.2)
 
   reflToRfl (e : Expr) : MetaM Expr := pure <|
     e.replace fun e =>

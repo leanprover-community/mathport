@@ -54,11 +54,6 @@ def resolveMod3 (cfg : Path.Config) (mod3 : Name) : IO Path := do
     if ← (path.toLean3 cfg ".tlean").pathExists then return path
   throw $ IO.userError s!"[resolveMod3] failed to resolve '{mod3}'"
 
--- For both binport and synport
-def Rename.renameModule (pcfg : Path.Config) (mod3 : Name) : IO Name := do
-  let ipath : Path ← resolveMod3 pcfg mod3
-  pure $ ipath.package ++ ipath.mod4
-
 def parsePath (pmod3 : String) : IO Path := do
   let [pkg, mod3] := pmod3.splitOn "::" | throw (IO.userError "paths must be <pkg>::<mod3>")
   pure $ Path.mk pkg mod3.toName'

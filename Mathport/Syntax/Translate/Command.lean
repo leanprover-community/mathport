@@ -251,7 +251,7 @@ def trDeclId (n : Name) (us : LevelDecl) (vis : Visibility) (translateToAdditive
     if translateToAdditive then
       if let some add4 := ToAdditive.findTranslation? (← getEnv) n4 then
         if let some (add3, _) :=
-            (Mathlib.Prelude.Rename.getRenameMap (← getEnv)).toLean3.find? add4 then
+            (Mathlib.Prelude.Rename.renameExtension.getState (← getEnv)).toLean3.find? add4 then
           pushAlign add3 add4
   let (n3, _) := Rename.getClashes (← getEnv) n4
   let mut msg := Format.nil

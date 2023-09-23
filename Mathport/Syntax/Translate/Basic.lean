@@ -183,6 +183,7 @@ structure Context where
   config : Config
   notations : Array Notation
   commands : Array Command
+  renameImport : NameMap Name
   trExpr : Expr → CommandElabM Term
   trTactic : Tactic → CommandElabM Syntax.Tactic
   trCommand : Command → CommandElabM Unit
@@ -323,13 +324,17 @@ def trTacticRaw := spanningS trTacticUnspanned
 def trCommandUnspanned (e : Command) : M Unit := do (← read).trCommand e
 def trCommand := spanning trCommandUnspanned
 
+def renameModule (n : Name) : M Name := do
+  if let some n4 := (← read).renameImport.find? n then return n4
+  let ipath : Path ← resolveMod3 (← read).config.pathConfig n
+  pure $ ipath.package ++ ipath.mod4
+
 def renameIdentCore (n : Name) (choices : Array Name := #[]) : M ((String × Name) × Name) :=
   return Rename.resolveIdentCore! (← getEnv) n true (choices := choices)
 def renameIdent (n : Name) (choices : Array Name := #[]) : M Name :=
   return Rename.resolveIdent! (← getEnv) n true (choices := choices)
 def renameNamespace (n : Name) : M Name := return Rename.renameNamespace (← getEnv) n
 def renameAttr (n : Name) : M Name := return Rename.renameAttr n
-def renameModule (n : Name) : M Name := do Rename.renameModule (← read).config.pathConfig n
 def renameField (n : Name) : M Name := return Rename.renameField? (← getEnv) n |>.getD n
 def renameOption (n : Name) : M Name := warn! "warning: unsupported option {n}" | pure n
 

@@ -21,7 +21,7 @@ def reverseName (rm : RenameMap) (n4 : Name) : BinportM (List Name) := do
 -- Return a map (Lean 3 suffix ↦ Lean 4 suffix).
 -- (The NameMap keys are just the suffix part, as are the values.)
 def collectLean3Names (ty : Expr) : BinportM (NameMap String) := do
-  let rm := Mathlib.Prelude.Rename.getRenameMap (← getEnv)
+  let rm := Mathlib.Prelude.Rename.renameExtension.getState (← getEnv)
   let rec visit : Expr → NameMap String → BinportM (NameMap String)
   | .bvar _, nm | .fvar _, nm | .mvar _, nm | .sort _, nm | .lit _, nm => return nm
   | .app fn arg, nm => do visit fn (← visit arg nm)

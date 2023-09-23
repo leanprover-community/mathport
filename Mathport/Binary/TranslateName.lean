@@ -52,7 +52,7 @@ def translateSuffix (s : String) (eKind : ExprKind) (ty : Option Expr) : Binport
 -- Add `Cat` to the end of a name of a type,
 -- if necessary to disambiguate it from an existing name.
 def addCat (eKind : ExprKind) (n : Name) : BinportM Name := do
-  let rm := Mathlib.Prelude.Rename.getRenameMap (← getEnv)
+  let rm := Mathlib.Prelude.Rename.renameExtension.getState (← getEnv)
   if eKind == .eSort && rm.toLean3.contains n
     then if let Name.str p s := n
       then return Name.str p (s ++ "Cat")
