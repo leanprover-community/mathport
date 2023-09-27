@@ -563,11 +563,11 @@ def optTy (ty : Option Term) : M (Option (TSyntax ``Parser.Term.typeSpec)) :=
 
 def trCalcSteps (steps : Array (Spanned Expr × Spanned Expr)) : M (TSyntax ``calcSteps) := do
   if h : steps.size > 0 then
-    let restLhs ← steps[1:].toArray.mapM (trExpr ·.1)
-    let restRhs ← steps[1:].toArray.mapM (trExpr ·.2)
+    let rest ← steps[1:].toArray.mapM fun (lhs, rhs) => do
+      `(calcStep| $(← trExpr lhs) := $(← trExpr rhs))
     `(calcSteps|
       $(← trExpr steps[0].1) := $(← trExpr steps[0].2)
-      $[$restLhs := $restRhs]*)
+      $rest:calcStep*)
   else
     `(calcSteps| _)
 
