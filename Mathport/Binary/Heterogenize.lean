@@ -60,7 +60,8 @@ where
           let inst  := args[2]!
           let inst' := mkAppN (mkConst instName [lvl1, lvl2]) #[type1, type2, inst]
           let rest := args.extract 3 args.size
-          let e' := mkAppN (mkConst `HPow.hPow [lvl1, lvl2, lvl1]) (#[type1, type2, type1, inst'] ++ rest)
+          let e' := mkAppN (mkConst `HPow.hPow [lvl1, lvl2, lvl1])
+            (#[type1, type2, type1, inst'] ++ rest)
           return TransformStep.done e'
         else return TransformStep.done e
 
