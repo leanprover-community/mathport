@@ -64,7 +64,7 @@ mathbin-source:
 lean3-source: mathbin-source
 	mkdir -p sources
 	if [ ! -d "sources/lean/.git" ]; then \
-		cd sources && git clone --depth 1 https://github.com/leanprover-community/lean.git; \
+		cd sources && git clone --depth 2 https://github.com/leanprover-community/lean.git; \
 	fi
 	cd sources/lean && git clean -xfd && git fetch && git checkout "`cd ../mathlib && lean --version | sed -e "s/.*commit \([0-9a-f]*\).*/\1/"`" --
 	cd sources/lean && elan override set `cat ../mathlib/leanpkg.toml | grep lean_version | cut -d '"' -f2`
