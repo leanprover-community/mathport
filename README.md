@@ -46,7 +46,7 @@ Similarly bump your mathlib dependency to the lastest mathlib3 if possible.
 
 If you really want to run against an older mathlib3 (good luck!):
 
-- In `sources/mathlib` run `git --fetch unshallow`
+- In `sources/mathlib` run `git fetch --unshallow`
 - `git checkout SHA` for the mathlib3 SHA you need.
 - `leanproject get-cache`
 
