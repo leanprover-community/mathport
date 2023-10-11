@@ -35,7 +35,7 @@ In the mathport folder:
   all of the dependencies of tactics.
 - `make source`
 - `./download-release.sh`
-  (Or `./download-release.sh [relevant-release]`
+  (Or `./download-release.sh nightly-2023-07-22-09`
   if you need to run against an old mathlib;
   see [mathport releases](https://github.com/leanprover-community/mathport/releases),
   and find the nearest `nightly`.)
@@ -46,7 +46,7 @@ Similarly bump your mathlib dependency to the lastest mathlib3 if possible.
 
 If you really want to run against an older mathlib3 (good luck!):
 
-- In `sources/mathlib` run `git --fetch unshallow`
+- In `sources/mathlib` run `git fetch --unshallow`
 - `git checkout SHA` for the mathlib3 SHA you need.
 - `leanproject get-cache`
 
