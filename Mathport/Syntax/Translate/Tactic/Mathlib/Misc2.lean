@@ -58,7 +58,7 @@ def parseLinearComboConfig : Option (Spanned AST3.Expr) → M (Option Syntax.Tac
 -- # tactic.linear_combination
 @[tr_tactic linear_combination] def trLinearCombination : TacM Syntax.Tactic := do
   let e ← liftM $ (← parse (pExpr)? <* parse (tk "with")?).mapM trExpr
-  `(tactic| linear_combination $[(norm := $(← parseLinearComboConfig (← expr?)))]? $[$e]?)
+  `(tactic| linear_combination $[(norm := $(← parseLinearComboConfig (← expr?)))]? $[$e:term]?)
 
 -- # tactic.noncomm_ring
 @[tr_tactic noncomm_ring] def trNoncommRing : TacM Syntax.Tactic := `(tactic| noncomm_ring)
