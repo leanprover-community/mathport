@@ -158,9 +158,10 @@ def decodeNat! (v : Name) : Nat :=
   (Lean.Syntax.decodeNatLitVal? v.getString!).get!
 
 def decodeDecimal! (v : Name) : Nat × Nat :=
-  match String.split v.getString! (· = '/') with
+  let v := v.getString!
+  match String.split v (· = '/') with
   | [n, d] => ((Lean.Syntax.decodeNatLitVal? n).get!, (Lean.Syntax.decodeNatLitVal? d).get!)
-  | _ => panic! "decodeDecimal! failed"
+  | _ => ((Lean.Syntax.decodeNatLitVal? v).get!, 1)
 
 def getNat : AstId → M (Spanned Nat) := withNode fun _ v _ => pure $ decodeNat! v
 
