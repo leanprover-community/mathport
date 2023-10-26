@@ -10,8 +10,9 @@ RUN TZ=UTC ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/tim
 # Install prerequisites.
 RUN apt-get update && \
     apt-get install -y git libgmp-dev cmake ccache clang && \
-    apt-get install -y curl python3-yaml python3 python-is-python3 && \
+    apt-get install -y curl python3-yaml python3 python-is-python3 python3-pip && \
     apt-get clean
+RUN pip3 install mathlibtools
 
 # create a non-root user
 RUN useradd -m lean
