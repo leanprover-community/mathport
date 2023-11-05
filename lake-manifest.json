@@ -4,19 +4,11 @@
  [{"git":
    {"url": "https://github.com/leanprover-community/mathlib4",
     "subDir?": null,
-    "rev": "e853cefc93e6f1f11de861ed05b95973d3b4f397",
+    "rev": "5f84b04fbc1600f1ca5b6e466cc318ba177810a5",
     "opts": {},
     "name": "mathlib",
     "inputRev?": "master",
     "inherited": false}},
-  {"git":
-   {"url": "https://github.com/leanprover/std4",
-    "subDir?": null,
-    "rev": "9bfbd2a12ee9cf2e159a8a6b4d1ef6c149728f66",
-    "opts": {},
-    "name": "std",
-    "inputRev?": "main",
-    "inherited": true}},
   {"git":
    {"url": "https://github.com/leanprover-community/quote4",
     "subDir?": null,
@@ -48,5 +40,13 @@
     "opts": {},
     "name": "aesop",
     "inputRev?": "master",
+    "inherited": true}},
+  {"git":
+   {"url": "https://github.com/leanprover/std4",
+    "subDir?": null,
+    "rev": "efa34980940840cde7f70451da58c0bd3c5eeb67",
+    "opts": {},
+    "name": "std",
+    "inputRev?": "main",
     "inherited": true}}],
  "name": "mathport"}
