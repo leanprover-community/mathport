@@ -71,6 +71,8 @@ Now, in mathport, edit `config-project.json` as follows:
   to the relative path from the mathport directory to your
   external project's `src/` directory.
 
+If you have used mathport on another project previously, you will need to `rm -rf Outputs/oleans/project`.
+
 Then run
 
 - `./build/bin/mathport --make config-project.json Project::all`
@@ -79,7 +81,6 @@ If it succeeds, you should find Lean4 lean files in `Outputs/src/project/`.
 (Note this may be hidden in the VS Code explorer,
 but you can open it in the terminal.)
 
-If you need to re-run mathport, you will need to `rm -rf Outputs/olean/project`.
 
 If the generated Lean files look plausible,
 you will want to move them into a new Lean 4 project.
