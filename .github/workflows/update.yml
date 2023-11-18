@@ -28,8 +28,7 @@ jobs:
       - name: lake update
         id: update
         run: |
-          lake update
-          cp lake-packages/mathlib/lean-toolchain .
+          MATHLIB_NO_CACHE_ON_UPDATE=1 lake update
           if git describe --exact-match --tags HEAD 2> /dev/null \
              && git diff --exit-code lake-manifest.json > /dev/null
           then

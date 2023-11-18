@@ -104,7 +104,7 @@ config.lean.json: config.json sources/lean/library/upstream-rev sources/lean/lib
 		< config.json > config.lean.json
 
 port-lean: init-logs build config.lean.json
-	./build/bin/mathport --make config.lean.json Leanbin::all >> Logs/mathport.out 2> >(tee -a Logs/mathport.err >&2)
+	./.lake/build/bin/mathport --make config.lean.json Leanbin::all >> Logs/mathport.out 2> >(tee -a Logs/mathport.err >&2)
 
 sources/lean/library/file-revs.json: sources/lean/library/upstream-rev
 	REV=$$(cat $<); \
@@ -143,7 +143,7 @@ config.mathlib.json: config.json sources/mathlib/upstream-rev sources/mathlib/fi
 		< config.json > config.mathlib.json
 
 port-mathbin: port-lean config.mathlib.json
-	./build/bin/mathport --make config.mathlib.json Leanbin::all Mathbin::all Archive::all Counterexamples::all >> Logs/mathport.out 2> >(tee -a Logs/mathport.err >&2)
+	./.lake/build/bin/mathport --make config.mathlib.json Leanbin::all Mathbin::all Archive::all Counterexamples::all >> Logs/mathport.out 2> >(tee -a Logs/mathport.err >&2)
 
 port: port-lean port-mathbin
 
@@ -175,15 +175,15 @@ Oneshot/lean3-in/main.ast.json: Oneshot/lean3-in/*.lean
 	cd Oneshot/lean3-in && lean --make --recursive --ast --tlean . || true
 	rm -rf Outputs/oleans/oneshot || true
 
-Oneshot/lean4-in/build/lib/Extra.trace: Oneshot/lean4-in/*.lean
+Oneshot/lean4-in/.lake/build/lib/Extra.trace: Oneshot/lean4-in/*.lean
 	cd Oneshot/lean4-in && lake build
 
 config.oneshot.json: config.json
 	jq '.extraModules += ["Extra"]' < config.json > config.oneshot.json
 
-Outputs/src/oneshot/Oneshot/Main.lean: Oneshot/lean3-in/main.ast.json Oneshot/lean4-in/build/lib/Extra.trace config.oneshot.json
+Outputs/src/oneshot/Oneshot/Main.lean: Oneshot/lean3-in/main.ast.json Oneshot/lean4-in/.lake/build/lib/Extra.trace config.oneshot.json
 	mkdir -p Logs/
-	./build/bin/mathport --make config.oneshot.json Oneshot::main >> Logs/oneshot.out 2> >(tee -a Logs/oneshot.err >&2)
+	./.lake/build/bin/mathport --make config.oneshot.json Oneshot::main >> Logs/oneshot.out 2> >(tee -a Logs/oneshot.err >&2)
 
 oneshot: Outputs/src/oneshot/Oneshot/Main.lean
 	# output is in Outputs/src/oneshot/Oneshot/Main.lean
@@ -191,7 +191,7 @@ oneshot: Outputs/src/oneshot/Oneshot/Main.lean
 clean-oneshot:
 	find Oneshot/lean3-in -name "*.olean" -delete
 	rm Oneshot/lean3-in/main.ast.json || true
-	rm -rf Oneshot/lean4-in/build || true
+	rm -rf Oneshot/lean4-in/.lake || true
 	rm config.oneshot.json || true
 	rm -rf Outputs/oleans/oneshot || true
 	rm -rf Outputs/src/oneshot || true

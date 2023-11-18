@@ -75,7 +75,7 @@ If you have used mathport on another project previously, you will need to `rm -r
 
 Then run
 
-- `./build/bin/mathport --make config-project.json Project::all`
+- `./.lake/build/bin/mathport --make config-project.json Project::all`
 
 If it succeeds, you should find Lean4 lean files in `Outputs/src/project/`.
 (Note this may be hidden in the VS Code explorer,
@@ -171,8 +171,8 @@ We run CI for predata more frequently.
 To port a single file execute `mathport` as follows
 (depending on whether you want to port a core or a mathlib file):
 ```
-./build/bin/mathport config.json Leanbin::init.data.nat.gcd
-./build/bin/mathport config.json Mathbin::field_theory.abel_ruffini
+./.lake/build/bin/mathport config.json Leanbin::init.data.nat.gcd
+./.lake/build/bin/mathport config.json Mathbin::field_theory.abel_ruffini
 ```
 
 The directory `Test` contains subdirectories `importLeanBin` and `importMathbin`,
