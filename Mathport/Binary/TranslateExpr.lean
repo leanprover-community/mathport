@@ -87,13 +87,13 @@ where
     e ← Meta.transform e (post := replaceSorryPlaceholders)
     e ← expandCoe e
     e ← translateNumbers e
-    if let some (_, ap4) := (renameExtension.getState cmdState.env).find? `auto_param then
+    if let some (_, ap4) := (renameExtension.getState cmdState.env).get.find? `auto_param then
       e ← Meta.transform e (pre := translateAutoParams ap4)
     e ← heterogenize e
     reflToRfl e
 
   replaceConstNames (e : Expr) : MetaM Expr := pure <|
-    e.replaceConstNames fun n => (renameExtension.getState cmdState.env).find? n |>.map (·.2)
+    e.replaceConstNames fun n => (renameExtension.getState cmdState.env).get.find? n |>.map (·.2)
 
   reflToRfl (e : Expr) : MetaM Expr := pure <|
     e.replace fun e =>
@@ -129,7 +129,7 @@ where
         pure $ TransformStep.done e'
       catch ex => do
         -- they prove theorems about auto_param!
-        println! "[decode] {(← ex.toMessageData.toString)}"
+        println! "[decode] {← ex.toMessageData.toString}"
         -- strip the auto_param?
         pure .continue
     else

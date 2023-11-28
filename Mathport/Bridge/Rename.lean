@@ -52,10 +52,10 @@ def resolveIdent? (n3 : Name) (removeX : Bool)
     Option ((String × Name) × Name) :=
   let f := if allowNoAlign then id else fun | some (_, .anonymous) => none | x => x
   if h : choices.size > 0 then
-    renameExtension.getState env |>.find? choices[0] |> f |>.map fun target =>
+    renameExtension.getState env |>.get.find? choices[0] |> f |>.map fun target =>
       (target, clean' (clipLike target.2 n3 choices[0]))
   else
-    renameExtension.getState env |>.find? n3 |> f |>.map fun target => (target, clean' target.2)
+    renameExtension.getState env |>.get.find? n3 |> f |>.map fun target => (target, clean' target.2)
 where
   clipLike target n3 orig :=
     if orig.getNumParts == target.getNumParts then
@@ -89,7 +89,7 @@ def resolveIdent! (n3 : Name) (removeX : Bool)
 
 -- For synport only
 def getClashes (n4 : Name) : Name × List Name :=
-  (renameExtension.getState env).toLean3.findD n4 (n4, [])
+  (renameExtension.getState env).get.toLean3.findD n4 (n4, [])
 
 -- For synport only
 -- TODO: better heuristic/binport index?
