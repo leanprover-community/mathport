@@ -20,7 +20,7 @@ jobs:
     name: 'Cancel Previous Runs (CI)'
     runs-on: ubuntu-latest
     steps:
-      - uses: styfle/cancel-workflow-action@0.9.0
+      - uses: styfle/cancel-workflow-action@0.12.0
         with:
           all_but_latest: true
           access_token: ${{ github.token }}
@@ -42,7 +42,7 @@ jobs:
           ./elan-init -y --default-toolchain none
           echo "$HOME/.elan/bin" >> $GITHUB_PATH
 
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
 
       - name: get cache
         run: lake exe cache get
