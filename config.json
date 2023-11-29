@@ -13,7 +13,7 @@
             "./.lake/packages/Qq/.lake/build/lib",
             "./.lake/packages/std/.lake/build/lib",
             "./.lake/packages/aesop/.lake/build/lib",
-            "./.lake/packages/proofwidgets/build/lib",
+            "./.lake/packages/proofwidgets/.lake/build/lib",
             "./.lake/packages/Cli/.lake/build/lib",
             "./Oneshot/lean4-in/.lake/build/lib",
             "./Outputs/oleans/leanbin",
