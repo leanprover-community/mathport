@@ -301,7 +301,8 @@ def applyAxiomVal (ax : AxiomVal) : BinportM Unit := do
 def applyTheoremVal (thm : TheoremVal) : BinportM Unit := do
   let type ← trExpr thm.type
   let value ← if (← read).config.skipProofs then
-    liftMetaM (mkSorry type true)
+    let u ← liftMetaM <| getLevel type <|> pure .zero
+    pure <| mkApp2 (mkConst ``sorryAx [u]) type (toExpr true)
   else trExpr thm.value
   let (decl, clashKind) ← refineAddDecl <| .thmDecl { thm with type, value }
   if clashKind == ClashKind.freshDecl then maybeRegisterEquation decl.toName
