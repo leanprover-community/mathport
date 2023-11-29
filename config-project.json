@@ -65,7 +65,7 @@
         "of_as_true"
     ],
     "sorries": [],
-    "skipProofs": false,
+    "skipProofs": true,
     "skipDefEq": true,
     "replacementStyle": "comment",
     "redundantAlign": false,

@@ -299,10 +299,11 @@ def applyAxiomVal (ax : AxiomVal) : BinportM Unit := do
   if clashKind == ClashKind.freshDecl then maybeRegisterEquation decl.toName
 
 def applyTheoremVal (thm : TheoremVal) : BinportM Unit := do
-  let (decl, clashKind) ← refineAddDecl $ Declaration.thmDecl { thm with
-    type := (← trExpr thm.type),
-    value := (← trExpr thm.value)
-  }
+  let type ← trExpr thm.type
+  let value ← if (← read).config.skipProofs then
+    liftMetaM (mkSorry type true)
+  else trExpr thm.value
+  let (decl, clashKind) ← refineAddDecl <| .thmDecl { thm with type, value }
   if clashKind == ClashKind.freshDecl then maybeRegisterEquation decl.toName
 
 def applyDefinitionVal (defn : DefinitionVal) : BinportM Unit := do

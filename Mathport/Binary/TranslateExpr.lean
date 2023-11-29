@@ -142,6 +142,7 @@ def trExpr (e : Expr) (ind? : Option (Name × Expr × List Name) := none) : Binp
   let ctx ← read
   let cmdCtx ← readThe Elab.Command.Context
   let cmdState ← getThe Elab.Command.State
-  liftMetaM $ trExprCore ctx cmdCtx cmdState e ind?
+  liftMetaM <| withMaxHeartbeatCore (100000 * 1000) <|
+    trExprCore ctx cmdCtx cmdState e ind?
 
 end Mathport.Binary
