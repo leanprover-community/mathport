@@ -54,13 +54,10 @@ def M.run (m : M α) (comments : Array Comment) :
 
 def AST3toData4 (path : Path) : AST3 → M Data4
   | ⟨prel, imp, commands, _, _, _⟩ => do
-    let prel := prel.map fun _ => mkNode ``Parser.Module.prelude #[mkAtom "prelude"]
-    let imp ← imp.foldlM (init := #[]) fun imp ns =>
-      ns.foldlM (init := imp) fun imp n =>
-        return imp.push $ mkNode ``Parser.Module.import #[mkAtom "import",
-          mkNullNode, mkIdent (← renameModule n.kind)]
-    let fmt ← liftCoreM $ PrettyPrinter.format Parser.Module.header.formatter $
-      mkNode ``Parser.Module.header #[mkOptionalNode prel, mkNullNode imp]
+    let prel := Parser.optTk prel.isSome
+    let imp ← imp.concatMapM fun ns => ns.mapM fun n => mkIdent <$> renameModule n.kind
+    let header ← `(Parser.Module.header| $[prelude%$prel]? $[import $imp]*)
+    let fmt ← liftCoreM $ PrettyPrinter.format Parser.Module.header.formatter header
     let commitInfo := (← read).config.commitInfo
     printFirstLineComments
     printOutput fmt
