@@ -19,7 +19,7 @@ open AST3 Mathport.Translate.Parser
 
 -- # tactic.by_contra
 @[tr_tactic by_contra'] def trByContra' : TacM Syntax.Tactic := do
-  `(tactic| by_contra' $[$((← parse (ident)?).map mkIdent):ident]?
+  `(tactic| by_contra! $[$((← parse (ident)?).map mkIdent):ident]?
     $[: $(← liftM $ (← parse (tk ":" *> pExpr)?).mapM trExpr)]?)
 
 -- # tactic.dec_trivial
