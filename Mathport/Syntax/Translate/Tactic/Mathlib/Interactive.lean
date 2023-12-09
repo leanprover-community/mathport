@@ -201,10 +201,8 @@ open Mathlib.Tactic in
   _ ← parse (tk "!")?
   let n := (← parse (ident)?).map mkIdent
   match ← parse (tk "with" *> ident*)? with
-  | none => `(tactic| extract_goal* $(n)?)
-  | some vs =>
-    if !vs.isEmpty then warn! "unsupported: extract_goal with <names>"
-    `(tactic| extract_goal $(n)?)
+  | none => `(tactic| extract_goal* $[using $n]?)
+  | some vs => `(tactic| extract_goal $(vs.map mkIdent):ident* $[using $n]?)
 
 @[tr_tactic inhabit] def trInhabit : TacM Syntax.Tactic := do
   let t ← trExpr (← parse pExpr)
@@ -225,4 +223,3 @@ open Mathlib.Tactic in
 attribute [tr_tactic generalize'] trGeneralize
 
 attribute [tr_tactic subst'] trSubst
-
