@@ -286,7 +286,7 @@ def trAxiom (mods : Modifiers) (n : Name)
     pushM `(command| $mods:declModifiers axiom $id $(← trDeclSig bis ty))
 
 def trUWF : Option (Spanned Expr) →
-    M (Option (TSyntax ``terminationByCore) × Option (TSyntax ``decreasingBy))
+    M (Option (TSyntax ``terminationBy) × Option (TSyntax ``decreasingBy))
   | none | some ⟨_, AST3.Expr.«{}»⟩ => pure (none, none)
   | some ⟨_, AST3.Expr.structInst _ none flds #[] false⟩ => do
     let mut tm := none; let mut dc := none
@@ -295,7 +295,17 @@ def trUWF : Option (Spanned Expr) →
       | `rel_tac =>
         let .fun _ _ ⟨_, .«`[]» #[⟨_, .interactive `exact #[⟨_, .parse _ #[⟨s, .expr e⟩]⟩]⟩]⟩ := e
           | warn! "warning: unsupported using_well_founded rel_tac: {repr e}"
-        tm := some (← `(terminationByCore| termination_by' $(← trExpr ⟨s, e⟩):term))
+        warn! "warning: using_well_founded used, estimated equivalent"
+        let wrap := mkIdent ``WellFounded.wrap
+        let x := mkIdent `x
+        let t ← if let .«⟨⟩» #[rel, wf] := e then
+          let wf ← trExpr wf
+          match rel with
+          | ⟨_, .«_»⟩ => `($wrap:ident $wf $x)
+          | _ => `($wrap:ident ($(mkIdent `r):ident := $(← trExpr rel)) $wf $x)
+        else
+          `($wrap:ident $(← trExpr ⟨s, e⟩).$(mkIdent `wf):ident $x)
+        tm := some (← `(terminationBy| termination_by _ $x => $t))
       | `dec_tac =>
         dc := some (← `(decreasingBy| decreasing_by $(← trTactic (.dummy <| .expr ⟨s, e⟩)):tactic))
       | _ => warn! "warning: unsupported using_well_founded config option: {n}"
