@@ -65,12 +65,8 @@ def parseLinearComboConfig : Option (Spanned AST3.Expr) → M (Option Syntax.Tac
 
 -- # tactic.omega
 @[tr_tactic omega] def trOmega : TacM Syntax.Tactic := do
-  let args ← parse ident*
-  pure ⟨mkNode ``Mathlib.Tactic.omega #[mkAtom "omega",
-    mkNullNode $ if args.contains `manual then #[mkAtom "manual"] else #[],
-    mkNullNode $
-      if args.contains `int then #[mkAtom "int"] else
-      if args.contains `nat then #[mkAtom "nat"] else #[]]⟩
+  unless (← parse ident*).isEmpty do warn! "warning: unsupported omega args"
+  `(tactic| omega)
 
 -- # tactic.fin_cases
 @[tr_tactic fin_cases] def trFinCases : TacM Syntax.Tactic := do
