@@ -12,7 +12,7 @@ namespace Mathport.Translate.Tactic
 open AST3 Mathport.Translate.Parser
 
 -- # tactic.solve_by_elim
-open Mathlib.Tactic.SolveByElim
+open Std.Tactic.SolveByElim
 
 @[tr_tactic apply_assumption] def trApplyAssumption : TacM Syntax.Tactic := do
   match ← parse (pExprList)?, ← expr?, ← expr? with
