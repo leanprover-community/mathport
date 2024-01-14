@@ -8,7 +8,6 @@ import Mathport.Util.Misc
 import Mathlib.Mathport.Syntax
 import Std.Util.ExtendedBinder
 import Std.Classes.SetNotation
-import Mathlib.Algebra.Abs
 import Mathlib.Data.Set.Lattice
 
 open Lean
