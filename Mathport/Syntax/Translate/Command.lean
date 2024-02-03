@@ -285,8 +285,9 @@ def trAxiom (mods : Modifiers) (n : Name)
   withReplacement found do
     pushM `(command| $mods:declModifiers axiom $id $(← trDeclSig bis ty))
 
-def trUWF : Option (Spanned Expr) →
-    M (Option (TSyntax ``terminationBy) × Option (TSyntax ``decreasingBy))
+open Parser.Termination in
+def trUWF (e : Option (Spanned Expr)) : M (TSyntax ``Parser.Termination.suffix) := do
+  let (tm, dc) ← match e with
   | none | some ⟨_, AST3.Expr.«{}»⟩ => pure (none, none)
   | some ⟨_, AST3.Expr.structInst _ none flds #[] false⟩ => do
     let mut tm := none; let mut dc := none
@@ -305,7 +306,7 @@ def trUWF : Option (Spanned Expr) →
           | _ => `($wrap:ident ($(mkIdent `r):ident := $(← trExpr rel)) $wf $x)
         else
           `($wrap:ident $(← trExpr ⟨s, e⟩).$(mkIdent `wf):ident $x)
-        tm := some (← `(terminationBy| termination_by _ $x => $t))
+        tm := some (← `(terminationBy| termination_by $x => $t))
       | `dec_tac =>
         dc := some (← `(decreasingBy| decreasing_by $(← trTactic (.dummy <| .expr ⟨s, e⟩)):tactic))
       | _ => warn! "warning: unsupported using_well_founded config option: {n}"
@@ -315,6 +316,7 @@ def trUWF : Option (Spanned Expr) →
       if dc' matches `(decreasingBy| decreasing_by assumption) then dc := none
     pure (tm, dc)
   | some _ => warn! "warning: unsupported using_well_founded config syntax" | pure (none, none)
+  `(suffix| $(tm)? $(dc)?)
 
 def trDecl (dk : DeclKind) (mods : Modifiers) (attrs : Attributes)
     (n : Option (Spanned Name)) (us : LevelDecl) (bis : Binders) (ty : Option (Spanned Expr))
@@ -324,10 +326,11 @@ def trDecl (dk : DeclKind) (mods : Modifiers) (attrs : Attributes)
   let id ← n.mapM fun n => trDeclId n.kind us s.vis toAdd
   (id >>= (·.1), ·) <$> do
   let id := (·.2) <$> id
+  let tm ← trUWF uwf
   let val ← match val with
-    | DeclVal.expr e => `(declVal| := $(← trExprUnspanned e))
-    | DeclVal.eqns #[] => `(declVal| := fun.)
-    | DeclVal.eqns arms => `(declVal| $[$(← arms.mapM trArm):matchAlt]*)
+    | DeclVal.expr e => `(declVal| := $(← trExprUnspanned e) $tm:suffix)
+    | DeclVal.eqns #[] => `(declVal| := fun. $tm:suffix)
+    | DeclVal.eqns arms => `(declVal| $[$(← arms.mapM trArm):matchAlt]* $tm)
   if s.irreducible then
     unless dk matches DeclKind.def do warn! "unsupported irreducible non-definition"
     unless s.derive.isEmpty do warn! "unsupported: @[derive, irreducible] def"
@@ -341,26 +344,20 @@ def trDecl (dk : DeclKind) (mods : Modifiers) (attrs : Attributes)
     `($mods:declModifiers abbrev $id.get! $(← trOptDeclSig bis ty):optDeclSig $val)
   | DeclKind.def => do
     let ds := s.derive.map mkIdent |>.asNonempty
-    let (tm, dc) ← trUWF uwf
-    `($mods:declModifiers
-      def $id.get! $(← trOptDeclSig bis ty) $val:declVal $[deriving $ds,*]? $(tm)? $(dc)?)
+    `($mods:declModifiers def $id.get! $(← trOptDeclSig bis ty) $val:declVal $[deriving $ds,*]?)
   | DeclKind.example => do
     unless s.derive.isEmpty do warn! "unsupported: @[derive] example"
     unless uwf.isNone do warn! "unsupported: example + using_well_founded"
     `($mods:declModifiers example $(← trOptDeclSig bis ty):optDeclSig $val)
   | DeclKind.theorem => do
     unless s.derive.isEmpty do warn! "unsupported: @[derive] theorem"
-    let (tm, dc) ← trUWF uwf
-    `($mods:declModifiers
-      theorem $id.get! $(← trDeclSig bis ty) $val:declVal $(tm)? $(dc)?)
+    `($mods:declModifiers theorem $id.get! $(← trDeclSig bis ty) $val:declVal)
   | DeclKind.instance => do
     unless s.derive.isEmpty do warn! "unsupported: @[derive] instance"
     let prio ← s.prio.mapM fun prio => do
       `(namedPrio| (priority := $(← trPrio prio)))
     let sig ← trDeclSig bis ty
-    let (tm, dc) ← trUWF uwf
-    `($mods:declModifiers
-      instance $[$prio:namedPrio]? $[$id:declId]? $sig $val:declVal $(tm)? $(dc)?)
+    `($mods:declModifiers instance $[$prio:namedPrio]? $[$id:declId]? $sig $val:declVal)
 
 def trOptDeriving : Array Name → M (TSyntax ``optDeriving)
   | #[] => `(optDeriving|)
@@ -387,16 +384,15 @@ def trInductive (cl : Bool) (mods : Modifiers) (attrs : Attributes)
   | false => `($mods:declModifiers inductive
     $id:declId $sig:optDeclSig $[$ctors:ctor]* $ds:optDeriving)
 
-def trMutual (decls : Array (Mutual α)) (uwf : Option (Spanned Expr))
-    (f : Mutual α → M (Option Name × Syntax.Command)) : M Unit := do
+def trMutual (decls : Array (Mutual α)) (f : Mutual α → M (Option Name × Syntax.Command)) :
+    M Unit := do
   let mut found := none
   let mut cmds := #[]
   for decl in decls do
     let (found', cmd) ← f decl
     found := found <|> found'
     cmds := cmds.push cmd
-  let (tm, dc) ← trUWF uwf
-  withReplacement found do pushM `(mutual $cmds* end $(tm)? $(dc)?)
+  withReplacement found do pushM `(mutual $cmds* end)
 
 def trField : Spanned Field → M (Array Syntax) := spanning fun
   | Field.binder bi ns ik bis ty dflt => do
@@ -646,7 +642,7 @@ def trInductiveCmd : InductiveCmd → M Unit
     let (found, cmd) ← trInductive cl mods #[] n us bis ty nota intros
     withReplacement found (push cmd)
   | InductiveCmd.mutual cl mods us bis nota inds =>
-    trMutual inds none fun ⟨attrs, n, ty, intros⟩ => do
+    trMutual inds fun ⟨attrs, n, ty, intros⟩ => do
       trInductive cl mods attrs n us bis ty nota intros
 
 def trAttributeCmd (kind : AttributeKind) (attrs : Attributes) (ns : Array (Spanned Name))
@@ -688,8 +684,8 @@ def trCommand' : Command → M Unit
     let (found, cmd) ← trDecl dk mods #[] n us bis ty val.kind uwf
     withReplacement found (push cmd)
   | Command.mutualDecl dk mods us bis arms uwf =>
-    trMutual arms uwf fun ⟨attrs, n, ty, vals⟩ =>
-      trDecl dk mods attrs n us bis ty (DeclVal.eqns vals) none
+    trMutual arms fun ⟨attrs, n, ty, vals⟩ =>
+      trDecl dk mods attrs n us bis ty (DeclVal.eqns vals) uwf
   | Command.inductive ind => trInductiveCmd ind
   | Command.structure cl mods n us bis exts ty m flds =>
     trStructure cl mods n us bis exts ty m flds
