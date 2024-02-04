@@ -232,7 +232,7 @@ def applyProjection (proj : ProjectionInfo) : BinportM Unit := do
     let projName ← lookupNameExt! proj.projName
     let ctorName ← lookupNameExt! proj.ctorName
     let structName := ctorName.getPrefix
-    unless ← inCurrentModule structName do return
+    unless ← inCurrentModule projName do return
     setEnv $ addProjectionFnInfo (← getEnv) projName ctorName proj.nParams proj.index proj.fromClass
     let descr := (← get).structures.findD structName ⟨structName, #[]⟩
     match (← getEnv).find? ctorName with
