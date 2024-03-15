@@ -26,8 +26,10 @@ open AST3 Mathport.Translate.Parser
   let bang ← parse (tk "!")?
   let hs ← trSimpArgs (← parse simpArgList)
   let attrs := (← parse (tk "with" *> ident*)?).getD #[]
-  let hs := (hs ++ attrs.map trSimpExt).asNonempty
+  let hs := hs ++ attrs.map trSimpExt
   let use := (← parse (tk "using" *> ident_*)?).getD #[] |>.map trIdent_ |>.asNonempty
   let cfg ← liftM $ (← expr?).mapM trExpr
   if bang.isSome then warn! "ignoring ! flag to library_search"
-  `(tactic| apply? $[(config := $cfg)]? $[[$hs,*]]? $[using $use,*]?)
+  if cfg.isSome then warn! "ignoring (config := {cfg}) argument to library_search"
+  if !hs.isEmpty then warn! "ignoring {hs} argument to library_search"
+  `(tactic| apply? $[using $use,*]?)

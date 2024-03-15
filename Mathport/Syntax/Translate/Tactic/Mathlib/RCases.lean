@@ -10,7 +10,7 @@ open Lean.Elab.Tactic (Location)
 
 namespace Mathport.Translate.Tactic
 open AST3 Mathport.Translate.Parser
-open Std.Tactic.RCases
+open Elab.Tactic Parser.Tactic
 
 -- # tactic.rcases
 

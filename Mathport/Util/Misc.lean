@@ -115,9 +115,6 @@ instance : Coe (Array α) (Subarray α) := ⟨(·[0:])⟩
 --   let out := String.fromUTF8Unchecked bOut.data
 --   pure (out, r)
 
-def Lean.Syntax.mkCharLit (val : Char) (info := SourceInfo.none) : Syntax :=
-  mkLit charLitKind (Char.quote val) info
-
 open Lean in
 instance : MonadQuotation Id where
   getRef              := pure Syntax.missing
