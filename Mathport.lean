@@ -35,6 +35,12 @@ def mathport1 (config : Config) (path : Path) : IO Unit := do
 
   try
     withImportModulesConst imports (opts := opts) (trustLevel := 0) $ λ env => do
+      for arr in (Mathlib.Prelude.Rename.renameImportExtension.getState env).extern do
+        for (_, entry) in arr[1:] do
+          if path.mod3 == entry.mod3 then
+            println! "\n[mathport] ABORT {path.mod3}: \
+              file is a duplicate of {arr[0]?.map (·.2.mod3) |>.get!}\n"
+            return
       let env := env.setMainModule path.mod4
       let cmdCtx : Elab.Command.Context := {
         fileName := path.toLean3 pcfg ".lean" |>.toString
