@@ -181,6 +181,7 @@ def Precedence.toSyntax : Precedence → Syntax.Prec
 
 structure Context where
   config : Config
+  importRename : NameMap Name
   notations : Array Notation
   commands : Array Command
   renameImport : NameMap Name
@@ -326,7 +327,7 @@ def trCommand := spanning trCommandUnspanned
 
 def renameModule (n : Name) : M Name := do
   if let some n4 := (← read).renameImport.find? n then return n4
-  let ipath : Path ← resolveMod3 (← read).config.pathConfig n
+  let ipath : Path ← resolveMod3 (← read).config.pathConfig (← read).importRename n
   pure $ ipath.package ++ ipath.mod4
 
 def renameIdentCore (n : Name) (choices : Array Name := #[]) : M ((String × Name) × Name) :=

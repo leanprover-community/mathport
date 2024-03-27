@@ -26,6 +26,7 @@ structure Path.Config where
 structure Path where
   package : String
   mod3    : Name
+  mod4?   : Option Name
   deriving Inhabited, FromJson, BEq, Hashable, Repr
 
 def Path.toLean3 (cfg : Path.Config) (p : Path) (suffix : String) : FilePath :=
@@ -34,7 +35,7 @@ def Path.toLean3 (cfg : Path.Config) (p : Path) (suffix : String) : FilePath :=
   ⟨path.toString ++ suffix⟩
 
 def Path.mod4 (p : Path) : Name :=
-  p.mod3.mapStrings String.snake2pascal
+  p.mod4?.getD <| p.mod3.mapStrings String.snake2pascal
 
 def Path.toLean4src (cfg : Path.Config) (p : Path) : FilePath :=
   -- Lib4/lean3/Lean3.lean
@@ -48,19 +49,22 @@ def Path.toLean4olean (cfg : Path.Config) (p : Path) : FilePath :=
     (FilePath.mk p.package.decapitalize) / (FilePath.mk p.package) / p.mod4.toFilePath
   ⟨path.toString ++ ".olean"⟩
 
-def resolveMod3 (cfg : Path.Config) (mod3 : Name) : IO Path := do
+def Path.setMod4 (p : Path) (importRename : NameMap Name) : Path :=
+  { p with mod4? := importRename.find? p.mod3 }
+
+def resolveMod3 (cfg : Path.Config) (importRename : NameMap Name) (mod3 : Name) : IO Path := do
   for (package, _) in cfg.packages.toList do
-    let path := Path.mk package mod3
-    if ← (path.toLean3 cfg ".tlean").pathExists then return path
-    let path := Path.mk package (mod3 ++ `default)
-    if ← (path.toLean3 cfg ".tlean").pathExists then return path
+    let path := Path.mk package mod3 none
+    if ← (path.toLean3 cfg ".tlean").pathExists then return path.setMod4 importRename
+    let path := Path.mk package (mod3 ++ `default) none
+    if ← (path.toLean3 cfg ".tlean").pathExists then return path.setMod4 importRename
   throw $ IO.userError s!"[resolveMod3] failed to resolve '{mod3}'"
 
-def parsePath (pmod3 : String) : IO Path := do
+def parsePath (importRename : NameMap Name) (pmod3 : String) : IO Path := do
   let [pkg, mod3] := pmod3.splitOn "::" | throw (IO.userError "paths must be <pkg>::<mod3>")
-  pure $ Path.mk pkg mod3.toName'
+  pure <| (Path.mk pkg mod3.toName' none).setMod4 importRename
 
-def parsePaths (pmod3s : List String) : IO (List Path) := do
-  pmod3s.mapM parsePath
+def parsePaths (importRename : NameMap Name) (pmod3s : List String) : IO (List Path) := do
+  pmod3s.mapM (parsePath importRename)
 
 end Mathport

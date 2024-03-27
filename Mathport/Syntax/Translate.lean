@@ -22,14 +22,14 @@ namespace Translate
 open AST3
 
 partial def M.run' (m : M α) (notations : Array Notation) (commands : Array Command)
-    (config : Config) : CommandElabM α := do
+    (importRename : NameMap Name) (config : Config) : CommandElabM α := do
   let s ← ST.mkRef {}
   let mut renameImport := {}
   for arr in (Mathlib.Prelude.Rename.renameImportExtension.getState (← getEnv)).extern do
     for (n4, entry) in arr do
       renameImport := renameImport.insert entry.mod3 n4
   let rec ctx := {
-    config, notations, commands, renameImport
+    config, importRename, notations, commands, renameImport
     transform := Transform.transform
     trExpr := fun e => trExpr' e ctx s
     trTactic := fun e => trTactic' e ctx s
@@ -38,7 +38,7 @@ partial def M.run' (m : M α) (notations : Array Notation) (commands : Array Com
 
 def M.run (m : M α) (comments : Array Comment) :
     (notations : Array Notation) → (commands : Array Command) →
-    (config : Config) → CommandElabM α :=
+    (importRename : NameMap Name) → (config : Config) → CommandElabM α :=
   M.run' $ do
     let tactics ← Tactic.builtinTactics
     let niTactics ← Tactic.builtinNITactics
@@ -81,9 +81,10 @@ def AST3toData4 (path : Path) : AST3 → M Data4
 
 end Translate
 
-def AST3toData4 (path : Path) (ast : AST3) : (config : Config) → CommandElabM Data4 :=
+def AST3toData4 (path : Path) (ast : AST3) :
+    (importRename : NameMap Name) → (config : Config) → CommandElabM Data4 :=
   (Translate.AST3toData4 path ast).run ast.comments ast.indexed_nota ast.indexed_cmds
 
 def tactic3toSyntax (containingFile : AST3) (tac3 : Spanned AST3.Tactic) :
     (config : Config) → CommandElabM Syntax.Tactic :=
-  (Translate.trTactic tac3).run #[] containingFile.indexed_nota containingFile.indexed_cmds
+  (Translate.trTactic tac3).run #[] containingFile.indexed_nota containingFile.indexed_cmds {}

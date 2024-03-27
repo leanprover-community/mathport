@@ -4,7 +4,8 @@ open Mathport Lean
 
 abbrev VisitResult := Task (Except IO.Error Unit)
 
-partial def visit (pathToConfig : String) (config : Config) (path : Path) :
+partial def visit (pathToConfig : String) (config : Config)
+    (importRename : NameMap Name) (path : Path) :
     StateT (HashMap Path VisitResult) IO VisitResult := do
   println! "[visit] {repr path}"
   let pcfg := config.pathConfig
@@ -12,7 +13,7 @@ partial def visit (pathToConfig : String) (config : Config) (path : Path) :
   if ← path.toLean4olean pcfg |>.pathExists then
     return Task.pure (Except.ok ())
   let deps ← (← parseTLeanImports (path.toLean3 pcfg ".tlean") path.mod3).mapM
-    fun mod3 => do visit pathToConfig config (← resolveMod3 pcfg mod3)
+    fun mod3 => do visit pathToConfig config importRename (← resolveMod3 pcfg importRename mod3)
   let task ← IO.mapTasks (tasks := deps.toList) fun deps => do
     for dep in deps do if let .error err := dep then throw err
     let proc ← IO.Process.spawn {
@@ -27,15 +28,17 @@ def main (args : List String) : IO Unit := do
   match args with
   | [pathToConfig, pmod3] =>
     let config ← parseJsonFile Config pathToConfig
-    let path ← parsePath pmod3
     searchPathRef.set (lean_dir% :: config.pathConfig.leanPath)
-    mathport1 config path
+    let importRename ← getImportRename config
+    let path ← parsePath importRename pmod3
+    mathport1 config importRename path
 
   | "--make" :: pathToConfig :: pmod3s@(_ :: _) =>
     let config ← parseJsonFile Config pathToConfig
-    let paths ← parsePaths pmod3s
     searchPathRef.set (lean_dir% :: config.pathConfig.leanPath)
-    let results := (← (paths.mapM (visit pathToConfig config)).run' {}).map (·.get)
+    let importRename ← getImportRename config
+    let paths ← parsePaths importRename pmod3s
+    let results := (← (paths.mapM (visit pathToConfig config importRename)).run' {}).map (·.get)
     let errors := results.filterMap fun | .error err => some err | _ => none
     unless errors.isEmpty do
       errors.forM (IO.eprintln ·)
