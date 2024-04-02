@@ -49,8 +49,15 @@ def Path.toLean4olean (cfg : Path.Config) (p : Path) : FilePath :=
     (FilePath.mk p.package.decapitalize) / (FilePath.mk p.package) / p.mod4.toFilePath
   ⟨path.toString ++ ".olean"⟩
 
+def replaceHead : Name → Name → Name
+  | .str .anonymous _, n => n
+  | .str p s,          n => .str (replaceHead p n) s
+  | .num p s,          n => .num (replaceHead p n) s
+  | p,                 _ => p
+
 def Path.setMod4 (p : Path) (importRename : NameMap Name) : Path :=
-  { p with mod4? := importRename.find? p.mod3 }
+  -- we strip the leading segment `Mathlib.*` because we will prepend the package name `Mathbin.*` later
+  { p with mod4? := importRename.find? p.mod3 |>.map (replaceHead · .anonymous) }
 
 def resolveMod3 (cfg : Path.Config) (importRename : NameMap Name) (mod3 : Name) : IO Path := do
   for (package, _) in cfg.packages.toList do
