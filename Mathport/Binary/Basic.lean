@@ -66,6 +66,7 @@ def BinportM.runIO (x : BinportM α) (ctx : Context) (env : Environment) : IO α
     fileName := ctx.path.toLean3 ctx.config.pathConfig "lean" |>.toString
     fileMap := dummyFileMap
     tacticCache? := none
+    snap? := none
   }
   toIO x ctx {} elabCtx (Lean.Elab.Command.mkState env)
 

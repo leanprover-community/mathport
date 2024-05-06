@@ -192,7 +192,8 @@ try
   let nextIdx : Nat := (← get).nNotations
   modify fun s => { s with nNotations := nextIdx + 1 }
   let ns : Syntax.Ident :=
-    mkIdent s!"{"__".intercalate ((← read).path.mod4.components.map Name.getString!)}_{nextIdx}"
+    mkIdent <| .mkSimple
+      s!"{"__".intercalate ((← read).path.mod4.components.map Name.getString!)}_{nextIdx}"
   let stx ← `(namespace $ns $stx end $ns)
   elabCommand stx
 catch ex => warn ex
@@ -250,7 +251,7 @@ where
     match projName, projName3 with
     | Name.str _ fieldName .., Name.str _ fieldName3 .. =>
       pure {
-        fieldName
+        fieldName := .mkSimple fieldName
         projFn := projName
         subobject? := getSubobject? numParams ctorType fieldName3
         -- TODO: what to put here?

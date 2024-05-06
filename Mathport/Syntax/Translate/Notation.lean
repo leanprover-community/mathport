@@ -158,7 +158,7 @@ def predefinedNotations : NameMap NotationEntry := [
     ("exprfail! ", unary id),
     ("exprtrace! ", unary id),
     ("expr!![ ", unary id)
-  ].foldl (fun m (a, k) => m.insert a ⟨Name.anonymous, NotationDesc.builtin, k, true⟩) ∅
+  ].foldl (fun m (a, k) => m.insert (.mkSimple a) ⟨Name.anonymous, NotationDesc.builtin, k, true⟩) ∅
 where
   exist := binder
     (fun bis e => Id.run `(∃ $bis, $e))
@@ -172,4 +172,4 @@ def predefinedBinderPreds : NameMap (Term → TSyntax `binderPred) := [
     ("expr ≥ ", fun x => Id.run `(binderPred| ≥ $x)),
     ("expr > ", fun x => Id.run `(binderPred| > $x)),
     ("expr ∈ ", fun x => Id.run `(binderPred| ∈ $x))
-  ].foldl (fun m (a, k) => m.insert a k) ∅
+  ].foldl (fun m (a, k) => m.insert (.mkSimple a) k) ∅

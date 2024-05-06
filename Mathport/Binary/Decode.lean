@@ -16,7 +16,7 @@ def decodeChar (e : Expr) : MetaM Char := do
   let e ← whnf e
   let char34 := Rename.resolveIdent! (← getEnv) `char true
   if e.isAppOfArity (char34 ++ `mk) 2 then
-    if let some n := (← whnf (e.getArg! 0)).natLit? then
+    if let some n := (← whnf (e.getArg! 0)).rawNatLit? then
       return Char.ofNat n
   throwError "[decodeChar] failed on {e}"
 
@@ -24,7 +24,7 @@ def decodeUnsigned (e : Expr) : MetaM Nat := do
   let fin34 := Rename.resolveIdent! (← getEnv) `fin true
   let e ← whnf e
   if e.isAppOfArity (fin34 ++ `mk) 2 then
-    if let some n := (← whnf (e.getArg! 0)).natLit? then
+    if let some n := (← whnf (e.getArg! 0)).rawNatLit? then
       return n
   throwError "[decodeUInt32] failed on {e}"
 

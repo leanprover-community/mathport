@@ -20,7 +20,7 @@ namespace Parse
 local instance (priority := high) : FromJson Name where
   fromJson?
   | Json.null => pure Name.anonymous
-  | Json.str s => pure s
+  | Json.str s => pure (.mkSimple s)
   | Json.arr a => a.foldlM (init := Name.anonymous) fun
     | n, (i : Nat) => pure $ n.mkNum i
     | n, (s : String) => pure $ n.mkStr s

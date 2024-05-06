@@ -122,7 +122,7 @@ partial def trFunBinder : Binder → M (Array Syntax.FunBinder)
     | .instImplicit, _ =>
       let var ← vars.mapM fun
         | #[⟨_, .ident id⟩] => pure (mkIdent id)
-        | _ => warn! "unsupported" | pure (mkIdent "_inst")
+        | _ => warn! "unsupported" | pure (mkIdent `_inst)
       return #[← `(Parser.Term.instBinder| [$[$var :]? $(ty.getD (← `(_)))])]
     | _default, none => pure (vars'.map (·))
     | _default, some ty =>
@@ -322,10 +322,11 @@ def trExpr' : Expr → M Term
     | Lean3.Proj.nat n => pure [Syntax.mkLit fieldIdxKind (toString n)]
     pure $ args.foldl (mkNode ``Parser.Term.proj #[·, mkAtom ".", · ]) e
   | Expr.if none c t e => do
-    `(if $(← trExpr c) then $(← trExpr t) else $(← trExpr e))
+    let c ← trExpr c; let t ← trExpr t; let e ← trExpr e
+    `(if $c then $t else $e)
   | Expr.if (some h) c t e => do
-    `(if $(mkIdent h.kind):ident : $(← trExpr c)
-      then $(← trExpr t) else $(← trExpr e))
+    let c ← trExpr c; let t ← trExpr t; let e ← trExpr e
+    `(if $(mkIdent h.kind):ident : $c then $t else $e)
   | Expr.calc args => do `(calc $(← trCalcSteps args))
   | Expr.«@» _ e => do `(@$(← trExpr e))
   | Expr.pattern e => trExpr e
@@ -392,4 +393,3 @@ def trExpr' : Expr → M Term
     match (← get).userNotas.find? n with
     | some f => try f args catch e => warn! "in {n}: {← e.toMessageData.toString}"
     | none => warn! "unsupported user notation {n}"
-

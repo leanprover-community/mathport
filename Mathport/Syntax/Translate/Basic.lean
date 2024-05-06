@@ -217,13 +217,13 @@ instance : Warnable Nat where
   warn _ := 0
 
 instance : Warnable Syntax.Ident where
-  warn s := mkIdent s
+  warn s := mkIdent (.mkSimple s)
 
 instance : Warnable Name where
-  warn s := s
+  warn s := .mkSimple s
 
 instance : Warnable Syntax where
-  warn s := mkIdent s
+  warn s := mkIdent (.mkSimple s)
 
 instance : Warnable Syntax.Term where
   warn s := quote s
@@ -235,7 +235,7 @@ instance : Warnable Syntax.Tactic where
   warn s := Id.run `(tactic| trace $(quote s))
 
 instance : Warnable Syntax.Attr where
-  warn s := Id.run `(attr| $(mkIdent s):ident)
+  warn s := Id.run `(attr| $(mkIdent (.mkSimple s)):ident)
 
 instance : Warnable Syntax.Conv where
   warn _ := Id.run `(conv| skip)
@@ -262,10 +262,10 @@ instance : Warnable (TSyntax ``Parser.Command.notationItem) where
   warn s := Id.run `(Parser.Command.notationItem| $(quote s):str)
 
 instance : Warnable Syntax.SimpleOrBracketedBinder where
-  warn s := mkIdent s
+  warn s := mkIdent (.mkSimple s)
 
 instance : Warnable Syntax.BracketedBinder where
-  warn s := Id.run `(Parser.Term.bracketedBinderF| ($(mkIdent s)))
+  warn s := Id.run `(Parser.Term.bracketedBinderF| ($(mkIdent (.mkSimple s))))
 
 instance : Warnable (Option α) where
   warn _ := none
@@ -328,7 +328,7 @@ def trCommand := spanning trCommandUnspanned
 def renameModule (n : Name) : M Name := do
   if let some n4 := (← read).renameImport.find? n then return n4
   let ipath : Path ← resolveMod3 (← read).config.pathConfig (← read).importRename n
-  pure $ ipath.package ++ ipath.mod4
+  pure $ .appendCore (.mkSimple ipath.package) ipath.mod4
 
 def renameIdentCore (n : Name) (choices : Array Name := #[]) : M ((String × Name) × Name) :=
   return Rename.resolveIdentCore! (← getEnv) n true (choices := choices)

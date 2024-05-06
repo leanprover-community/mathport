@@ -39,7 +39,7 @@ structure Config where
   extraModules       : Array Name := #[]
   defEqConstructions : HashSet String := {}
   forceAbbrevs       : HashSet Name := {}
-  stringsToKeep      : HashSet Name := {}
+  stringsToKeep      : HashSet String := {}
   disabledInstances  : HashSet Name := {}
   neverSorries       : HashSet Name := {}
   sorries            : HashSet Name := {}

@@ -95,7 +95,7 @@ def mathport1 (config : Config) (importRename : NameMap Name) (path : Path) : IO
   let imports3 ← parseTLeanImports (path.toLean3 pcfg ".tlean") path.mod3
   let mut imports : Array Import ← imports3.mapM fun mod3 => do
     let ipath : Path ← resolveMod3 pcfg importRename mod3
-    pure { module := ipath.package ++ ipath.mod4 : Import }
+    pure { module := .appendCore (.mkSimple ipath.package) ipath.mod4 : Import }
 
   if imports.isEmpty then imports := config.baseModules.map ({ module := · : Import })
   imports := imports ++ config.extraModules.map ({ module := · : Import })
@@ -112,6 +112,7 @@ def mathport1 (config : Config) (importRename : NameMap Name) (path : Path) : IO
       fileName := path.toLean3 pcfg ".lean" |>.toString
       fileMap := dummyFileMap
       tacticCache? := none
+      snap? := none
     }
     let cmdState : Elab.Command.State := Lean.Elab.Command.mkState (env := env) (opts := opts)
 

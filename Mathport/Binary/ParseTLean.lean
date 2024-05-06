@@ -192,11 +192,11 @@ def parseLine (line : String) : ParseM Unit := do
       | ("#ATTR" :: a :: p :: n :: _ :: rest)    => do
         let n ← str2name n
         match ← str2name a with
-        | "simp" => emit $ EnvModification.simp n (← parseNat p)
-        | "reducibility" =>
+        | `simp => emit $ EnvModification.simp n (← parseNat p)
+        | `reducibility =>
           let [status] := rest | throw $ IO.userError s!"[reducibility] expected name"
           emit $ EnvModification.reducibility n (← parseReducibilityStatus status)
-        | "to_additive_aux" =>
+        | `to_additive_aux =>
           let ["#USER_ATTR_DATA", e] := rest | throw $ IO.userError s!"[to_additive] expected expr"
           let .app _ (.const tgt _) ← str2expr e
             | throw $ IO.userError s!"[to_additive] malformed expr"

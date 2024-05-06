@@ -52,7 +52,7 @@ def parseLinearComboConfig : Option (Spanned AST3.Expr) → M (Option Syntax.Tac
       | `normalization_tactic, _ =>
         norm? ← Translate.trTactic (Spanned.dummy <| Tactic.expr e)
       | _, _ => warn! "warning: unsupported linear_combination config option: {n}"
-    pure <| if normalize then norm? else some (← `(tactic| skip))
+    if normalize then pure norm? else pure <| some (← `(tactic| skip))
   | some _ => warn! "warning: unsupported linear_combination config syntax" | pure none
 
 -- # tactic.linear_combination
@@ -84,7 +84,7 @@ def parseLinearComboConfig : Option (Spanned AST3.Expr) → M (Option Syntax.Tac
   let lu ← parse (tk "using" *> return (← ident, ← ident))?
   let (l, u) := (lu.map (mkIdent ·.1), lu.map (mkIdent ·.2))
   let w ← parse (tk "with" *> ident)?
-  let e := if e.isNone && w.isSome then some (← `(_)) else e
+  let e ← if e.isNone && w.isSome then pure (some (← `(_))) else pure e
   let w := w.map (some <| mkIdent ·)
   `(tactic| interval_cases $[$[$w:ident :]? $e]? $[using $l, $u]?)
 

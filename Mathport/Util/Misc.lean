@@ -30,7 +30,7 @@ deriving instance Repr for Declaration
 
 deriving instance Hashable for Position
 
-def dummyFileMap : FileMap := ⟨"", #[0], #[1]⟩
+def dummyFileMap : FileMap := ⟨"", #[0]⟩
 
 def Expr.replaceConstNames (e : Expr) (f : Name → Option Name) : Expr :=
   e.replace fun
