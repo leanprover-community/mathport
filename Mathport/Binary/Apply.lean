@@ -299,13 +299,18 @@ def applyAxiomVal (ax : AxiomVal) : BinportM Unit := do
   }
   if clashKind == ClashKind.freshDecl then maybeRegisterEquation decl.toName
 
+open private isAlwaysZero from Lean.Meta.InferType in
 def applyTheoremVal (thm : TheoremVal) : BinportM Unit := do
   let type ← trExpr thm.type
   let value ← if (← read).config.skipProofs then
     let u ← liftMetaM <| getLevel type <|> pure .zero
     pure <| mkApp2 (mkConst ``sorryAx [u]) type (toExpr true)
   else trExpr thm.value
-  let (decl, clashKind) ← refineAddDecl <| .thmDecl { thm with type, value }
+  let isProp ← liftMetaM try isProp type catch _ => pure true
+  let (decl, clashKind) ← refineAddDecl <| if isProp then
+    .thmDecl { thm with type, value }
+  else
+    .opaqueDecl { thm with type, value, isUnsafe := false }
   if clashKind == ClashKind.freshDecl then maybeRegisterEquation decl.toName
 
 def applyDefinitionVal (defn : DefinitionVal) : BinportM Unit := do
