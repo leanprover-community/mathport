@@ -133,6 +133,8 @@ partial def refineLean4Names (decl : Declaration) :
     refineAx { ax with name := ← mkCandidateLean4Name ax.name ax.type }
   | Declaration.thmDecl thm =>
     refineThm { thm with name := ← mkCandidateLean4Name thm.name thm.type }
+  | Declaration.opaqueDecl opaq =>
+    refineOpaque { opaq with name := ← mkCandidateLean4Name opaq.name opaq.type }
   | Declaration.defnDecl defn =>
     let name ← mkCandidateLean4Name defn.name defn.type
     -- Optimization: don't bother def-eq checking constructions that we know will be def-eq
@@ -173,6 +175,20 @@ where
         println! "[clash] {thm3.name}"
         refineThm { thm3 with name := extendName thm3.name }
     | none => pure (.thmDecl thm3, .freshDecl, [])
+
+  refineOpaque (opaq3 : OpaqueVal) := do
+    println! "[refineOpaque] {opaq3.name}"
+    match (← getEnv).find? opaq3.name with
+    | some opaq4 =>
+      let defEqType ← isDefEqUpto opaq3.levelParams opaq3.type opaq4.levelParams opaq4.type
+      if (← read).config.skipDefEq || defEqType && (opaq4 matches .opaqueInfo _) then
+        let msg ← mkMismatchMessage defEqType
+          opaq3.levelParams opaq3.type opaq4.levelParams opaq4.type
+        pure (.opaqueDecl opaq3, .found msg, [])
+      else
+        println! "[clash] {opaq3.name}"
+        refineOpaque { opaq3 with name := extendName opaq3.name }
+    | none => pure (.opaqueDecl opaq3, .freshDecl, [])
 
   refineDef (defn3 : DefinitionVal) := do
     println! "[refineDef] {defn3.name}"
