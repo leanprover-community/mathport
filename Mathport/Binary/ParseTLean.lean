@@ -4,7 +4,7 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Daniel Selsam, Gabriel Ebner
 -/
 import Lean
-import Std.Data.List.Basic
+import Batteries.Data.List.Basic
 import Mathport.Util.Parse
 import Mathport.Binary.Basic
 import Mathport.Binary.EnvModification

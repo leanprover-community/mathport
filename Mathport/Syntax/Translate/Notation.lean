@@ -6,7 +6,7 @@ Authors: Mario Carneiro
 import Mathport.Util.Json
 import Mathport.Util.Misc
 import Mathlib.Mathport.Syntax
-import Std.Util.ExtendedBinder
+import Batteries.Util.ExtendedBinder
 import Mathlib.Data.Set.Lattice
 
 open Lean

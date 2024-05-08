@@ -94,13 +94,13 @@ def trExtBinders (args : Array (Spanned Binder)) : M Syntax := do
   | ⟨_, Binder.collection bi vars n rhs⟩ =>
     if let some g := predefinedBinderPreds.find? n then
       onVars vars fun v =>
-        return #[← `(Std.ExtendedBinder.extBinder|
+        return #[← `(Batteries.ExtendedBinder.extBinder|
           $(trBinderIdent v):binderIdent $(g (← trExpr rhs)):binderPred)]
     else
       expandBinderCollection trBasicBinder bi vars n rhs
   | ⟨_, Binder.notation _⟩ => warn! "unsupported: (notation) binder" | pure #[]
-  if let #[bi] := out then `(Std.ExtendedBinder.extBinders| $bi:extBinder)
-  else `(Std.ExtendedBinder.extBinders| $[($out:extBinder)]*)
+  if let #[bi] := out then `(Batteries.ExtendedBinder.extBinders| $bi:extBinder)
+  else `(Batteries.ExtendedBinder.extBinders| $[($out:extBinder)]*)
 where
   onVars {α} (vars) (f : BinderName → M (Array α)) : M (Array α) := do
     if vars.size > 1 then
@@ -108,7 +108,7 @@ where
     vars.concatMapM (fun ⟨_, v⟩ => f v)
   trBasicBinder (vars ty) :=
     onVars vars fun v =>
-      return #[← `(Std.ExtendedBinder.extBinder|
+      return #[← `(Batteries.ExtendedBinder.extBinder|
         $(trBinderIdent v):binderIdent $[: $(← ty.mapM fun ty => trExpr ty)]?)]
 
 partial def trFunBinder : Binder → M (Array Syntax.FunBinder)
