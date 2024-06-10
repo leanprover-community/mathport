@@ -113,6 +113,7 @@ def mathport1 (config : Config) (importRename : NameMap Name) (path : Path) : IO
       fileMap := dummyFileMap
       tacticCache? := none
       snap? := none
+      cancelTk? := none
     }
     let cmdState : Elab.Command.State := Lean.Elab.Command.mkState (env := env) (opts := opts)
 

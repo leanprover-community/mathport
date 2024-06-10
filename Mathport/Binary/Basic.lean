@@ -67,6 +67,7 @@ def BinportM.runIO (x : BinportM α) (ctx : Context) (env : Environment) : IO α
     fileMap := dummyFileMap
     tacticCache? := none
     snap? := none
+    cancelTk? := none
   }
   toIO x ctx {} elabCtx (Lean.Elab.Command.mkState env)
 
