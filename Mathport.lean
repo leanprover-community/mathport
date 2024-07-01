@@ -4,7 +4,7 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Mario Carneiro, Daniel Selsam
 -/
 import Mathlib.Data.List.EditDistance.Defs
-import Lake.Load.Elab
+import Lake.Load.Lean.Elab
 import Mathport.Binary
 import Mathport.Syntax
 

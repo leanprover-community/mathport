@@ -379,14 +379,14 @@ def applyInductiveDecl (lps : List Name) (nParams : Nat) (indType : InductiveTyp
   | none => pure ()
 
 where
-  mkAuxDecls (name : Name) : BinportM Unit := do
+  mkAuxDecls (name : Name) : BinportM Unit := liftMetaM do
     try
       -- these may fail for the invalid inductive types currently being accepted
       -- by the temporary patch
       -- https://github.com/dselsam/lean4/commit/1bef1cb3498cf81f93095bda16ed8bc65af42535
       mkRecOn name
       mkCasesOn name
-      liftMetaM $ Lean.mkNoConfusion name
+      Lean.mkNoConfusion name
       mkBelow name
       mkIBelow name
       mkBRecOn name

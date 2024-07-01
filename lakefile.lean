@@ -9,7 +9,7 @@ require mathlib from git "https://github.com/leanprover-community/mathlib4"@"mas
 
 target ffi.o pkg : FilePath := do
   let oFile := pkg.buildDir / "c" / "ffi.o"
-  let srcJob ← inputFile <| pkg.dir / "Mathport" / "FFI.cpp"
+  let srcJob ← inputTextFile <| pkg.dir / "Mathport" / "FFI.cpp"
   let flags := #["-I", (← getLeanIncludeDir).toString, "-fPIC"]
   buildO oFile srcJob flags (compiler := "c++")
 
