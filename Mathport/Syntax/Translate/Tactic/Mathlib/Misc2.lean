@@ -6,6 +6,7 @@ Authors: Mario Carneiro
 import Mathport.Syntax.Translate.Tactic.Basic
 import Mathport.Syntax.Translate.Tactic.Lean3
 import Mathport.Syntax.Translate.Tactic.Mathlib.Cache
+import Mathlib.Tactic.MoveAdd
 
 -- Misc. special-purpose tactics
 
@@ -195,15 +196,21 @@ def trSubtypeInstance : TacM Syntax.Tactic := `(tactic| subtype_instance)
 -- # tactic.move_add
 
 @[tr_tactic move_add] def trMoveAdd : TacM Syntax.Tactic := do
-  `(tactic| move_add $(← liftM $ (← parse rwRules).mapM trRwRule),* $(← trLoc (← parse location))?)
+  let rules ← liftM $ (← parse rwRules).mapM trRwRule
+  let .targets #[] true ← parse location | warn! "unsupported: move_add at"
+  `(tactic| move_add [$rules,*])
 
 @[tr_tactic move_mul] def trMoveMul : TacM Syntax.Tactic := do
-  `(tactic| move_mul $(← liftM $ (← parse rwRules).mapM trRwRule),* $(← trLoc (← parse location))?)
+  let rules ← liftM $ (← parse rwRules).mapM trRwRule
+  let .targets #[] true ← parse location | warn! "unsupported: move_mul at"
+  `(tactic| move_mul [$rules,*])
 
 @[tr_tactic move_oper] def trMoveOper : TacM Syntax.Tactic := do
   let #[e] ← parse pExprList | warn! "unsupported: move_oper with multiple ops"
-  `(tactic| move_op $(← trExpr e)
-    $(← liftM $ (← parse rwRules).mapM trRwRule),* $(← trLoc (← parse location))?)
+  let .ident n := e.kind | warn! "unsupported: move_oper with non-ident"
+  let rules ← liftM $ (← parse rwRules).mapM trRwRule
+  let .targets #[] true ← parse location | warn! "unsupported: move_oper at"
+  `(tactic| move_oper $(← withSpanS e.meta (mkIdentI n)) [$rules,*])
 
 -- # tactic.print_sorry
 @[tr_user_cmd «#print_sorry_in»] def trPrintSorryIn : Parse1 Syntax.Command :=
