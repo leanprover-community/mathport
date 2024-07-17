@@ -8,6 +8,7 @@ import Mathport.Syntax.Translate.Tactic.Lean3
 import Mathport.Syntax.Translate.Tactic.Mathlib.Cache
 import Mathport.Syntax.Translate.Command
 import Mathlib.Tactic.Explode
+import Mathlib.Tactic.RewriteSearch
 
 -- Misc. general-purpose tactics
 
@@ -322,12 +323,10 @@ open TSyntax.Compat in
 @[tr_user_attr rewrite] def trRewriteAttr := tagAttr `rewrite
 
 @[tr_tactic rewrite_search] def trRewriteSearch : TacM Syntax.Tactic := do
-  let explain ← parse (tk "?")?
-  let rw ← liftM $ (← parse rwRules).mapM trRwRule
-  let cfg ← liftM $ (← expr?).mapM trExpr
-  match explain with
-  | none => `(tactic| rw_search $[(config := $cfg)]? [$rw,*])
-  | some _ => `(tactic| rw_search? $[(config := $cfg)]? [$rw,*])
+  let .none ← parse (tk "?")? | warn! "unsupported: rw_search?"
+  let #[] ← parse rwRules | warn! "unsupported: rw_search extra args"
+  let .none ← expr? | warn! "unsupported: rw_search config"
+  `(tactic| rw_search)
 
 -- # tactic.tidy
 

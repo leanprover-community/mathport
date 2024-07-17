@@ -14,11 +14,11 @@ open AST3 Parser
 
 @[tr_user_attr hint_tactic] def trHintAttr := tagAttr `hint_tactic
 
-@[tr_user_cmd «add_hint_tactic»] def trAddHintTactic : Parse1 Syntax.Command :=
+@[tr_user_cmd «add_hint_tactic»] def trAddHintTactic : Parse1 Unit :=
   parse1 (pExpr *> withInput pExpr) fun (e, _) => do
   let tac ← match e with
   | ⟨_, Expr.«`[]» tacs⟩ => trIdTactic ⟨false, none, none, tacs⟩
   | _ => warn! "unsupported (impossible)"
-  `(command| add_hint_tactic $tac)
+  warn! "unsupported: add_hint_tactic {← Elab.Command.liftCoreM <| PrettyPrinter.formatTactic tac}"
 
 @[tr_tactic hint] def trHint : TacM Syntax.Tactic := `(tactic| hint)
