@@ -5,8 +5,8 @@ on:
   #     - 'staging.tmp*'
   #     - 'trying.tmp*'
   #     - 'staging*.tmp'
-  schedule:
-    - cron: '0 22 * * *'  # 11PM CET/2PM PT
+  # schedule:
+  #   - cron: '0 22 * * *'  # 11PM CET/2PM PT
   workflow_dispatch:
 
 name: predata
