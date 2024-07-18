@@ -123,6 +123,7 @@ def mathport1 (config : Config) (importRename : NameMap Name) (path : Path) : IO
       synport1 config importRename path imports3
       writeModule (← getEnv) $ path.toLean4olean pcfg
 
+    IO.eprintln s!"ported  {path.mod4}"
     println! "\n[mathport] END   {path.mod3}\n"
   catch err =>
     throw $ IO.userError

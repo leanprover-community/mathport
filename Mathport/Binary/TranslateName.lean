@@ -241,16 +241,18 @@ where
 
   isDefEqUpto (lvls₁ : List Name) (t₁ : Expr) (lvls₂ : List Name) (t₂ : Expr) : BinportM Bool := do
     if lvls₁.length ≠ lvls₂.length then return false
-    let t₂ := t₂.instantiateLevelParams lvls₂ $ lvls₁.map mkLevelParam
-    let result := withMaxHeartbeatPure (50000 * 1000) <| Kernel.isDefEq (← getEnv) {} t₁ t₂
     if (← read).config.skipDefEq then
-      return match result with
-        | .ok defeq => defeq
-        -- Remark: we translate type errors to true instead of false because
-        -- otherwise we get lots of false positives where definitions
-        -- depending on a dubious translation are themselves marked dubious
-        | .error .. => true
+      -- disabling all defeq checks because this can still blow up even with the heartbeat limit
+      -- return match result with
+      --   | .ok defeq => defeq
+      --   -- Remark: we translate type errors to true instead of false because
+      --   -- otherwise we get lots of false positives where definitions
+      --   -- depending on a dubious translation are themselves marked dubious
+      --   | .error .. => true
+      return true
     else
+      let t₂ := t₂.instantiateLevelParams lvls₂ $ lvls₁.map mkLevelParam
+      let result := withMaxHeartbeatPure (50000 * 1000) <| Kernel.isDefEq (← getEnv) {} t₁ t₂
       ofExceptKernelException result
 
   -- Note: "'" does not work any more, since there are many "'" suffixes in mathlib
