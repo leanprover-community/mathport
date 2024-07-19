@@ -329,7 +329,7 @@ def trDecl (dk : DeclKind) (mods : Modifiers) (attrs : Attributes)
   let tm ← trUWF uwf
   let val ← match val with
     | DeclVal.expr e => `(declVal| := $(← trExprUnspanned e) $tm:suffix)
-    | DeclVal.eqns #[] => `(declVal| := fun. $tm:suffix)
+    | DeclVal.eqns #[] => `(declVal| := nofun $tm:suffix)
     | DeclVal.eqns arms => `(declVal| $[$(← arms.mapM trArm):matchAlt]* $tm)
   if s.irreducible then
     unless dk matches DeclKind.def do warn! "unsupported irreducible non-definition"

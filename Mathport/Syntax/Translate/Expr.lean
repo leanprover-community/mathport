@@ -356,8 +356,7 @@ def trExpr' : Expr → M Term
     bis.foldrM (init := ← trExpr e) fun bi stx => do
       `(let $(← trLetDecl bi.kind):letDecl
         $stx)
-  | Expr.match #[x] _ #[] => do `(nomatch $(← trExpr x))
-  | Expr.match xs _ #[] => do `(match $[$(← xs.mapM trExpr):term],* with.)
+  | Expr.match xs _ #[] => do `(nomatch $[$(← xs.mapM trExpr):term],*)
   | Expr.match xs ty eqns => do
     `(match $[(motive := $(← ty.mapM trExpr))]? $[$(← xs.mapM trExpr):term],* with
       $[$(← eqns.mapM trArm):matchAlt]*)

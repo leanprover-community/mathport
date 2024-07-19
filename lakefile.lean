@@ -5,7 +5,7 @@ package mathport
 
 -- Please ensure that `lean-toolchain` points to the same release of Lean 4
 -- as this commit of mathlib4 uses.
-require mathlib from git "https://github.com/leanprover-community/mathlib4"@"master"
+require mathlib from git "https://github.com/leanprover-community/mathlib4"@"v3-eol"
 
 target ffi.o pkg : FilePath := do
   let oFile := pkg.buildDir / "c" / "ffi.o"

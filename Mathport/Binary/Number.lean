@@ -7,7 +7,7 @@ These functions mimic the ones in lean3/src/library/num.cpp
 -/
 import Lean
 import Mathport.Binary.Basic
-import Mathlib.Init.ZeroOne
+import Mathlib.Algebra.Group.ZeroOne
 
 namespace Mathport.Binary
 
