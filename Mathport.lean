@@ -65,21 +65,23 @@ end «Workaround for lean4#3826»
 -- perfect matching here. We use Levenshtein distance to prefer more similar names
 -- to handle the case where file A is merged into a different file B which already
 -- has a B alignment.
-def getImportRename (config : Config) : IO (NameMap Name) := do
+def getImportRename (env : Environment) : IO (NameMap Name) := do
+  let mut toMod4 := {}
+  let quality (mod3 mod4 : Name) := levenshtein (δ := Nat) default
+    (mod3.mapStrings String.snake2pascal).toString.toList mod4.toString.toList
+  for arr in (Mathlib.Prelude.Rename.renameImportExtension.getState env).extern do
+    let arr := arr.filter (!toMod4.contains ·.2.mod3)
+    let some (mod4, _) := arr.get? 0 | continue
+    let some (_, {mod3, ..}) := arr.minBy? (fun (_, e) => quality e.mod3 mod4) | continue
+    if if let some mod4' := toMod4.find? mod3 then (quality mod3 mod4).blt (quality mod3 mod4')
+      else true
+    then toMod4 := toMod4.insert mod3 mod4
+  return toMod4
+
+def withConfigEnv (config : Config) (f : Environment → IO α) : IO α := do
   let imports := (config.baseModules ++ config.extraModules).map ({ module := · : Import })
   try
-    let env ← importModulesUsingCache' imports (opts := {}) (trustLevel := 0)
-    let mut toMod4 := {}
-    let quality (mod3 mod4 : Name) := levenshtein (δ := Nat) default
-      (mod3.mapStrings String.snake2pascal).toString.toList mod4.toString.toList
-    for arr in (Mathlib.Prelude.Rename.renameImportExtension.getState env).extern do
-      let arr := arr.filter (!toMod4.contains ·.2.mod3)
-      let some (mod4, _) := arr.get? 0 | continue
-      let some (_, {mod3, ..}) := arr.minBy? (fun (_, e) => quality e.mod3 mod4) | continue
-      if if let some mod4' := toMod4.find? mod3 then (quality mod3 mod4).blt (quality mod3 mod4')
-        else true
-      then toMod4 := toMod4.insert mod3 mod4
-    return toMod4
+    f (← importModulesUsingCache' imports (opts := {}) (trustLevel := 0))
   catch e => throw $ IO.userError s!"failed to load import rename state: {e.toString}"
 
 def mathport1 (config : Config) (importRename : NameMap Name) (path : Path) : IO Unit := do
@@ -128,5 +130,12 @@ def mathport1 (config : Config) (importRename : NameMap Name) (path : Path) : IO
   catch err =>
     throw $ IO.userError
       s!"failed to port {path.package}:{path.mod4} with imports {imports.toList}:\n{err}"
+
+def buildAlignImport (env : Environment) : IO (Array (Name × Name)) := do
+  let mut out := #[]
+  let toLean4 := (Mathlib.Prelude.Rename.renameExtension.getState env).get.toLean4
+  for (name3, _, name4) in toLean4 do
+    out := out.push (name3, name4)
+  pure out
 
 end Mathport
