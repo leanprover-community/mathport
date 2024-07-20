@@ -1,3 +1,15 @@
+> **Warning:** Lean 3 is officially End-of-Life, and upstream (mathlib4) support for
+> `#align` statements has ended, meaning that mathport no longer works on modern
+> versions of mathlib4. The last version of mathlib4 prior to EOL is
+> the [mathlib4:v3-eol](https://github.com/leanprover-community/mathlib4/releases/tag/v3-eol) tag,
+> and [mathport:v3-eol](https://github.com/leanprover-community/mathport/tree/v3-eol)
+> is the corresponding mathport version. If you would still like to port your lean 3 developments,
+> the recommended technique is to set your mathlib4 version to `v3-eol`
+> and use the `v3-eol` version of mathport, following the readme instructions from the link above.
+> The result will be a lean 4 project on old mathlib, which can then be manually
+> upgraded the rest of the way by setting the mathlib4 version to the desired modern version
+> and using `lake update`.
+
 # Mathport
 
 Mathport is a tool for porting Lean3 projects to Lean4. It consists of two (loosely coupled) components:
