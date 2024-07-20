@@ -1,4 +1,5 @@
-> **Warning:** Lean 3 is officially End-of-Life, and upstream (mathlib4) support for
+> [!WARNING]
+> Lean 3 is officially End-of-Life, and upstream (mathlib4) support for
 > `#align` statements has ended, meaning that mathport no longer works on modern
 > versions of mathlib4. The last version of mathlib4 prior to EOL is
 > the [mathlib4:v3-eol](https://github.com/leanprover-community/mathlib4/releases/tag/v3-eol) tag,
