@@ -1,6 +1,6 @@
 on:
-  schedule:
-    - cron: '30 7 * * *'  # 8:30 AM CET/11:30 PM PT
+  # schedule:
+  #   - cron: '30 7 * * *'  # 8:30 AM CET/11:30 PM PT
   workflow_dispatch:
 
 name: update
